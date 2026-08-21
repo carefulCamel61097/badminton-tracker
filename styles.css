@@ -1,193 +1,289 @@
-/* Deliberately single-theme, and the same ground the weighting was judged on.
-   The encoding is a green-to-red ramp; rendering it on a light surface would
-   change the very thing that was tested against real seasons. Every colour is
-   painted explicitly so the page holds its own ground whatever is behind it. */
+/* ==========================================================================
+   Badminton seasons — unofficial BWF fan tool
+
+   The palette is the predecessor's BWF skin, carried over so the two tools look
+   like the same family: Roboto, BWF red, and near-black rather than blue-black.
+
+   Base tokens are DARK, so dark is the fallback when the OS states no
+   preference; `prefers-color-scheme: light` flips to light. An explicit
+   data-mode on <html> overrides the media query in both directions.
+   ========================================================================== */
 
 :root {
-  color-scheme: dark;
-  --ground: #0f1319;
-  --surface: #161b23;
-  --raised: #1e242e;
-  --sunk: #0a0d12;
-  --line: #2a333f;
-  --line-soft: #212933;
-  --text: #e4eaf1;
-  --dim: #9aa9ba;
-  --muted: #6e7f92;
-  --accent: #e0443e;
-  --accent-dim: #7d2825;
-  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+  color-scheme: dark light;
+
+  --font: Roboto, "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "Roboto Mono", ui-monospace, Consolas, monospace;
+
+  --bg:            #1a1a1a;
+  --surface:       #262626;
+  --surface-2:     #2f2f2f;
+  --surface-sunk:  #212121;
+
+  --text:          #f2f2f2;
+  --text-dim:      #c9c9c9;
+  --text-muted:    #9a9a9a;
+
+  --border:        #3d3d3d;
+  --border-soft:   #303030;
+
+  --accent:        #df2027;   /* BWF red */
+  --accent-hover:  #ca3732;
+  --accent-fg:     #ffffff;
+  --accent-text:   #ff5f64;   /* accent used AS text on dark */
+
+  --bad:           #ff6b6b;
+
+  --radius-card:   4px;
+  --radius-btn:    3px;
+  --shadow:        0 1px 3px rgba(0, 0, 0, .5);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-mode="dark"]) {
+    --bg:           #efefef;
+    --surface:      #ffffff;
+    --surface-2:    #f7f7f7;
+    --surface-sunk: #f2f2f2;
+    --text:         #1a1a1a;
+    --text-dim:     #4a4a4a;
+    --text-muted:   #727272;
+    --border:       #dddddd;
+    --border-soft:  #e8e8e8;
+    --accent-text:  #df2027;
+    --bad:          #c62828;
+    --shadow:       0 1px 3px rgba(0, 0, 0, .14);
+  }
+}
+
+:root[data-mode="light"] {
+  --bg:           #efefef;
+  --surface:      #ffffff;
+  --surface-2:    #f7f7f7;
+  --surface-sunk: #f2f2f2;
+  --text:         #1a1a1a;
+  --text-dim:     #4a4a4a;
+  --text-muted:   #727272;
+  --border:       #dddddd;
+  --border-soft:  #e8e8e8;
+  --accent-text:  #df2027;
+  --bad:          #c62828;
+  --shadow:       0 1px 3px rgba(0, 0, 0, .14);
 }
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  padding: 30px 32px 60px;
-  background: var(--ground);
+  padding: 24px 26px 48px;
+  background: var(--bg);
   color: var(--text);
-  font: 15px/1.55 var(--sans);
+  font: 15px/1.5 var(--font);
   -webkit-font-smoothing: antialiased;
 }
 
-/* ---- head ---- */
-
-.eyebrow {
-  margin: 0;
-  font: 500 10.5px/1 var(--mono);
-  text-transform: uppercase;
-  letter-spacing: .16em;
-  color: var(--muted);
-}
-
 h1 {
-  font: 600 21px/1.2 var(--sans);
-  letter-spacing: -.015em;
-  margin: 9px 0 18px;
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -.01em;
+  margin: 0 0 16px;
 }
 
-/* ---- controls ---- */
+/* ---------- controls ---------- */
 
 .controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 18px;
+  gap: 10px 16px;
   align-items: center;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .ctl {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  font: 400 12.5px var(--sans);
-  color: var(--dim);
+  font-size: 13px;
+  color: var(--text-dim);
 }
 
-input[type=text], input:not([type]) {
-  background: var(--sunk);
+input[type=text], input[type=search] {
+  background: var(--surface-sunk);
   color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  padding: 4px 7px;
-  font: 400 12.5px var(--mono);
-  font-variant-numeric: tabular-nums;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  padding: 6px 9px;
+  font: 400 13.5px var(--font);
 }
+input::placeholder { color: var(--text-muted); }
 
-.years { gap: 4px; }
-.years input { width: 58px; text-align: center; }
+/* ---------- player search ---------- */
 
-.step {
-  background: var(--raised);
-  color: var(--dim);
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  padding: 3px 8px;
-  font-size: 10px;
-  line-height: 1.4;
+.search { position: relative; }
+.search input { width: 250px; }
+
+.suggest {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 3px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  max-height: 268px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow);
+}
+.suggest:empty, .suggest[hidden] { display: none; }
+
+.suggest li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 10px;
   cursor: pointer;
+  font-size: 13.5px;
 }
-.step:hover { color: var(--text); border-color: #3d4855; }
+.suggest li[aria-selected="true"], .suggest li:hover { background: var(--surface-2); }
+.suggest .cc {
+  font: 400 10.5px var(--mono);
+  color: var(--text-muted);
+  letter-spacing: .04em;
+  margin-left: auto;
+}
+.suggest .none { color: var(--text-muted); cursor: default; font-style: italic; }
+.suggest .none:hover { background: none; }
+
+/* ---------- toggles ---------- */
 
 .seg {
-  background: var(--sunk);
-  color: var(--muted);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 4px 11px;
-  font: 400 12px var(--sans);
+  background: var(--surface-sunk);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  padding: 5px 11px;
+  font: 400 13px var(--font);
   cursor: pointer;
   text-transform: capitalize;
 }
 .seg + .seg { margin-left: -1px; }
-.seg:hover { color: var(--dim); }
-.seg.on { background: var(--raised); color: var(--text); border-color: #3d4855; }
+.seg:hover { color: var(--text-dim); }
+.seg.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
 .seg .n, .chip .n {
-  font: 400 10px var(--mono);
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-  margin-left: 3px;
+  font: 400 10.5px var(--mono);
+  opacity: .75;
+  margin-left: 4px;
 }
 
-.only { color: var(--muted); font-size: 12px; text-transform: capitalize; }
-
+.only { color: var(--text-muted); font-size: 13px; text-transform: capitalize; }
 .toggle { cursor: pointer; }
-.toggle input { accent-color: var(--accent-dim); }
+.toggle input { accent-color: var(--accent); }
 
-/* ---- level chips ---- */
+/* ---------- filter chips ---------- */
 
-.chips {
+.chiprow {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 16px;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
 }
+.chiprow > .lbl {
+  flex: none;
+  width: 62px;
+  font: 400 10.5px var(--mono);
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  color: var(--text-muted);
+}
+
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
 
 .chip {
-  font: 400 11.5px var(--sans);
-  padding: 4px 11px;
+  font: 400 12px var(--font);
+  padding: 3px 10px;
   border-radius: 999px;
   cursor: pointer;
   user-select: none;
-  border: 1px solid var(--line);
-  background: var(--sunk);
-  color: var(--muted);
+  border: 1px solid var(--border);
+  background: var(--surface-sunk);
+  color: var(--text-muted);
   transition: background .12s, color .12s, border-color .12s;
 }
-.chip:hover { border-color: #3a4654; color: var(--dim); }
-.chip.on { background: var(--raised); color: var(--text); border-color: #3d4855; }
+.chip:hover { border-color: var(--text-muted); color: var(--text-dim); }
+.chip.on { background: var(--surface-2); color: var(--text); border-color: var(--border); }
 /* Team events are a different sort of thing, not just another level: no
    individual position, so they are dashed and off by default. */
 .chip.team { border-style: dashed; }
-.chip.team.on { border-color: var(--accent-dim); color: #f0b3b0; }
+.chip.team.on { border-color: var(--accent); color: var(--accent-text); }
 
-button:focus-visible, input:focus-visible, a:focus-visible {
+button:focus-visible, input:focus-visible, a:focus-visible, li:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-/* ---- the strip ---- */
+/* ---------- the seasons ---------- */
 
-.readout {
-  background: var(--sunk);
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  padding: 16px 18px 8px;
+#status { min-height: 1.3em; margin: 6px 0 10px; color: var(--text-muted); font-size: 12.5px; }
+#status.error { color: var(--bad); }
+
+.seasons {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-card);
+  padding: 4px 14px;
 }
+.seasons:empty { display: none; }
 
-.strip-hd {
+/* One row per season, most recent at the top. */
+.srow {
   display: flex;
-  gap: 11px;
-  align-items: baseline;
-  margin: 0 0 9px;
-  font: 500 10.5px/1 var(--mono);
-  text-transform: uppercase;
-  letter-spacing: .14em;
-  color: var(--muted);
+  align-items: flex-start;
+  gap: 14px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border-soft);
 }
-.strip-hd .who { color: var(--text); letter-spacing: .06em; }
-.strip-hd .cnt { font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+.srow:last-child { border-bottom: 0; }
+
+.srow .yr {
+  flex: none;
+  width: 62px;
+  padding-top: 22px;      /* sits level with the boxes, not the name above them */
+  font: 500 13px var(--mono);
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.srow .yr .cnt {
+  display: block;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
 
 .season {
   display: flex;
   gap: 5px;
   overflow-x: auto;
-  padding-bottom: 9px;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
 }
 
-.sq {
-  flex: none;
-  width: 52px;
-  text-align: center;
-  text-decoration: none;
-  color: inherit;
-}
+.sq { flex: none; width: 52px; text-align: center; text-decoration: none; color: inherit; }
 
-.tn {
+/* Two lines, clamped from the START — clipping the tail of a name is
+   recoverable, clipping the head reads as a different tournament. */
+.sq .tn {
   display: -webkit-box;
-  font: 400 8.5px/1.15 var(--sans);
-  color: var(--muted);
+  font-size: 8.5px;
+  line-height: 1.15;
+  color: var(--text-muted);
   height: 20px;
   margin-bottom: 2px;
   overflow: hidden;
@@ -195,81 +291,78 @@ button:focus-visible, input:focus-visible, a:focus-visible {
   -webkit-box-orient: vertical;
   word-break: break-word;
 }
-.sq:hover .tn { color: var(--dim); }
+.sq:hover .tn, .sq:hover .lv { color: var(--text); }
 
 /* Fixed slot: every tournament keeps an identical footprint, the box just fills
    less of it, so a lighter event reads as air rather than as a shifted column. */
 .slot { display: flex; justify-content: center; align-items: center; }
 
 .box {
-  border-radius: 3px;
+  border-radius: var(--radius-btn);
   display: grid;
   place-items: center;
   font-family: var(--mono);
-  font-weight: 600;
-  letter-spacing: -.03em;
+  font-weight: 700;
+  letter-spacing: -.02em;
   color: var(--text);
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--border-soft);
   overflow: hidden;
   background: linear-gradient(to top,
-    var(--fill) 0 var(--pct, 0%), var(--raised) var(--pct, 0%) 100%);
+    var(--fill) 0 var(--pct, 0%), var(--surface-2) var(--pct, 0%) 100%);
 }
 
-.lv {
+.sq .lv {
   display: block;
   font: 400 8.5px/1.2 var(--mono);
-  color: var(--muted);
+  color: var(--text-muted);
   margin-top: 3px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  letter-spacing: -.02em;
 }
 
 /* The result ramp: green for a title through to red for a first-round exit.
    The label inside the box says the same thing in words, so nothing here is
-   carried by colour alone. */
-.r-w   { --fill: #1a7f37; }
-.r-f   { --fill: #3fa34d; }
-.r-sf  { --fill: #7cb342; }
-.r-qf  { --fill: #c9a227; }
-.r-r16 { --fill: #e07b39; }
-.r-r1  { --fill: #cf4b3f; }
-.r-q   { --fill: #8f5a55; }
-.r-na  { --fill: transparent; color: var(--muted); }
-.r-w, .r-f { color: #fff; }
+   carried by colour alone. Unchanged from the predecessor. */
+.box.r-w   { --fill: #1a7f37; }
+.box.r-f   { --fill: #3fa34d; }
+.box.r-sf  { --fill: #7cb342; }
+.box.r-qf  { --fill: #c9a227; }
+.box.r-r16 { --fill: #e07b39; }
+.box.r-r1  { --fill: #cf4b3f; }
+.box.r-q   { --fill: #8f5a55; }
+.box.r-na  { --fill: transparent; color: var(--text-muted); }
+/* White only where the fill reaches the middle of the box, which is where the
+   label sits. A first-round exit fills 13%, so its label is on the *unfilled*
+   ground — white there is invisible in light mode. */
+.box.r-w, .box.r-f { color: #fff; }
 /* Entered no draw of this discipline: an outline, not a result. */
-.r-none { --fill: transparent; border-style: dashed; border-color: var(--line); }
+.box.r-none { --fill: transparent; border-style: dashed; border-color: var(--border); }
 
-.empty {
-  margin: 4px 0 8px;
-  color: var(--muted);
-  font-size: 12.5px;
-  max-width: 60ch;
-}
+.empty { margin: 4px 0 10px; color: var(--text-muted); font-size: 12.5px; max-width: 62ch; }
 
-#status { min-height: 1.4em; margin: 0 0 10px; color: var(--muted); font-size: 12.5px; }
-#status.error { color: #f0b3b0; }
-
-/* ---- foot ---- */
+/* ---------- foot ---------- */
 
 .foot {
-  margin-top: 26px;
-  color: var(--muted);
+  margin-top: 22px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-soft);
+  color: var(--text-muted);
   font-size: 12px;
-  max-width: 72ch;
+  max-width: 74ch;
 }
-.foot a { color: var(--dim); }
-.foot p { line-height: 1.6; }
+.foot a { color: var(--accent-text); }
+.foot p { line-height: 1.6; margin: 0 0 8px; }
 
-details { margin-top: 14px; }
-summary { cursor: pointer; color: var(--muted); font-size: 11.5px; }
+details { margin-top: 10px; }
+summary { cursor: pointer; font-size: 11.5px; }
 pre {
   overflow-x: auto;
   font: 11px/1.45 var(--mono);
-  color: var(--dim);
-  background: var(--sunk);
-  border: 1px solid var(--line-soft);
-  border-radius: 6px;
+  color: var(--text-dim);
+  background: var(--surface-sunk);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-btn);
   padding: 10px 12px;
+  max-height: 340px;
 }

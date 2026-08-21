@@ -3,32 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Badminton Season Tracker</title>
+<title>Badminton seasons</title>
 <!-- An empty data URI, so the browser stops asking for a favicon that does not
      exist yet and the console stays clean enough for a suite to assert on. -->
 <link rel="icon" href="data:,">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<header class="head">
-  <p class="eyebrow">Unofficial · data from BWF</p>
-  <h1>Season</h1>
-</header>
+<h1>Badminton seasons</h1>
 
-<form id="pick" class="controls" autocomplete="off">
-  <label class="ctl">Player
-    <input id="playerId" name="playerId" inputmode="numeric" size="7" value="57945">
-  </label>
-
-  <span class="ctl years">Year
-    <button type="button" id="yearPrev" class="step" aria-label="previous year">&#9664;</button>
-    <input id="year" name="year" inputmode="numeric" size="5" value="2026"
-           aria-label="season year">
-    <button type="button" id="yearNext" class="step" aria-label="next year">&#9654;</button>
+<form id="pick" class="controls" autocomplete="off" role="search">
+  <span class="ctl search">
+    <input type="search" id="q" placeholder="Search a player by name…"
+           aria-label="search for a player" role="combobox"
+           aria-expanded="false" aria-controls="suggest" aria-autocomplete="list">
+    <ul id="suggest" class="suggest" role="listbox" aria-label="player suggestions" hidden></ul>
   </span>
 
   <span class="ctl" id="kindWrap" role="group" aria-label="discipline"></span>
@@ -38,27 +31,27 @@
   </label>
 </form>
 
-<div id="levels" class="chips" role="group" aria-label="tournament levels"></div>
+<div class="chiprow"><span class="lbl">Seasons</span>
+  <div id="years" class="chips" role="group" aria-label="seasons"></div>
+</div>
+<div class="chiprow"><span class="lbl">Levels</span>
+  <div id="levels" class="chips" role="group" aria-label="tournament levels"></div>
+</div>
 
 <p id="status" role="status"></p>
 
-<section id="stripWrap" class="readout" hidden>
-  <div class="strip-hd">
-    <span id="stripWho" class="who"></span>
-    <span id="stripCount" class="cnt"></span>
-  </div>
-  <div id="strip" class="season"></div>
-  <p id="empty" class="empty" hidden></p>
-</section>
+<div id="seasons" class="seasons"></div>
+<p id="empty" class="empty" hidden></p>
 
 <footer class="foot">
   <p>
+    <strong>Unofficial · data from BWF.</strong>
     All data comes from <a href="https://bwfbadminton.com/" target="_blank" rel="noopener">BWF</a>
-    and belongs to them. This is an unofficial fan tool, not affiliated with or endorsed by
-    BWF. Each square links back to that tournament's page on their site.
+    and belongs to them. This is a fan tool, not affiliated with or endorsed by BWF.
+    Each square links back to that tournament's page on their site.
   </p>
   <details id="rawWrap">
-    <summary>The season as data</summary>
+    <summary>The seasons as data</summary>
     <pre id="raw"></pre>
   </details>
 </footer>

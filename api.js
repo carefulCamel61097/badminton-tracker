@@ -215,16 +215,62 @@ export async function loadLastMatch(playerId, opts = {}) {
 }
 
 /**
- * Server-side player search. The predecessor paginated twenty ranking pages to
- * build a local index because it did not know `searchKey` existed.
+ * Player search across BWF's whole player database.
  *
- * rankId 2 = BWF World Rankings, 9 = HSBC Race to Finals. Ranking category ids
- * are MS 6, WS 7, MD 8, WD 9, XD 10 — these are *not* the draw ids.
+ * `vue-rankingtable&searchKey=` also searches, but only within one ranking
+ * category, so finding an arbitrary player would mean five calls and would
+ * still miss anyone unranked. This endpoint is one call and covers everybody —
+ * it returns players with no ranking and none since 2015.
+ *
+ * ⚠️ It matches a **single name token**, not the displayed name: "delrue" and
+ * "axelsen" work, "an se young" and "shi yu qi" both return nothing. So a query
+ * with spaces that comes back empty is retried on its longest word, which is
+ * usually the surname.
+ *
+ * Results arrive alphabetically by given name rather than by any measure of
+ * relevance, so they are ordered here: whole-word matches first, then names
+ * that begin with the query, then the rest.
  */
-export function searchPlayers(searchKey, catId, opts = {}) {
-  return getJSON('vue-rankingtable', {
-    rankId: 2, catId, page: 1, drawCount: 1,
-    searchKey, publicationId: 0,
-    doubles: catId >= 8, pageKey: 10,
-  }, { persist: true, ...opts });
+export async function searchPlayers(query, opts = {}) {
+  const q = String(query || '').trim();
+  if (q.length < 2) return [];
+
+  const ask = async key => {
+    const raw = await getJSON('vue-popular-players', {
+      searchKey: key, activeTab: 1, page: 1,
+    }, { priority: 'low', persist: true, ...opts });
+    const r = raw && raw.results;
+    return Array.isArray(r) ? r
+      : (r && Array.isArray(r.data)) ? r.data
+      : (raw && raw.pagination && Array.isArray(raw.pagination.data)) ? raw.pagination.data
+      : [];
+  };
+
+  let rows = await ask(q);
+  if (!rows.length && /\s/.test(q)) {
+    const longest = q.split(/\s+/).sort((a, b) => b.length - a.length)[0];
+    if (longest && longest.length >= 2) rows = await ask(longest);
+  }
+
+  const needle = q.toLowerCase();
+  const players = rows.map(p => {
+    const c = p.country_model || {};
+    return {
+      id: String(p.id),
+      name: String(p.name_display || '').replace(/\s+/g, ' ').trim(),
+      slug: p.slug || '',
+      country: c.name || '',
+      countryCode: c.code_iso3 || '',
+    };
+  }).filter(p => p.id && p.name);
+
+  const score = p => {
+    const n = p.name.toLowerCase();
+    const words = n.split(/\s+/);
+    if (words.includes(needle)) return 0;
+    if (words.some(w => w.startsWith(needle))) return 1;
+    if (n.startsWith(needle)) return 2;
+    return 3;
+  };
+  return players.sort((a, b) => score(a) - score(b) || a.name.length - b.name.length);
 }

@@ -20,6 +20,10 @@
  * abbreviating it would cost legibility for nothing.
  */
 export const LEVEL = {
+  // The Olympics come back as category 20, the same id as the World
+  // Championships, so they are separated here on the tournament's name. They
+  // are not a World Championships and the strip should not call them one.
+  OLY: { label: 'Olympics',   weight: 1.00 },
   5:  { label: 'Challenge',   weight: 0.40 },
   6:  { label: 'Series',      weight: 0.40 },
   7:  { label: 'Future',      weight: 0.40 },
@@ -34,6 +38,34 @@ export const LEVEL = {
   26: { label: 'Super 300',   weight: 0.60 },
   27: { label: 'Super 100',   weight: 0.40 },
 };
+
+/**
+ * Chip order for the level filters: the majors, then the World Tour ladder,
+ * then everything below it, then the team events last because they are off by
+ * default. Not the numeric order of the ids, which is arbitrary.
+ */
+export const LEVEL_ORDER = ['OLY', 20, 22, 23, 24, 11, 25, 26, 27, 5, 6, 7, 21, 17];
+
+/** True for a tournament that is an Olympic Games rather than a World Championships. */
+export function isOlympics(name) {
+  return /\bolympic/i.test(String(name || ''));
+}
+
+/**
+ * The levels a season actually contains, in chip order.
+ *
+ * Anything LEVEL_ORDER does not know about goes on the end rather than being
+ * dropped: a Superseries-era season is mostly categories this project has not
+ * mapped, and leaving them out of the chip row rendered their squares with no
+ * way to filter them — visible but unreachable.
+ */
+export function seasonLevels(season) {
+  const present = new Set((season || []).map(t => t.cat).filter(c => c != null));
+  const known = LEVEL_ORDER.filter(c => present.has(c));
+  const unknown = [...present].filter(c => !LEVEL_ORDER.includes(c))
+    .sort((a, b) => (Number(a) || 0) - (Number(b) || 0));
+  return known.concat(unknown);
+}
 
 /**
  * Areas, not sides. The basis is BWF's own Top Committed Player Programme:
@@ -52,28 +84,6 @@ export const LEVEL = {
  * Super 750 lands within ~1.3px of Super 1000), to prize money (too wide —
  * Super 100 dies at ~10px), and opacity (collides with the result ramp).
  */
-/**
- * Chip order for the level filters: the majors, then the World Tour ladder,
- * then everything below it, then the team events last because they are off by
- * default. Not the numeric order of the ids, which is arbitrary.
- */
-export const LEVEL_ORDER = [20, 22, 23, 24, 11, 25, 26, 27, 5, 6, 7, 21, 17];
-
-/**
- * The levels a season actually contains, in chip order.
- *
- * Anything LEVEL_ORDER does not know about goes on the end rather than being
- * dropped: a Superseries-era season is mostly categories this project has not
- * mapped, and leaving them out of the chip row rendered their squares with no
- * way to filter them — visible but unreachable.
- */
-export function seasonLevels(season) {
-  const present = new Set((season || []).map(t => t.cat).filter(c => c != null));
-  const known = LEVEL_ORDER.filter(c => present.has(c));
-  const unknown = [...present].filter(c => !LEVEL_ORDER.includes(c)).sort((a, b) => a - b);
-  return known.concat(unknown);
-}
-
 export const SLOT_W = 52;        // every tournament keeps this footprint; the box shrinks within it
 export const BOX_H = 42;         // at 30px the whole weight range is 11px and reads as noise
 export const BOX_FONT = 11;      // round label at full size
@@ -153,13 +163,51 @@ const POSITION = {
   'R128': { label: 'R128', tier: 'r1',  steps: 7, full: 'Round of 128' },
 };
 
+/**
+ * The same rounds spelled out in full.
+ *
+ * The Olympics use these — Tokyo 2020 and Paris 2024 return `"Quarterfinals"`
+ * where the World Tour returns `"QF"` — and so do some pre-2015 events. A
+ * spelling the map did not know rendered as an unrecognised placing, which is
+ * drawn as an empty square: the strip was quietly blanking Olympic results.
+ */
+const POSITION_ALIAS = {
+  'FINAL': '2nd', 'FINALS': '2nd',
+  'SEMIFINAL': '3rd', 'SEMIFINALS': '3rd', 'SEMI-FINAL': '3rd', 'SEMI-FINALS': '3rd',
+  'QUARTERFINAL': 'QF', 'QUARTERFINALS': 'QF', 'QUARTER-FINAL': 'QF', 'QUARTER-FINALS': 'QF',
+  'ROUND OF 16': 'R16', 'ROUND OF 32': 'R32', 'ROUND OF 64': 'R64', 'ROUND OF 128': 'R128',
+};
+
 const MIN_FILL = 0.13;           // a first-round exit still shows a sliver
 
-export function positionInfo(pos) {
-  if (!pos || pos === 'N/A') return { label: '-', tier: 'na', full: 'Played' };
-  if (POSITION[pos]) return POSITION[pos];
-  if (/^Qual/i.test(pos)) return { label: 'Q', tier: 'q', full: pos };
-  return { label: String(pos), tier: 'na', full: String(pos) };
+/**
+ * @param {string} pos    BWF's placing string
+ * @param {object} [draw] the draw entry, used only to settle "Final", which
+ *   does not say who won it. A finalist who lost no match won the thing.
+ */
+export function positionInfo(pos, draw) {
+  const raw = String(pos == null ? '' : pos).trim();
+  if (!raw || raw === 'N/A' || raw === '-') {
+    return { label: '-', tier: 'na', full: 'Played' };
+  }
+  if (POSITION[raw]) return POSITION[raw];
+
+  const key = raw.toUpperCase();
+  if (POSITION_ALIAS[key]) {
+    const hit = POSITION[POSITION_ALIAS[key]];
+    if (/^FINALS?$/.test(key) && draw && Number(draw.lose) === 0) return POSITION['1st'];
+    return hit;
+  }
+
+  // Group stages: the Olympics and the season-ending Finals both seed a
+  // knockout from round-robin groups, and "Group A" means they went out in it.
+  // That is the earliest exit there is, so it reads red, but there is no ladder
+  // position for it and it fills the minimum.
+  if (/^(GROUP|GRP)\b/i.test(raw)) {
+    return { label: 'Grp', tier: 'r1', full: 'Group stage — ' + raw };
+  }
+  if (/^Qual/i.test(raw)) return { label: 'Q', tier: 'q', full: raw };
+  return { label: raw, tier: 'na', full: raw };
 }
 
 /**
@@ -193,7 +241,8 @@ export function mainDrawSize(payload, discipline) {
     : [];
   const want = String(discipline || '').toUpperCase();
   const main = rows.find(d =>
-    String(d.name || '').toUpperCase() === want && d.type === 'Elimination');
+    (canonicalDraw(d.name) || String(d.name || '').toUpperCase()) === want
+    && d.type === 'Elimination');
   if (!main) return null;
   const n = parseInt(String(main.size), 10);
   return Number.isFinite(n) && n >= 2 ? n : null;
@@ -234,7 +283,10 @@ export function drawLadder(payload, discipline) {
   const want = String(discipline || '').toUpperCase();
   const mine = rows.filter(d => {
     const n = String(d.name || '').toUpperCase();
-    return n === want || n.startsWith(want + ' -');
+    // "MS", "Men's Singles", and the stage rows "MS - Group A" that hang off
+    // them.
+    const head = n.split(' - ')[0];
+    return canonicalDraw(head) === want || head === want;
   });
 
   const knockout = mainDrawSize(mine, want);
@@ -326,10 +378,23 @@ const NOT_A_SPONSOR = new Set(['US', 'USA', 'UAE', 'UK', 'BWF']);
  * drop the sponsor, the year and the filler, then abbreviate. The full name is
  * always kept in the tooltip, so nothing is lost.
  */
+/**
+ * Words that name no tournament on their own. If stripping the sponsor leaves
+ * only one of these, the sponsor *was* the name — "HYLO Open" is the event's
+ * actual title, and reducing it to "Open" identifies nothing.
+ */
+const GENERIC_EVENT = /^(Open|Masters|Championships?|Champs|International|Intl|Classic|Cup|Games|Series|Finals?|Tournament)$/i;
+
 export function shortTmtName(name) {
   let s = String(name || '')
-    .replace(/\s*(19|20)\d{2}\s*$/, '')      // trailing year
-    .replace(/^\s*(19|20)\d{2}\s+/, '')      // leading year ("2026 European ...")
+    // "Denmark Open 2022 presented by VICTOR" — a sponsor at the *end*, which
+    // also pushes the year into the middle where the trailing strip misses it.
+    .replace(/[\s,]+presented\s+by\s+.*$/i, '')
+    // Scheduling notes BWF appends to a name. "(Cancelled)" is deliberately not
+    // in here: that one changes what the square means.
+    .replace(/\s*\((new\s*dates?|postponed|rescheduled|formerly[^)]*)\)\s*$/i, '')
+    .replace(/\b(19|20)\d{2}\b/g, ' ')       // a year anywhere, not just the ends
+    .replace(/\s+/g, ' ')
     .trim();
 
   // Drop a leading run of sponsor tokens (all-caps, or known mixed-case ones).
@@ -340,6 +405,8 @@ export function shortTmtName(name) {
       || /^(TotalEnergies|Yonex|Victor|Daihatsu|Petronas|Perodua|Toyota|Crowne|Blibli|Polytron)$/i.test(w));
   let i = 0;
   while (i < words.length - 1 && sponsorish(words[i])) i++;
+  // Back off if the strip left nothing but a generic word.
+  if (i > 0 && words.length - i === 1 && GENERIC_EVENT.test(words[i])) i--;
   s = words.slice(i).join(' ');
 
   s = s
@@ -385,7 +452,9 @@ export function parseSeason(raw, opts = {}) {
 
   const season = list.map(t => {
     const tm = t.tournament_model || {};
-    const cat = tm.tournament_category_id;
+    // The Olympics share category 20 with the World Championships and are
+    // told apart only by name, so that is settled here, once.
+    const cat = isOlympics(tm.name) ? 'OLY' : tm.tournament_category_id;
     return {
       tournamentId: t.tournament_id != null ? t.tournament_id : tm.id,
       name: tm.name || '',
@@ -401,7 +470,10 @@ export function parseSeason(raw, opts = {}) {
       url: t.tmt_url || '',
       draws: (t.draws || []).map(dr => ({
         event: dr.event_id,
-        name: String(dr.name || '').toUpperCase(),
+        // Canonical code where there is one, BWF's own wording otherwise —
+        // which is what leaves a team tie as "SINGLES"/"DOUBLES".
+        name: canonicalDraw(dr.name) || String(dr.name || '').toUpperCase(),
+        raw: String(dr.name || ''),
         position: dr.position,
         win: dr.match_win,
         lose: dr.match_lose,
@@ -431,10 +503,42 @@ export function parseSeason(raw, opts = {}) {
  * Team ties are their own kind and are never a choice — their draws are called
  * "Singles"/"Doubles" and carry no position.
  */
+/**
+ * BWF's draw name reduced to one of MS / WS / MD / WD / XD, or null.
+ *
+ * The World Tour uses the two-letter codes, but the Olympics spell them out —
+ * "Men's Singles", "Mixed Doubles" — and junior events use "BS U19" for boys'
+ * singles. Everything downstream keys off the code, so a season is
+ * canonicalised once, at the parse, rather than every reader learning the
+ * variants.
+ *
+ * Null is a meaningful answer, and it is how a team tie is recognised: BWF
+ * names those draws bare "Singles" and "Doubles", with no gender, because the
+ * tie is the competitor rather than the player.
+ */
+export function canonicalDraw(name) {
+  const n = String(name || '').trim().toUpperCase();
+  if (!n) return null;
+  if (/^(MS|WS|MD|WD|XD)$/.test(n)) return n;
+  if (/MIXED/.test(n)) return 'XD';
+
+  const doubles = /DOUBLES/.test(n) || /^[BGMW]D\b/.test(n);
+  const singles = /SINGLES/.test(n) || /^[BGMW]S\b/.test(n);
+  if (!doubles && !singles) return null;
+
+  // Boys and girls are the junior circuit's men and women.
+  const women = /^[WG]/.test(n) || /WOMEN|GIRL/.test(n);
+  const men = /^[MB]/.test(n) || /\bMEN|BOY/.test(n);
+  if (!women && !men) return null;      // bare "Singles"/"Doubles": a team tie
+
+  return (women ? 'W' : 'M') + (doubles ? 'D' : 'S');
+}
+
 export function kindOf(drawName) {
-  const n = String(drawName || '').toUpperCase();
-  if (SINGLES_DRAWS.includes(n)) return 'singles';
-  if (DOUBLES_DRAWS.includes(n)) return 'doubles';
+  const code = canonicalDraw(drawName);
+  if (!code) return 'team';
+  if (SINGLES_DRAWS.includes(code)) return 'singles';
+  if (DOUBLES_DRAWS.includes(code)) return 'doubles';
   return 'team';
 }
 

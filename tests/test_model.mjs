@@ -18,6 +18,7 @@ import {
   kindOf, seasonKinds, defaultKind, seasonLevels,
   positionInfo, fillFraction, boxSize, boxScale, levelLabel, isTeamEvent,
   shortTmtName, surnameOf, levelAbbr, roundsInDraw, mainDrawSize, drawLadder,
+  canonicalDraw, isOlympics,
   LEVEL, SLOT_W, BOX_H, MIN_LABEL_PX, LEVEL_ORDER,
 } from '../model.js';
 import { check, eq, near, report } from './check.mjs';
@@ -352,6 +353,92 @@ check('the two agree whenever a player entered at round one',
   [['1st', 5, 0], ['2nd', 4, 1], ['3rd', 3, 1], ['QF', 2, 1], ['R16', 1, 1], ['R32', 0, 1]]
     .map(([p, w, l]) => `${p}:${fill(p, w, l, 5)}/${fill(p, w, l, null)}`).join(' '));
 
+/* ============================ how BWF spells things ============================
+
+   The World Tour uses two-letter draw codes and short placings. The Olympics do
+   not, and neither did badminton before about 2015. Every variant below was
+   read off a live response.
+   ======================================================================== */
+
+console.log('\n=== draw names ===');
+eq('the World Tour code passes through', canonicalDraw('MS'), 'MS');
+eq('the Olympics spell it out', canonicalDraw("Men's Singles"), 'MS');
+eq('and for the women', canonicalDraw("Women's Singles"), 'WS');
+eq('mixed doubles', canonicalDraw('Mixed Doubles'), 'XD');
+eq("men's doubles", canonicalDraw("Men's Doubles"), 'MD');
+eq("women's doubles", canonicalDraw("Women's Doubles"), 'WD');
+eq('a curly apostrophe is the same name', canonicalDraw('Men’s Singles'), 'MS');
+eq('the junior circuit fields boys', canonicalDraw('BS U19'), 'MS');
+eq('and girls', canonicalDraw('GD U17'), 'WD');
+
+// A team tie names no gender, because the tie is the competitor rather than the
+// player, and that is exactly how one is recognised.
+eq('a bare "Singles" is a team tie', canonicalDraw('Singles'), null);
+eq('as is a bare "Doubles"', canonicalDraw('Doubles'), null);
+eq('nothing at all is nothing', canonicalDraw(''), null);
+
+console.log('\n=== and what that means for the toggle ===');
+eq('an Olympic singles entry is singles', kindOf("Men's Singles"), 'singles');
+eq('an Olympic mixed entry is doubles', kindOf('Mixed Doubles'), 'doubles');
+eq('a team tie is neither', kindOf('Singles'), 'team');
+check('so an Olympic result is not dropped from both views at once',
+  kindOf("Men's Singles") !== 'team' && kindOf('Mixed Doubles') !== 'team');
+
+console.log('\n=== placings ===');
+eq('the Olympics write quarter-finals out', positionInfo('Quarterfinals').label, 'QF');
+eq('with the same ladder position', positionInfo('Quarterfinals').steps, 3);
+eq('semi-finals too', positionInfo('Semifinals').label, 'SF');
+eq('hyphenated', positionInfo('Semi-Finals').label, 'SF');
+eq('and the rounds', positionInfo('Round of 16').label, 'R16');
+eq('deeper ones as well', positionInfo('Round of 32').steps, 5);
+
+// "Final" does not say who won it. Whoever lost no match did.
+eq('a finalist who lost a match is the runner-up',
+  positionInfo('Final', { win: 4, lose: 1 }).label, 'F');
+eq('one who lost none is the champion',
+  positionInfo('Final', { win: 5, lose: 0 }).label, 'W');
+eq('with no record to go on, assume they lost it', positionInfo('Final').label, 'F');
+
+console.log('\n=== group stages ===');
+eq('going out in a group is not an unknown placing', positionInfo('Group A').label, 'Grp');
+eq('and reads as the earliest exit there is', positionInfo('Group B').tier, 'r1');
+check('with no ladder position, so it fills the minimum',
+  positionInfo('Group A').steps === undefined);
+near('which is the sliver', fillFraction(positionInfo('Group A'), { win: 1, lose: 2 }, 5), 0.13);
+
+console.log('\n=== a dash is not a result ===');
+eq('BWF writes "-" for some junior events', positionInfo('-').tier, 'na');
+eq('same as N/A', positionInfo('N/A').tier, 'na');
+
+console.log('\n=== the Olympics are not the World Championships ===');
+check('recognised by name', isOlympics('Paris 2024 Olympic Games Badminton Competition'));
+check('however they are written', isOlympics('Tokyo 2020 Olympic Games Badminton')
+  && isOlympics('Rio 2016 Olympic Games'));
+check('a World Championships is not one', !isOlympics('BWF World Championships 2026'));
+check('and neither is the Youth Olympic qualifier of a name', !isOlympics('Malaysia Open 2026'));
+
+// Both come back as category 20, so the name is the only thing telling them
+// apart, and the strip should not label an Olympics "Worlds".
+eq('they get a level of their own', levelLabel('OLY'), 'Olympics');
+eq('at full weight', boxSize('OLY').h, BOX_H);
+eq('while 20 stays the World Championships', levelLabel(20), 'Worlds');
+check('and the Olympics lead the chip order', LEVEL_ORDER[0] === 'OLY');
+
+const olympicSeason = parseSeason({ results: [{
+  tournament_id: 1, tmt_url: 'https://bwfbadminton.com/x',
+  draws: [{ name: "Men's Singles", position: 'Quarterfinals', match_win: 3, match_lose: 1 }],
+  tournament_model: { id: 1, name: 'Paris 2024 Olympic Games Badminton Competition',
+    tournament_category_id: 20, start_date: '2024-07-27 00:00:00' },
+}] });
+eq('an Olympic entry parses to its own level', olympicSeason[0].cat, 'OLY');
+eq('labelled as such', olympicSeason[0].level, 'Olympics');
+eq('with a canonical draw code', olympicSeason[0].draws[0].name, 'MS');
+eq('and BWF’s own wording kept for the tooltip',
+  olympicSeason[0].draws[0].raw, "Men's Singles");
+eq('so it lands in the singles view', defaultKind(olympicSeason), 'singles');
+eq('and fills against the ladder rather than blanking',
+  Math.round(fillFraction(positionInfo('Quarterfinals'), olympicSeason[0].draws[0], 5) * 100), 40);
+
 /* ============================ names ============================ */
 
 console.log('\n=== names ===');
@@ -362,7 +449,18 @@ eq('so is USA', shortTmtName('VICTOR USA International 2026'), 'USA Intl');
 eq('edition numerals are still stripped', shortTmtName('VICTOR XXIX Slovak Open 2026'), 'Slovak Open');
 eq('BWF is implied', shortTmtName('BWF World Championships 2026'), 'World Champs');
 eq('leading year handled', shortTmtName('2026 European Championships'), 'European Champs');
-eq('the last token is never eaten', shortTmtName('YONEX OPEN'), 'OPEN');
+eq('a sponsor that IS the name is kept — "Open" alone names nothing',
+  shortTmtName('HYLO Open 2022'), 'HYLO Open');
+eq('so is this one', shortTmtName('YONEX OPEN'), 'YONEX OPEN');
+eq('a sponsor at the end goes too',
+  shortTmtName('Denmark Open 2022 presented by VICTOR'), 'Denmark Open');
+eq('a year in the middle is still a year',
+  shortTmtName('Malaysia Open 2021 something'), 'Malaysia Open something');
+eq('scheduling notes are dropped',
+  shortTmtName('TotalEnergies BWF Thomas & Uber Cup Finals 2020 (New Dates)'), 'Thomas & Uber');
+check('but a cancellation is not — it changes what the square means',
+  /\(Cancell/.test(shortTmtName('Singapore Open 2021 (Cancelled)')),
+  shortTmtName('Singapore Open 2021 (Cancelled)'));
 check('a long name is truncated, not dropped', shortTmtName(
   'Some Extremely Long Tournament Name Indeed 2026').length <= 24);
 

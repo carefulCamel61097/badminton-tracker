@@ -1,8 +1,8 @@
 # Badminton Season Tracker
 
-An unofficial fan tool for looking at a badminton player's season: one square per
-tournament, chronological, each a gauge showing how far they got, sized by how much the
-tournament weighs.
+An unofficial fan tool for looking at a badminton player's whole career: one row per
+season with the most recent at the top, one square per tournament within it, each a gauge
+showing how far they got and sized by how much the tournament weighs.
 
 **All data comes from [BWF](https://bwfbadminton.com/) and belongs to them. This is not
 affiliated with, endorsed by, or connected to BWF.** The API it reads is undocumented and
@@ -20,11 +20,16 @@ node serve.mjs          # http://localhost:8080
 
 Requires Node 24 for the global `WebSocket` the test harness uses.
 
-## The season strip
+## The seasons
 
-One square per tournament, chronological, left to right. Each is a gauge: it fills from the
-bottom by how far the player got, ramping green (title) to red (first-round exit), and the
-label inside says the same thing in words so nothing is carried by colour alone.
+Search a player by name, and their career stacks up as one row per season, newest first.
+Within a row, one square per tournament in chronological order. Each is a gauge: it fills
+from the bottom by how far the player got, ramping green (title) to red (first-round exit),
+and the label inside says the same thing in words so nothing is carried by colour alone.
+
+Seasons and tournament levels are both filtered with toggle buttons — a chip per season and
+a chip per level, so what is on screen is always visible in the controls rather than hidden
+behind a menu.
 
 How far they got is measured against that draw's **real ladder**, fetched per tournament:
 a quarter-final of a 64-draw fills 3/6 and a quarter-final of a 32-draw fills 2/5. Qualifying
@@ -37,8 +42,14 @@ so that and everything above it is full size. The box shrinks inside a fixed 52p
 lighter event reads as more air rather than as a narrower column, and the round label never
 scales below 9px.
 
-Singles or doubles is the only other choice. A doubles season is **not** filtered by
-partner: every doubles tournament that player entered is shown, whoever they played it with.
+Singles or doubles is the only other choice, and the toggle appears only for players who do
+both. A doubles season is **not** filtered by partner: every doubles tournament that player
+entered is shown, whoever they played it with.
+
+The Olympics are there, under their own level. BWF files them as category 20 — the same id
+as the World Championships — and spells their draws and rounds out in full
+("Men's Singles", "Quarterfinals") where the World Tour uses codes, which is a good way to
+lose them entirely. See `HANDOVER.md` Part 2.6.
 
 ## Where things are
 

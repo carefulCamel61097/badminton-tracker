@@ -1,21 +1,21 @@
-/* The season view.
+/* A player's whole career as a stack of seasons.
  *
- * One square per tournament, chronological, left to right. Each square is a
- * gauge: it fills from the bottom in proportion to how far the player got, and
- * the fill ramps green (title) to red (first-round exit). The label repeats the
- * same information as text, so the encoding survives colour blindness.
+ * One row per season, most recent at the top; within a row, one square per
+ * tournament in chronological order. Each square is a gauge: it fills from the
+ * bottom by how far the player got in that draw and ramps green (title) to red
+ * (first-round exit), with the round repeated as text so the encoding survives
+ * colour blindness.
  *
- * Squares are sized by how much the tournament weighs — see HANDOVER Part 2,
- * which settles the numbers, the 42px full square, the 9px label floor and the
- * equal 52px slot. That was decided against real seasons on tools/bench.html;
- * this is the same rendering, wired to live data.
+ * Squares are sized by how much the tournament weighs — HANDOVER Part 2 settles
+ * the numbers, the 42px full square, the 9px label floor and the equal 52px
+ * slot — and filled against that draw's real ladder, per Part 2.5.
  */
 
-import { loadSeason, loadPlayer, loadDraws, queueDepth } from './api.js';
+import { loadSeason, loadPlayer, loadDraws, searchPlayers, queueDepth } from './api.js';
 import {
   positionInfo, fillFraction, drawForKind, dominantDraw, seasonKinds,
   defaultKind, seasonLevels, levelLabel, levelAbbr, boxSize, isTeamEvent,
-  drawLadder, SLOT_W, BOX_H, LEVEL,
+  drawLadder, BOX_H, LEVEL,
 } from './model.js';
 
 const $ = id => document.getElementById(id);
@@ -26,34 +26,31 @@ function esc(s) {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+/* How far back to look. BWF returns an empty list rather than an error for a
+   year it has nothing for, and real data reaches back to about 2007, so the
+   walk stops after a run of empty seasons rather than grinding through two
+   decades of nothing for a player who turned professional last year. */
+const YEAR_FLOOR = 2006;
+const EMPTY_RUN = 2;
+
 const state = {
   playerId: null,
-  year: null,
-  kind: null,            // 'singles' | 'doubles'; null = follow defaultKind()
+  player: null,          // {id, name, country, countryCode}
+  kind: null,            // 'singles' | 'doubles'
   sized: true,
-  // Levels are held as what is *hidden*, not what is shown. Holding the shown
-  // set meant that stepping back to a season containing a level the last one
-  // did not — and historical seasons are full of them — hid it silently,
-  // because it was not in a set chosen against a different year.
-  hidden: null,          // category ids switched off
-  touched: null,         // category ids the reader has actually clicked
-  player: null,          // {name, country} once the summary lands; null before
-  season: null,          // always the whole season, team events included
+  hiddenLevels: null,    // level keys switched off
+  touchedLevels: null,   // level keys the reader has actually clicked
+  hiddenYears: new Set(),
+  seasons: [],           // [{year, tournaments}], newest first
+  draws: new Map(),      // tournament code -> tournaments/draws payload, or null
   kinds: [],
-  // tournament code -> the raw tournaments/draws payload, so the strip can ask
-  // how many rounds *this* draw had. Undefined = not looked up yet, null = the
-  // lookup failed and the square keeps its inferred fill.
-  draws: new Map(),
   error: null,
   loading: false,
+  suggestions: null,
+  highlighted: -1,
 };
 
-/** How many rounds the player's own draw had, or null if not known yet. */
-function roundsFor(tmt, drawName) {
-  const payload = state.draws.get(tmt.code);
-  if (!payload) return null;
-  return drawLadder(payload, drawName);
-}
+let loadToken = 0;
 
 /* ============================ what gets drawn ============================ */
 
@@ -63,21 +60,33 @@ function roundsFor(tmt, drawName) {
  * emptiest squares in the strip: maximum prominence, zero information.
  *
  * Applied to every season as it arrives, but never to a level the reader has
- * already made a decision about: switching team events on and then stepping a
- * year should not switch them off again.
+ * already decided about: switching team events on and then loading another
+ * season should not switch them off again.
  */
-function applyLevelDefaults(season) {
-  if (!state.hidden) { state.hidden = new Set(); state.touched = new Set(); }
-  for (const c of seasonLevels(season)) {
-    if (isTeamEvent(c) && !state.touched.has(c)) state.hidden.add(c);
+function applyLevelDefaults(tournaments) {
+  if (!state.hiddenLevels) { state.hiddenLevels = new Set(); state.touchedLevels = new Set(); }
+  for (const c of seasonLevels(tournaments)) {
+    if (isTeamEvent(c) && !state.touchedLevels.has(String(c))) state.hiddenLevels.add(String(c));
   }
 }
 
-/** The tournaments the strip should draw, in order. */
-function visibleSeason() {
-  const s = state.season || [];
-  if (!state.hidden) return s;
-  return s.filter(t => !state.hidden.has(t.cat));
+const allTournaments = () => state.seasons.flatMap(s => s.tournaments);
+
+/* Levels are held as what is *hidden*. Holding the shown set meant that a
+   season containing a level an earlier one did not — and historical seasons are
+   full of them — was filtered away silently. */
+const levelShown = cat => !state.hiddenLevels || !state.hiddenLevels.has(String(cat));
+
+const visibleSeasons = () => state.seasons
+  .filter(s => !state.hiddenYears.has(s.year))
+  .map(s => ({ year: s.year, tournaments: s.tournaments.filter(t => levelShown(t.cat)) }))
+  .filter(s => s.tournaments.length);
+
+/** How many rounds the player's own draw had, or null if not known yet. */
+function roundsFor(tmt, drawName) {
+  const payload = state.draws.get(tmt.code);
+  if (!payload) return null;
+  return drawLadder(payload, drawName);
 }
 
 /* ============================ the strip ============================ */
@@ -97,14 +106,14 @@ function square(tmt, kind, preferred) {
   const draw = tmt.team
     ? (tmt.draws || [])[0] || null
     : drawForKind(tmt, kind, preferred);
-  const info = positionInfo(draw && draw.position);
+  const info = positionInfo(draw && draw.position, draw);
   const rounds = draw ? roundsFor(tmt, draw.name) : null;
   const pct = Math.round(fillFraction(info, draw, rounds) * 100);
   const box = boxSize(tmt.cat, state.sized);
 
   const weight = (LEVEL[tmt.cat] || {}).weight;
   const wl = draw && draw.win != null ? ` · ${draw.win}-${draw.lose}` : '';
-  const entered = draw ? `${draw.name} — ${info.full}${wl}` : 'did not enter';
+  const entered = draw ? `${draw.raw || draw.name} — ${info.full}${wl}` : 'did not enter';
   // Naming the ladder makes the gauge checkable: a quarter-final filling 2/5
   // and another filling 3/6 are both right, and the tooltip says why.
   const ladder = rounds ? `\n${Math.max(0, rounds - (info.steps || 0))} of ${rounds} rounds` : '';
@@ -127,38 +136,29 @@ function square(tmt, kind, preferred) {
     : `<span class="sq" title="${esc(tip)}">${inner}</span>`;
 }
 
-function renderStrip() {
-  const shown = visibleSeason();
+function renderSeasons() {
+  const shown = visibleSeasons();
   const kind = state.kind;
-  const preferred = dominantDraw(state.season, kind);
+  const preferred = dominantDraw(allTournaments(), kind);
 
-  $('strip').innerHTML = shown.map(t => square(t, kind, preferred)).join('');
+  $('seasons').innerHTML = shown.map(s => {
+    const squares = s.tournaments.map(t => square(t, kind, preferred)).join('');
+    return `<section class="srow" data-year="${s.year}">`
+      + `<div class="yr">${s.year}<span class="cnt">${s.tournaments.length}</span></div>`
+      + `<div class="season">${squares}</div></section>`;
+  }).join('');
 
-  const total = (state.season || []).length;
-  $('stripCount').textContent = shown.length === total
-    ? `${total} tournament${total === 1 ? '' : 's'}`
-    : `${shown.length} of ${total} tournaments`;
-  // The id until the summary lands, then the name. Never a blank heading — the
-  // strip should say whose season it is before it says anything else.
-  const who = state.player ? state.player.name : `player ${state.playerId}`;
-  const where = state.player && state.player.countryCode ? ` (${state.player.countryCode})` : '';
-  $('stripWho').textContent = `${who}${where} · ${state.year} · ${kind || '—'}`;
-
-  // An empty strip has three quite different causes and the difference matters:
-  // a filter you can undo, a discipline this player does not play, or a year
-  // BWF has no record of.
   const box = $('empty');
   let why = '';
-  if (!total) {
-    why = `No tournaments recorded for ${state.year}.`
-      + ' BWF\'s data may not reach back this far, or this player did not compete.';
-  } else if (!shown.length) {
-    why = `All ${total} tournaments are hidden by the level filters.`;
-  } else if (!shown.some(t => drawForKind(t, kind, preferred))) {
-    why = `No ${kind} results in ${state.year}.`;
+  if (!state.loading && state.playerId && !state.seasons.length) {
+    why = 'No tournaments recorded for this player. BWF\'s results reach back to about 2007.';
+  } else if (state.seasons.length && !shown.length) {
+    why = 'Everything is hidden by the season or level filters.';
   }
   box.textContent = why;
   box.hidden = !why;
+
+  $('raw').textContent = JSON.stringify(shown, null, 1);
 }
 
 /* ============================ the controls ============================ */
@@ -173,20 +173,28 @@ function renderKinds() {
     return;
   }
   wrap.innerHTML = state.kinds.map(k =>
-    `<button type="button" class="seg${k.kind === state.kind ? ' on' : ''}"
-       data-kind="${k.kind}" aria-pressed="${k.kind === state.kind}">
-       ${esc(k.kind)} <span class="n">${k.count}</span></button>`).join('');
+    `<button type="button" class="seg${k.kind === state.kind ? ' on' : ''}"`
+    + ` data-kind="${k.kind}" aria-pressed="${k.kind === state.kind}">`
+    + `${esc(k.kind)}<span class="n">${k.count}</span></button>`).join('');
+}
+
+function renderYears() {
+  $('years').innerHTML = state.seasons.map(s => {
+    const on = !state.hiddenYears.has(s.year);
+    return `<button type="button" class="chip${on ? ' on' : ''}" data-year="${s.year}"`
+      + ` aria-pressed="${on}">${s.year}<span class="n">${s.tournaments.length}</span></button>`;
+  }).join('');
 }
 
 function renderLevels() {
-  const present = seasonLevels(state.season);
-  $('levels').innerHTML = present.map(c => {
-    const on = !state.hidden || !state.hidden.has(c);
+  const all = allTournaments();
+  $('levels').innerHTML = seasonLevels(all).map(c => {
+    const on = levelShown(c);
     const team = isTeamEvent(c);
-    const n = (state.season || []).filter(t => t.cat === c).length;
-    return `<button type="button" class="chip${on ? ' on' : ''}${team ? ' team' : ''}"
-      data-cat="${c}" aria-pressed="${!!on}">${esc(levelLabel(c))}
-      <span class="n">${n}</span></button>`;
+    const n = all.filter(t => t.cat === c).length;
+    return `<button type="button" class="chip${on ? ' on' : ''}${team ? ' team' : ''}"`
+      + ` data-cat="${c}" aria-pressed="${on}">${esc(levelLabel(c))}`
+      + `<span class="n">${n}</span></button>`;
   }).join('');
 }
 
@@ -197,133 +205,262 @@ function setStatus(text, isError) {
 }
 
 function render() {
-  if (state.error) {
-    setStatus(state.error, true);
-    $('stripWrap').hidden = true;
-    return;
-  }
-  if (state.loading) { setStatus('Loading…'); return; }
-  if (!state.season) return;
+  if (state.error) { setStatus(state.error, true); return; }
 
-  setStatus('');
-  $('stripWrap').hidden = false;
+  const who = state.player
+    ? `${state.player.name}${state.player.countryCode ? ' (' + state.player.countryCode + ')' : ''}`
+    : state.playerId ? `player ${state.playerId}` : '';
+  const n = state.seasons.length;
+  setStatus(!state.playerId ? ''
+    : state.loading ? `${who || 'Loading'} — ${n} season${n === 1 ? '' : 's'} so far…`
+    : `${who} · ${n} season${n === 1 ? '' : 's'} · ${state.kind || '—'}`);
+
   renderKinds();
+  renderYears();
   renderLevels();
-  renderStrip();
-  $('raw').textContent = JSON.stringify(visibleSeason(), null, 1);
+  renderSeasons();
+  watchRows();
 }
 
 /* ============================ loading ============================ */
 
 /**
- * Fetch the real ladder for every tournament on screen, then redraw once.
+ * Walk back year by year from the current one, rendering each season as it
+ * arrives rather than waiting for the whole career.
  *
- * One call per tournament, so a full season is a dozen of them at 320ms — far
- * too slow to keep the strip waiting. The squares therefore go up immediately
- * with the inferred fill and are corrected when the sizes land, which for most
- * seasons changes nothing visible and for a few corrects a square that was
- * quietly wrong. Sizes are immutable history, so the twelve-hour cache means
- * this happens once and not on every visit.
- *
- * `token` guards against the answer arriving after the reader has moved on to
- * another player: a stale response must not repaint somebody else's season.
+ * Nothing says which years a player competed in, so the only way to find out is
+ * to ask. That is one request per year at 320ms apart, which is exactly why the
+ * rows appear one at a time instead of after twenty of them have landed.
  */
-async function loadDrawSizes(token) {
-  const wanted = visibleSeason().filter(t => t.code && !t.team && !state.draws.has(t.code));
-  if (!wanted.length) return;
-
-  await Promise.all(wanted.map(async t => {
-    try {
-      const payload = await loadDraws(t.code);
-      state.draws.set(t.code, payload);
-    } catch {
-      // No ladder for this one; its square keeps the inferred fill rather than
-      // going blank.
-      state.draws.set(t.code, null);
-    }
-  }));
-
-  if (token !== loadToken) return;
-  render();
-}
-
-let loadToken = 0;
-
-async function load() {
+async function loadCareer(playerId, { keepFilters = false } = {}) {
+  // A player id is a number. Anything else — a hand-edited hash, a stale link —
+  // would otherwise walk twenty years of requests to discover that nobody by
+  // that name ever played.
+  if (!/^\d+$/.test(String(playerId))) return;
   const token = ++loadToken;
+  const previous = state.playerId;
+  state.playerId = String(playerId);
+  state.player = null;
+  state.seasons = [];
+  state.kinds = [];
+
+  // Picking a different player starts fresh — their discipline and their years
+  // are not this one's. But a link that arrives already carrying filters, or a
+  // hash somebody edited, has just had them read: clearing those would make
+  // `#k=doubles&hy=2019` do nothing, which is the whole point of putting them
+  // in the URL.
+  if (!keepFilters && previous && previous !== state.playerId) {
+    state.kind = null;
+    state.hiddenYears = new Set();
+  }
+
   state.error = null;
   state.loading = true;
   render();
 
-  try {
-    // The whole season, team events and all: the level chips decide what is
-    // drawn, so toggling one never costs another request.
-    const season = await loadSeason(state.playerId, state.year);
-    state.season = season;
-    state.kinds = seasonKinds(season);
+  loadPlayer(playerId, { priority: 'low' })
+    .then(p => { if (token === loadToken && p) { state.player = p; render(); } })
+    .catch(() => { /* a name is a nicety, not the page */ });
+
+  const thisYear = new Date().getFullYear();
+  let empties = 0;
+
+  for (let year = thisYear; year > YEAR_FLOOR; year--) {
+    let tournaments;
+    try {
+      tournaments = await loadSeason(playerId, year);
+    } catch (e) {
+      // BWF's API is undocumented and can change without notice. Say so plainly
+      // rather than showing a blank page.
+      if (token !== loadToken) return;
+      state.error = 'Could not load from BWF: ' + e.message
+        + '. The API is unofficial and may have changed.';
+      state.loading = false;
+      render();
+      return;
+    }
+    if (token !== loadToken) return;
+
+    if (!tournaments.length) {
+      // A gap mid-career is normal — an injury, a year out — so one empty
+      // season is not the end of a career. A run of them is.
+      //
+      // But only once something has been found: a player who retired in 2020
+      // has two empty years before their career even starts, and stopping on
+      // those would show them as having never played.
+      if (state.seasons.length && ++empties >= EMPTY_RUN) break;
+      continue;
+    }
+
+    empties = 0;
+    applyLevelDefaults(tournaments);
+    state.seasons.push({ year, tournaments });
+    state.kinds = seasonKinds(allTournaments());
     if (!state.kind || !state.kinds.some(k => k.kind === state.kind)) {
-      state.kind = defaultKind(season);
+      state.kind = defaultKind(allTournaments());
     }
-    applyLevelDefaults(season);
-    state.loading = false;
-    render();
-
-    // Secondary and allowed to fail: the strip is complete without it, so it
-    // rides the low lane behind the season and never delays a click.
-    if (!state.player || state.player.id !== String(state.playerId)) {
-      state.player = null;
-      try {
-        const who = await loadPlayer(state.playerId, { priority: 'low' });
-        if (who && who.id === String(state.playerId)) { state.player = who; render(); }
-      } catch { /* a name is a nicety, not the page */ }
-    }
-
-    await loadDrawSizes(token);
-  } catch (e) {
-    // BWF's API is undocumented and can change without notice. Say so plainly
-    // rather than showing an empty strip, which reads as "no tournaments".
-    state.loading = false;
-    state.error = 'Could not load from BWF: ' + e.message
-      + '. The API is unofficial and may have changed.';
     render();
   }
+
+  if (token !== loadToken) return;
+  state.loading = false;
+  render();
 }
 
-/* ============================ input ============================ */
+/**
+ * Fetch the real ladder for the tournaments in one season row.
+ *
+ * One call per tournament, so a whole career would be hundreds — which is why
+ * this is driven by what has actually scrolled into view rather than run over
+ * everything at once. Squares are drawn with the inferred fill first and
+ * corrected when the sizes land; for most of them nothing visibly moves. Draw
+ * sizes are immutable history, so the twelve-hour cache means a season costs
+ * this once.
+ */
+async function loadLadders(year) {
+  const token = loadToken;
+  const season = state.seasons.find(s => s.year === year);
+  if (!season) return;
 
-function readForm() {
-  const player = $('playerId').value.trim();
-  const year = $('year').value.trim();
-  // A discipline and a set of levels belong to a player. Carrying them across
-  // meant opening a doubles player on singles and every square reading as
-  // "did not enter".
-  if (player !== state.playerId) { state.kind = null; state.hidden = null; state.touched = null; }
-  state.playerId = player;
-  state.year = year;
-  state.sized = $('sized').checked;
+  const wanted = season.tournaments.filter(t =>
+    t.code && !t.team && levelShown(t.cat) && !state.draws.has(t.code));
+  if (!wanted.length) return;
+
+  // Claim them first, so a second scroll past the same row does not ask again.
+  for (const t of wanted) state.draws.set(t.code, undefined);
+
+  await Promise.all(wanted.map(async t => {
+    try { state.draws.set(t.code, await loadDraws(t.code)); }
+    catch { state.draws.set(t.code, null); }      // keeps the inferred fill
+  }));
+
+  if (token !== loadToken) return;
+  renderSeasons();
 }
 
-function commit() {
-  readForm();
+/* Only the rows someone has actually looked at cost requests. */
+const rowWatcher = 'IntersectionObserver' in window
+  ? new IntersectionObserver(entries => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        rowWatcher.unobserve(e.target);
+        loadLadders(Number(e.target.dataset.year));
+      }
+    }, { rootMargin: '200px' })
+  : null;
+
+function watchRows() {
+  if (!rowWatcher) {
+    for (const s of visibleSeasons()) loadLadders(s.year);
+    return;
+  }
+  for (const row of document.querySelectorAll('.srow')) rowWatcher.observe(row);
+}
+
+/* ============================ player search ============================ */
+
+let searchSeq = 0;
+let searchTimer = null;
+
+function renderSuggestions() {
+  const box = $('suggest');
+  const list = state.suggestions;
+  if (!list) {
+    box.hidden = true;
+    box.innerHTML = '';
+    $('q').setAttribute('aria-expanded', 'false');
+    return;
+  }
+  box.innerHTML = list.length
+    ? list.map((p, i) => `<li role="option" data-id="${esc(p.id)}" data-i="${i}"`
+      + ` aria-selected="${i === state.highlighted}">`
+      + `<span>${esc(p.name)}</span><span class="cc">${esc(p.countryCode)}</span></li>`).join('')
+    : '<li class="none">No player of that name</li>';
+  box.hidden = false;
+  $('q').setAttribute('aria-expanded', 'true');
+}
+
+function closeSuggestions() {
+  state.suggestions = null;
+  state.highlighted = -1;
+  renderSuggestions();
+}
+
+/**
+ * Search runs on a delay, and only the newest keystroke's answer is used. The
+ * lookup is a single call, but it is still BWF's server: typing "axelsen"
+ * should cost one request, not seven.
+ */
+function onType() {
+  const q = $('q').value.trim();
+  clearTimeout(searchTimer);
+  if (q.length < 2) { closeSuggestions(); return; }
+
+  searchTimer = setTimeout(async () => {
+    const seq = ++searchSeq;
+    try {
+      const found = await searchPlayers(q);
+      if (seq !== searchSeq) return;            // a later keystroke already won
+      state.suggestions = found.slice(0, 12);
+      state.highlighted = found.length ? 0 : -1;
+      renderSuggestions();
+    } catch {
+      if (seq === searchSeq) closeSuggestions();
+    }
+  }, 320);
+}
+
+function choose(player) {
+  if (!player) return;
+  state.player = player;
+  $('q').value = player.name;
+  closeSuggestions();
+  loadCareer(player.id);
   writeHash();
-  load();
 }
 
-function stepYear(by) {
-  const y = Number($('year').value) || new Date().getFullYear();
-  $('year').value = String(y + by);
-  commit();
-}
+$('q').addEventListener('input', onType);
 
-$('pick').addEventListener('submit', e => { e.preventDefault(); commit(); });
-$('yearPrev').addEventListener('click', () => stepYear(-1));
-$('yearNext').addEventListener('click', () => stepYear(1));
+$('q').addEventListener('keydown', e => {
+  const list = state.suggestions;
+  if (!list || !list.length) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    const step = e.key === 'ArrowDown' ? 1 : -1;
+    state.highlighted = (state.highlighted + step + list.length) % list.length;
+    renderSuggestions();
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    choose(list[state.highlighted] || list[0]);
+  } else if (e.key === 'Escape') {
+    closeSuggestions();
+  }
+});
+
+$('suggest').addEventListener('mousedown', e => {
+  // mousedown rather than click: the input's blur would close the list before a
+  // click ever landed on it.
+  const li = e.target.closest('li[data-id]');
+  if (!li) return;
+  e.preventDefault();
+  choose(state.suggestions[Number(li.dataset.i)]);
+});
+
+$('q').addEventListener('blur', () => setTimeout(closeSuggestions, 150));
+
+$('pick').addEventListener('submit', e => {
+  e.preventDefault();
+  const list = state.suggestions;
+  if (list && list.length) choose(list[Math.max(0, state.highlighted)]);
+});
+
+/* ============================ filters ============================ */
 
 // Size is a user toggle, on by default, and it is only a redraw.
 $('sized').addEventListener('change', () => {
   state.sized = $('sized').checked;
   writeHash();
-  render();
+  renderSeasons();
 });
 
 $('kindWrap').addEventListener('click', e => {
@@ -334,83 +471,104 @@ $('kindWrap').addEventListener('click', e => {
   render();
 });
 
+$('years').addEventListener('click', e => {
+  const b = e.target.closest('[data-year]');
+  if (!b) return;
+  const year = Number(b.dataset.year);
+  if (state.hiddenYears.has(year)) state.hiddenYears.delete(year);
+  else state.hiddenYears.add(year);
+  writeHash();
+  render();
+});
+
 $('levels').addEventListener('click', e => {
   const b = e.target.closest('[data-cat]');
   if (!b) return;
-  const cat = Number(b.dataset.cat);
-  state.touched.add(cat);
-  if (state.hidden.has(cat)) state.hidden.delete(cat);
-  else state.hidden.add(cat);
+  const cat = b.dataset.cat;         // a string: most are numeric ids, "OLY" is not
+  state.touchedLevels.add(cat);
+  if (state.hiddenLevels.has(cat)) state.hiddenLevels.delete(cat);
+  else state.hiddenLevels.add(cat);
   writeHash();
   render();
-  // Switching a level on can reveal tournaments whose ladder was never fetched,
-  // because only what was on screen got looked up.
-  loadDrawSizes(loadToken);
 });
 
 /* ============================ hash routing ============================
 
-   #p=57945&y=2026&k=singles&lv=23.24.25&sz=0 — enough to link to a season
+   #p=57945&k=doubles&sz=0&hy=2019.2018&hl=21 — enough to link to a career
    exactly as it is on screen, and enough for a suite to open one directly.
    ================================================================== */
 
 function readHash() {
   const h = new URLSearchParams(location.hash.replace(/^#/, ''));
-  if (h.has('p')) $('playerId').value = h.get('p');
-  if (h.has('y')) $('year').value = h.get('y');
-  if (h.has('sz')) $('sized').checked = h.get('sz') !== '0';
-  readForm();
   if (h.has('k')) state.kind = h.get('k');
-  if (h.has('hide')) {
-    state.hidden = new Set(h.get('hide').split('.').map(Number).filter(Boolean));
-    state.touched = new Set(state.hidden);
+  if (h.has('sz')) { state.sized = h.get('sz') !== '0'; $('sized').checked = state.sized; }
+  if (h.has('hy')) state.hiddenYears = new Set(h.get('hy').split('.').map(Number).filter(Boolean));
+  if (h.has('hl')) {
+    state.hiddenLevels = new Set(h.get('hl').split('.').filter(Boolean));
+    state.touchedLevels = new Set(state.hiddenLevels);
   }
+  return h.get('p');
 }
 
 function writeHash() {
+  if (!state.playerId) return;
   const p = new URLSearchParams();
   p.set('p', state.playerId);
-  p.set('y', state.year);
   if (state.kind) p.set('k', state.kind);
   if (!state.sized) p.set('sz', '0');
-  // Hidden levels only, so an untouched strip has a short shareable link rather
-  // than a list of every category the season happens to contain.
-  if (state.hidden && state.hidden.size) p.set('hide', [...state.hidden].join('.'));
+  if (state.hiddenYears.size) p.set('hy', [...state.hiddenYears].join('.'));
+  if (state.hiddenLevels && state.hiddenLevels.size) p.set('hl', [...state.hiddenLevels].join('.'));
   const next = '#' + p.toString();
   if (location.hash !== next) history.replaceState(null, '', next);
 }
 
-window.addEventListener('hashchange', () => { readHash(); writeHash(); load(); });
+window.addEventListener('hashchange', () => {
+  // readHash has just applied whatever filters the new hash carries, so they
+  // are kept rather than reset.
+  const p = readHash();
+  if (p && p !== state.playerId) loadCareer(p, { keepFilters: true });
+  else render();
+});
 
 /* The suites' seam into the running app: they assert on real state produced by
    a real fetch and on the real geometry the browser laid out, not on a
    re-implementation of either. */
 window.BST = {
   state,
-  get ready() { return !!state.season && !state.loading && queueDepth() === 0; },
-  season: () => state.season,
-  visible: visibleSeason,
-  /** What the strip is actually showing, read back off the DOM. */
-  squares: () => [...document.querySelectorAll('#strip .sq')].map(sq => {
-    const box = sq.querySelector('.box');
-    const r = box.getBoundingClientRect();
-    return {
-      name: sq.querySelector('.tn').textContent,
-      level: sq.querySelector('.lv').textContent,
-      label: box.textContent.trim(),
-      tier: (box.className.match(/r-([\w]+)/) || [])[1],
-      w: Math.round(r.width * 10) / 10,
-      h: Math.round(r.height * 10) / 10,
-      slot: Math.round(sq.getBoundingClientRect().width * 10) / 10,
-      font: Math.round(parseFloat(getComputedStyle(box).fontSize) * 10) / 10,
-      pct: box.style.getPropertyValue('--pct'),
-      href: sq.getAttribute('href') || '',
-    };
-  }),
-  SLOT_W, BOX_H, LEVEL, boxSize, positionInfo, fillFraction,
-  rounds: (code, drawName) => { const t = (state.season||[]).find(x => x.code === code); return t ? roundsFor(t, drawName) : null; },
+  get ready() { return !!state.playerId && !state.loading && queueDepth() === 0; },
+  seasons: () => state.seasons,
+  visible: visibleSeasons,
+  suggestions: () => state.suggestions,
+  rounds: (code, drawName) => {
+    const t = allTournaments().find(x => x.code === code);
+    return t ? roundsFor(t, drawName) : null;
+  },
+  /** What the rows are actually showing, read back off the DOM. */
+  squares: year => {
+    const sel = year ? `.srow[data-year="${year}"] .sq` : '.srow .sq';
+    return [...document.querySelectorAll(sel)].map(sq => {
+      const box = sq.querySelector('.box');
+      const r = box.getBoundingClientRect();
+      return {
+        year: Number(sq.closest('.srow').dataset.year),
+        name: sq.querySelector('.tn').textContent,
+        level: sq.querySelector('.lv').textContent,
+        label: box.textContent.trim(),
+        tier: (box.className.match(/r-([\w]+)/) || [])[1],
+        w: Math.round(r.width * 10) / 10,
+        h: Math.round(r.height * 10) / 10,
+        slot: Math.round(sq.getBoundingClientRect().width * 10) / 10,
+        font: Math.round(parseFloat(getComputedStyle(box).fontSize) * 10) / 10,
+        pct: box.style.getPropertyValue('--pct'),
+        href: sq.getAttribute('href') || '',
+        title: sq.getAttribute('title') || '',
+      };
+    });
+  },
+  loadLadders,
+  search: searchPlayers,
 };
 
-readHash();
-writeHash();
-load();
+const initial = readHash();
+if (initial) loadCareer(initial);
+else $('q').focus();

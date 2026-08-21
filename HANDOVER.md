@@ -49,7 +49,12 @@ A tool for looking at **any player's season**, and at **whatever tournament is o
 
 ### 1.1 Season view (the centrepiece)
 
-Pick a player, pick a year, get one square per tournament in chronological order.
+Search a player by name and get their **whole career**: one row per season, most recent
+at the top, and within each row one square per tournament in chronological order.
+
+Stacking the seasons rather than showing one at a time was decided 21 Aug 2026. A career
+reads as a shape — the year somebody broke through, the year they were injured — and that
+shape is invisible when a year selector shows you one strip at a time.
 
 Each square is a **gauge**: it fills from the bottom in proportion to how far the player
 got, and the fill colour ramps green (title) → red (first-round exit). The label repeats
@@ -61,7 +66,9 @@ New on top of it:
 - **Size by tournament weight** (settled — see Part 2)
 - **Level filters** — include/exclude Super 1000/750/500/300/100, Challenge, etc.
 - **Team-event toggle** — off by default
-- **Year selector** — the underlying endpoint already takes `tmtYear`
+- **Season filters** — a toggle button per season, so a career can be narrowed to the
+  years worth comparing. Nothing says which years a player competed in, so the app walks
+  back from the current year until it hits a run of empty ones (one request each).
 
 ### 1.2 Tournament view (auto-following)
 
@@ -77,8 +84,21 @@ in the season strip → that tournament's bracket with the player's path highlig
 
 ### 1.4 Player selection
 
-`vue-rankingtable` accepts a **`searchKey`** parameter — server-side player search. The old
-tool paginated 20 pages to build an index because it did not know this.
+**Use `vue-popular-players?searchKey=`** — despite the name, it searches BWF's whole
+player database, including players with no ranking and none since 2015, in **one call**.
+
+`vue-rankingtable&searchKey=` also searches, and is what this plan originally named, but
+only within one ranking category: finding an arbitrary player would mean five calls and
+would still miss anyone unranked. The old tool paginated 20 pages to build an index
+because it knew about neither.
+
+⚠️ **It matches a single name token, not the displayed name.** `delrue` and `axelsen`
+work; `an se young` and `shi yu qi` both return nothing at all. A query containing
+spaces that comes back empty is worth retrying on its longest word, which is usually the
+surname.
+
+⚠️ **Results come back alphabetically by given name, not by relevance** — searching
+`shi` leads with ". JADESHI". They need ordering client-side.
 
 ---
 
@@ -271,6 +291,43 @@ sizes land; for most seasons nothing visibly moves. Draw sizes for a played
 tournament are immutable history, so they go in the twelve-hour `localStorage` cache
 and the low lane.
 
+### 2.6 The Olympics are their own level — settled
+
+**Decided 21 Aug 2026.** The Olympic Games come back as
+`tournament_category_id: 20` — **the same id as the World Championships** — and are
+told apart only by the tournament's name. They are given a level of their own,
+`OLY`, at full weight, so a square says *Olympics* rather than *Worlds* and there is
+a chip to filter by.
+
+⚠️ **The Olympics do not speak the World Tour's language, and this was hiding them
+completely.** Both of these were live bugs:
+
+| | World Tour | Olympics |
+|---|---|---|
+| draw name | `MS` | `Men's Singles`, `Mixed Doubles` |
+| placing | `QF` | `Quarterfinals` |
+
+- An unrecognised **draw name** fell through to `kind: 'team'`, so an Olympic result
+  was excluded from the singles view *and* the doubles view — it appeared nowhere.
+- An unrecognised **placing** rendered as an unknown, which draws as an empty
+  square, so even a medal showed as a blank.
+
+Draw names are therefore canonicalised once, at the parse (`canonicalDraw`), and
+BWF's own wording is kept alongside for the tooltip. The junior circuit needs the
+same treatment: `BS U19` is boys' singles.
+
+⚠️ **A bare `Singles` / `Doubles` — no gender — is a team tie**, and that absence is
+how one is recognised. `Men's Singles` is an individual event; `Singles` is a rubber
+in a Thomas Cup tie.
+
+Other placings seen in the wild and now handled: `Semifinals`, `Round of 16`,
+`Final` (which does not say who *won* it — whoever lost no match did), `Group A`
+(going out in a group stage: the earliest exit there is, so it reads red and fills
+the minimum), and `-` for some junior events, which means the same as `N/A`.
+
+**Rio 2016 used `MS` and `QF`.** Tokyo 2020 and Paris 2024 use the long forms. Both
+spellings have to work, and neither can be assumed from the year.
+
 ---
 
 ## Part 3 — The BWF API
@@ -341,6 +398,14 @@ GET /vue-player-tournaments?playerId={id}&isPara=0&drawCount=1&activeTab=0&tmtYe
 `{tournament_id, date, location, draws[], tmt_url, tournament_model{id, name, code,
 start_date, tournament_category_id, …}}`, and each draw is
 `{name:'MS'|'WS'|…, position, match_win, match_lose, …}`.
+
+```
+GET /vue-popular-players?searchKey={text}&activeTab=1&page=1
+```
+**Player search across the whole database** *(discovered 21 Aug 2026, verified 200)*.
+Returns `{results:[{id, slug, name_display, name_display_break, country_model{name,
+code_iso3, flag_name_svg}, avatar}], pagination, drawCount}`, 30 per page. Found by
+pointing `discover.mjs` at bwfbadminton.com/players/. See the traps in Part 1.4.
 
 ```
 GET /vue-player-summary?playerId={id}&isPara=0&drawCount=5          → bio, avatars, slug
@@ -458,6 +523,15 @@ player got from the match count will credit those two wins as rounds of the main
 range, and it answers with thirteen *groups* ("HSBC BWF World Tour", "Games",
 "Continental Level") rather than a flat id-to-name list, so mapping a
 `tournament_category_id` through it is a job of its own.
+
+⚠️⚠️ **The Olympics spell draws and placings out in full**: `"Men's Singles"` where the
+World Tour says `MS`, `"Quarterfinals"` where it says `QF`. Rio 2016 used the short
+forms and Tokyo 2020 and Paris 2024 use the long ones, so the year does not tell you
+which. Anything keying off the two-letter codes silently drops Olympic results into
+neither singles nor doubles. See Part 2.6.
+
+⚠️ **A draw named bare `Singles` or `Doubles`, with no gender, is a team tie**, not an
+individual event. The missing gender is the only signal.
 
 ⚠️ **`position` is a placing, not a round.** `"1st"`, `"2nd"`, `"3rd"`, then `"QF"`,
 `"R16"`, `"R32"`, `"R64"`, `"Qual…"`, and `"N/A"` for team events.
@@ -579,7 +653,8 @@ using the global `WebSocket`. Deployed on GitHub Pages. This worked well — kee
    weighting, the level filters, the team toggle and the singles/doubles toggle. Geometry
    is asserted off the laid-out DOM in `tests/test_season.mjs`, not off the model, so a
    stylesheet cannot quietly override the settled sizes.
-3. **Player selection.** `vue-rankingtable` with `searchKey`, plus recently-viewed.
+3. ~~**Player selection.**~~ **Done 21 Aug 2026.** Type-ahead over
+   `vue-popular-players`, debounced, newest-keystroke-wins. Recently-viewed is still open.
 4. **Tournament view.** `vue-tmt-schedule` drives it. Results when a tournament is
    finished, draws when the next one is up, live scores while it runs.
 5. **Bracket + drill-down.** Port the bracket; wire season square → that tournament's

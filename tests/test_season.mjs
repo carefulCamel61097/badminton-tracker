@@ -1,4 +1,4 @@
-/* The season strip, end to end: the real page in a real browser, fetching
+/* The career view, end to end: the real page in a real browser, fetching
  * through the real request layer, and measured off the geometry the browser
  * actually laid out rather than off the numbers the app meant to use.
  *
@@ -23,7 +23,7 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const server = createServer(ROOT);
 await new Promise(r => server.listen(PORT, r));
 
-const b = await launch({ port: DBG, tag: 'season' });
+const b = await launch({ port: DBG, tag: 'season', windowSize: '1200,1400' });
 
 /* FIXTURES=live (run.mjs --live) skips interception altogether and lets the app
    talk to BWF, which is the only way to catch the API changing under us. It is
@@ -47,261 +47,265 @@ const bail = e => { console.log('EXC ' + (e && e.message ? e.message : e)); fini
 process.on('uncaughtException', bail);
 process.on('unhandledRejection', bail);
 
+/** A career is one request per year, so this waits minutes, not seconds. */
 async function open(hash) {
   await b.ev(`location.hash = ${JSON.stringify(hash)}`);
-  const ok = await b.until('!!window.BST && window.BST.ready');
+  const ok = await b.until('!!window.BST && window.BST.ready', { timeout: 180000 });
   if (!ok) console.log('LOG  timed out loading ' + hash);
   return ok;
 }
 
-const squares = () => b.ev('window.BST.squares()');
+/** Ladders load only for rows in view, so ask for the ones a check needs. */
+async function ladders(year) {
+  await b.ev(`window.BST.loadLadders(${year})`);
+  // The call is fired and not awaited in the page, so give the queue a moment
+  // to actually fill before waiting on it to drain.
+  await b.wait(600);
+  await b.until('window.BST.ready', { timeout: 120000 });
+}
+
+const squares = year => b.ev(`window.BST.squares(${year || ''})`);
 const find = (list, re) => list.find(s => re.test(s.name));
 
-await b.send('Page.navigate', { url: `http://localhost:${PORT}/#p=57945&y=2026` }, b.sessionId);
+await b.send('Page.navigate', { url: `http://localhost:${PORT}/` }, b.sessionId);
 await b.until('!!window.BST');
 
-/* ============================ the strip renders ============================ */
+/* ============================ the player search ============================ */
 
-console.log('=== SHI Yu Qi, 2026 ===');
-check('the season loaded', await open('#p=57945&y=2026'));
+console.log('=== a player is found by name, not by id ===');
+check('the page opens on a search box, with no id anywhere',
+  await b.ev(`document.getElementById('q').type === 'search'`));
+check('and focuses it, because it is the only thing to do first',
+  await b.ev(`document.activeElement === document.getElementById('q')`));
 
-let sq = await squares();
-eq('nine squares — the tenth is a team event, hidden by default', sq.length, 9);
-eq('one square per tournament shown', sq.length, (await b.ev('window.BST.visible()')).length);
+await b.ev(`(() => {
+  const i = document.getElementById('q');
+  i.value = 'axelsen';
+  i.dispatchEvent(new Event('input'));
+})()`);
+check('typing brings suggestions',
+  await b.until('window.BST.suggestions() && window.BST.suggestions().length > 0',
+    { timeout: 30000 }));
 
-const season = await b.ev('window.BST.season()');
-check('drawn oldest first, left to right',
-  sq.map(s => s.name).join('|') === season.filter(t => !t.team).map(t => t.short).join('|'),
-  sq.map(s => s.name).join(' '));
+const suggestions = await b.ev('window.BST.suggestions()');
+check('the players are named', suggestions.every(p => p.name && p.id),
+  JSON.stringify(suggestions.slice(0, 3)));
+check('Viktor AXELSEN is among them',
+  suggestions.some(p => /Viktor AXELSEN/i.test(p.name)),
+  suggestions.map(p => p.name).join(', '));
+check('with their country, so two players of a name can be told apart',
+  suggestions.every(p => typeof p.countryCode === 'string'),
+  suggestions.map(p => p.countryCode).join(' '));
 
-console.log('\n=== the strip says whose season it is ===');
-const heading = await b.ev('document.getElementById("stripWho").textContent');
-check('the player is named, not left as an id', /SHI Yu Qi/.test(heading), heading);
-check('with their country', /CHN/.test(heading), heading);
-check('and the year and discipline', /2026 · singles/.test(heading), heading);
+const shown = await b.ev(`[...document.querySelectorAll('#suggest li')]
+  .map(li => li.textContent.trim())`);
+check('and they are on screen, not just in memory', shown.length > 0, shown.slice(0, 3).join(' | '));
 
-/* ============================ geometry ============================ */
+// The endpoint matches one name token, so a full name finds nothing and is
+// retried on its longest word.
+await b.ev(`(() => {
+  const i = document.getElementById('q');
+  i.value = '';
+  i.dispatchEvent(new Event('input'));
+})()`);
+await b.until('window.BST.suggestions() === null', { timeout: 10000 });
+await b.ev(`(() => {
+  const i = document.getElementById('q');
+  i.value = 'an se young';
+  i.dispatchEvent(new Event('input'));
+})()`);
+await b.until('window.BST.suggestions() !== null', { timeout: 30000 });
+const multi = await b.ev('window.BST.suggestions()');
+check('a full name still finds the player, by falling back to a word of it',
+  Array.isArray(multi) && multi.some(p => /YOUNG/i.test(p.name)),
+  (multi || []).map(p => p.name).slice(0, 4).join(', '));
+
+/* ============================ a whole career ============================ */
+
+console.log('\n=== every season, most recent first ===');
+check('SHI Yu Qi loads', await open('#p=57945'));
+
+const seasons = await b.ev('window.BST.seasons()');
+check('more than a decade of them', seasons.length >= 12, `${seasons.length} seasons`);
+check('newest first',
+  seasons.every((s, i) => i === 0 || seasons[i - 1].year > s.year),
+  seasons.map(s => s.year).join(' '));
+check('and the rows are drawn in that order',
+  (await b.ev(`[...document.querySelectorAll('.srow')].map(r => Number(r.dataset.year))`))
+    .every((y, i, a) => i === 0 || a[i - 1] > y));
+eq('one row per season', await b.ev(`document.querySelectorAll('.srow').length`),
+  (await b.ev('window.BST.visible()')).length);
+check('each row is labelled with its year',
+  await b.ev(`[...document.querySelectorAll('.srow .yr')].every(y => /^\\d{4}/.test(y.textContent))`));
+
+const all = await squares();
+check('and holds a hundred-odd tournaments between them', all.length >= 100, `${all.length} squares`);
+check('every square in a row belongs to that row\'s season',
+  await b.ev(`[...document.querySelectorAll('.srow')].every(r =>
+    r.querySelectorAll('.sq').length > 0)`));
+
+/* ============================ geometry still holds ============================ */
 
 console.log('\n=== the box is sized by weight, the slot is not ===');
+await ladders(2026);
+const y2026 = await squares(2026);
 check('every slot is 52px wide, whatever the tournament weighed',
-  sq.every(s => s.slot === 52), [...new Set(sq.map(s => s.slot))].join(', '));
+  all.every(s => s.slot === 52), [...new Set(all.map(s => s.slot))].join(', '));
 
-const malaysia = find(sq, /Malaysia/);      // Super 1000
-const asia = find(sq, /Asia Champs/);       // Continental
-const thailand = find(sq, /Thailand/);      // Super 500
-const worlds = find(sq, /World Champs/);    // Worlds
-
+const malaysia = find(y2026, /Malaysia/);
+const thailand = find(y2026, /Thailand/);
+const asia = find(y2026, /Asia Champs/);
 eq('a Super 1000 box is the full 52 wide', malaysia.w, 52);
 eq('and the full 42 tall', malaysia.h, 42);
-eq('Continental is full size too — settled 21 Aug 2026, and here it is in pixels',
+eq('Continental is full size — settled 21 Aug 2026, and here it is in pixels',
   `${asia.w}x${asia.h}`, '52x42');
 near('a Super 500 box is sqrt(0.80) of that', thailand.h, 37.6, 0.2);
-near('and narrows by the same factor', thailand.w, 46.5, 0.2);
-check('so a Super 500 is visibly smaller than a Super 1000',
-  malaysia.h - thailand.h >= 4, `${malaysia.h} vs ${thailand.h}`);
-check('but still occupies an equal share of the strip',
-  thailand.slot === malaysia.slot, `${thailand.slot} vs ${malaysia.slot}`);
+check('no label is ever smaller than 9px', all.every(s => s.font >= 9),
+  [...new Set(all.map(s => s.font))].join(' '));
+check('no level under a square is left blank',
+  all.every(s => s.level.trim().length > 0),
+  all.filter(s => !s.level.trim()).map(s => s.name).join(', '));
 
-check('no label is ever smaller than 9px',
-  sq.every(s => s.font >= 9), sq.map(s => s.font).join(' '));
-check('a full-size box labels at 11px', malaysia.font === 11, String(malaysia.font));
-
-console.log('\n=== the level fits under the square ===');
-check('nothing under a square is truncated',
-  await b.ev(`[...document.querySelectorAll('#strip .lv')]
-    .every(e => e.scrollWidth <= e.clientWidth + 1)`),
-  await b.ev(`[...document.querySelectorAll('#strip .lv')]
-    .filter(e => e.scrollWidth > e.clientWidth + 1).map(e => e.textContent).join(', ')`));
-eq('Continental is abbreviated to fit', asia.level, 'Cont.');
-check('but the filter chip, which has room, spells it out',
-  await b.ev(`document.querySelector('#levels .chip[data-cat="11"]').textContent.includes('Continental')`));
-
-/* ============================ the gauge ============================ */
-
-console.log('\n=== the gauge fills by how far he got ===');
+console.log('\n=== the gauge, against the real ladder ===');
 eq('a title fills the square', asia.pct, '100%');
-eq('and reads as a title', asia.label, 'W');
+eq('and reads as one', asia.label, 'W');
 eq('runner-up is four fifths', malaysia.pct, '80%');
-eq('a semi-final, three of five', thailand.pct, '60%');
-eq('a first-round exit keeps a visible sliver', worlds.pct, '13%');
-eq('and says which round it was', worlds.label, 'R64');
-
-console.log('\n=== the colour ramp, with the label saying the same thing ===');
-eq('a title is the green end', asia.tier, 'w');
-eq('a semi-final sits below it', thailand.tier, 'sf');
-eq('a first-round exit is the red end', worlds.tier, 'r1');
+check('the tooltip names the ladder it was measured against',
+  /\d+ of \d+ rounds/.test(malaysia.title), malaysia.title);
 check('every square carries a text label as well as a colour',
-  sq.every(s => s.label.length > 0), sq.map(s => s.label || '∅').join(' '));
+  y2026.every(s => s.label.length > 0), y2026.map(s => s.label || '∅').join(' '));
+check('every square links back to BWF',
+  all.every(s => s.href.includes('bwfbadminton.com')),
+  all.filter(s => !s.href.includes('bwfbadminton.com')).map(s => s.name).join(', '));
 
-console.log('\n=== each square links back to BWF ===');
-check('every square is a link', sq.every(s => /^https?:/.test(s.href)),
-  sq.filter(s => !/^https?:/.test(s.href)).map(s => s.name).join(', '));
-check('to bwfbadminton.com', sq.every(s => s.href.includes('bwfbadminton.com')));
+/* ============================ season filters ============================ */
 
-/* ============================ the real ladder ============================ */
+console.log('\n=== seasons can be switched off ===');
+const chipYears = await b.ev(`[...document.querySelectorAll('#years .chip')]
+  .map(c => Number(c.dataset.year))`);
+eq('one chip per season', chipYears.length, seasons.length);
+check('all on to begin with',
+  await b.ev(`[...document.querySelectorAll('#years .chip')].every(c => c.getAttribute('aria-pressed') === 'true')`));
 
-console.log('\n=== the gauge measures against the real draw ===');
-eq('the Malaysia Open ladder was fetched', await b.ev(`window.BST.rounds(
-  window.BST.season().find(t => /Malaysia/.test(t.name)).code, 'MS')`), 5);
-eq('and the World Championships, which is a 64-draw', await b.ev(`window.BST.rounds(
-  window.BST.season().find(t => /World Champ/.test(t.name)).code, 'MS')`), 6);
+const rowsBefore = await b.ev(`document.querySelectorAll('.srow').length`);
+await b.ev(`document.querySelector('#years .chip[data-year="2026"]').click()`);
+eq('switching one off removes its row',
+  await b.ev(`document.querySelectorAll('.srow').length`), rowsBefore - 1);
+eq('and no square of that season is left',
+  (await squares()).filter(s => s.year === 2026).length, 0);
+check('the chip says so', await b.ev(
+  `document.querySelector('#years .chip[data-year="2026"]').getAttribute('aria-pressed')`) === 'false');
+await b.ev(`document.querySelector('#years .chip[data-year="2026"]').click()`);
+eq('and back on again', await b.ev(`document.querySelectorAll('.srow').length`), rowsBefore);
 
-const tips = await b.ev(`[...document.querySelectorAll('#strip .sq')]
-  .map(s => s.getAttribute('title'))`);
-check('every square says which ladder it is measured against',
-  tips.every(t => /\d+ of \d+ rounds/.test(t)),
-  tips.filter(t => !/\d+ of \d+ rounds/.test(t)).join(' | ').slice(0, 120));
-check('the Worlds R64 is nought of six',
-  /0 of 6 rounds/.test(tips.find(t => /World Championships/.test(t))),
-  tips.find(t => /World Championships/.test(t)));
-check('and the Asian title is five of five',
-  /5 of 5 rounds/.test(tips.find(t => /Asia Championships/.test(t))),
-  tips.find(t => /Asia Championships/.test(t)));
-
-console.log('\n=== a ladder that never arrives is not a broken square ===');
-check('every square still has a fill',
-  (await squares()).every(s => /^\d+%$/.test(s.pct)),
-  (await squares()).map(s => s.pct).join(' '));
-
-/* ============================ the size toggle ============================ */
-
-console.log('\n=== size is a toggle, on by default ===');
-check('it starts on', await b.ev('document.getElementById("sized").checked') === true);
-await b.ev(`(() => {
-  const t = document.getElementById('sized');
-  t.checked = false; t.dispatchEvent(new Event('change'));
-})()`);
-const flat = await squares();
-check('turned off, every box is full size', flat.every(s => s.w === 52 && s.h === 42),
-  [...new Set(flat.map(s => `${s.w}x${s.h}`))].join(', '));
-check('and the slots did not move', flat.every(s => s.slot === 52));
-check('the results are unchanged — only the sizing went',
-  flat.map(s => s.label).join('') === sq.map(s => s.label).join(''));
-await b.ev(`(() => {
-  const t = document.getElementById('sized');
-  t.checked = true; t.dispatchEvent(new Event('change'));
-})()`);
-
-/* ============================ level filters ============================ */
-
-console.log('\n=== level filters ===');
+console.log('\n=== level filters are buttons, one per level in the career ===');
 const chips = await b.ev(`[...document.querySelectorAll('#levels .chip')].map(c => ({
   cat: c.dataset.cat, text: c.textContent.trim().replace(/\\s+/g, ' '),
   on: c.getAttribute('aria-pressed') === 'true',
   dashed: getComputedStyle(c).borderStyle === 'dashed',
 }))`);
-eq('one chip per level in the season', chips.length, 6);
-check('the team-event chip is dashed — it is a different sort of thing',
-  chips.find(c => c.cat === '21').dashed);
-check('and it is the only one that starts off',
-  chips.filter(c => !c.on).map(c => c.cat).join() === '21',
-  chips.map(c => `${c.cat}:${c.on}`).join(' '));
+check('a career spans many levels', chips.length >= 6, chips.map(c => c.text).join(' | '));
+check('every chip is named, including levels this project has not mapped',
+  chips.every(c => c.text.length > 1), chips.map(c => c.text).join(' | '));
+check('team events are dashed and start off',
+  chips.filter(c => c.dashed).every(c => !c.on),
+  chips.filter(c => c.dashed).map(c => `${c.text}:${c.on}`).join(' '));
+check('everything else starts on',
+  chips.filter(c => !c.dashed).every(c => c.on),
+  chips.filter(c => !c.dashed && !c.on).map(c => c.text).join(' '));
 
-const servedBefore = fx ? fx.stats.served : 0;
+const before1000 = (await squares()).length;
 await b.ev(`document.querySelector('#levels .chip[data-cat="23"]').click()`);
-const noS1000 = await squares();
-eq('turning off Super 1000 drops its four tournaments', noS1000.length, 5);
-check('and none of them is a Super 1000',
-  !noS1000.some(s => s.level === 'Super 1000'), noS1000.map(s => s.level).join(', '));
-eq('the count says how many of how many',
-  (await b.ev('document.getElementById("stripCount").textContent')).trim(),
-  '5 of 10 tournaments');
-eq('filtering costs no requests', fx ? fx.stats.served : 0, servedBefore);
+const after1000 = await squares();
+check('turning a level off drops its tournaments across every season',
+  after1000.length < before1000 && !after1000.some(s => s.level === 'Super 1000'),
+  `${before1000} -> ${after1000.length}`);
 await b.ev(`document.querySelector('#levels .chip[data-cat="23"]').click()`);
 
-console.log('\n=== team events ===');
-await b.ev(`document.querySelector('#levels .chip[data-cat="21"]').click()`);
-const withTeam = await squares();
-eq('switching them on adds the team tie', withTeam.length, 10);
-const team = find(withTeam, /Thomas/);
-eq('which has no individual position to show', team.pct, '0%');
-eq('and says so rather than looking like a first-round exit', team.tier, 'na');
-eq('with a placeholder label, not a blank', team.label, '-');
-await b.ev(`document.querySelector('#levels .chip[data-cat="21"]').click()`);
+/* ============================ the Olympics ============================ */
 
-/* ============================ singles and doubles ============================ */
+console.log('\n=== the Olympics ===');
+check('AN Se Young loads', await open('#p=87442'));
+const anSeYoung = await b.ev('window.BST.seasons()');
+const olympicYear = anSeYoung.find(s => s.tournaments.some(t => t.cat === 'OLY'));
+check('an Olympic Games is in the career', !!olympicYear,
+  anSeYoung.map(s => s.year).join(' '));
 
-console.log('\n=== a player who plays both ===');
-check('loaded', await open('#p=72885&y=2026'));
+if (olympicYear) {
+  const games = olympicYear.tournaments.find(t => t.cat === 'OLY');
+  eq('it is a level of its own, not a World Championships', games.level, 'Olympics');
+  check('the name is the Games', /olympic/i.test(games.name), games.name);
+  check('its draws are singles or doubles, never mistaken for a team tie',
+    games.draws.every(d => ['MS', 'WS', 'MD', 'WD', 'XD'].includes(d.name)),
+    JSON.stringify(games.draws.map(d => `${d.raw} -> ${d.name}`)));
 
-const kinds = await b.ev(`[...document.querySelectorAll('#kindWrap .seg')].map(s => ({
-  kind: s.dataset.kind, on: s.getAttribute('aria-pressed') === 'true',
-  text: s.textContent.trim().replace(/\\s+/g, ' '),
-}))`);
-eq('two disciplines, so a toggle appears', kinds.length, 2);
-eq('singles first', kinds[0].kind, 'singles');
-eq('eleven of each — an exact tie', kinds.map(k => k.text).join(' | '), 'singles 11 | doubles 11');
-check('and a tie opens on singles', kinds[0].on, JSON.stringify(kinds));
+  await ladders(olympicYear.year);
+  const row = await squares(olympicYear.year);
+  const sq = row.find(s => /Olympic|Paris|Tokyo|Rio/i.test(s.name));
+  check('and it draws as a real result, not an empty square',
+    sq && sq.tier !== 'na' && sq.label.length > 0,
+    sq ? `${sq.name} ${sq.label} ${sq.pct} tier ${sq.tier}` : 'no square');
+  check('labelled Olympics under the box', sq && /Olympic/i.test(sq.level), sq && sq.level);
+  check('at full size, like the majors it is',
+    sq && sq.w === 52 && sq.h === 42, sq && `${sq.w}x${sq.h}`);
+  check('there is an Olympics chip to filter by',
+    await b.ev(`!!document.querySelector('#levels .chip[data-cat="OLY"]')`));
+}
 
-const asSingles = await squares();
-const beforeToggle = fx ? fx.stats.served : 0;
-await b.ev(`document.querySelector('#kindWrap [data-kind="doubles"]').click()`);
-const asDoubles = await squares();
-eq('the toggle costs no request — both draws were already loaded',
-  fx ? fx.stats.served : 0, beforeToggle);
-check('and the strip changes',
-  asSingles.map(s => s.label).join('') !== asDoubles.map(s => s.label).join(''),
-  `${asSingles.map(s => s.label).join(' ')}  ->  ${asDoubles.map(s => s.label).join(' ')}`);
-check('same tournaments, different results — a doubles season is not filtered by partner',
-  asSingles.map(s => s.name).join('|') === asDoubles.map(s => s.name).join('|'),
-  asDoubles.map(s => s.name).join(' '));
+/* ============================ the disclaimer ============================ */
 
-console.log('\n=== a player with one discipline gets no dead toggle ===');
-check('loaded', await open('#p=57945&y=2026'));
-eq('no segmented control at all',
-  await b.ev(`document.querySelectorAll('#kindWrap .seg').length`), 0);
-
-/* ============================ the year ============================ */
-
-console.log('\n=== stepping through the years ===');
-check('2018 loads', await open('#p=57945&y=2018'));
-eq('eighteen tournaments that season',
-  (await b.ev('window.BST.season()')).length, 18);
-await b.ev(`document.getElementById('yearPrev').click()`);
-await b.until('!!window.BST && window.BST.ready');
-eq('the arrow steps back a year', await b.ev(`document.getElementById('year').value`), '2017');
-
-
-console.log('\n=== a level the last season did not have is not hidden ===');
-// Filters are held as what is switched *off*, not what is on. Holding the shown
-// set meant stepping back from 2026 to a Superseries-era season hid all of it,
-// because none of its categories were in a set chosen against 2026.
-check('2017 loads', await open('#p=57945&y=2017'));
-const old2017 = await squares();
-check('its tournaments are shown, not filtered away by last year choice',
-  old2017.length >= 12, `${old2017.length} squares`);
-check('including categories this project has not mapped',
-  old2017.some(s => /^Lv \d+$/.test(s.level)),
-  [...new Set(old2017.map(s => s.level))].join(', '));
-check('and no square is left with a blank level',
-  old2017.every(s => s.level.trim().length > 0),
-  old2017.filter(s => !s.level.trim()).map(s => s.name).join(', '));
-check('an unmapped level still gets a usable chip',
-  await b.ev(`[...document.querySelectorAll('#levels .chip')]
-    .every(c => c.textContent.trim().length > 1)`),
-  await b.ev(`[...document.querySelectorAll('#levels .chip')]
-    .map(c => c.textContent.trim().replace(/\s+/g, ' ')).join(' | ')`));
-
-console.log('\n=== a year with nothing in it says why ===');
-check('2005 loads without error', await open('#p=57945&y=2005'));
-eq('no squares', (await squares()).length, 0);
-const why = await b.ev(`document.getElementById('empty').textContent`);
-check('the empty state names the year', /2005/.test(why), why);
-check('and does not leave you guessing whether it is a bug',
-  /may not reach back|did not compete/i.test(why), why);
-check('no error was raised — an empty year is not a failure',
-  await b.ev('window.BST.state.error') === null);
-
-/* ============================ credit ============================ */
-
-console.log('\n=== attribution ===');
-const page = await b.ev('document.body.innerText');
-check('says plainly that it is unofficial', /unofficial/i.test(page));
-check('credits BWF', /BWF/.test(page));
+console.log('\n=== attribution, at the foot of the page ===');
+const footText = await b.ev(`document.querySelector('footer.foot').innerText`);
+check('the footer says it is unofficial', /unofficial/i.test(footText), footText.slice(0, 90));
+check('and credits BWF', /BWF/.test(footText));
+check('nothing above the seasons carries the disclaimer any more',
+  !/unofficial/i.test(await b.ev(`document.querySelector('h1').textContent
+    + (document.getElementById('status').textContent || '')`)));
+check('the footer sits below the seasons in the document',
+  await b.ev(`document.querySelector('footer.foot').compareDocumentPosition(
+    document.getElementById('seasons')) === Node.DOCUMENT_POSITION_PRECEDING`));
 check('links back to bwfbadminton.com',
   await b.ev(`!!document.querySelector('a[href*="bwfbadminton.com"]')`));
 check('carries no BWF logo',
   await b.ev(`![...document.images].some(i => /bwf/i.test(i.src) && /logo/i.test(i.src))`));
+
+/* ============================ the theme ============================ */
+
+console.log('\n=== the predecessor theme, in both modes ===');
+
+/* The palette flips on prefers-color-scheme, so which one a bare run gets
+   depends on the machine it runs on. Both are emulated rather than assumed. */
+const scheme = async value => {
+  await b.send('Emulation.setEmulatedMedia',
+    { features: [{ name: 'prefers-color-scheme', value }] }, b.sessionId);
+  await b.wait(150);
+  return b.ev(`(() => {
+    const s = getComputedStyle(document.documentElement);
+    return { bg: s.getPropertyValue('--bg').trim(),
+             text: s.getPropertyValue('--text').trim(),
+             accent: s.getPropertyValue('--accent').trim(),
+             font: s.getPropertyValue('--font').trim(),
+             painted: getComputedStyle(document.body).backgroundColor,
+             family: getComputedStyle(document.body).fontFamily };
+  })()`);
+};
+
+const dark = await scheme('dark');
+eq('dark is the predecessor ground', dark.bg, '#1a1a1a');
+eq('with its text', dark.text, '#f2f2f2');
+check('and the page paints it rather than borrowing one',
+  dark.painted === 'rgb(26, 26, 26)', dark.painted);
+
+const light = await scheme('light');
+eq('light flips to the predecessor light ground', light.bg, '#efefef');
+eq('and its text', light.text, '#1a1a1a');
+check('painted too', light.painted === 'rgb(239, 239, 239)', light.painted);
+
+eq('BWF red in both', dark.accent, '#df2027');
+eq('the same red either way', light.accent, dark.accent);
+check('set in Roboto', /Roboto/.test(dark.font) && /Roboto/.test(dark.family), dark.family);
+
+await b.send('Emulation.setEmulatedMedia', { features: [] }, b.sessionId);
 
 /* ============================ hygiene ============================ */
 
@@ -309,7 +313,7 @@ console.log('\n=== hygiene ===');
 const { exceptions, errors } = pageErrors(b.events);
 check('no uncaught exceptions', exceptions.length === 0, exceptions.slice(0, 2).join(' | '));
 check('no fixture misses', !fx || fx.stats.missed === 0,
-  fx ? [...fx.stats.misses].slice(0, 3).join(', ') : 'live');
+  fx ? [...fx.stats.misses].slice(0, 4).join(', ') : 'live');
 check('console clean of errors', errors.length === 0, errors.slice(0, 2).join(' | '));
 
 finish(report());

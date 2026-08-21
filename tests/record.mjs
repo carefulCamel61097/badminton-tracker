@@ -22,9 +22,9 @@ import { installFixtures, fixtureCount } from './fixtures.mjs';
 const PORT = 8810, DBG = 9420;
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
-/* The roster the suites actually click on. A singles player, a doubles pair
-   (both halves — a doubles ranking only resolves against player1_id), and a
-   couple of others for variety in tournament level and season length. */
+/* The roster the suites actually click on: a singles career, a player who
+   plays both disciplines, an Olympic champion, and a veteran whose career
+   reaches back into the Superseries era. */
 const DEFAULT_PLAYERS = [
   57945,   // SHI Yu Qi        MS
   87442,   // AN Se Young      WS
@@ -36,14 +36,15 @@ const DEFAULT_PLAYERS = [
 
 const args = process.argv.slice(2);
 const yearArg = args.indexOf('--years');
-const years = yearArg >= 0 ? args[yearArg + 1].split(',') : ['2026'];
+const years = yearArg >= 0 ? args[yearArg + 1].split(',') : [null];   // null = the whole career
 // Skip the value belonging to --years, or `--years 2017` records a season for
 // the player with id 2017 as well. Guarded on yearArg >= 0: indexOf returns -1
 // when the flag is absent, and -1 + 1 is the first real argument.
 const players = args
   .filter((a, i) => /^\d+$/.test(a) && !(yearArg >= 0 && i === yearArg + 1))
   .map(Number);
-const roster = players.length ? players : DEFAULT_PLAYERS;
+const roster = args.includes('--searches') ? []
+  : players.length ? players : DEFAULT_PLAYERS;
 
 const server = createServer(ROOT);
 await new Promise(r => server.listen(PORT, r));
@@ -65,27 +66,67 @@ process.on('unhandledRejection', bail);
 console.log(`recording ${roster.length} player(s) × ${years.length} year(s)`
   + `  — ${fixtureCount()} fixtures to start\n`);
 
-await b.send('Page.navigate', { url: `http://localhost:${PORT}/#p=${roster[0]}&y=${years[0]}` }, b.sessionId);
+// With --searches there is no roster, and `#p=undefined` would send the app
+// walking twenty years for a player who does not exist.
+await b.send('Page.navigate',
+  { url: `http://localhost:${PORT}/` + (roster[0] ? `#p=${roster[0]}` : '') }, b.sessionId);
 const up = await b.until('!!window.BST', { timeout: 40000 });
 if (!up) bail(new Error('the app never initialised — is Chrome being served the page?'));
 
 for (const player of roster) {
   for (const year of years) {
-    process.stdout.write(`  ${player} ${year} … `);
+    process.stdout.write(`  ${player}${year ? ' ' + year : ''} … `);
     const before = fixtureCount();
 
-    await b.ev(`location.hash = '#p=${player}&y=${year}'`);
-    // The season, then the partner lookup behind it on the low lane. If a
-    // player has no recorded match the second never resolves, so this waits on
-    // the queue draining rather than on the data arriving.
-    const ok = await b.until('!!window.BST && window.BST.ready', { timeout: 60000 });
-    await b.wait(2500);
+    await b.ev(`location.hash = '#p=${player}'`);
+    // A career is one request per year, so this can take a couple of minutes.
+    const ok = await b.until('!!window.BST && window.BST.ready', { timeout: 240000 });
+
+    // Ladders load only for rows that have scrolled into view, so walk the page
+    // to the bottom and let every row ask.
+    let last = -1;
+    for (let i = 0; i < 40; i++) {
+      await b.ev('window.scrollTo(0, document.body.scrollHeight)');
+      await b.until('window.BST.ready', { timeout: 240000 });
+      const got = await b.ev('window.BST.state.draws.size');
+      if (got === last) break;
+      last = got;
+    }
 
     const err = await b.ev('window.BST.state.error');
-    const n = await b.ev('(window.BST.season() || []).length');
-    console.log(`${ok ? '' : 'timeout '}${n} tournaments, `
+    const n = await b.ev('(window.BST.seasons() || []).length');
+    const t = await b.ev('(window.BST.seasons() || []).reduce((a, s) => a + s.tournaments.length, 0)');
+    console.log(`${ok ? '' : 'timeout '}${n} seasons, ${t} tournaments, `
       + `+${fixtureCount() - before} fixtures${err ? '  [' + err.slice(0, 60) + ']' : ''}`);
   }
+}
+
+/* The player search the suites type into. Driven through the real input rather
+   than called directly, so what is recorded is the request the app makes. */
+const QUERIES = ['axelsen', 'shi', 'delrue', 'popov', 'an se young'];
+process.stdout.write(`  searches (${QUERIES.length}) … `);
+{
+  const before = fixtureCount();
+  for (const q of QUERIES) {
+    // Clear first: the wait below is for suggestions to *become* non-null, and
+    // the previous query has left them non-null already. Without this every
+    // query but the last is overtaken before its request is ever made.
+    await b.ev(`(() => {
+      const i = document.getElementById('q');
+      i.value = '';
+      i.dispatchEvent(new Event('input'));
+    })()`);
+    await b.until('window.BST.suggestions() === null', { timeout: 10000 });
+
+    await b.ev(`(() => {
+      const i = document.getElementById('q');
+      i.value = ${JSON.stringify(q)};
+      i.dispatchEvent(new Event('input'));
+    })()`);
+    await b.until('window.BST.suggestions() !== null', { timeout: 30000 });
+    await b.wait(400);
+  }
+  console.log(`+${fixtureCount() - before} fixtures`);
 }
 
 finish(0);
