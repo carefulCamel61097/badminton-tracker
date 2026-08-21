@@ -20,7 +20,7 @@ import {
   positionInfo, fillFraction, drawForKind, dominantDraw, seasonKinds,
   defaultKind, seasonLevels, levelLabel, levelAbbr, boxSize, isTeamEvent,
   drawLadder, BOX_H, LEVEL, LEVEL_ORDER,
-  gridColumns, gridCells, gridYears, gridGroupLabel, gridGroupCode, GRID_ORDER,
+  seasonResults, gridSections, sectionCells, gridYears, gridGroupLabel,
 } from './model.js';
 
 const $ = id => document.getElementById(id);
@@ -568,25 +568,26 @@ function gridKindFor(seasons) {
   return has.includes(want) ? want : (defaultKind(all) || want);
 }
 
+/**
+ * One cell.
+ *
+ * There is no text anywhere in the grid, so the tooltip is the whole of the
+ * detail: which tournament this was and how it went. A padded slot names the
+ * section instead, because that is all it is — one more Super 750 they did not
+ * play that year.
+ */
 function cellHtml(cell, year) {
-  const col = cell.col;
-  // `edge` marks the first column of a tier, which is where the only hairline
-  // in the whole grid goes. Everywhere else the cells butt together so a run of
-  // the same result reads as one shape.
-  const cls = `cell r-${cell.tier}${col.edge ? ' edge' : ''}`;
-  const attrs = ` data-col="${esc(col.key)}"`;
+  // The opening slot of a section is the only place the grid draws a line.
+  const cls = `cell r-${cell.tier}${cell.first ? ' edge' : ''}`;
+  const attrs = ` data-group="${esc(String(cell.group))}" data-slot="${cell.slot}"`;
 
   if (!cell.tmt) {
     return `<i class="${cls}"${attrs}`
-      + ` title="${esc(`${col.name || col.label || ''} ${year} — did not play`)}"></i>`;
-  }
-  const t = cell.tmt;
-  if (!cell.draw) {
-    return `<i class="${cls}"${attrs}`
-      + ` title="${esc(`${t.name}\nEntered, but not in this discipline`)}"></i>`;
+      + ` title="${esc(`${year} — no ${cell.section.label} result here`)}"></i>`;
   }
   const wl = cell.draw.win != null ? ` · ${cell.draw.win}-${cell.draw.lose}` : '';
-  return `<i class="${cls}"${attrs} title="${esc(`${t.name}\n${cell.info.full}${wl}`)}"></i>`;
+  return `<i class="${cls}"${attrs}`
+    + ` title="${esc(`${cell.tmt.name}\n${cell.info.full}${wl}`)}"></i>`;
 }
 
 /** Who the grid belongs to: the same identity block as the page's heading. */
@@ -619,27 +620,19 @@ function gridProfile(career) {
     + '</header>';
 }
 
-/** The band above the grid that says which stretch of columns is which tier. */
-function tierBand(columns) {
-  const runs = [];
-  for (const c of columns) {
-    const last = runs[runs.length - 1];
-    if (last && last.group === c.group) last.n++;
-    else runs.push({ group: c.group, n: 1 });
-  }
-  return `<div class="gtiers">${runs.map(r =>
-    `<span class="gt" style="--n:${r.n}" title="${esc(gridGroupLabel(r.group))}">`
-    + `${esc(gridGroupCode(r.group))}</span>`).join('')}</div>`;
+/** The band above the grid that says which stretch of slots is which level. */
+function tierBand(sections) {
+  return `<div class="gtiers">${sections.map(s =>
+    `<span class="gt" style="--n:${s.n}"`
+    + ` title="${esc(`${s.label} — ${s.n} slot${s.n === 1 ? '' : 's'}`)}">`
+    + `${esc(s.code)}</span>`).join('')}</div>`;
 }
 
-function gridCard(career, columns, years) {
-  const kind = gridKindFor(career.seasons);
-  const preferred = dominantDraw(career.seasons.flatMap(s => s.tournaments), kind);
-  const byYear = new Map(career.seasons.map(s => [s.year, s]));
+function gridCard(career, sections, years) {
+  const byYear = new Map(career.rows.map(r => [r.year, r.by]));
 
   const rows = years.map(y => {
-    const season = byYear.get(y) || { year: y, tournaments: [] };
-    const cells = gridCells(season, columns, kind, preferred);
+    const cells = sectionCells(byYear.get(y), sections);
     return `<div class="grow" data-year="${y}"><span class="gy">${y}</span>`
       + cells.map(c => cellHtml(c, y)).join('') + '</div>';
   }).join('');
@@ -648,19 +641,18 @@ function gridCard(career, columns, years) {
     : (!years.length && !career.loading) ? '<p class="gnote">Nothing to show yet.</p>' : '';
 
   return `<section class="gcard" data-player="${esc(career.id)}">`
-    + gridProfile(career) + tierBand(columns)
+    + gridProfile(career) + tierBand(sections)
     + `<div class="gmatrix">${rows}</div>${note}</section>`;
 }
 
-function renderGridGroups(columns) {
-  const present = GRID_ORDER.filter(g => columns.some(c => c.group === g));
-  $('gridGroups').innerHTML = present.map(g => {
-    const n = columns.filter(c => c.group === g).length;
-    const on = !grid.hiddenGroups.has(String(g));
+function renderGridGroups(sections) {
+  $('gridGroups').innerHTML = sections.map(s => {
+    const on = !grid.hiddenGroups.has(String(s.group));
     return `<button type="button" class="chip${on ? ' on' : ''}"`
-      + ` data-group="${esc(String(g))}" aria-pressed="${on}"`
-      + ` title="${esc(`${n} column${n === 1 ? '' : 's'} — ${gridGroupLabel(g)}`)}">`
-      + `${esc(gridGroupLabel(g))}<span class="n">${n}</span></button>`;
+      + ` data-group="${esc(String(s.group))}" aria-pressed="${on}"`
+      + ` title="${esc(`${s.label} — ${s.n} slot${s.n === 1 ? '' : 's'},`
+        + ' the most anyone here played in one season')}">`
+      + `${esc(s.label)}<span class="n">${s.n}</span></button>`;
   }).join('');
 }
 
@@ -676,24 +668,31 @@ function renderGridKinds() {
 function renderGrid() {
   if (!grid.open) return;
   const list = careers();
-  const all = list.map(c => c.seasons);
 
-  // Columns are computed across *both* careers and then filtered, so the two
-  // grids line up and the chip counts do not change when one is hidden.
-  const columns = gridColumns(all);
-  const shown = columns.filter(c => !grid.hiddenGroups.has(String(c.group)));
-  shown.forEach((c, i) => { c.edge = i > 0 && shown[i - 1].group !== c.group; });
-  const years = gridYears(all);
+  // Every career's season bucketed by section, once. Both the widths and the
+  // cells are read off this, so a row cannot be laid out against widths that
+  // were measured from something else.
+  for (const c of list) {
+    const kind = gridKindFor(c.seasons);
+    const preferred = dominantDraw(c.seasons.flatMap(s => s.tournaments), kind);
+    c.rows = c.seasons.map(s => ({ year: s.year, by: seasonResults(s, kind, preferred) }));
+  }
 
-  renderGridGroups(columns);
+  // Widths are measured across *both* careers and then filtered, so the two
+  // grids line up and the chip counts do not move when one section is hidden.
+  const sections = gridSections(list.map(c => c.rows.map(r => r.by)));
+  const shown = sections.filter(s => !grid.hiddenGroups.has(String(s.group)));
+  const years = gridYears(list.map(c => c.seasons));
+
+  renderGridGroups(sections);
   renderGridKinds();
 
   const body = $('gridBody');
   body.classList.toggle('two', list.length > 1);
   // "Nothing is loaded yet" and "you have switched everything off" both leave no
-  // columns, and they are not the same thing to be told.
+  // sections, and they are not the same thing to be told.
   body.innerHTML = shown.length ? list.map(c => gridCard(c, shown, years)).join('')
-    : columns.length ? '<p class="gnote">Every column group is switched off.</p>'
+    : sections.length ? '<p class="gnote">Every level is switched off.</p>'
     : list.some(c => c.loading) ? '<p class="gnote">Loading the career…</p>'
     : '<p class="gnote">Nothing here reaches Super 100, which is where the grid starts.</p>';
 }
@@ -772,6 +771,28 @@ wireSearch({
   input: $('cmpQ'), list: $('cmpSuggest'), form: $('cmpPick'), store: cmp,
   onPick: loadCompare,
 });
+
+/* ---------- zoom ----------
+
+   How big a cell is is a viewing preference, not part of what the grid says, so
+   it lives in localStorage rather than in the hash: a shared link should open on
+   the reader's own zoom, not on whatever the sender happened to be using. */
+
+const ZOOM_KEY = 'bst:gridzoom';
+const ZOOM_DEFAULT = 20;
+
+function setZoom(px, save = true) {
+  const n = Math.max(10, Math.min(40, Number(px) || ZOOM_DEFAULT));
+  $('gridZoom').value = String(n);
+  $('gridBody').style.setProperty('--cell', n + 'px');
+  if (save) { try { localStorage.setItem(ZOOM_KEY, String(n)); } catch { /* private mode */ } }
+}
+
+$('gridZoom').addEventListener('input', e => setZoom(e.target.value));
+
+let saved = null;
+try { saved = localStorage.getItem(ZOOM_KEY); } catch { /* private mode */ }
+setZoom(saved || ZOOM_DEFAULT, false);
 
 $('gridBtn').addEventListener('click', openGrid);
 $('gridClose').addEventListener('click', closeGrid);
@@ -1182,11 +1203,17 @@ window.BST = {
     open: openGrid,
     close: closeGrid,
     isOpen: () => grid.open && $('gridModal').hasAttribute('open'),
-    columns: () => gridColumns(careers().map(c => c.seasons)),
+    /** The sections and their widths, as the render would compute them. */
+    sections: () => gridSections(careers().map(c => {
+      const kind = gridKindFor(c.seasons);
+      const preferred = dominantDraw(c.seasons.flatMap(s => s.tournaments), kind);
+      return c.seasons.map(s => seasonResults(s, kind, preferred));
+    })),
     years: () => gridYears(careers().map(c => c.seasons)),
     kindFor: i => gridKindFor((careers()[i] || { seasons: [] }).seasons),
     compareWith: id => loadCompare({ id: String(id), name: '' }),
     drop: removeCompare,
+    zoom: px => (px == null ? Number($('gridZoom').value) : (setZoom(px), Number($('gridZoom').value))),
     /** Every card on screen, as cells with their laid-out geometry. */
     cards: () => [...document.querySelectorAll('.gcard')].map(card => ({
       player: card.dataset.player,
@@ -1197,7 +1224,8 @@ window.BST = {
         const r = c.getBoundingClientRect();
         return {
           year: Number(c.closest('.grow').dataset.year),
-          col: c.dataset.col,
+          group: c.dataset.group,
+          slot: Number(c.dataset.slot),
           tier: (c.className.match(/r-([\w]+)/) || [])[1],
           w: Math.round(r.width * 10) / 10,
           h: Math.round(r.height * 10) / 10,

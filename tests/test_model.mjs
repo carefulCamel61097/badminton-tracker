@@ -19,7 +19,7 @@ import {
   positionInfo, fillFraction, boxSize, boxScale, levelLabel, isTeamEvent,
   shortTmtName, surnameOf, levelAbbr, roundsInDraw, mainDrawSize, drawLadder,
   canonicalDraw, isOlympics,
-  gridGroup, columnKey, gridColumns, gridCells, gridYears, GRID_ORDER,
+  gridGroup, seasonResults, gridSections, sectionCells, gridYears, resultRank, GRID_ORDER,
   LEVEL, SLOT_W, BOX_H, MIN_LABEL_PX, LEVEL_ORDER,
 } from '../model.js';
 import { check, eq, near, report } from './check.mjs';
@@ -542,6 +542,14 @@ function career(playerId) {
   return out;
 }
 
+/** The same bucketing the view does: one Map per season, newest first. */
+function rowsOf(seasons) {
+  const all = seasons.flatMap(s => s.tournaments);
+  const kind = defaultKind(all);
+  const preferred = dominantDraw(all, kind);
+  return seasons.map(s => ({ year: s.year, by: seasonResults(s, kind, preferred) }));
+}
+
 const shi = career(57945);
 const anSeYoung = career(87442);
 const findTmt = (seasons, re) => seasons.flatMap(s => s.tournaments).find(t => re.test(t.name));
@@ -550,9 +558,9 @@ check('a whole career comes out of the fixtures', shi.length >= 14, `${shi.lengt
 
 /* ---- what belongs in the grid at all ---- */
 
-eq('a Super 750 is in the grid, in its own group',
+eq('a Super 750 is in the grid, in its own section',
   gridGroup(findTmt(shi, /DAIHATSU Japan Open 2026/)), 24);
-eq('the Olympics are the leftmost group',
+eq('the Olympics are the leftmost section',
   gridGroup(findTmt(shi, /Paris 2024 Olympic/)), 'OLY');
 eq('a team event is not in the grid at all',
   gridGroup(findTmt(shi, /Thomas & Uber Cup Finals 2026/)), null);
@@ -574,11 +582,11 @@ eq('an unmapped senior id lands in OTHER, not in the bin',
 eq('the Youth Olympics are not the Olympics', isOlympics('2014 Youth Olympic Games'), false);
 eq('the Olympics still are', isOlympics('Paris 2024 Olympic Games Badminton Competition'), true);
 
-/* ---- the majors keep one column each, across the id renumbering ---- */
+/* ---- the majors keep one section each, across the id renumbering ---- */
 
-eq('the 2017 Worlds are category 1, and still go in the Worlds column',
+eq('the 2017 Worlds are category 1, and still go in the Worlds section',
   gridGroup(findTmt(shi, /TOTAL BWF World Championships 2017/)), 20);
-eq('the 2017 season-ending Finals are category 8, and still go in the Finals column',
+eq('the 2017 season-ending Finals are category 8, and still go in the Finals section',
   gridGroup(findTmt(shi, /Dubai World Superseries Finals 2017/)), 22);
 // Name and category as BWF actually sends them, from a career the roster
 // records but this file does not walk.
@@ -589,117 +597,156 @@ eq('so does a European Championships under an unmapped id',
 eq('an Open whose name ends in "Championships" is not a continental',
   gridGroup(findTmt(shi, /All England Open Badminton Championships 2026/)), 23);
 
-/* ---- column identity across editions ---- */
+/* ---- best-first ordering inside a section ---- */
 
-const keyOf = (cat, name) => columnKey({ cat, name, draws: [{ name: 'MS' }] });
-eq('the sponsor and the year fall out of the key',
-  keyOf(23, 'YONEX All England Open Badminton Championships 2024'),
-  keyOf(23, 'All England Open Badminton Championships 2015'));
-eq('so does the word order — BWF writes it both ways round',
-  keyOf(24, 'Japan Open 2019'), keyOf(24, 'Open Japan 2016'));
-eq('a cancelled edition is still that tournament',
-  keyOf(25, 'Singapore Open 2021 (Cancelled)'), keyOf(25, 'Singapore Open 2022'));
-check('two different tournaments do not collide',
-  keyOf(24, 'Denmark Open 2024') !== keyOf(26, 'Denmark Masters 2024'));
-eq('every edition of the Olympics is one column',
-  columnKey(findTmt(shi, /Paris 2024 Olympic/)), columnKey(findTmt(shi, /Tokyo 2020 Olympic/)));
-eq('a tournament that is not in the grid has no column', keyOf(21, 'BWF Thomas & Uber Cup Finals 2026'), null);
+console.log('\n--- results sort best-first ---');
 
-/* ---- the columns themselves ---- */
+eq('a title is the best there is', resultRank({ steps: 0, tier: 'w' }), 0);
+check('a runner-up comes after it',
+  resultRank({ steps: 1, tier: 'f' }) > resultRank({ steps: 0, tier: 'w' }));
+check('and a round of 128 after that',
+  resultRank({ steps: 7, tier: 'r1' }) > resultRank({ steps: 3, tier: 'qf' }));
+check('a group-stage exit sorts below every knockout round',
+  resultRank({ tier: 'r1' }) > resultRank({ steps: 7, tier: 'r1' }));
+check('qualifying below that — they never reached the main draw',
+  resultRank({ tier: 'q' }) > resultRank({ tier: 'r1' }));
+check('a placing we do not recognise below that again',
+  resultRank({ tier: 'unk' }) > resultRank({ tier: 'q' }));
 
-const shiCols = gridColumns([shi]);
-const col = label => shiCols.find(c => c.label === label);
+const shiRows = rowsOf(shi);
+const rowFor = year => shiRows.find(r => r.year === year);
 
-check('a fifteen-year career is a readable number of columns',
-  shiCols.length > 30 && shiCols.length < 60, `${shiCols.length} columns`);
+for (const row of shiRows) {
+  const bad = [];
+  for (const [group, list] of row.by) {
+    for (let i = 1; i < list.length; i++) {
+      if (list[i].rank < list[i - 1].rank) bad.push(`${row.year} ${group}`);
+    }
+  }
+  if (bad.length) check(`${row.year} is sorted`, false, bad.join(', '));
+}
+check('every section of every season is in best-first order', true,
+  `${shiRows.length} seasons checked`);
 
-const groupsSeen = [...new Set(shiCols.map(c => c.group))];
-eq('the groups run hardest-first, exactly as GRID_ORDER says',
-  groupsSeen.join(','), GRID_ORDER.filter(g => groupsSeen.includes(g)).join(','));
-check('and each group is one unbroken run of columns', (() => {
-  const closed = new Set();
-  let open = null;
-  for (const c of shiCols) {
-    if (c.group === open) continue;
-    if (closed.has(c.group)) return false;      // a group resumed after another
-    if (open !== null) closed.add(open);
-    open = c.group;
+/* Read off the raw payload by hand, not off the sorter under test:
+     2025  Malaysia 1st (Jan) · All England 1st (Mar) · Indonesia 3rd (Jun) · China 1st (Jul)
+     2026  Malaysia 2nd (Jan) · All England R32 (Mar) · Indonesia R16 (Jun) · China QF (Jul) */
+const s1000of = year => (rowFor(year).by.get(23) || []).map(c => c.info.label);
+eq('2025: three Super 1000 titles and a semi, in that order', s1000of(2025).join(' '), 'W W W SF');
+eq('2026: a final, then down the ladder', s1000of(2026).join(' '), 'F QF R16 R32');
+check('and the order is by result, not by date',
+  rowFor(2025).by.get(23).map(c => c.tmt.start).join(' ')
+  !== rowFor(2025).by.get(23).map(c => c.tmt.start).slice().sort().join(' '),
+  rowFor(2025).by.get(23).map(c => `${c.tmt.start}=${c.info.label}`).join(' '));
+
+check('a tournament entered in the other discipline takes no slot',
+  !rowFor(2026).by.get(23).some(c => c.draw.name !== 'MS'),
+  rowFor(2026).by.get(23).map(c => c.draw.name).join(' '));
+
+/* ---- section widths ---- */
+
+console.log('\n--- sections are as wide as the busiest season ---');
+
+const shiSections = gridSections([shiRows.map(r => r.by)]);
+const sec = group => shiSections.find(s => s.group === group);
+
+eq('the sections run hardest-first, exactly as GRID_ORDER says',
+  shiSections.map(s => s.group).join(','),
+  GRID_ORDER.filter(g => shiSections.some(s => s.group === g)).join(','));
+eq('the leftmost section is the Olympics', shiSections[0].group, 'OLY');
+eq('the unmapped era is last', shiSections[shiSections.length - 1].group, 'OTHER');
+
+eq('four Super 1000 slots, which is what the calendar holds', sec(23).n, 4);
+eq('six Super 750 slots', sec(24).n, 6);
+eq('one Olympics, one Worlds, one Continental',
+  `${sec('OLY').n}${sec(20).n}${sec(11).n}`, '111');
+
+check('the width is the most he played in any one season', (() => {
+  for (const s of shiSections) {
+    const most = Math.max(...shiRows.map(r => (r.by.get(s.group) || []).length));
+    if (most !== s.n) return false;
   }
   return true;
 })());
-eq('the leftmost column is the Olympics', shiCols[0].group, 'OLY');
-eq('the unmapped era is last', shiCols[shiCols.length - 1].group, 'OTHER');
+check('so no season ever overflows its sections',
+  shiRows.every(r => [...r.by].every(([g, list]) => list.length <= sec(g).n)));
 
-eq('two Olympic Games, not three — the Youth Games is gone', col('Olympics').count, 2);
-eq('six World Championships, including the one filed under category 1', col('Worlds').count, 6);
-eq('five season-ending Finals, including the 2017 Dubai one', col('Tour Finals').count, 5);
-eq('seven Asian Championships', col('Continental').count, 7);
-check('the All England is in every season it was played',
-  col('All England Open').count >= 7, `${col('All England Open').count}`);
+check('and the whole grid is far narrower than a column per tournament',
+  shiSections.reduce((a, s) => a + s.n, 0) < 40,
+  `${shiSections.reduce((a, s) => a + s.n, 0)} cells wide`);
 
-check('columns inside a tier are in calendar order', (() => {
-  let ok = true;
-  for (let i = 1; i < shiCols.length; i++) {
-    if (shiCols[i].group === shiCols[i - 1].group && shiCols[i].month < shiCols[i - 1].month) ok = false;
-  }
-  return ok;
-})());
+/* ⚠️ 2021 really did hold two Super 1000 Thailand Opens, back to back in the
+   Bangkok bubble — the kind of thing that made a column-per-tournament layout
+   grow a ragged tail. Delphine DELRUE played both. */
+const delrueRows = rowsOf(career(70762));
+const delrue2021 = delrueRows.find(r => r.year === 2021);
+check('two Super 1000s in one January are simply two results',
+  (delrue2021.by.get(23) || []).length === 5,
+  (delrue2021.by.get(23) || []).map(c => c.tmt.short).join(' | '));
 
-/* ---- the cells ---- */
+/* ---- the cells of a row ---- */
 
-const shiKind = defaultKind(shi.flatMap(s => s.tournaments));
-const shiPref = dominantDraw(shi.flatMap(s => s.tournaments), shiKind);
-const rowFor = year => gridCells(shi.find(s => s.year === year) || { tournaments: [] },
-  shiCols, shiKind, shiPref);
+console.log('\n--- one row of cells ---');
 
-const row2026 = rowFor(2026);
-eq('one cell per column, always', row2026.length, shiCols.length);
+const cells2026 = sectionCells(rowFor(2026).by, shiSections);
+eq('one cell per slot, always',
+  cells2026.length, shiSections.reduce((a, s) => a + s.n, 0));
+check('the first cell of each section is marked, and only those',
+  cells2026.filter(c => c.first).length === shiSections.length);
 
-const cellIn = (row, label) => row[shiCols.findIndex(c => c.label === label)];
-eq('the 2026 Worlds were an R64 exit', cellIn(row2026, 'Worlds').tier, 'r1');
-eq('the 2026 Asian Championships were a title', cellIn(row2026, 'Continental').tier, 'w');
-eq('and the tournament is named on the cell, not guessed from the column',
-  /Asia Championships 2026/.test(cellIn(row2026, 'Continental').tmt.name), true);
-eq('a tournament he did not play that year is off, not a result',
-  cellIn(row2026, 'Korea Grand Prix Gold').tier, 'off');
-eq('and it carries no tournament to name', cellIn(row2026, 'Korea Grand Prix Gold').tmt, null);
+const inSection = g => cells2026.filter(c => c.group === g);
+eq('the Worlds cell holds his R64 exit', inSection(20)[0].tier, 'r1');
+eq('the Continental cell holds the title', inSection(11)[0].tier, 'w');
+check('and it names the tournament, so a cell with no text can still be read',
+  /Asia Championships 2026/.test(inSection(11)[0].tmt.name));
 
-check('a season reads as mostly results, not mostly blanks',
-  row2026.filter(c => c.tier !== 'off').length >= 8,
-  `${row2026.filter(c => c.tier !== 'off').length} played`);
+const s1000cells = inSection(23);
+eq('the Super 1000 block is four cells', s1000cells.length, 4);
+check('filled left to right, best first',
+  s1000cells.every((c, i) => i === 0 || c.rank >= s1000cells[i - 1].rank),
+  s1000cells.map(c => c.tier).join(' '));
 
-/* A year in the middle of a career with nothing in it still gets a row: 2021
-   was a thin season, not an absent one. */
+const thin = sectionCells(rowFor(2021).by, shiSections);
+const thin1000 = thin.filter(c => c.group === 23);
+check('a thin season pads on the RIGHT, never in the middle',
+  thin1000.findIndex(c => !c.tmt) === -1
+  || thin1000.slice(thin1000.findIndex(c => !c.tmt)).every(c => !c.tmt),
+  thin1000.map(c => (c.tmt ? c.tier : '·')).join(' '));
+eq('and a padded cell is "off", with nothing to name',
+  thin1000[thin1000.length - 1].tmt, null);
+
+eq('a year with no season at all is all padding',
+  sectionCells(undefined, shiSections).filter(c => c.tier !== 'off').length, 0);
+
+/* ---- two careers share one set of sections ---- */
+
+console.log('\n--- two careers, one set of sections ---');
+
+const anRows = rowsOf(anSeYoung);
+const both = gridSections([shiRows.map(r => r.by), anRows.map(r => r.by)]);
+const bothYears = gridYears([shi, anSeYoung]);
+
+check('a shared section is at least as wide as either career needs',
+  both.every(s => {
+    const mine = shiSections.find(x => x.group === s.group);
+    return !mine || s.n >= mine.n;
+  }));
+check('and wide enough for both, so neither overflows',
+  [...shiRows, ...anRows].every(r =>
+    [...r.by].every(([g, list]) => list.length <= (both.find(s => s.group === g) || { n: 0 }).n)));
+eq('every row is the same width in both grids',
+  sectionCells(shiRows[0].by, both).length, sectionCells(anRows[0].by, both).length);
+
 const shiYears = gridYears([shi]);
 eq('the years run newest first', shiYears[0] > shiYears[shiYears.length - 1], true);
 eq('with no gaps in the middle',
   shiYears.length, shiYears[0] - shiYears[shiYears.length - 1] + 1);
 check('a season whose every tournament is junior is not a row',
-  !shiYears.includes(2012), `2012 was Asia Youth U19 only; years start at ${shiYears[shiYears.length - 1]}`);
-
-/* ---- two careers share one set of columns ---- */
-
-const bothCols = gridColumns([shi, anSeYoung]);
-const bothYears = gridYears([shi, anSeYoung]);
-const shiOnly = new Set(shiCols.map(c => c.key));
-const anOnly = new Set(gridColumns([anSeYoung]).map(c => c.key));
-
-check('the shared column set covers both careers',
-  [...shiOnly].every(k => bothCols.some(c => c.key === k))
-  && [...anOnly].every(k => bothCols.some(c => c.key === k)));
-check('and it is their union, with the events they share counted once',
-  bothCols.length < shiOnly.size + anOnly.size,
-  `${bothCols.length} vs ${shiOnly.size} + ${anOnly.size}`);
+  !shiYears.includes(2012), `2012 was Asia Youth U19 only`);
 eq('the years span both careers', bothYears[0], Math.max(shiYears[0], gridYears([anSeYoung])[0]));
 
-const anRow = gridCells(anSeYoung.find(s => s.year === 2026), bothCols,
-  defaultKind(anSeYoung.flatMap(s => s.tournaments)),
-  dominantDraw(anSeYoung.flatMap(s => s.tournaments), 'singles'));
-eq('both grids are the same width, so the columns line up', anRow.length, bothCols.length);
-check('a column only one of them has is a blank in the other, not a missing cell',
-  anRow.some(c => c.tier === 'off'));
-
-eq('nothing to draw is an empty list, not a crash', gridColumns([]).length, 0);
+eq('nothing to draw is an empty list, not a crash', gridSections([]).length, 0);
 eq('and so is a career of nothing', gridYears([[]]).length, 0);
+eq('a season of nothing buckets to nothing', seasonResults(null, 'singles', 'MS').size, 0);
 
 process.exit(report());

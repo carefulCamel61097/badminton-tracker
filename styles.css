@@ -474,10 +474,10 @@ dialog.modal::backdrop { background: rgba(0, 0, 0, .74); }
   padding-bottom: 8px;
   scrollbar-width: thin;
 
-  --cell: 14px;      /* fixed, and the same in both grids: the position in the
-                        row is what encodes difficulty, never the size. Chosen
-                        so two whole careers side by side clear a laptop
-                        screen without scrolling more often than not. */
+  /* Set from JS, and the same in both grids: the position in the row is what
+     encodes difficulty, never the size. The zoom slider moves this and nothing
+     else, so every cell stays identical to every other at any setting. */
+  --cell: 20px;
   --gy: 36px;        /* the year gutter, which the tier band has to clear too */
 }
 .gcard {
@@ -500,8 +500,10 @@ dialog.modal::backdrop { background: rgba(0, 0, 0, .74); }
 .gtiers { display: flex; margin-left: var(--gy); }
 .gt {
   width: calc(var(--cell) * var(--n));
-  /* Three characters have to fit in one 14px column — see gridGroupCode. */
-  font: 400 7px/1.7 var(--mono);
+  /* Three characters have to fit in one column — see gridGroupCode. Clipped
+     rather than wrapped, with the full name and the slot count on a title;
+     below about 14px of zoom the one-slot blocks do clip. */
+  font: 400 8px/1.5 var(--mono);
   color: var(--text-muted);
   overflow: hidden;
   white-space: nowrap;
@@ -540,9 +542,6 @@ dialog.modal::backdrop { background: rgba(0, 0, 0, .74); }
 .cell.r-q   { background: var(--res-q); }
 .cell.r-unk { background: var(--res-unk); }
 .cell.r-na  { background: var(--res-na); }
-/* Entered the tournament, but in the other discipline — a fact about the
-   player, not a result, so it reads as grey rather than as anywhere on the ramp. */
-.cell.r-none { background: var(--res-na); opacity: .55; }
 .cell.r-off { background: var(--res-off); }
 
 .gnote { margin: 8px 0 0; color: var(--text-muted); font-size: 12.5px; }
@@ -558,5 +557,12 @@ dialog.modal::backdrop { background: rgba(0, 0, 0, .74); }
   font-size: 11.5px;
 }
 .legend.note { display: block; max-width: 88ch; line-height: 1.55; margin-top: 6px; }
+
+.zoom {
+  display: inline-flex; align-items: center; gap: 7px;
+  font: 400 10.5px var(--mono); text-transform: uppercase; letter-spacing: .09em;
+  color: var(--text-muted);
+}
+.zoom input[type=range] { width: 96px; accent-color: var(--accent); cursor: pointer; }
 .key { display: inline-flex; align-items: center; gap: 5px; }
 .key .cell { width: 11px; height: 11px; border-radius: 2px; }

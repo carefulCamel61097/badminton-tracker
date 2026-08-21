@@ -55,11 +55,17 @@ for (const [name, hash] of shots) {
   await b.until('window.BST.grid.ready()', { timeout: 240000 });
   await b.wait(400);
 
+  /* ⚠️ `captureBeyondViewport` silently drops the **top layer**, so a <dialog>
+     opened with showModal() — the grid — is simply not in the picture, backdrop
+     and all. The page behind it photographs perfectly, which is what makes it
+     look like the modal failed to open rather than like a capture setting. The
+     strip needs the whole document height; the grid fits the viewport, so it is
+     captured without it. */
   const r = await b.send('Page.captureScreenshot', {
     format: 'png',
-    captureBeyondViewport: true,
+    captureBeyondViewport: !wide(hash),
     clip: wide(hash)
-      ? { x: 0, y: 0, width: 1660, height: 1000, scale: 1.5 }
+      ? { x: 0, y: 0, width: 1660, height: 1080, scale: 1.5 }
       : { x: 0, y: 0, width: 1000, height: 900, scale: 2 },
   }, b.sessionId);
 

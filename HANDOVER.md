@@ -72,28 +72,48 @@ New on top of it:
 
 ### 1.1b Career grid (the simpler reading)
 
-*Added 22 Aug 2026.* A second view of the same career, opened as a modal from the season
-strip, that deliberately throws away everything the strip spends its detail on.
+*Added 22 Aug 2026, layout revised the same day.* A second view of the same career, opened
+as a modal from the season strip, that deliberately throws away everything the strip spends
+its detail on.
 
 - **Rows are seasons**, newest at the top, same as the strip.
-- **Columns are tournaments** — one column is one event read down the years, present in
-  every row whether the player entered it that season or not.
-- **Every cell is the same size** (14px) and **flooded with one colour**. No labels, no
-  weight sizing, no partial fills. The difficulty is encoded by *where* the column is,
-  never by how big or how full the cell is.
+- **Columns are levels, not tournaments.** Each level gets a **block** of slots, and a
+  season's results at that level fill it **left to right, best first**. Four Super 1000
+  slots might read `W W W SF` one year and `F QF R16 R32` the next. Unplayed slots pad the
+  **right-hand end** of the block.
+- **Every cell is the same size** and **flooded with one colour** — no labels, no weight
+  sizing, no partial fills. The difficulty is encoded by *which block* a cell is in and how
+  far left it sits, never by how big or how full it is.
 - Cells **butt against each other**, so runs of the same result merge into one shape. The
-  only separators are hairlines between tiers.
+  only lines are at the start of each block.
 - **Super 100 and above only**, with the junior circuit and the team events out entirely.
-- Columns run **hardest-first**: Olympics, Worlds, Tour Finals, Super 1000, Super 750,
+- Blocks run **hardest-first**: Olympics, Worlds, Tour Finals, Super 1000, Super 750,
   Continental, Super 500, Super 300, Super 100, then the unmapped pre-2018 era. A toggle
-  chip per group; all on by default.
-- **Two players side by side**, sharing one set of columns and one set of rows, with
-  their profiles — photograph, flag, age, world ranking, Race standing — above each grid.
+  chip per level; all on by default.
+- A **zoom slider** sets the cell size (10–40px, default 20). It lives in `localStorage`,
+  not in the hash: a shared link should open at the reader's zoom, not the sender's.
+- **Two players side by side**, sharing one set of blocks and one set of rows, with their
+  profiles — photograph, flag, age, world ranking, Race standing — above each grid.
 
 Why a second view at all: the strip answers *how did this year go*, and answers it well
-enough that the answer takes a moment to read. The grid answers *which events does this
-player turn up at, and how do they do there* at a glance, and it is the only view in which
-two careers can be laid over one another.
+enough that the answer takes a moment to read. The grid answers *how did they do at this
+level, year after year* at a glance, and it is the only view in which two careers can be
+laid over one another.
+
+**The first layout gave every tournament its own column, and it was wrong.** Keyed on the
+tidied name, because no id survives an edition. Two problems, which turned out to be one:
+a name is not a stable identity ("Japan Open" and "Open Japan"; "Thaihot China Open" and
+"China Open"), and 2020–21 is full of one-offs — two Super 1000 Thailand Opens in one
+January, the 2020 Finals played in 2021 — so every tier grew a ragged tail of columns one
+cell deep. Shi Yu Qi came out 45 columns wide with a Super 1000 tier of five. Sorting
+inside a block makes both problems disappear: two Thailand Opens are simply two Super 1000
+results, which is what they were, and the same career is 35 cells wide with a Super 1000
+block of four.
+
+What it costs is real and worth stating: a cell no longer says *which* tournament without
+hovering it, and a column no longer reads down the years as one event, so "this player
+never enters the China Open" is no longer visible. What it buys is that every row is
+directly comparable, and each block runs green-to-red left to right by construction.
 
 Both grids live in **one** horizontal scroller. Two independently scrolling grids side by
 side stop being a comparison the moment either one moves.
@@ -436,30 +456,26 @@ otherwise anyone born on the 29th of February is a year out.
 
 ---
 
-### 2.9 The grid's columns — settled 22 Aug 2026
+### 2.9 The grid's blocks — settled 22 Aug 2026
 
-Three decisions, each of which the data forced.
+**A block is as wide as the most results anyone put in it in any one season.** Derived, not
+declared, and that is deliberate: the declared answer moves. The 2026 calendar holds four
+Super 1000s and the 2027 one holds five, and January 2021 ran **two** Super 1000 Thailand
+Opens back to back in the Bangkok bubble, so Delphine DELRUE's Super 1000 block is five
+wide where Shi Yu Qi's is four. Measuring it is the narrowest the grid can be while still
+fitting every row.
 
-**Column identity is the tidied name, with the words sorted.** No id survives an edition:
-`tournament_id` and `code` are per-edition and the name carries a sponsor that changes with
-the contract. `shortTmtName` already strips the sponsor, the year and the "presented by"
-tail, so the key is that, lowercased, reduced to letters and digits, **split into words and
-sorted**. The sort is not decoration — BWF writes the same event both ways round ("Japan
-Open" one year, "Open Japan" the next; "Chinese Taipei Open" and "Open Chinese Taipei"),
-and each spelling would otherwise be its own half-empty column. `(Cancelled)` is stripped
-from the key but kept on the strip's label, because there it changes what the result means.
+⚠️ The cost: a level a player never fills completely is never drawn at full width. Somebody
+who plays three of the four Super 1000s every year gets a three-slot block, and the fourth
+is invisible rather than empty. Fixing that means asking BWF what the calendar held — see
+Part 7.
 
-This is the one place the grid can be wrong in a way the strip cannot. A genuinely renamed
-event splits into two columns; two events that tidy to the same words merge into one.
-"Thaihot China Open" (2015) does not merge with "China Open", and it stays visible as a
-half-empty column. The cell tooltip always names the actual tournament, so the split is
-inspectable rather than silent.
-
-**Olympics, Worlds, Tour Finals and Continental each collapse to a single column**,
-whatever the edition is called. A player enters at most one per season and the column
-means the *event*, not the edition. It also settles the continental championships, which
-are named for the continent: an Asian and a European player compared side by side share
-one Continental column instead of each having a column the other can never fill.
+**Results sort best-first, by steps from the final.** Champion 0, runner-up 1, out to a
+round of 128 at 7, and then the placings with no rung on the ladder, in the order they
+deserve: out in the group stage, out in qualifying, a placing we do not recognise, no
+individual placing at all. Ties break by date, oldest first, so a row is stable from render
+to render. Deliberately *not* `fillFraction`: that needs the real draw size, which is one
+extra request per tournament, and the grid is the view that makes no extra requests.
 
 **What is in the grid is decided from the payload, not from the category id.** Three
 exclusions and one rescue, in that order:
@@ -471,21 +487,23 @@ exclusions and one rescue, in that order:
   U19") or a draw carries the age band ("BS U19"). ⚠️ **`LI NING BWF World Junior
   Championship 2018` is category 20 — the senior World Championships id.** The ids cannot
   be trusted for this even inside the mapped range.
-- *Below Super 100*: categories 5, 6 and 7.
+- *Below Super 100*: categories 5, 6 and 7. A Future Series title sorted next to a Super
+  1000 title would read as the same result.
 - *Rescued by name*: the 2017 World Championships is category **1**, the 2010 and 2012
   Asian Championships are **3** and **1**, and the 2017 Dubai World Superseries Finals is
-  **8**. Without a name rule the Worlds column has a hole in 2017 and a one-cell "World
-  Champs" column appears at the far right instead — a wrong statement, not a missing one.
-  The rule moves nothing but which column an event lands in; the strip keeps weighting by
-  the id it was given.
+  **8**. Without a name rule a 2017 Worlds result lands in the unmapped block at the far
+  right, and the one block that should hold exactly one cell every year holds none. The
+  rule moves nothing but which block a result lands in; the strip keeps weighting by the id
+  it was given.
 
-Everything else unmapped stays, grouped as **"Unmapped"** on the right with its own
-toggle. Those *are* Super-100-and-above events under Superseries and Grand Prix names, and
-dropping them would silently blank the first half of a long career.
+Everything else unmapped stays, grouped as **"Unmapped"** on the right with its own toggle.
+Those *are* Super-100-and-above events under Superseries and Grand Prix names, and dropping
+them would silently blank the first half of a long career. It is 13 slots wide for Shi Yu
+Qi and one click to hide.
 
-**What the columns are not**: they are the tournaments these players entered at least
-once, not the calendar. `vue-grouped-year-tournaments` (Part 3.2) would give the real
-per-season calendar and is the obvious upgrade — see Part 7.
+**A tournament entered in the other discipline takes no slot.** Under the old
+tournament-per-column layout it needed a state of its own, because the column existed
+either way. Here the question does not arise, and the legend is one item shorter for it.
 
 ---
 
@@ -801,6 +819,18 @@ scroll step did not help either, because the shape had changed again.
 That found 76 ladders it had been missing. Where a fixture set depends on lazy loading,
 drive the loading directly rather than reproducing the conditions that trigger it.
 
+### 4.4c `captureBeyondViewport` does not photograph the top layer
+
+`Page.captureScreenshot` with `captureBeyondViewport: true` renders the full document
+height and **omits the top layer entirely** — a `<dialog>` opened with `showModal()` is
+missing from the image, backdrop and all. Everything behind it photographs perfectly, so
+the picture looks exactly like a modal that failed to open, and the obvious next move is to
+go debugging the app. Cost about ten minutes on 22 Aug 2026; the dialog was open the whole
+time, with two cards rendered in it.
+
+Capture a modal **without** `captureBeyondViewport` and clip to the viewport. `shot.mjs`
+picks per shot: the season strip needs the whole document, the grid does not.
+
 ### 4.5 Name handling
 
 BWF names need real work: sponsor prefixes, edition numerals, and surname extraction for
@@ -864,9 +894,11 @@ using the global `WebSocket`. Deployed on GitHub Pages. This worked well — kee
 3. ~~**Player selection.**~~ **Done 21 Aug 2026.** Type-ahead over
    `vue-popular-players`, debounced, newest-keystroke-wins. Recently-viewed is still open.
 3b. ~~**Career grid + compare.**~~ **Done 22 Aug 2026.** The modal grid of Part 1.1b, its
-   column model in `model.js` (Part 2.9), and two careers side by side sharing one set of
-   columns. The type-ahead was made a factory at this point because the comparison needs a
-   second one; the career walk was extracted as `walkCareer` for the same reason.
+   block model in `model.js` (Part 2.9), a zoom slider, and two careers side by side
+   sharing one set of blocks. Built twice: the first layout gave every tournament its own
+   column and did not survive 2021 — see 1.1b. The type-ahead was made a factory at this
+   point because the comparison needs a second one; the career walk was extracted as
+   `walkCareer` for the same reason.
 4. **Tournament view.** `vue-tmt-schedule` drives it. Results when a tournament is
    finished, draws when the next one is up, live scores while it runs.
 5. **Bracket + drill-down.** Port the bracket; wire season square → that tournament's
@@ -917,11 +949,15 @@ using the global `WebSocket`. Deployed on GitHub Pages. This worked well — kee
   on the id alone will let a junior event through.
 - **Does the calendar's `category` string map cleanly onto `tournament_category_id`?**
   Both are in use and the mapping is currently inferred from the level names.
-- **Should the grid's columns come from the calendar rather than from the players?**
-  Today a column exists because one of the players on screen entered that event at least
-  once, so "did not play" covers only tournaments they played in *some* season.
+- **Should the grid's block widths come from the calendar rather than from the players?**
+  Today a block is as wide as the most anyone on screen played at that level in one season
+  (Part 2.9), so a player who never enters all four Super 1000s gets a three-slot block and
+  the one they skip is invisible rather than empty.
   `vue-grouped-year-tournaments?year=&category[]=` (Part 3.2) returns the real calendar for
-  a year and would make the columns the events that actually existed — one extra call per
-  season, immutable history, so the 12-hour store covers it. The blocker is the trap in
-  Part 3.2: the level arrives there as a **display string**, not an id, so it needs the
-  mapping the question above is about.
+  a year and would make each block as wide as the level actually was **that season** — one
+  extra call per season, immutable history, so the 12-hour store covers it. It would also
+  make the width vary by row, which is a layout question as much as a data one: a block
+  that is four wide in 2026 and five in 2021 no longer lines up down the grid, so either
+  every row pads to the widest year or the columns stop being columns. The other blocker is
+  the trap in Part 3.2: the level arrives there as a **display string**, not an id, so it
+  needs the mapping the question above is about.

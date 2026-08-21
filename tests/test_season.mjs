@@ -481,13 +481,13 @@ check('with the reason spelled out on hover',
 
 /* ============================ the career grid ============================
 
-   The second reading of the same career: a row per season, a column per
-   tournament, every cell identical. Measured off the laid-out geometry for the
-   same reason the strip is — "all the cells are the same size and they touch"
-   is a claim about pixels, and the model cannot make it on its own.
+   The second reading of the same career: a row per season, a block of slots per
+   level, filled best-first. Measured off the laid-out geometry for the same
+   reason the strip is — "every cell is the same size and they touch" is a claim
+   about pixels, and the model cannot make it on its own.
    ==================================================================== */
 
-console.log('\n=== the grid: one row per season, one column per tournament ===');
+console.log('\n=== the grid: a row per season, a block per level ===');
 
 check('SHI Yu Qi loads', await open('#p=57945'));
 check('the grid is shut until it is asked for',
@@ -496,22 +496,32 @@ check('the grid is shut until it is asked for',
 await b.ev(`document.getElementById('gridBtn').click()`);
 check('the button opens it', await b.ev('window.BST.grid.isOpen()'));
 
-const gCols = await b.ev('window.BST.grid.columns()');
+const sections = await b.ev('window.BST.grid.sections()');
 const gYears = await b.ev('window.BST.grid.years()');
 const cards = await b.ev('window.BST.grid.cards()');
+const width = sections.reduce((a, s) => a + s.n, 0);
 
 eq('one card, for one player', cards.length, 1);
 eq('a row per season', cards[0].years.length, gYears.length);
 eq('newest at the top, the same way round as the strip',
   cards[0].years[0] > cards[0].years[cards[0].years.length - 1], true);
+eq('a cell per slot per row', cards[0].cells.length, gYears.length * width);
 
-eq('a cell per column per row', cards[0].cells.length, gYears.length * gCols.length);
+/* The counts the whole redesign was for: a level is as wide as the busiest
+   season, not one column per tournament that has ever carried a different name. */
+const secN = g => (sections.find(s => String(s.group) === String(g)) || {}).n;
+eq('four Super 1000 slots', secN(23), 4);
+eq('six Super 750 slots', secN(24), 6);
+eq('one Olympics slot', secN('OLY'), 1);
+eq('one Worlds slot', secN(20), 1);
+check('and the grid is far narrower than a column per tournament',
+  width < 45, `${width} cells wide`);
 
-/* Fixed size and no partial fills: the difficulty is in *where* the cell is,
-   never in how big it is or how full. */
+/* Fixed size and no partial fills: the difficulty is in *which block* a cell is
+   in and how far left it sits, never in how big it is or how full. */
 const sizes = [...new Set(cards[0].cells.map(c => `${c.w}x${c.h}`))];
 eq('every cell is the same size', sizes.length, 1);
-eq('and square', sizes[0], '14x14');
+eq('and square, at the default zoom', sizes[0], '20x20');
 check('no cell carries any text',
   await b.ev(`[...document.querySelectorAll('.gcard .cell')].every(c => c.textContent === '')`));
 check('and none of them is a partial fill',
@@ -522,39 +532,93 @@ check('and none of them is a partial fill',
 const firstRow = cards[0].cells.filter(c => c.year === cards[0].years[0])
   .sort((a, b) => a.x - b.x);
 check('cells in a row touch, with no gap between them',
-  firstRow.every((c, i) => i === 0 || Math.abs(c.x - (firstRow[i - 1].x + 14)) < 0.6),
+  firstRow.every((c, i) => i === 0 || Math.abs(c.x - (firstRow[i - 1].x + 20)) < 0.6),
   firstRow.slice(0, 6).map(c => c.x).join(' '));
 
-/* Columns run hardest-first, and the band above says which is which. */
-check('the tier band names the groups left to right',
+check('the tier band names the blocks left to right',
   cards[0].tiers.length >= 5 && cards[0].tiers[0] === 'OLY',
   cards[0].tiers.join(' | '));
-eq('the leftmost column is the Olympics', gCols[0].group, 'OLY');
-eq('the rightmost is the unmapped era', gCols[gCols.length - 1].group, 'OTHER');
+eq('the leftmost block is the Olympics', sections[0].group, 'OLY');
+eq('the rightmost is the unmapped era', sections[sections.length - 1].group, 'OTHER');
 
-/* The ramp is the strip's ramp, flooded rather than filled. */
-const colIndex = label => gCols.findIndex(c => c.label === label);
-const cellAt = (year, label) => cards[0].cells
-  .filter(c => c.year === year)[colIndex(label)];
-eq('a title floods the cell green',
-  cellAt(2026, 'Continental').bg, 'rgb(26, 127, 55)');
-eq('a first-round exit floods it red', cellAt(2026, 'Worlds').bg, 'rgb(207, 75, 63)');
-check('a tournament he did not play is the ground colour, not a result',
-  cellAt(2026, 'Korea Grand Prix Gold').bg === 'rgb(41, 41, 41)',
-  cellAt(2026, 'Korea Grand Prix Gold').bg);
-check('and the cell says which tournament and which result',
-  /Asia Championships/.test(cellAt(2026, 'Continental').title)
-  && /Champion/.test(cellAt(2026, 'Continental').title),
-  cellAt(2026, 'Continental').title);
+/* ---- best-first, which is the whole point ---- */
 
-/* ---- the column toggles ---- */
+console.log('\n=== each block runs best-first, left to right ===');
 
-console.log('\n=== the odd tournaments can be switched out ===');
+const RAMP = ['rgb(26, 127, 55)', 'rgb(63, 163, 77)', 'rgb(124, 179, 66)',
+  'rgb(201, 162, 39)', 'rgb(224, 123, 57)', 'rgb(207, 75, 63)'];
+const GROUND = 'rgb(41, 41, 41)';
+const rank = bg => { const i = RAMP.indexOf(bg); return i < 0 ? 90 : i; };
+
+const block = (year, group) => cards[0].cells
+  .filter(c => c.year === year && String(c.group) === String(group))
+  .sort((a, b) => a.slot - b.slot);
+
+/* 2025, read off the raw payload by hand: Malaysia 1st, All England 1st,
+   Indonesia 3rd, China 1st — three Super 1000 titles and a semi-final. */
+const s1000 = block(2025, 23);
+eq('four cells in the Super 1000 block', s1000.length, 4);
+eq('three titles then the semi, in that order',
+  s1000.map(c => c.tier).join(' '), 'w w w sf');
+check('which is not the order they were played in',
+  /Malaysia/.test(s1000[0].title) === false || /China/.test(s1000[2].title),
+  s1000.map(c => c.title.split('\n')[0]).join(' | '));
+
+check('every block of every row is in best-first order', (() => {
+  for (const year of cards[0].years) {
+    for (const s of sections) {
+      const cells = block(year, s.group);
+      for (let i = 1; i < cells.length; i++) {
+        if (rank(cells[i].bg) < rank(cells[i - 1].bg)) return false;
+      }
+    }
+  }
+  return true;
+})());
+
+/* A thin season pads on the right of its block, never in the middle. */
+const thin = block(2021, 23);
+check('unplayed slots sit at the right-hand end of the block', (() => {
+  const first = thin.findIndex(c => c.bg === GROUND);
+  return first === -1 || thin.slice(first).every(c => c.bg === GROUND);
+})(), thin.map(c => (c.bg === GROUND ? '·' : c.tier)).join(' '));
+check('and a padded cell says so rather than naming a tournament',
+  thin.filter(c => c.bg === GROUND).every(c => /no Super 1000 result/.test(c.title)),
+  thin[thin.length - 1].title);
+
+check('a played cell names the tournament and the result',
+  /Asia Championships/.test(block(2026, 11)[0].title)
+  && /Champion/.test(block(2026, 11)[0].title),
+  block(2026, 11)[0].title);
+eq('the 2026 Continental title floods the cell green', block(2026, 11)[0].bg, RAMP[0]);
+eq('and the 2026 Worlds R64 exit floods it red', block(2026, 20)[0].bg, RAMP[5]);
+
+/* ---- zoom ---- */
+
+console.log('\n=== the cells can be made bigger ===');
+
+eq('the slider reads the size the cells are drawn at', await b.ev('window.BST.grid.zoom()'), 20);
+await b.ev(`window.BST.grid.zoom(34)`);
+const big = await b.ev('window.BST.grid.cards()');
+const bigSizes = [...new Set(big[0].cells.map(c => `${c.w}x${c.h}`))];
+eq('turning it up resizes every cell', bigSizes[0], '34x34');
+eq('and all of them, still identically', bigSizes.length, 1);
+
+const bigRow = big[0].cells.filter(c => c.year === big[0].years[0]).sort((a, b) => a.x - b.x);
+check('they still touch at the new size',
+  bigRow.every((c, i) => i === 0 || Math.abs(c.x - (bigRow[i - 1].x + 34)) < 0.6));
+check('the zoom is a viewing preference, so it stays out of the link',
+  await b.ev(`!location.hash.includes('34')`), await b.ev('location.hash'));
+await b.ev(`window.BST.grid.zoom(20)`);
+
+/* ---- the level toggles ---- */
+
+console.log('\n=== levels can be switched out ===');
 
 const gChips = await b.ev(`[...document.querySelectorAll('#gridGroups .chip')].map(c => ({
   group: c.dataset.group, on: c.getAttribute('aria-pressed') === 'true',
   label: c.textContent }))`);
-check('every group present has a toggle', gChips.length >= 6, gChips.map(c => c.label).join(' '));
+check('every level present has a toggle', gChips.length >= 6, gChips.map(c => c.label).join(' '));
 check('and they all start on', gChips.every(c => c.on));
 check('the Olympics are one of them', gChips.some(c => c.group === 'OLY'));
 
@@ -570,7 +634,7 @@ await b.ev(`document.querySelector('#gridGroups .chip[data-group="OTHER"]').clic
 
 /* ---- two players side by side ---- */
 
-console.log('\n=== two careers, one set of columns ===');
+console.log('\n=== two careers, one set of blocks ===');
 
 // `void`, so the evaluate returns at once rather than blocking on a career
 // that is dozens of requests long — the wait below is what watches for it.
@@ -592,10 +656,19 @@ check('and their age and world ranking beside it',
 
 eq('the two grids are the same width', two[0].cells.length, two[1].cells.length);
 eq('and cover the same years', two[0].years.join(','), two[1].years.join(','));
-check('so a column means the same tournament in both',
-  two[0].cells.slice(0, 40).every((c, i) => c.col === two[1].cells[i].col));
-check('a tournament only one of them plays is a blank in the other',
-  two[1].cells.some(c => c.bg === 'rgb(41, 41, 41)'));
+check('so block N of one is block N of the other',
+  two[0].cells.slice(0, 60).every((c, i) =>
+    c.group === two[1].cells[i].group && c.slot === two[1].cells[i].slot));
+
+const shared = await b.ev('window.BST.grid.sections()');
+check('a block is wide enough for whichever of them played more',
+  shared.every(s => {
+    const before = sections.find(x => String(x.group) === String(s.group));
+    return !before || s.n >= before.n;
+  }),
+  shared.map(s => `${s.code}:${s.n}`).join(' '));
+check('and a season that fills fewer of them is blank on the right, not missing',
+  two[1].cells.some(c => c.bg === GROUND));
 check('both grids scroll together, in one scroller',
   await b.ev(`document.querySelectorAll('#gridBody').length === 1
     && getComputedStyle(document.getElementById('gridBody')).overflowX === 'auto'`));

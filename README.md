@@ -57,26 +57,34 @@ lose them entirely. See `HANDOVER.md` Part 2.6.
 ## The grid
 
 The seasons again, read the other way round, in a popup from **Grid & compare**. Rows are
-still seasons; columns are tournaments — one column is one event down the years, present in
-every row whether the player entered it that season or not. Every cell is the same size and
-flooded with one colour: no labels, no weight sizing, no partial fills. The difficulty is in
-*where* a column is, not in how big or how full the cell is, and cells butt together so runs
-of the same result merge into one shape.
+still seasons. Columns are **levels**, not tournaments: each level gets a block of slots,
+and a season's results at that level fill it **left to right, best first**. Four Super 1000
+slots read `W W W SF` for Shi Yu Qi in 2025 and `F QF R16 R32` in 2026. Unplayed slots pad
+the right-hand end of the block.
 
-Columns run hardest-first — Olympics, Worlds, Tour Finals, Super 1000, Super 750,
+Every cell is the same size and flooded with one colour — no labels, no weight sizing, no
+partial fills. The difficulty is in *which block* a cell is in and how far left it sits, and
+cells butt together so runs of the same result merge into one shape. A zoom slider sets the
+size; it is a viewing preference and stays out of the link.
+
+Blocks run hardest-first — Olympics, Worlds, Tour Finals, Super 1000, Super 750,
 Continental, Super 500, Super 300, Super 100 — then the pre-2018 category ids this project
-has no name for, grouped as "Unmapped" on the end. A chip per group switches it in or out.
+has no name for, grouped as "Unmapped" on the end. A chip per level switches it in or out.
 Below Super 100, the junior circuit and the team events are not in the grid at all.
 
-**Compare with…** loads a second whole career and puts it beside the first, sharing one set
-of columns and one set of rows so the two are actually readable against each other, with
-each player's photograph, flag, age, world ranking and Race standing above their grid. The
-comparison is in the URL, so it is a link.
+A block is as wide as **the most anyone on screen played at that level in a single season**.
+That is measured rather than declared, because the declared answer moves: four Super 1000s
+in 2026, five in 2027, and five in 2021 because that January ran two Super 1000 Thailand
+Opens back to back in the Bangkok bubble.
 
-Column identity is the tidied tournament name with its words sorted, which is the only thing
-that survives an edition — see `HANDOVER.md` Part 2.9 for what that gets right, what it gets
-wrong, and why the Worlds column needs a name rule to stay whole across BWF's 2018
-renumbering.
+**Compare with…** loads a second whole career and puts it beside the first, sharing one set
+of blocks and one set of rows so the two are readable against each other, with each player's
+photograph, flag, age, world ranking and Race standing above their grid. The comparison is
+in the URL, so it is a link.
+
+See `HANDOVER.md` Part 1.1b for what this layout gives up — a cell no longer says which
+tournament without hovering it — and 2.9 for why the first attempt, a column per
+tournament, did not survive contact with 2021.
 
 ## Where things are
 

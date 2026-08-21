@@ -86,13 +86,19 @@
   </details>
 </footer>
 
-<!-- The same seasons re-indexed by tournament: one column per event, one row per
-     year, every cell the same size and filled solid. A modal because it is a
-     second reading of what is already on the page, not a second page. -->
+<!-- The same seasons re-indexed by level: a row per year, a block of slots per
+     level, filled best-first, every cell the same size and flooded solid. A
+     modal because it is a second reading of what is already on the page, not a
+     second page. -->
 <dialog id="gridModal" class="modal" aria-labelledby="gridTitle">
   <header class="modalhead">
     <h2 id="gridTitle">Career grid</h2>
     <span id="gridKind" class="kindwrap" role="group" aria-label="discipline"></span>
+
+    <label class="zoom" for="gridZoom">Zoom
+      <input type="range" id="gridZoom" min="10" max="40" step="2" value="20"
+             aria-label="cell size">
+    </label>
 
     <form id="cmpPick" class="ctl search cmp" autocomplete="off" role="search">
       <input type="search" id="cmpQ" placeholder="Compare with…"
@@ -104,8 +110,8 @@
     <button type="button" id="gridClose" class="seg close" aria-label="close">✕</button>
   </header>
 
-  <div class="chiprow"><span class="lbl">Columns</span>
-    <div id="gridGroups" class="chips" role="group" aria-label="column groups"></div>
+  <div class="chiprow"><span class="lbl">Levels</span>
+    <div id="gridGroups" class="chips" role="group" aria-label="levels shown"></div>
   </div>
 
   <div id="gridBody" class="gridbody"></div>
@@ -118,13 +124,14 @@
     <span class="key"><i class="cell r-r16"></i> last 16</span>
     <span class="key"><i class="cell r-r1"></i> earlier</span>
     <span class="key"><i class="cell r-q"></i> qualifying</span>
-    <span class="key"><i class="cell r-none"></i> other discipline</span>
-    <span class="key"><i class="cell r-off"></i> did not play</span>
+    <span class="key"><i class="cell r-off"></i> nothing there</span>
   </p>
   <p class="legend note">
-    Columns are the tournaments these players have entered at least once —
-    BWF is asked what a player played, not what the calendar held. Hover a cell
-    for the event and the result.
+    Each block is one level, and the cells in it are that season's results at
+    that level, <strong>best first</strong> — not one column per tournament. A
+    block is as wide as the most anyone here played at that level in a single
+    season, so the empty cells on the right of a block are events they did not
+    enter that year. Hover any cell for the tournament and the result.
   </p>
 </dialog>
 
