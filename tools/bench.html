@@ -1,0 +1,313 @@
+<title>Season square weighting</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Deliberately single-theme. The encoding under test is a green-to-red ramp
+   drawn against the app's dark ground; rendering it on a light surface would
+   misrepresent the very thing being judged. Every colour is painted
+   explicitly so the page holds whatever ground the host puts behind it. */
+:root{
+  --ground:#0f1319; --surface:#161b23; --raised:#1e242e; --sunk:#0a0d12;
+  --line:#2a333f; --line-soft:#212933;
+  --text:#e4eaf1; --dim:#9aa9ba; --muted:#6e7f92;
+  --accent:#e0443e; --accent-dim:#7d2825;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"Cascadia Code",Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--text);
+  font:15px/1.55 var(--sans);padding:30px 32px 70px;-webkit-font-smoothing:antialiased}
+
+.eyebrow{font:500 10.5px/1 var(--mono);text-transform:uppercase;letter-spacing:.16em;color:var(--muted)}
+h1{font:600 21px/1.2 var(--sans);margin:9px 0 7px;letter-spacing:-.015em;text-wrap:balance}
+.lede{color:var(--dim);font-size:13.5px;max-width:68ch;margin:0 0 10px}
+.lede b{color:var(--text);font-weight:500}
+.rule{border:1px solid var(--line);border-left:2px solid var(--accent-dim);border-radius:0 7px 7px 0;
+  background:var(--surface);padding:11px 15px;margin:0 0 24px;max-width:68ch;
+  font-size:12.5px;color:var(--dim)}
+.rule b{color:var(--text);font-weight:500}
+.rule .src{display:block;margin-top:6px;font:400 10.5px var(--mono);color:var(--muted)}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:9px;
+  padding:15px 18px;margin-bottom:14px}
+.panel-hd{font:500 10.5px/1 var(--mono);text-transform:uppercase;letter-spacing:.14em;
+  color:var(--muted);margin-bottom:12px}
+
+.controls{display:flex;flex-wrap:wrap;gap:11px 26px;align-items:center}
+.ctl{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--dim)}
+select{background:var(--sunk);color:var(--text);border:1px solid var(--line);border-radius:6px;
+  padding:5px 8px;font:400 12.5px var(--sans)}
+select:focus-visible,input:focus-visible,.chip:focus-visible{outline:2px solid var(--accent);
+  outline-offset:2px}
+input[type=number]{background:var(--sunk);color:var(--text);border:1px solid var(--line);
+  border-radius:5px;padding:3px 6px;width:74px;font:400 12px var(--mono);
+  font-variant-numeric:tabular-nums}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:400 11.5px var(--sans);padding:4px 11px;border-radius:999px;cursor:pointer;
+  user-select:none;border:1px solid var(--line);background:var(--sunk);color:var(--muted);
+  transition:background .12s,color .12s,border-color .12s}
+.chip:hover{border-color:#3a4654;color:var(--dim)}
+.chip.on{background:var(--raised);color:var(--text);border-color:#3d4855}
+.chip.team{border-style:dashed}
+.chip.team.on{border-color:var(--accent-dim);color:#f0b3b0}
+
+.readout{background:var(--sunk);border:1px solid var(--line);border-radius:9px;
+  padding:16px 18px 6px;margin-bottom:14px}
+.strip-hd{display:flex;gap:11px;align-items:baseline;margin:0 0 9px;
+  font:500 10.5px/1 var(--mono);text-transform:uppercase;letter-spacing:.14em;color:var(--muted)}
+.strip-hd .who{font:600 13px var(--sans);letter-spacing:0;text-transform:none;color:var(--text)}
+.strip-hd .cnt{font-variant-numeric:tabular-nums;letter-spacing:.04em}
+.season{display:flex;gap:5px;overflow-x:auto;padding-bottom:9px;margin-bottom:16px}
+.season:last-child{margin-bottom:6px}
+.sq{flex:none;width:52px;text-align:center}
+.tn{display:-webkit-box;font:400 8.5px/1.15 var(--sans);color:var(--muted);height:20px;
+  margin-bottom:2px;overflow:hidden;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  word-break:break-word}
+/* Fixed slot: every tournament keeps an identical footprint, the box just fills
+   less of it, so a lighter event reads as air rather than as a shifted column. */
+.slot{display:flex;justify-content:center}
+.slot.center{align-items:center}
+.slot.base{align-items:flex-end}
+.box{border-radius:3px;display:grid;place-items:center;font-family:var(--mono);font-weight:600;
+  letter-spacing:-.03em;color:var(--text);border:1px solid var(--line-soft);overflow:hidden;
+  background:linear-gradient(to top,var(--fill) 0 var(--pct,0%),var(--raised) var(--pct,0%) 100%)}
+.lv{display:block;font:400 8.5px/1.2 var(--mono);color:var(--muted);margin-top:3px;
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;letter-spacing:-.02em}
+/* Result ramp — verbatim from the app; this is the thing under test. */
+.r-w{--fill:#1a7f37}.r-f{--fill:#3fa34d}.r-sf{--fill:#7cb342}.r-qf{--fill:#c9a227}
+.r-r16{--fill:#e07b39}.r-r1{--fill:#cf4b3f}.r-q{--fill:#8f5a55}
+.r-na{--fill:transparent;color:var(--muted)}
+.r-w,.r-f{color:#fff}
+
+.wrap{overflow-x:auto}
+table{border-collapse:collapse;font-size:12.5px;width:100%;max-width:640px}
+th{font:500 10px var(--mono);text-transform:uppercase;letter-spacing:.13em;color:var(--muted);
+  text-align:left;padding:0 14px 8px 0;border-bottom:1px solid var(--line-soft)}
+td{padding:4px 14px 4px 0;white-space:nowrap;border-bottom:1px solid var(--line-soft)}
+td.lvl{font-weight:500}
+td.n{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--dim);font-size:12px}
+tr.mand td.lvl{color:#fff}
+tr.mand td.lvl::before{content:"";display:inline-block;width:3px;height:11px;background:var(--accent);
+  border-radius:2px;margin-right:8px;vertical-align:-1px}
+.tag{font:400 9.5px var(--mono);color:var(--muted);border:1px dashed var(--accent-dim);
+  border-radius:3px;padding:1px 5px;margin-left:7px;letter-spacing:.04em}
+.bar{display:block;height:8px;background:linear-gradient(90deg,#31485f,#4a6a89);border-radius:2px}
+.note{color:var(--dim);font-size:12.5px;margin-top:16px;max-width:76ch;line-height:1.65}
+.note b{color:var(--text);font-weight:500}
+.note code{font:400 11.5px var(--mono);color:var(--text);background:var(--sunk);
+  border:1px solid var(--line-soft);border-radius:3px;padding:1px 5px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="eyebrow">BWF season strip · encoding test</div>
+<h1>Season square weighting</h1>
+<p class="lede">Twelve real 2026 seasons, replayed from recorded BWF responses. The top strip is
+today&rsquo;s uniform rendering; the bottom scales each square so its <b>area is proportional to the
+weight of the tournament</b>, inside a fixed 52px slot &mdash; every event keeps the same footprint,
+lighter ones just leave more air around them.</p>
+
+<div class="rule">
+  BWF requires Top Committed Players (top 15 singles, top 10 doubles) to enter
+  <b>the World Tour Finals if qualified, every Super 1000, every Super 750, and two of the nine
+  Super 500s</b>. That makes <b>Super 750 the line above which entry is compulsory</b> &mdash; 10 of
+  the 42 events on the 2026 calendar &mdash; which is what the default scheme uses as its full-size tier.
+  <span class="src">Top Committed Player Programme 2026 · counts verified against vue-grouped-year-tournaments</span>
+</div>
+
+<div class="panel">
+  <div class="controls">
+    <label class="ctl">Scheme <select id="scheme"></select></label>
+    <label class="ctl">Player <select id="who"></select></label>
+    <label class="ctl">Discipline <select id="disc"><option value="">first draw</option>
+      <option>MS</option><option>WS</option><option>MD</option><option>WD</option><option>XD</option></select></label>
+    <label class="ctl">Full square <select id="boxh">
+      <option>30</option><option>36</option><option selected>42</option><option>48</option></select>px</label>
+    <label class="ctl">Align <select id="align"><option value="center">centred</option>
+      <option value="base">baseline</option></select></label>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-hd">Levels shown &mdash; dashed are team events, hidden by default</div>
+  <div class="chips" id="chips"></div>
+</div>
+
+<div class="readout" id="out"></div>
+
+<div class="panel">
+  <div class="panel-hd">Weights &mdash; area as a fraction of a full square, editable</div>
+  <div class="wrap"><table id="wt"></table></div>
+  <div class="note" id="analysis"></div>
+</div>
+
+<script>
+const SEASONS = [{"pid":"75270","name":"Player 75270","tmts":[{"cat":23,"name":"PETRONAS Malaysia Open 2026","start":"2026-01-06","draws":[{"name":"WD","position":"R32","win":0,"lose":1}]},{"cat":24,"name":"YONEX-SUNRISE India Open 2026","start":"2026-01-13","draws":[{"name":"WD","position":"R32","win":0,"lose":1}]},{"cat":25,"name":"DAIHATSU Indonesia Masters 2026","start":"2026-01-20","draws":[{"name":"WD","position":"R32","win":0,"lose":1}]},{"cat":26,"name":"Thailand Masters 2026","start":"2026-01-27","draws":[{"name":"WD","position":"QF","win":2,"lose":1}]},{"cat":17,"name":"TSINGTAO Badminton Asia Team Championships 2026","start":"2026-02-03","draws":[{"name":"Doubles","position":"N/A","win":1,"lose":0}]},{"cat":26,"name":"YONEX German Open 2026","start":"2026-02-24","draws":[{"name":"WD","position":"QF","win":2,"lose":1}]},{"cat":23,"name":"All England Open Badminton Championships 2026","start":"2026-03-03","draws":[{"name":"WD","position":"R32","win":0,"lose":1}]},{"cat":26,"name":"YONEX Swiss Open 2026","start":"2026-03-10","draws":[{"name":"WD","position":"R32","win":0,"lose":1}]},{"cat":26,"name":"Orleans Masters Badminton 2026 presented by VICTOR","start":"2026-03-17","draws":[{"name":"WD","position":"R32","win":0,"lose":1}]},{"cat":11,"name":"BANK OF NINGBO Badminton Asia Championships 2026","start":"2026-04-07","draws":[{"name":"WD","position":"R32","win":0,"lose":1}]},{"cat":24,"name":"KFF Singapore Badminton Open 2026","start":"2026-05-26","draws":[{"name":"WD","position":"R16","win":1,"lose":1}]},{"cat":23,"name":"POLYTRON Indonesia Open 2026","start":"2026-06-02","draws":[{"name":"WD","position":"R32","win":0,"lose":1}]},{"cat":25,"name":"SATHIO GROUP Australian Badminton Open 2026","start":"2026-06-09","draws":[{"name":"WD","position":"R32","win":0,"lose":1}]},{"cat":24,"name":"DAIHATSU Japan Open 2026","start":"2026-07-14","draws":[{"name":"WD","position":"R32","win":0,"lose":1}]},{"cat":23,"name":"VICTOR China Open 2026","start":"2026-07-21","draws":[{"name":"WD","position":"R32","win":0,"lose":1}]},{"cat":26,"name":"YONEX Taipei Open 2026","start":"2026-07-28","draws":[{"name":"WD","position":"R32","win":0,"lose":1}]},{"cat":20,"name":"BWF World Championships 2026","start":"2026-08-17","draws":[{"name":"WD","position":"R32","win":1,"lose":0}]}]},{"pid":"68322","name":"Ayush SHETTY","tmts":[{"cat":23,"name":"PETRONAS Malaysia Open 2026","start":"2026-01-06","draws":[{"name":"MS","position":"R16","win":1,"lose":1}]},{"cat":24,"name":"YONEX-SUNRISE India Open 2026","start":"2026-01-13","draws":[{"name":"MS","position":"R32","win":0,"lose":1}]},{"cat":25,"name":"DAIHATSU Indonesia Masters 2026","start":"2026-01-20","draws":[{"name":"MS","position":"R32","win":0,"lose":1}]},{"cat":17,"name":"TSINGTAO Badminton Asia Team Championships 2026","start":"2026-02-03","draws":[{"name":"Singles","position":"N/A","win":2,"lose":1}]},{"cat":23,"name":"All England Open Badminton Championships 2026","start":"2026-03-03","draws":[{"name":"MS","position":"R32","win":0,"lose":1}]},{"cat":26,"name":"YONEX Swiss Open 2026","start":"2026-03-10","draws":[{"name":"MS","position":"R32","win":0,"lose":1}]},{"cat":26,"name":"Orleans Masters Badminton 2026 presented by VICTOR","start":"2026-03-17","draws":[{"name":"MS","position":"R16","win":1,"lose":1}]},{"cat":11,"name":"BANK OF NINGBO Badminton Asia Championships 2026","start":"2026-04-07","draws":[{"name":"MS","position":"2nd","win":4,"lose":1}]},{"cat":21,"name":"BWF Thomas & Uber Cup Finals 2026","start":"2026-04-24","draws":[{"name":"Singles","position":"N/A","win":4,"lose":1}]},{"cat":25,"name":"TOYOTA Thailand Open 2026","start":"2026-05-12","draws":[{"name":"MS","position":"R32","win":0,"lose":1}]},{"cat":24,"name":"KFF Singapore Badminton Open 2026","start":"2026-05-26","draws":[{"name":"MS","position":"R32","win":0,"lose":1}]},{"cat":23,"name":"POLYTRON Indonesia Open 2026","start":"2026-06-02","draws":[{"name":"MS","position":"R16","win":1,"lose":1}]},{"cat":24,"name":"DAIHATSU Japan Open 2026","start":"2026-07-14","draws":[{"name":"MS","position":"R32","win":0,"lose":1}]},{"cat":23,"name":"VICTOR China Open 2026","start":"2026-07-21","draws":[{"name":"MS","position":"R16","win":1,"lose":1}]},{"cat":20,"name":"BWF World Championships 2026","start":"2026-08-17","draws":[{"name":"MS","position":"R32","win":1,"lose":0}]}]},{"pid":"98502","name":"Player 98502","tmts":[{"cat":26,"name":"Thailand Masters 2026","start":"2026-01-27","draws":[{"name":"MD","position":"Qual. QF","win":0,"lose":1}]},{"cat":17,"name":"TSINGTAO Badminton Asia Team Championships 2026","start":"2026-02-03","draws":[{"name":"Doubles","position":"N/A","win":1,"lose":1}]},{"cat":5,"name":"Uganda International Challenge 2026","start":"2026-02-18","draws":[{"name":"MD","position":"3rd","win":3,"lose":1}]},{"cat":26,"name":"YONEX German Open 2026","start":"2026-02-24","draws":[{"name":"MD","position":"R32","win":1,"lose":1}]},{"cat":26,"name":"YONEX Swiss Open 2026","start":"2026-03-10","draws":[{"name":"MD","position":"R32","win":1,"lose":1}]},{"cat":26,"name":"Orleans Masters Badminton 2026 presented by VICTOR","start":"2026-03-17","draws":[{"name":"MD","position":"R32","win":0,"lose":1}]},{"cat":11,"name":"BANK OF NINGBO Badminton Asia Championships 2026","start":"2026-04-07","draws":[{"name":"MD","position":"R16","win":1,"lose":2}]},{"cat":25,"name":"TOYOTA Thailand Open 2026","start":"2026-05-12","draws":[{"name":"MD","position":"R32","win":0,"lose":1}]},{"cat":25,"name":"PERODUA Malaysia Masters 2026","start":"2026-05-19","draws":[{"name":"MD","position":"Qual. QF","win":0,"lose":1}]},{"cat":25,"name":"SATHIO GROUP Australian Badminton Open 2026","start":"2026-06-09","draws":[{"name":"MD","position":"R32","win":0,"lose":1}]},{"cat":26,"name":"SANDS CHINA LTD. Macau Open 2026","start":"2026-06-16","draws":[{"name":"MD","position":"QF","win":2,"lose":1}]},{"cat":26,"name":"YONEX Taipei Open 2026","start":"2026-07-28","draws":[{"name":"MD","position":"Qual. R16","win":0,"lose":1}]},{"cat":26,"name":"VICTOR Korea Masters 2026","start":"2026-08-04","draws":[{"name":"MD","position":"R16","win":1,"lose":1}]},{"cat":20,"name":"BWF World Championships 2026","start":"2026-08-17","draws":[{"name":"MD","position":"R64","win":0,"lose":0}]}]},{"pid":"60980","name":"Player 60980","tmts":[{"cat":23,"name":"PETRONAS Malaysia Open 2026","start":"2026-01-06","draws":[{"name":"XD","position":"R32","win":0,"lose":1}]},{"cat":24,"name":"YONEX-SUNRISE India Open 2026","start":"2026-01-13","draws":[{"name":"XD","position":"R32","win":0,"lose":1}]},{"cat":25,"name":"DAIHATSU Indonesia Masters 2026","start":"2026-01-20","draws":[{"name":"XD","position":"R32","win":0,"lose":1}]},{"cat":23,"name":"All England Open Badminton Championships 2026","start":"2026-03-03","draws":[{"name":"XD","position":"R32","win":0,"lose":1}]},{"cat":26,"name":"YONEX Swiss Open 2026","start":"2026-03-10","draws":[{"name":"XD","position":"R32","win":0,"lose":1}]},{"cat":26,"name":"Orleans Masters Badminton 2026 presented by VICTOR","start":"2026-03-17","draws":[{"name":"XD","position":"R16","win":1,"lose":1}]},{"cat":11,"name":"BANK OF NINGBO Badminton Asia Championships 2026","start":"2026-04-07","draws":[{"name":"XD","position":"R32","win":0,"lose":1}]},{"cat":25,"name":"TOYOTA Thailand Open 2026","start":"2026-05-12","draws":[{"name":"XD","position":"R32","win":0,"lose":1}]},{"cat":25,"name":"PERODUA Malaysia Masters 2026","start":"2026-05-19","draws":[{"name":"XD","position":"R32","win":0,"lose":1}]},{"cat":24,"name":"KFF Singapore Badminton Open 2026","start":"2026-05-26","draws":[{"name":"XD","position":"R32","win":0,"lose":1}]},{"cat":23,"name":"POLYTRON Indonesia Open 2026","start":"2026-06-02","draws":[{"name":"XD","position":"R16","win":1,"lose":1}]},{"cat":24,"name":"DAIHATSU Japan Open 2026","start":"2026-07-14","draws":[{"name":"XD","position":"R32","win":0,"lose":1}]},{"cat":23,"name":"VICTOR China Open 2026","start":"2026-07-21","draws":[{"name":"XD","position":"R32","win":0,"lose":1}]},{"cat":20,"name":"BWF World Championships 2026","start":"2026-08-17","draws":[{"name":"XD","position":"R64","win":0,"lose":0}]}]},{"pid":"85563","name":"Joakim OLDORFF","tmts":[{"cat":5,"name":"Azerbaijan International 2026","start":"2026-02-03","draws":[{"name":"MS","position":"QF","win":2,"lose":1}]},{"cat":17,"name":"2026 European Men's & Women's Team Championships","start":"2026-02-11","draws":[{"name":"Singles","position":"N/A","win":2,"lose":1},{"name":"Doubles","position":"N/A","win":0,"lose":2}]},{"cat":26,"name":"YONEX German Open 2026","start":"2026-02-24","draws":[{"name":"MS","position":"R32","win":0,"lose":1}]},{"cat":26,"name":"YONEX Swiss Open 2026","start":"2026-03-10","draws":[{"name":"MS","position":"Qual. R16","win":0,"lose":1}]},{"cat":26,"name":"Orleans Masters Badminton 2026 presented by VICTOR","start":"2026-03-17","draws":[{"name":"MS","position":"R32","win":0,"lose":1}]},{"cat":11,"name":"2026 European Championships","start":"2026-04-06","draws":[{"name":"MS","position":"R64","win":0,"lose":1}]},{"cat":21,"name":"BWF Thomas & Uber Cup Finals 2026","start":"2026-04-24","draws":[{"name":"Singles","position":"N/A","win":1,"lose":2}]},{"cat":5,"name":"STATE Denmark Challenge 2026 presented by RSL","start":"2026-05-28","draws":[{"name":"MS","position":"QF","win":2,"lose":1}]},{"cat":5,"name":"Valence Alpes International 2026 presented by FZ FORZA","start":"2026-06-11","draws":[{"name":"MS","position":"R16","win":1,"lose":1}]},{"cat":26,"name":"YONEX US Open 2026","start":"2026-06-23","draws":[{"name":"MS","position":"R16","win":1,"lose":1}]},{"cat":26,"name":"YONEX Canada Open 2026","start":"2026-06-30","draws":[{"name":"MS","position":"R32","win":0,"lose":1}]},{"cat":26,"name":"VICTOR Korea Masters 2026","start":"2026-08-04","draws":[{"name":"MS","position":"R32","win":0,"lose":1}]},{"cat":20,"name":"BWF World Championships 2026","start":"2026-08-17","draws":[{"name":"MS","position":"R64","win":0,"lose":0}]}]},{"pid":"72885","name":"Player 72885","tmts":[{"cat":23,"name":"PETRONAS Malaysia Open 2026","start":"2026-01-06","draws":[{"name":"MS","position":"R32","win":0,"lose":1},{"name":"MD","position":"R32","win":0,"lose":1}]},{"cat":24,"name":"YONEX-SUNRISE India Open 2026","start":"2026-01-13","draws":[{"name":"MS","position":"QF","win":2,"lose":1},{"name":"MD","position":"R16","win":1,"lose":1}]},{"cat":17,"name":"2026 European Men's & Women's Team Championships","start":"2026-02-11","draws":[{"name":"Singles","position":"N/A","win":3,"lose":1},{"name":"Doubles","position":"N/A","win":1,"lose":0}]},{"cat":26,"name":"YONEX German Open 2026","start":"2026-02-24","draws":[{"name":"MS","position":"1st","win":5,"lose":0},{"name":"MD","position":"R16","win":1,"lose":1}]},{"cat":23,"name":"All England Open Badminton Championships 2026","start":"2026-03-03","draws":[{"name":"MS","position":"QF","win":2,"lose":1},{"name":"MD","position":"QF","win":2,"lose":1}]},{"cat":11,"name":"2026 European Championships","start":"2026-04-06","draws":[{"name":"MS","position":"1st","win":6,"lose":0},{"name":"MD","position":"2nd","win":4,"lose":1}]},{"cat":21,"name":"BWF Thomas & Uber Cup Finals 2026","start":"2026-04-24","draws":[{"name":"Singles","position":"N/A","win":4,"lose":2},{"name":"Doubles","position":"N/A","win":0,"lose":2}]},{"cat":25,"name":"PERODUA Malaysia Masters 2026","start":"2026-05-19","draws":[{"name":"MS","position":"3rd","win":3,"lose":1},{"name":"MD","position":"R32","win":0,"lose":1}]},{"cat":24,"name":"KFF Singapore Badminton Open 2026","start":"2026-05-26","draws":[{"name":"MS","position":"R16","win":1,"lose":1},{"name":"MD","position":"R32","win":0,"lose":1}]},{"cat":23,"name":"POLYTRON Indonesia Open 2026","start":"2026-06-02","draws":[{"name":"MS","position":"R32","win":0,"lose":1},{"name":"MD","position":"R16","win":1,"lose":1}]},{"cat":24,"name":"DAIHATSU Japan Open 2026","start":"2026-07-14","draws":[{"name":"MS","position":"1st","win":5,"lose":0},{"name":"MD","position":"R32","win":0,"lose":1}]},{"cat":23,"name":"VICTOR China Open 2026","start":"2026-07-21","draws":[{"name":"MS","position":"R16","win":1,"lose":1},{"name":"MD","position":"R32","win":0,"lose":1}]},{"cat":20,"name":"BWF World Championships 2026","start":"2026-08-17","draws":[{"name":"MS","position":"R64","win":0,"lose":0},{"name":"MD","position":"R64","win":0,"lose":0}]}]},{"pid":"58089","name":"Alwi FARHAN","tmts":[{"cat":23,"name":"PETRONAS Malaysia Open 2026","start":"2026-01-06","draws":[{"name":"MS","position":"R32","win":0,"lose":1}]},{"cat":25,"name":"DAIHATSU Indonesia Masters 2026","start":"2026-01-20","draws":[{"name":"MS","position":"1st","win":5,"lose":0}]},{"cat":26,"name":"Thailand Masters 2026","start":"2026-01-27","draws":[{"name":"MS","position":"3rd","win":3,"lose":1}]},{"cat":23,"name":"All England Open Badminton Championships 2026","start":"2026-03-03","draws":[{"name":"MS","position":"QF","win":2,"lose":1}]},{"cat":26,"name":"YONEX Swiss Open 2026","start":"2026-03-10","draws":[{"name":"MS","position":"2nd","win":4,"lose":1}]},{"cat":11,"name":"BANK OF NINGBO Badminton Asia Championships 2026","start":"2026-04-07","draws":[{"name":"MS","position":"R16","win":1,"lose":1}]},{"cat":21,"name":"BWF Thomas & Uber Cup Finals 2026","start":"2026-04-24","draws":[{"name":"Singles","position":"N/A","win":1,"lose":2}]},{"cat":24,"name":"KFF Singapore Badminton Open 2026","start":"2026-05-26","draws":[{"name":"MS","position":"3rd","win":3,"lose":1}]},{"cat":23,"name":"POLYTRON Indonesia Open 2026","start":"2026-06-02","draws":[{"name":"MS","position":"R16","win":1,"lose":1}]},{"cat":25,"name":"SATHIO GROUP Australian Badminton Open 2026","start":"2026-06-09","draws":[{"name":"MS","position":"1st","win":5,"lose":0}]},{"cat":24,"name":"DAIHATSU Japan Open 2026","start":"2026-07-14","draws":[{"name":"MS","position":"QF","win":2,"lose":1}]},{"cat":23,"name":"VICTOR China Open 2026","start":"2026-07-21","draws":[{"name":"MS","position":"R32","win":0,"lose":1}]},{"cat":20,"name":"BWF World Championships 2026","start":"2026-08-17","draws":[{"name":"MS","position":"R32","win":1,"lose":0}]}]},{"pid":"58493","name":"Player 58493","tmts":[{"cat":17,"name":"Pan Am M&F Cup 2026","start":"2026-02-12","draws":[{"name":"Doubles","position":"N/A","win":2,"lose":1}]},{"cat":5,"name":"Brazil International Challenge 2026","start":"2026-03-24","draws":[{"name":"MD","position":"2nd","win":4,"lose":1}]},{"cat":11,"name":"XXIX YONEX Pan Am Individual Championships 2026","start":"2026-04-07","draws":[{"name":"MD","position":"2nd","win":4,"lose":1},{"name":"XD","position":"QF","win":3,"lose":1}]},{"cat":21,"name":"BWF Thomas & Uber Cup Finals 2026","start":"2026-04-24","draws":[{"name":"Doubles","position":"N/A","win":1,"lose":2}]},{"cat":5,"name":"VI Mexican International Challenge 2026","start":"2026-05-05","draws":[{"name":"MD","position":"QF","win":2,"lose":1},{"name":"XD","position":"QF","win":2,"lose":1}]},{"cat":25,"name":"PERODUA Malaysia Masters 2026","start":"2026-05-19","draws":[{"name":"MD","position":"R32","win":0,"lose":1}]},{"cat":24,"name":"KFF Singapore Badminton Open 2026","start":"2026-05-26","draws":[{"name":"MD","position":"R32","win":0,"lose":1},{"name":"XD","position":"R32","win":0,"lose":1}]},{"cat":23,"name":"POLYTRON Indonesia Open 2026","start":"2026-06-02","draws":[{"name":"MD","position":"R32","win":0,"lose":1}]},{"cat":26,"name":"YONEX US Open 2026","start":"2026-06-23","draws":[{"name":"MD","position":"R32","win":0,"lose":1},{"name":"XD","position":"R32","win":0,"lose":1}]},{"cat":26,"name":"YONEX Canada Open 2026","start":"2026-06-30","draws":[{"name":"MD","position":"R16","win":1,"lose":1},{"name":"XD","position":"R32","win":0,"lose":1}]},{"cat":24,"name":"DAIHATSU Japan Open 2026","start":"2026-07-14","draws":[{"name":"MD","position":"R32","win":0,"lose":1}]},{"cat":23,"name":"VICTOR China Open 2026","start":"2026-07-21","draws":[{"name":"MD","position":"R32","win":0,"lose":1}]},{"cat":20,"name":"BWF World Championships 2026","start":"2026-08-17","draws":[{"name":"MD","position":"R64","win":0,"lose":1}]}]},{"pid":"79258","name":"Player 79258","tmts":[{"cat":17,"name":"Pan Am M&F Cup 2026","start":"2026-02-12","draws":[{"name":"Singles","position":"N/A","win":2,"lose":2},{"name":"Doubles","position":"N/A","win":0,"lose":0}]},{"cat":5,"name":"Polish Open 2026 presented by YONEX","start":"2026-03-18","draws":[{"name":"WS","position":"R16","win":1,"lose":1}]},{"cat":5,"name":"Brazil International Challenge 2026","start":"2026-03-24","draws":[{"name":"WS","position":"R16","win":2,"lose":1}]},{"cat":6,"name":"Cuba International Series 2026","start":"2026-03-31","draws":[{"name":"WS","position":"2nd","win":4,"lose":1},{"name":"WD","position":"QF","win":1,"lose":1}]},{"cat":11,"name":"XXIX YONEX Pan Am Individual Championships 2026","start":"2026-04-07","draws":[{"name":"WS","position":"QF","win":3,"lose":1}]},{"cat":7,"name":"Perú Future Series 2026","start":"2026-04-29","draws":[{"name":"WS","position":"1st","win":5,"lose":0}]},{"cat":5,"name":"VI Mexican International Challenge 2026","start":"2026-05-05","draws":[{"name":"WS","position":"R16","win":1,"lose":1}]},{"cat":25,"name":"SATHIO GROUP Australian Badminton Open 2026","start":"2026-06-09","draws":[{"name":"WS","position":"R32","win":0,"lose":1}]},{"cat":26,"name":"YONEX US Open 2026","start":"2026-06-23","draws":[{"name":"WS","position":"R32","win":0,"lose":1}]},{"cat":6,"name":"Perú International Series 2026","start":"2026-07-01","draws":[{"name":"WS","position":"3rd","win":3,"lose":1}]},{"cat":6,"name":"Jamaica International 2026","start":"2026-08-05","draws":[{"name":"WS","position":"1st","win":5,"lose":0}]},{"cat":20,"name":"BWF World Championships 2026","start":"2026-08-17","draws":[{"name":"WS","position":"R64","win":0,"lose":0}]}]},{"pid":"87112","name":"Player 87112","tmts":[{"cat":26,"name":"Thailand Masters 2026","start":"2026-01-27","draws":[{"name":"WS","position":"R32","win":0,"lose":1}]},{"cat":5,"name":"Azerbaijan International 2026","start":"2026-02-03","draws":[{"name":"WS","position":"QF","win":2,"lose":1},{"name":"WD","position":"R16","win":1,"lose":1}]},{"cat":17,"name":"2026 European Men's & Women's Team Championships","start":"2026-02-11","draws":[{"name":"Singles","position":"N/A","win":4,"lose":0},{"name":"Doubles","position":"N/A","win":1,"lose":1}]},{"cat":26,"name":"YONEX German Open 2026","start":"2026-02-24","draws":[{"name":"WS","position":"QF","win":2,"lose":1},{"name":"WD","position":"R32","win":1,"lose":1}]},{"cat":26,"name":"YONEX Swiss Open 2026","start":"2026-03-10","draws":[{"name":"WS","position":"R16","win":2,"lose":1}]},{"cat":11,"name":"2026 European Championships","start":"2026-04-06","draws":[{"name":"WS","position":"R16","win":2,"lose":1}]},{"cat":21,"name":"BWF Thomas & Uber Cup Finals 2026","start":"2026-04-24","draws":[{"name":"Singles","position":"N/A","win":2,"lose":1},{"name":"Doubles","position":"N/A","win":0,"lose":1}]},{"cat":25,"name":"TOYOTA Thailand Open 2026","start":"2026-05-12","draws":[{"name":"WS","position":"Qual. R16","win":0,"lose":1}]},{"cat":25,"name":"PERODUA Malaysia Masters 2026","start":"2026-05-19","draws":[{"name":"WS","position":"R16","win":1,"lose":1}]},{"cat":26,"name":"YONEX US Open 2026","start":"2026-06-23","draws":[{"name":"WS","position":"2nd","win":4,"lose":1}]},{"cat":26,"name":"YONEX Canada Open 2026","start":"2026-06-30","draws":[{"name":"WS","position":"R16","win":1,"lose":1}]},{"cat":20,"name":"BWF World Championships 2026","start":"2026-08-17","draws":[{"name":"WS","position":"R64","win":0,"lose":1}]}]},{"pid":"97115","name":"Tae Bin YOO","tmts":[{"cat":17,"name":"TSINGTAO Badminton Asia Team Championships 2026","start":"2026-02-03","draws":[{"name":"Singles","position":"N/A","win":3,"lose":1}]},{"cat":5,"name":"SBH Singapore International Challenge 2026","start":"2026-02-24","draws":[{"name":"MS","position":"R64","win":0,"lose":1}]},{"cat":27,"name":"Ruichang China Masters 2026","start":"2026-03-10","draws":[{"name":"MS","position":"R16","win":2,"lose":1}]},{"cat":5,"name":"CIPUTRA HANOI - YONEX SUNRISE Vietnam International Challenge 2026","start":"2026-03-24","draws":[{"name":"MS","position":"R16","win":2,"lose":1}]},{"cat":21,"name":"BWF Thomas & Uber Cup Finals 2026","start":"2026-04-24","draws":[{"name":"Singles","position":"N/A","win":1,"lose":2}]},{"cat":25,"name":"PERODUA Malaysia Masters 2026","start":"2026-05-19","draws":[{"name":"MS","position":"R32","win":2,"lose":1}]},{"cat":26,"name":"SANDS CHINA LTD. Macau Open 2026","start":"2026-06-16","draws":[{"name":"MS","position":"R32","win":0,"lose":1}]},{"cat":26,"name":"YONEX US Open 2026","start":"2026-06-23","draws":[{"name":"MS","position":"R16","win":1,"lose":1}]},{"cat":26,"name":"YONEX Canada Open 2026","start":"2026-06-30","draws":[{"name":"MS","position":"R16","win":1,"lose":1}]},{"cat":26,"name":"YONEX Taipei Open 2026","start":"2026-07-28","draws":[{"name":"MS","position":"2nd","win":6,"lose":1}]},{"cat":26,"name":"VICTOR Korea Masters 2026","start":"2026-08-04","draws":[{"name":"MS","position":"2nd","win":4,"lose":1}]},{"cat":20,"name":"BWF World Championships 2026","start":"2026-08-17","draws":[{"name":"MS","position":"R64","win":0,"lose":1}]}]},{"pid":"68544","name":"Thom GICQUEL","tmts":[{"cat":23,"name":"PETRONAS Malaysia Open 2026","start":"2026-01-06","draws":[{"name":"XD","position":"R32","win":0,"lose":1}]},{"cat":24,"name":"YONEX-SUNRISE India Open 2026","start":"2026-01-13","draws":[{"name":"XD","position":"QF","win":2,"lose":1}]},{"cat":25,"name":"DAIHATSU Indonesia Masters 2026","start":"2026-01-20","draws":[{"name":"XD","position":"QF","win":2,"lose":1}]},{"cat":17,"name":"2026 European Men's & Women's Team Championships","start":"2026-02-11","draws":[{"name":"Doubles","position":"N/A","win":3,"lose":1}]},{"cat":23,"name":"All England Open Badminton Championships 2026","start":"2026-03-03","draws":[{"name":"XD","position":"2nd","win":4,"lose":1}]},{"cat":26,"name":"Orleans Masters Badminton 2026 presented by VICTOR","start":"2026-03-17","draws":[{"name":"XD","position":"1st","win":5,"lose":0}]},{"cat":11,"name":"2026 European Championships","start":"2026-04-06","draws":[{"name":"XD","position":"R16","win":1,"lose":1}]},{"cat":24,"name":"KFF Singapore Badminton Open 2026","start":"2026-05-26","draws":[{"name":"XD","position":"R16","win":1,"lose":1}]},{"cat":23,"name":"POLYTRON Indonesia Open 2026","start":"2026-06-02","draws":[{"name":"XD","position":"3rd","win":3,"lose":1}]},{"cat":24,"name":"DAIHATSU Japan Open 2026","start":"2026-07-14","draws":[{"name":"XD","position":"R16","win":1,"lose":1}]},{"cat":23,"name":"VICTOR China Open 2026","start":"2026-07-21","draws":[{"name":"XD","position":"3rd","win":3,"lose":1}]},{"cat":20,"name":"BWF World Championships 2026","start":"2026-08-17","draws":[{"name":"XD","position":"R32","win":1,"lose":0}]}]}];
+
+const LEVELS = {
+  20:{name:'Worlds'}, 22:{name:'Tour Finals'}, 23:{name:'Super 1000'},
+  11:{name:'Continental'}, 24:{name:'Super 750'}, 25:{name:'Super 500'},
+  26:{name:'Super 300'}, 27:{name:'Super 100'}, 5:{name:'Challenge'},
+  6:{name:'Series'}, 7:{name:'Future'},
+  21:{name:'Team event',team:true}, 17:{name:'Cont. Team',team:true},
+};
+const ORDER = [20,22,23,11,24,25,26,27,5,6,7,21,17];
+/* Compulsory entry for a top-15 singles player, so these share the full square. */
+const MANDATORY = new Set([22,23,24]);
+
+const SCHEMES = {
+  steps: {
+    label: 'Equal steps from mandatory',
+    blurb: 'Everything Super 750 and above &mdash; the tier a top-15 player must enter &mdash; takes '
+         + 'the full square. Super 100 takes the smallest, and Super 500 and Super 300 divide the gap '
+         + 'evenly. Below the World Tour shares the Super 100 square: going smaller costs legibility '
+         + 'and buys a distinction the strip does not need to make.',
+    w:{20:1,22:1,23:1,24:1,11:1, 25:0.80, 26:0.60, 27:0.40, 5:0.40,6:0.40,7:0.40, 21:1,17:1},
+  },
+  points: {
+    label: 'Winner’s ranking points',
+    blurb: 'Area follows the points a title is worth (about 12000 / 11000 / 9200 / 7000 / 5500 from '
+         + 'Super 1000 down to Super 100). Truthful, but the scale is compressed: Super 750 lands '
+         + 'within about a pixel of Super 1000, and Super 100 within a pixel of Challenge, so the top '
+         + 'pair and the bottom four each collapse into one apparent size.',
+    w:{20:1,22:1,23:1,11:0.917,24:0.917,25:0.767,26:0.583,27:0.458,5:0.4,6:0.4,7:0.4,21:1,17:1},
+  },
+  money: {
+    label: 'Prize money',
+    blurb: 'Area follows the 2026 median purse ($1.45m / $950k / $500k / $250k / $120k). The spread is '
+         + 'far wider than the points table, which sounds useful until you look: a Super 100 falls to '
+         + 'roughly a quarter of the full side length and its round label stops being readable.',
+    w:{20:1,22:1,23:1,11:0.66,24:0.66,25:0.34,26:0.17,27:0.08,5:0.06,6:0.05,7:0.04,21:1,17:1},
+  },
+};
+let W = {...SCHEMES.steps.w};
+
+const POSITION = {
+  '1st':{label:'W',tier:'w',depth:6,full:'Champion'},
+  '2nd':{label:'F',tier:'f',depth:6,full:'Runner-up'},
+  '3rd':{label:'SF',tier:'sf',depth:5,full:'Semi-final'},
+  'QF':{label:'QF',tier:'qf',depth:4,full:'Quarter-final'},
+  'R16':{label:'R16',tier:'r16',depth:3,full:'Round of 16'},
+  'R32':{label:'R32',tier:'r1',depth:2,full:'Round of 32'},
+  'R64':{label:'R64',tier:'r1',depth:1,full:'Round of 64'},
+};
+const FINAL_DEPTH=6, MIN_FILL=0.13, FULL_W=52;
+let FULL_H=42;
+const $=s=>document.querySelector(s);
+
+function positionInfo(p){
+  if(!p||p==='N/A') return {label:'–',tier:'na',full:'Played, no individual result'};
+  if(POSITION[p]) return POSITION[p];
+  if(/^Qual/i.test(p)) return {label:'Q',tier:'q',depth:0,full:p};
+  return {label:String(p),tier:'na',full:String(p)};
+}
+function fillFraction(info,dr){
+  if(!dr||info.tier==='na') return 0;
+  const wins=+dr.win||0, played=wins+(+dr.lose||0);
+  if(!played||!info.depth) return MIN_FILL;
+  const entry=info.depth-played+1, rounds=FINAL_DEPTH-entry+1;
+  if(rounds<=0) return MIN_FILL;
+  return Math.max(MIN_FILL,Math.min(1,wins/rounds));
+}
+function shortTmtName(name){
+  let s=String(name||'').replace(/\s*(19|20)\d{2}\s*$/,'').replace(/^\s*(19|20)\d{2}\s+/,'').trim();
+  const words=s.split(/\s+/);
+  const sponsorish=w=>(/^[A-Z][A-Z&.'-]{1,}$/.test(w)&&w!=='BWF')
+    ||/^(TotalEnergies|Yonex|Victor|Daihatsu|Petronas|Perodua|Toyota|Sands|Tsingtao|Blibli|Polytron|Baoji|Sathio)$/i.test(w);
+  let i=0; while(i<words.length-1&&sponsorish(words[i]))i++;
+  s=words.slice(i).join(' ');
+  s=s.replace(/^BWF\s+/i,'').replace(/\bBadminton\b/gi,'')
+     .replace(/\bOpen\s+Championships?\b/i,'Open').replace(/\bChampionships?\b/gi,'Champs')
+     .replace(/\bInternational\b/gi,'Intl').replace(/\bMen's\s*&\s*Women's\s*Team\b/i,'Team')
+     .replace(/\bIndividual\b/gi,'').replace(/\bThomas\s*&\s*Uber\s*Cup\s*Finals?\b/i,'Thomas & Uber')
+     .replace(/\s+/g,' ').trim();
+  if(s.length>24)s=s.slice(0,23).trimEnd()+'…';
+  return s||String(name||'');
+}
+const pickDraw=(t,d)=>t.draws.length
+  ? (d&&t.draws.find(x=>(x.name||'').toUpperCase()===d))||t.draws[0] : null;
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+
+const on = new Set(ORDER.filter(k=>!LEVELS[k].team));
+
+function square(t,disc,scale,align){
+  const dr=pickDraw(t,disc), info=positionInfo(dr&&dr.position);
+  const pct=Math.round(fillFraction(info,dr)*100);
+  const L=LEVELS[t.cat]||{name:'?'};
+  const s=scale?Math.sqrt(W[t.cat]??1):1;
+  const w=(FULL_W*s).toFixed(1), h=(FULL_H*s).toFixed(1);
+  // Floor the label: scaling it with the box made a Challenge round unreadable.
+  const fsz=Math.max(9,11*s).toFixed(1);
+  const wl=dr&&dr.win!=null?' · '+dr.win+'-'+dr.lose:'';
+  const tip=t.name+' ('+L.name+', weight '+(W[t.cat]??1).toFixed(2)+') — '+info.full+wl;
+  return '<span class="sq" title="'+esc(tip)+'">'
+    +'<span class="tn">'+esc(shortTmtName(t.name))+'</span>'
+    +'<span class="slot '+align+'" style="height:'+FULL_H+'px">'
+    +'<span class="box r-'+info.tier+'" style="width:'+w+'px;height:'+h
+    +'px;font-size:'+fsz+'px;--pct:'+pct+'%">'+esc(info.label)+'</span></span>'
+    +'<span class="lv">'+esc(L.name)+'</span></span>';
+}
+
+function render(){
+  const s=SEASONS[+$('#who').value], disc=$('#disc').value;
+  const align=$('#align').value;
+  FULL_H=+$('#boxh').value;
+  const list=s.tmts.filter(t=>on.has(t.cat));
+  const strip=(scale,al)=>'<div class="season">'
+    +list.map(t=>square(t,disc,scale,al)).join('')+'</div>';
+  $('#out').innerHTML=
+     '<div class="strip-hd">Uniform · today <span class="who">'+esc(s.name)+'</span>'
+       +'<span class="cnt">'+list.length+' of '+s.tmts.length+' tournaments</span></div>'
+    +strip(false,'center')
+    +'<div class="strip-hd">'+esc(SCHEMES[$('#scheme').value].label)+'</div>'
+    +strip(true,align);
+  analyse();
+}
+
+function analyse(){
+  const rows=ORDER.map(k=>({k,L:LEVELS[k],w:W[k],side:Math.sqrt(W[k])}));
+  $('#wt').innerHTML='<tr><th>Level</th><th>Area</th><th>Side</th><th>Box</th><th></th></tr>'
+    +rows.map(r=>'<tr'+(MANDATORY.has(r.k)?' class="mand"':'')+'><td class="lvl">'+esc(r.L.name)
+      +(r.L.team?'<span class="tag">team</span>':'')
+      +'</td><td><input type="number" step="0.01" min="0.03" max="1" value="'+r.w.toFixed(2)
+      +'" data-k="'+r.k+'" aria-label="weight for '+esc(r.L.name)+'"></td>'
+      +'<td class="n">'+r.side.toFixed(2)+'</td>'
+      +'<td class="n">'+(FULL_H*r.side).toFixed(1)+'px</td>'
+      +'<td style="width:130px"><span class="bar" style="width:'+(r.side*110).toFixed(0)+'px"></span></td></tr>').join('');
+  $('#wt').querySelectorAll('input').forEach(i=>i.onchange=e=>{
+    // A number input renders 0.80 as "0,80" under a comma locale, and +"0,80"
+    // is NaN — which silently reset every edited weight to the fallback.
+    const v=parseFloat(String(e.target.value).replace(',','.'));
+    W[+e.target.dataset.k]=Math.max(0.03,Math.min(1,isNaN(v)?0.4:v)); render();
+  });
+
+  const px=rows.map(r=>FULL_H*r.side), lo=Math.min(...px), hi=Math.max(...px);
+  const steps=new Set(px.map(p=>Math.round(p/2))).size;
+  $('#analysis').innerHTML=SCHEMES[$('#scheme').value].blurb
+    +'<br><br>Box heights span <b>'+lo.toFixed(1)+'px–'+hi.toFixed(1)+'px</b> at a '
+    +FULL_H+'px full square, resolving to about <b>'+steps
+    +'</b> separable sizes. The round label is floored at <code>9px</code>, so it stays readable '
+    +'however small the box gets. Red-marked rows are compulsory entries.';
+}
+
+$('#scheme').innerHTML=Object.keys(SCHEMES).map(k=>
+  '<option value="'+k+'">'+SCHEMES[k].label+'</option>').join('');
+$('#who').innerHTML=SEASONS.map((s,i)=>
+  '<option value="'+i+'">'+esc(s.name)+' — '+s.tmts.length+'</option>').join('');
+$('#chips').innerHTML=ORDER.map(k=>'<span class="chip'+(LEVELS[k].team?' team':' on')
+  +'" tabindex="0" role="switch" aria-checked="'+(!LEVELS[k].team)+'" data-k="'+k+'">'
+  +esc(LEVELS[k].name)+'</span>').join('');
+function toggleChip(c){
+  const k=+c.dataset.k; on.has(k)?on.delete(k):on.add(k);
+  c.classList.toggle('on'); c.setAttribute('aria-checked',String(on.has(k))); render();
+}
+$('#chips').onclick=e=>{const c=e.target.closest('.chip'); if(c) toggleChip(c);};
+$('#chips').onkeydown=e=>{
+  if(e.key!==' '&&e.key!=='Enter') return;
+  const c=e.target.closest('.chip'); if(c){e.preventDefault(); toggleChip(c);}
+};
+$('#scheme').onchange=()=>{ W={...SCHEMES[$('#scheme').value].w}; render(); };
+['who','disc','align','boxh'].forEach(id=>{ $('#'+id).onchange=render; });
+render();
+</script>

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Badminton Season Tracker</title>
+<!-- An empty data URI, so the browser stops asking for a favicon that does not
+     exist yet and the console stays clean enough for a suite to assert on. A
+     real one comes with the visual layer. -->
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header>
+  <h1>Badminton Season Tracker</h1>
+  <p class="unofficial">
+    An unofficial fan tool. All data comes from
+    <a href="https://bwfbadminton.com/" target="_blank" rel="noopener">BWF</a>
+    and belongs to them; this site is not affiliated with or endorsed by BWF.
+  </p>
+</header>
+
+<form id="pick" autocomplete="off">
+  <label>Player id <input id="playerId" name="playerId" inputmode="numeric" size="8" value="57945"></label>
+  <label>Year <input id="year" name="year" inputmode="numeric" size="6" value="2026"></label>
+  <label>Discipline
+    <select id="discipline"><option value="">auto</option></select>
+  </label>
+  <label><input type="checkbox" id="includeTeam"> team events</label>
+  <button type="submit">Load season</button>
+</form>
+
+<p id="status" role="status"></p>
+
+<!-- Step 1 renders the season as text and JSON. No visual layer yet: the point
+     is to prove the data path end to end before anything is drawn. -->
+<pre id="out"></pre>
+<details id="rawWrap">
+  <summary>Parsed season as JSON</summary>
+  <pre id="raw"></pre>
+</details>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

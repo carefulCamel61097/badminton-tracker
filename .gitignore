@@ -1,0 +1,6 @@
+# Recorded API responses: 7 MB of BWF's data, regenerable with
+# `node tests/record.mjs` — but only while it is still live.
+tests/fixtures/
+tests/shots/
+Thumbs.db
+.DS_Store

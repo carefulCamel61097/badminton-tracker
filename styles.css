@@ -1,0 +1,54 @@
+/* Step 1 only: enough type and spacing to read the output. The visual layer —
+   the season strip, its gauges and its weighting — comes next and gets its own
+   pass. Nothing here is meant to survive that. */
+
+:root {
+  color-scheme: light dark;
+  --ink: #1a1a1a;
+  --dim: #666;
+  --bg: #fff;
+  --rule: #ddd;
+  --bad: #b3261e;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root { --ink: #e8e8e8; --dim: #999; --bg: #141414; --rule: #333; --bad: #f2b8b5; }
+}
+
+body {
+  margin: 0 auto;
+  padding: 1.5rem 1rem 4rem;
+  max-width: 72rem;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.5 system-ui, sans-serif;
+}
+
+h1 { font-size: 1.25rem; margin: 0 0 .25rem; }
+
+.unofficial { margin: 0 0 1.5rem; color: var(--dim); font-size: .8125rem; max-width: 46rem; }
+
+form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem 1rem;
+  align-items: center;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+label { display: inline-flex; align-items: center; gap: .35rem; font-size: .875rem; }
+
+input, select, button { font: inherit; font-size: .875rem; padding: .25rem .4rem; }
+
+#status { color: var(--dim); font-size: .8125rem; min-height: 1.5em; }
+#status.error { color: var(--bad); }
+
+pre {
+  overflow-x: auto;
+  font: 12px/1.45 ui-monospace, Consolas, monospace;
+  white-space: pre;
+}
+
+details { margin-top: 2rem; color: var(--dim); }
+summary { cursor: pointer; font-size: .8125rem; }
