@@ -22,14 +22,17 @@ Requires Node 24 for the global `WebSocket` the test harness uses.
 
 ## The seasons
 
-Search a player by name, and their career stacks up as one row per season, newest first.
+Search a player by name — or pick one out of the top ten of any discipline — and their
+career stacks up as one row per season, newest first. The heading is the player: BWF's own
+photograph, their flag, and their name.
 Within a row, one square per tournament in chronological order. Each is a gauge: it fills
 from the bottom by how far the player got, ramping green (title) to red (first-round exit),
 and the label inside says the same thing in words so nothing is carried by colour alone.
 
 Seasons and tournament levels are both filtered with toggle buttons — a chip per season and
-a chip per level, so what is on screen is always visible in the controls rather than hidden
-behind a menu.
+a chip per level. The levels nobody filters by, which is mostly pre-2019 category ids this
+project has no name for, sit behind one "N more" menu of checkboxes so they do not crowd out
+the ones that matter.
 
 How far they got is measured against that draw's **real ladder**, fetched per tournament:
 a quarter-final of a 64-draw fills 3/6 and a quarter-final of a 32-draw fills 2/5. Qualifying
@@ -56,7 +59,7 @@ lose them entirely. See `HANDOVER.md` Part 2.6.
 | File | What it is |
 |---|---|
 | `model.js` | Pure logic: levels, weights, positions, the ladder and fill, name tidying, season parsing. No browser globals, so the tests import it straight into Node |
-| `api.js` | The request layer: two-lane queue, 320ms pacing, TTL cache, one retry |
+| `api.js` | The request layer: two-lane queue, 320ms pacing, TTL cache, one retry. Also player search, rankings, and the URLs for BWF's flags and photographs |
 | `app.js` | The season view: the strip, the discipline toggle, the level filters, the year stepper |
 | `serve.mjs` | Static server for local development |
 | `HANDOVER.md` | The design and engineering brief. Read it before changing anything: the weighting, the doubles model and the API traps are all settled there, several of them by testing |

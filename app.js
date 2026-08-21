@@ -11,11 +11,14 @@
  * slot — and filled against that draw's real ladder, per Part 2.5.
  */
 
-import { loadSeason, loadPlayer, loadDraws, searchPlayers, queueDepth } from './api.js';
+import {
+  loadSeason, loadPlayer, loadDraws, searchPlayers, loadTopRanked,
+  RANKING_CATEGORIES, queueDepth,
+} from './api.js';
 import {
   positionInfo, fillFraction, drawForKind, dominantDraw, seasonKinds,
   defaultKind, seasonLevels, levelLabel, levelAbbr, boxSize, isTeamEvent,
-  drawLadder, BOX_H, LEVEL,
+  drawLadder, BOX_H, LEVEL, LEVEL_ORDER,
 } from './model.js';
 
 const $ = id => document.getElementById(id);
@@ -186,16 +189,66 @@ function renderYears() {
   }).join('');
 }
 
+/**
+ * Level filters, with a tail.
+ *
+ * A long career carries a dozen category ids from the Superseries era that this
+ * project has no name or weight for. As chips they crowded out the levels
+ * anybody actually filters by, so the named levels stay as buttons and the rest
+ * go behind a menu of checkboxes — visible enough to switch off, quiet enough
+ * to ignore.
+ */
 function renderLevels() {
   const all = allTournaments();
-  $('levels').innerHTML = seasonLevels(all).map(c => {
+  const present = seasonLevels(all);
+  const named = present.filter(c => LEVEL_ORDER.includes(c));
+  const rest = present.filter(c => !LEVEL_ORDER.includes(c));
+  const count = c => all.filter(t => t.cat === c).length;
+
+  $('levels').innerHTML = named.map(c => {
     const on = levelShown(c);
     const team = isTeamEvent(c);
-    const n = all.filter(t => t.cat === c).length;
     return `<button type="button" class="chip${on ? ' on' : ''}${team ? ' team' : ''}"`
       + ` data-cat="${c}" aria-pressed="${on}">${esc(levelLabel(c))}`
-      + `<span class="n">${n}</span></button>`;
+      + `<span class="n">${count(c)}</span></button>`;
   }).join('');
+
+  const btn = $('moreBtn');
+  btn.hidden = !rest.length;
+  if (!rest.length) { $('morePanel').hidden = true; $('morePanel').innerHTML = ''; return; }
+
+  const off = rest.filter(c => !levelShown(c)).length;
+  btn.innerHTML = `${rest.length} more${off ? ` · ${off} off` : ''} <span class="caret">▾</span>`;
+  $('morePanel').innerHTML = rest.map(c =>
+    `<label><input type="checkbox" data-cat="${c}"${levelShown(c) ? ' checked' : ''}>`
+    + `<span>${esc(levelLabel(c))}</span><span class="n">${count(c)}</span></label>`).join('');
+}
+
+/* ---------- who you are looking at ---------- */
+
+function renderHero() {
+  const hero = $('hero');
+  if (!state.playerId) { hero.hidden = true; return; }
+  hero.hidden = false;
+
+  const p = state.player;
+  $('heroName').textContent = p ? p.name : `Player ${state.playerId}`;
+
+  const avatar = $('heroAvatar');
+  if (p && p.avatar) { avatar.src = p.avatar; avatar.alt = p.name; avatar.hidden = false; }
+  else { avatar.hidden = true; avatar.removeAttribute('src'); }
+
+  const flag = $('heroFlag');
+  if (p && p.flag) { flag.src = p.flag; flag.alt = p.country; flag.hidden = false; }
+  else { flag.hidden = true; flag.removeAttribute('src'); }
+
+  const n = state.seasons.length;
+  const bits = [];
+  if (p && p.country) bits.push(p.country);
+  bits.push(`${n} season${n === 1 ? '' : 's'}`);
+  if (state.loading) bits.push('loading…');
+  else if (n) bits.push(`${allTournaments().length} tournaments`);
+  $('heroMeta').textContent = bits.join(' · ');
 }
 
 function setStatus(text, isError) {
@@ -207,14 +260,10 @@ function setStatus(text, isError) {
 function render() {
   if (state.error) { setStatus(state.error, true); return; }
 
-  const who = state.player
-    ? `${state.player.name}${state.player.countryCode ? ' (' + state.player.countryCode + ')' : ''}`
-    : state.playerId ? `player ${state.playerId}` : '';
-  const n = state.seasons.length;
-  setStatus(!state.playerId ? ''
-    : state.loading ? `${who || 'Loading'} — ${n} season${n === 1 ? '' : 's'} so far…`
-    : `${who} · ${n} season${n === 1 ? '' : 's'} · ${state.kind || '—'}`);
-
+  // The heading carries who and how much; the status line is left for things
+  // that are actually worth a sentence.
+  setStatus('');
+  renderHero();
   renderKinds();
   renderYears();
   renderLevels();
@@ -240,7 +289,10 @@ async function loadCareer(playerId, { keepFilters = false } = {}) {
   const token = ++loadToken;
   const previous = state.playerId;
   state.playerId = String(playerId);
-  state.player = null;
+  // Whoever was picked already carries a name; keep it so the heading says who
+  // this is from the first frame rather than flashing an id until the summary
+  // lands a second later.
+  if (!state.player || state.player.id !== state.playerId) state.player = null;
   state.seasons = [];
   state.kinds = [];
 
@@ -374,6 +426,7 @@ function renderSuggestions() {
   box.innerHTML = list.length
     ? list.map((p, i) => `<li role="option" data-id="${esc(p.id)}" data-i="${i}"`
       + ` aria-selected="${i === state.highlighted}">`
+      + (p.flag ? `<img class="flag" src="${esc(p.flag)}" alt="">` : '')
       + `<span>${esc(p.name)}</span><span class="cc">${esc(p.countryCode)}</span></li>`).join('')
     : '<li class="none">No player of that name</li>';
   box.hidden = false;
@@ -454,6 +507,96 @@ $('pick').addEventListener('submit', e => {
   if (list && list.length) choose(list[Math.max(0, state.highlighted)]);
 });
 
+/* ============================ top ranked ============================
+
+   A shortcut to the players most people arrive looking for, so the search box
+   is not the only way in. One call per discipline, only when its tab is opened,
+   cached for twelve hours — rankings move once a week.
+   ================================================================= */
+
+const topCache = new Map();          // ranking category id -> rows
+let topCat = RANKING_CATEGORIES[0].id;
+
+function renderTopTabs() {
+  $('topTabs').innerHTML = RANKING_CATEGORIES.map(c =>
+    `<button type="button" role="tab" data-cat="${c.id}"`
+    + ` class="${c.id === topCat ? 'on' : ''}" aria-selected="${c.id === topCat}"`
+    + ` title="${esc(c.label)}">${c.code}</button>`).join('');
+}
+
+function renderTopList() {
+  const rows = topCache.get(topCat);
+  if (!rows) { $('topList').innerHTML = '<li class="loading">Loading…</li>'; return; }
+  if (!rows.length) { $('topList').innerHTML = '<li class="loading">No ranking available</li>'; return; }
+
+  $('topList').innerHTML = rows.map(r => {
+    // A doubles row is a pair, and either half may be the one being looked for,
+    // so both are offered rather than guessing at the first.
+    const players = r.players.map(p =>
+      (p.flag ? `<img class="flag" src="${esc(p.flag)}" alt="${esc(p.country)}">` : '')
+      + `<button type="button" class="pl" data-id="${esc(p.id)}"`
+      + ` data-name="${esc(p.name)}">${esc(p.name)}</button>`).join('<span class="sep">/</span>');
+    return `<li><span class="rk">${esc(r.rank)}</span>${players}</li>`;
+  }).join('');
+}
+
+async function showTop(catId) {
+  topCat = Number(catId);
+  renderTopTabs();
+  renderTopList();
+  if (topCache.has(topCat)) return;
+  try {
+    topCache.set(topCat, await loadTopRanked(topCat));
+  } catch {
+    topCache.set(topCat, []);        // an empty list says so; a spinner forever does not
+  }
+  if (!$('topPanel').hidden) renderTopList();
+}
+
+function openPanel(btn, panel, open) {
+  panel.hidden = !open;
+  btn.setAttribute('aria-expanded', String(open));
+}
+
+$('topBtn').addEventListener('click', () => {
+  const open = $('topPanel').hidden;
+  openPanel($('topBtn'), $('topPanel'), open);
+  if (open) showTop(topCat);
+});
+
+$('topTabs').addEventListener('click', e => {
+  const b = e.target.closest('[data-cat]');
+  if (b) showTop(b.dataset.cat);
+});
+
+$('topList').addEventListener('click', e => {
+  const b = e.target.closest('.pl');
+  if (!b) return;
+  openPanel($('topBtn'), $('topPanel'), false);
+  choose({ id: b.dataset.id, name: b.dataset.name });
+});
+
+$('moreBtn').addEventListener('click', () => {
+  openPanel($('moreBtn'), $('morePanel'), $('morePanel').hidden);
+});
+
+$('morePanel').addEventListener('change', e => {
+  const box = e.target.closest('input[data-cat]');
+  if (!box) return;
+  toggleLevel(box.dataset.cat);
+});
+
+// A panel left open over the seasons is in the way; anything outside closes it.
+document.addEventListener('click', e => {
+  if (!e.target.closest('#topBtn, #topPanel')) openPanel($('topBtn'), $('topPanel'), false);
+  if (!e.target.closest('#moreBtn, #morePanel')) openPanel($('moreBtn'), $('morePanel'), false);
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  openPanel($('topBtn'), $('topPanel'), false);
+  openPanel($('moreBtn'), $('morePanel'), false);
+});
+
 /* ============================ filters ============================ */
 
 // Size is a user toggle, on by default, and it is only a redraw.
@@ -481,15 +624,18 @@ $('years').addEventListener('click', e => {
   render();
 });
 
-$('levels').addEventListener('click', e => {
-  const b = e.target.closest('[data-cat]');
-  if (!b) return;
-  const cat = b.dataset.cat;         // a string: most are numeric ids, "OLY" is not
+/** cat is a string: most are numeric ids, "OLY" is not. */
+function toggleLevel(cat) {
   state.touchedLevels.add(cat);
   if (state.hiddenLevels.has(cat)) state.hiddenLevels.delete(cat);
   else state.hiddenLevels.add(cat);
   writeHash();
   render();
+}
+
+$('levels').addEventListener('click', e => {
+  const b = e.target.closest('[data-cat]');
+  if (b) toggleLevel(b.dataset.cat);
 });
 
 /* ============================ hash routing ============================
@@ -567,6 +713,8 @@ window.BST = {
   },
   loadLadders,
   search: searchPlayers,
+  top: () => topCache.get(topCat) || null,
+  showTop,
 };
 
 const initial = readHash();

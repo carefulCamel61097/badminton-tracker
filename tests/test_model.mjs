@@ -439,6 +439,26 @@ eq('so it lands in the singles view', defaultKind(olympicSeason), 'singles');
 eq('and fills against the ladder rather than blanking',
   Math.round(fillFraction(positionInfo('Quarterfinals'), olympicSeason[0].draws[0], 5) * 100), 40);
 
+console.log('\n=== a tournament still being played ===');
+// BWF reports the round a player is *in* while an event runs — the 2026 World
+// Championships came back as "SF" mid-tournament. That is not in the placings
+// table, so it rendered as an unknown, which draws as an empty square: the
+// event everybody is actually watching was the one showing no result.
+eq('a live semi-final is a semi-final', positionInfo('SF').label, 'SF');
+eq('on the same rung', positionInfo('SF').steps, 2);
+eq('and coloured as one', positionInfo('SF').tier, 'sf');
+eq('a live final too', positionInfo('F', { win: 5, lose: 1 }).label, 'F');
+eq('and whoever has lost nothing has won it', positionInfo('F', { win: 5, lose: 0 }).label, 'W');
+near('so it fills against the ladder rather than reading as nothing',
+  fillFraction(positionInfo('SF'), { win: 4, lose: 0 }, 6), 4 / 6);
+
+console.log('\n=== names BWF writes in capitals ===');
+eq('a region is not a sponsor', shortTmtName('ASIAN Games 2022 (Individual Event)'), 'ASIAN Games');
+eq('and the team event still says so',
+  shortTmtName('ASIAN Games 2022 (Team Event) - Non World Ranking'), 'ASIAN Games (Team Event)');
+check('nor is a continent', /European/i.test(shortTmtName('EUROPEAN Championships 2026')),
+  shortTmtName('EUROPEAN Championships 2026'));
+
 /* ============================ names ============================ */
 
 console.log('\n=== names ===');

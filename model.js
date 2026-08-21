@@ -172,11 +172,18 @@ const POSITION = {
  * drawn as an empty square: the strip was quietly blanking Olympic results.
  */
 const POSITION_ALIAS = {
-  'FINAL': '2nd', 'FINALS': '2nd',
+  'FINAL': '2nd', 'FINALS': '2nd', 'F': '2nd',
   'SEMIFINAL': '3rd', 'SEMIFINALS': '3rd', 'SEMI-FINAL': '3rd', 'SEMI-FINALS': '3rd',
+  'SF': '3rd',
   'QUARTERFINAL': 'QF', 'QUARTERFINALS': 'QF', 'QUARTER-FINAL': 'QF', 'QUARTER-FINALS': 'QF',
   'ROUND OF 16': 'R16', 'ROUND OF 32': 'R32', 'ROUND OF 64': 'R64', 'ROUND OF 128': 'R128',
 };
+
+/* A placing that names a round the player has *reached* rather than one they
+   went out in. A tournament still being played reports the round they are in —
+   the 2026 World Championships returned "SF" mid-event — and the gauge reads
+   the same either way: this is how far they have got. */
+const REACHED = /^(F|SF)$/;
 
 const MIN_FILL = 0.13;           // a first-round exit still shows a sliver
 
@@ -194,9 +201,12 @@ export function positionInfo(pos, draw) {
 
   const key = raw.toUpperCase();
   if (POSITION_ALIAS[key]) {
-    const hit = POSITION[POSITION_ALIAS[key]];
-    if (/^FINALS?$/.test(key) && draw && Number(draw.lose) === 0) return POSITION['1st'];
-    return hit;
+    // "Final" and "F" do not say who *won* it. Whoever lost no match did.
+    if ((/^FINALS?$/.test(key) || REACHED.test(key))
+        && draw && Number(draw.lose) === 0 && POSITION_ALIAS[key] === '2nd') {
+      return POSITION['1st'];
+    }
+    return POSITION[POSITION_ALIAS[key]];
   }
 
   // Group stages: the Olympics and the season-ending Finals both seed a
@@ -369,7 +379,13 @@ export function surnameOf(nameDisplay) {
  * shipped. An allow-list, not a rewrite: edition numerals like VI and XXIX
  * *should* still be stripped.
  */
-const NOT_A_SPONSOR = new Set(['US', 'USA', 'UAE', 'UK', 'BWF']);
+const NOT_A_SPONSOR = new Set([
+  'US', 'USA', 'UAE', 'UK', 'BWF',
+  // Regions, which BWF writes in caps at the front of the Games and the
+  // continental events: "ASIAN Games 2022" was rendering as just "Games".
+  'ASIAN', 'ASIA', 'EUROPEAN', 'EUROPE', 'AFRICAN', 'AMERICAN', 'PAN', 'OCEANIA',
+  'COMMONWEALTH', 'OLYMPIC', 'OLYMPICS', 'WORLD',
+]);
 
 /**
  * "PETRONAS Malaysia Open 2026" -> "Malaysia Open".
@@ -416,8 +432,15 @@ export function shortTmtName(name) {
     .replace(/\bChampionships?\b/gi, 'Champs')
     .replace(/\bInternational\b/gi, 'Intl')
     .replace(/\bMen's\s*&\s*Women's\s*Team\b/i, 'Team')
+    // The individual event is the default; only the team one needs saying.
+    .replace(/\(\s*Individual\s+Event\s*\)/i, '')
     .replace(/\bIndividual\b/gi, '')
     .replace(/\bThomas\s*&\s*Uber\s*Cup\s*Finals?\b/i, 'Thomas & Uber')
+    .replace(/\s*[-–]\s*Non\s+World\s+Ranking\s*$/i, '')
+    // Tidy after the removals above: "(Individual Event)" losing its first word
+    // must not leave "( Event)", and an emptied bracket should go entirely.
+    .replace(/\(\s+/g, '(')
+    .replace(/\(\s*\)/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 

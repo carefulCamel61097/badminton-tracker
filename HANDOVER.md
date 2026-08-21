@@ -328,6 +328,40 @@ the minimum), and `-` for some junior events, which means the same as `N/A`.
 **Rio 2016 used `MS` and `QF`.** Tokyo 2020 and Paris 2024 use the long forms. Both
 spellings have to work, and neither can be assumed from the year.
 
+### 2.7 Dark only — settled
+
+**Decided 22 Aug 2026.** One theme: the predecessor's BWF skin in dark. Roboto,
+`#1a1a1a`, BWF red `#df2027`.
+
+The strip is a green-to-red gauge that was judged against that ground, and a
+`prefers-color-scheme` flip changes the thing that was tested. It is not a
+hypothetical: the pass that shipped both modes put a first-round label in **white on
+a near-white box**, because white is right when the fill reaches the middle of the
+box and wrong when it fills 13%. The suite now asserts that a light preference
+changes nothing, and that no label is white on a box its fill does not reach.
+
+### 2.8 Player identity, and BWF's own images
+
+The heading is the player: **photograph, flag, name at 27px**, then country, season
+count and tournament count. A five-digit id in a text box was the previous answer
+and it told the reader nothing.
+
+```
+vue-player-summary → avatar.url_cloudinary   a square 308px crop, made for this
+                     avatar.url_thumbnail    the full-frame original, portrait
+                     country_model.flag_name_svg   e.g. "china.svg"
+```
+
+Flags are `https://extranet.bwf.sport/docs/flags-svg/{flag_name_svg}`.
+
+⚠️ **Both asset hosts 403 anything that is not a browser**, exactly as the API does,
+so a `curl` check of one of these URLs proves nothing — they were verified by loading
+them in a real page. The suite asserts `naturalWidth > 0` rather than trusting the
+markup.
+
+Images are **hotlinked, not copied**: they are BWF's photographs, the tool credits
+BWF, and re-hosting somebody else's pictures would be the worse choice.
+
 ---
 
 ## Part 3 — The BWF API
@@ -401,11 +435,19 @@ start_date, tournament_category_id, …}}`, and each draw is
 
 ```
 GET /vue-popular-players?searchKey={text}&activeTab=1&page=1
+GET /vue-rankingtable?rankId=2&catId={6..10}&page=1&drawCount=1&doubles={bool}
 ```
 **Player search across the whole database** *(discovered 21 Aug 2026, verified 200)*.
 Returns `{results:[{id, slug, name_display, name_display_break, country_model{name,
 code_iso3, flag_name_svg}, avatar}], pagination, drawCount}`, 30 per page. Found by
 pointing `discover.mjs` at bwfbadminton.com/players/. See the traps in Part 1.4.
+
+The ranking table is the **top-ranked shortcut**: page 1 is the top 15, one call per
+discipline. ⚠️ Its rows carry `player1_model`/`player2_model` with only
+`{id, slug, name_display_bold}` — the name arrives as **markup**
+(`<span class="name-1">Aria</span> <span class="name-2">DINATA</span>`) and has to be
+reduced to text before it is shown. The country model here is trimmed to
+`{name, flag_name_svg}`, with no `code_iso3`.
 
 ```
 GET /vue-player-summary?playerId={id}&isPara=0&drawCount=5          → bio, avatars, slug
@@ -523,6 +565,13 @@ player got from the match count will credit those two wins as rounds of the main
 range, and it answers with thirteen *groups* ("HSBC BWF World Tour", "Games",
 "Continental Level") rather than a flat id-to-name list, so mapping a
 `tournament_category_id` through it is a job of its own.
+
+⚠️⚠️ **A tournament still being played reports the round the player is IN**, as a
+round abbreviation rather than a final placing: the 2026 World Championships returned
+`"SF"` while it was on. `SF` and `F` are not in the placings table — that spells
+finishes as `3rd` and `2nd` — so an unhandled one draws as an empty square, and the
+event everybody is currently watching is exactly the one that shows no result. `F`
+with no losses is a champion, not a runner-up.
 
 ⚠️⚠️ **The Olympics spell draws and placings out in full**: `"Men's Singles"` where the
 World Tour says `MS`, `"Quarterfinals"` where it says `QF`. Rio 2016 used the short

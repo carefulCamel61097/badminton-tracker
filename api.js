@@ -15,6 +15,35 @@ import { parseSeason } from './model.js';
 
 export const API = 'https://extranet-lv.bwfbadminton.com/api';
 
+/* BWF's asset hosts. Flags and player photographs are served from these and are
+   hotlinked rather than copied: they are BWF's images, the tool credits BWF,
+   and re-hosting somebody else's photographs would be the worse choice.
+   ⚠️ Both 403 a plain HTTP client the same way the API does — they load in a
+   browser and nowhere else, so a curl check of one of these URLs means nothing. */
+const FLAG_HOST = 'https://extranet.bwf.sport/docs/flags-svg';
+
+/** A country_model to a flag image, or '' if BWF did not name one. */
+export function flagUrl(country) {
+  const file = country && country.flag_name_svg;
+  return file ? `${FLAG_HOST}/${file}` : '';
+}
+
+/**
+ * The player's photograph. `url_cloudinary` is a square 308px crop made for
+ * exactly this; the others are the full-frame original, which is portrait and
+ * has to be cropped by CSS.
+ */
+export function avatarUrl(avatar) {
+  if (!avatar) return '';
+  return avatar.url_cloudinary || avatar.url_thumbnail || avatar.url_original || '';
+}
+
+/** BWF returns some names as markup. Take the text and let the page escape it. */
+function plainName(model) {
+  const raw = (model && (model.name_display || model.name_display_bold)) || '';
+  return String(raw).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 const REQ_GAP_MS = 320;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const RANK_TTL_MS = 12 * 60 * 60 * 1000;   // ranking tables move once a week
@@ -160,7 +189,58 @@ export async function loadPlayer(playerId, opts = {}) {
     slug: r.slug || '',
     country: country.name || '',
     countryCode: country.code_iso3 || '',
+    flag: flagUrl(country),
+    avatar: avatarUrl(r.avatar),
   };
+}
+
+/**
+ * The ranking categories, which are *not* the draw ids: MS 6, WS 7, MD 8,
+ * WD 9, XD 10. rankId 2 is the BWF World Rankings (9 is the Race to Finals).
+ */
+export const RANKING_CATEGORIES = [
+  { id: 6,  code: 'MS', label: "Men's singles",   doubles: false },
+  { id: 7,  code: 'WS', label: "Women's singles", doubles: false },
+  { id: 8,  code: 'MD', label: "Men's doubles",   doubles: true },
+  { id: 9,  code: 'WD', label: "Women's doubles", doubles: true },
+  { id: 10, code: 'XD', label: 'Mixed doubles',   doubles: true },
+];
+
+/**
+ * The top of a ranking table, as a shortcut to the players most people arrive
+ * looking for.
+ *
+ * Paging is hard-locked at 15 rows — `per_page`, `limit` and the rest are all
+ * ignored — so page 1 is the top 15 and `count` just trims it. Rankings move
+ * once a week, which is what the twelve-hour store is for.
+ *
+ * ⚠️ A doubles row is a *pair*: two players, either of whom might be the one
+ * being looked for, so both are returned rather than assuming the first.
+ */
+export async function loadTopRanked(catId, { count = 10, ...opts } = {}) {
+  const cat = RANKING_CATEGORIES.find(c => c.id === Number(catId));
+  const raw = await getJSON('vue-rankingtable', {
+    rankId: 2, catId, page: 1, drawCount: 1,
+    searchKey: '', publicationId: 0,
+    doubles: !!(cat && cat.doubles), pageKey: 10,
+  }, { priority: 'low', persist: true, ...opts });
+
+  const r = raw && raw.results;
+  const rows = Array.isArray(r) ? r : (r && Array.isArray(r.data)) ? r.data : [];
+
+  return rows.slice(0, count).map(row => ({
+    rank: row.rank,
+    players: [[row.player1_model, row.p1_country_model], [row.player2_model, row.p2_country_model]]
+      .filter(([p]) => p && p.id != null)
+      .map(([p, c]) => ({
+        id: String(p.id),
+        name: plainName(p),
+        slug: p.slug || '',
+        country: (c && c.name) || '',
+        flag: flagUrl(c),
+      }))
+      .filter(p => p.name),
+  })).filter(row => row.players.length);
 }
 
 /* ============================ tournaments ============================ */
@@ -257,10 +337,11 @@ export async function searchPlayers(query, opts = {}) {
     const c = p.country_model || {};
     return {
       id: String(p.id),
-      name: String(p.name_display || '').replace(/\s+/g, ' ').trim(),
+      name: plainName(p),
       slug: p.slug || '',
       country: c.name || '',
       countryCode: c.code_iso3 || '',
+      flag: flagUrl(c),
     };
   }).filter(p => p.id && p.name);
 

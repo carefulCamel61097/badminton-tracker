@@ -129,4 +129,17 @@ process.stdout.write(`  searches (${QUERIES.length}) … `);
   console.log(`+${fixtureCount() - before} fixtures`);
 }
 
+/* The top-ranked shortcut: one ranking table per discipline, fetched only when
+   its tab is opened, so each one has to be opened here. */
+process.stdout.write(`  top-ranked tabs … `);
+{
+  const before = fixtureCount();
+  for (const cat of [6, 7, 8, 9, 10]) {
+    await b.ev(`window.BST.showTop(${cat})`);
+    await b.until(`window.BST.top() !== null`, { timeout: 30000 });
+    await b.wait(300);
+  }
+  console.log(`+${fixtureCount() - before} fixtures`);
+}
+
 finish(0);

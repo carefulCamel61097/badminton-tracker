@@ -252,6 +252,131 @@ if (olympicYear) {
     await b.ev(`!!document.querySelector('#levels .chip[data-cat="OLY"]')`));
 }
 
+/* ============================ who you are looking at ============================ */
+
+console.log('\n=== the player is named, not buried in a status line ===');
+const hero = await b.ev(`(() => {
+  const h = document.getElementById('hero');
+  const name = document.getElementById('heroName');
+  const av = document.getElementById('heroAvatar');
+  const fl = document.getElementById('heroFlag');
+  return {
+    shown: !h.hidden,
+    name: name.textContent.trim(),
+    size: parseFloat(getComputedStyle(name).fontSize),
+    weight: getComputedStyle(name).fontWeight,
+    meta: document.getElementById('heroMeta').textContent.trim(),
+    avatar: av.hidden ? '' : av.src,
+    avatarW: av.hidden ? 0 : av.naturalWidth,
+    flag: fl.hidden ? '' : fl.src,
+    flagW: fl.hidden ? 0 : fl.naturalWidth,
+    aboveSeasons: h.compareDocumentPosition(document.getElementById('seasons'))
+      === Node.DOCUMENT_POSITION_FOLLOWING,
+  };
+})()`);
+check('the heading is there', hero.shown);
+eq('and it is the name', hero.name, 'AN Se Young');
+check('set large enough to be the first thing read',
+  hero.size >= 22, `${hero.size}px`);
+check('and bold', Number(hero.weight) >= 600, hero.weight);
+check('above the seasons', hero.aboveSeasons);
+check('the country is there too', /Korea/i.test(hero.meta), hero.meta);
+check('with a season count', /\d+ seasons/.test(hero.meta), hero.meta);
+
+console.log('\n=== BWF supplies the photograph and the flag ===');
+check('a flag is shown', !!hero.flag, hero.flag);
+check('and it actually loaded — these hosts 403 anything that is not a browser',
+  hero.flagW > 0, `naturalWidth ${hero.flagW}`);
+check('a photograph is shown', !!hero.avatar, hero.avatar);
+check('and it loaded too', hero.avatarW > 0, `naturalWidth ${hero.avatarW}`);
+check('both come from BWF rather than being re-hosted',
+  /bwf/i.test(hero.flag) && /bwf/i.test(hero.avatar), `${hero.flag} | ${hero.avatar}`);
+
+/* ============================ the top-ranked shortcut ============================ */
+
+console.log('\n=== the top ten, per discipline ===');
+await b.ev(`document.getElementById('topBtn').click()`);
+check('the panel opens', await b.ev(`!document.getElementById('topPanel').hidden`));
+const tabs = await b.ev(`[...document.querySelectorAll('#topTabs button')]
+  .map(t => t.textContent.trim())`);
+eq('one tab per discipline', tabs.join(' '), 'MS WS MD WD XD');
+
+await b.ev(`window.BST.showTop(6)`);
+await b.until(`window.BST.top() !== null`, { timeout: 30000 });
+const ms = await b.ev('window.BST.top()');
+check('the mens singles table came back', Array.isArray(ms) && ms.length > 0,
+  JSON.stringify((ms || []).slice(0, 2)));
+eq('ten of them, not the fifteen the endpoint hands over', ms.length, 10);
+eq('starting at number one', ms[0].rank, 1);
+check('with a name, not markup',
+  ms.every(r => r.players.every(p => p.name && !/[<>]/.test(p.name))),
+  ms.map(r => r.players.map(p => p.name).join('/')).join(', '));
+check('and a flag each', ms.every(r => r.players.every(p => p.flag)));
+
+await b.ev(`window.BST.showTop(10)`);
+await b.until(`window.BST.top() !== null && window.BST.top().length > 0`, { timeout: 30000 });
+const xd = await b.ev('window.BST.top()');
+check('a doubles table offers both halves of the pair, not just the first',
+  xd.every(r => r.players.length === 2),
+  xd.slice(0, 2).map(r => r.players.map(p => p.name).join(' / ')).join(' | '));
+
+const listed = await b.ev(`[...document.querySelectorAll('#topList .pl')].map(x => x.textContent.trim())`);
+check('and they are on screen as buttons', listed.length >= 10, listed.slice(0, 3).join(' | '));
+
+// Going back to a table already fetched should cost nothing: rankings move
+// once a week, and the panel is meant to be flicked through.
+const servedBefore = fx ? fx.stats.served : 0;
+await b.ev(`window.BST.showTop(6)`);
+await b.until(`window.BST.top() !== null`, { timeout: 30000 });
+await b.wait(500);
+eq('a table already fetched costs no request', fx ? fx.stats.served : 0, servedBefore);
+
+await b.ev(`document.querySelector('#topList .pl').click()`);
+check('picking one loads that career',
+  await b.until(`window.BST.state.playerId === '57945'`, { timeout: 30000 }),
+  await b.ev('window.BST.state.playerId'));
+check('and the panel closes behind it',
+  await b.ev(`document.getElementById('topPanel').hidden`));
+check('the heading changes to the player picked',
+  /SHI Yu Qi/.test(await b.ev(`document.getElementById('heroName').textContent`)),
+  await b.ev(`document.getElementById('heroName').textContent`));
+await b.until('window.BST.ready', { timeout: 180000 });
+
+/* ============================ the level overflow ============================ */
+
+console.log('\n=== the levels nobody filters by are out of the way ===');
+const namedChips = await b.ev(`[...document.querySelectorAll('#levels .chip')]
+  .map(c => c.textContent.trim().replace(/\\s+/g, ' '))`);
+check('the named levels stay as buttons', namedChips.length >= 6, namedChips.join(' | '));
+check('and none of them is an unmapped id',
+  !namedChips.some(t => /^Level \d+/.test(t)), namedChips.join(' | '));
+
+const moreBtn = await b.ev(`(() => {
+  const b = document.getElementById('moreBtn');
+  return { hidden: b.hidden, text: b.textContent.trim().replace(/\\s+/g, ' ') };
+})()`);
+check('the rest are behind one button', !moreBtn.hidden, JSON.stringify(moreBtn));
+check('which says how many', /^\d+ more/.test(moreBtn.text), moreBtn.text);
+
+await b.ev(`document.getElementById('moreBtn').click()`);
+const checks = await b.ev(`[...document.querySelectorAll('#morePanel input')].map(i => ({
+  cat: i.dataset.cat, checked: i.checked }))`);
+check('the menu is checkmarks, one per level', checks.length >= 5, JSON.stringify(checks.slice(0, 4)));
+check('all ticked to begin with', checks.every(c => c.checked));
+
+const before = (await squares()).length;
+await b.ev(`(() => {
+  const i = document.querySelector('#morePanel input');
+  i.checked = false;
+  i.dispatchEvent(new Event('change', { bubbles: true }));
+})()`);
+check('unticking one drops its tournaments',
+  (await squares()).length < before,
+  `${before} -> ${(await squares()).length}`);
+check('and the button now says how many are off',
+  /off/.test(await b.ev(`document.getElementById('moreBtn').textContent`)),
+  await b.ev(`document.getElementById('moreBtn').textContent.trim()`));
+
 /* ============================ the disclaimer ============================ */
 
 console.log('\n=== attribution, at the foot of the page ===');
@@ -271,10 +396,11 @@ check('carries no BWF logo',
 
 /* ============================ the theme ============================ */
 
-console.log('\n=== the predecessor theme, in both modes ===');
+console.log('\n=== the predecessor theme, dark and only dark ===');
 
-/* The palette flips on prefers-color-scheme, so which one a bare run gets
-   depends on the machine it runs on. Both are emulated rather than assumed. */
+/* The ramp is a green-to-red gauge judged against this ground. A light flip
+   changes the thing that was tested — and the pass that had one shipped a
+   first-round label in white on a near-white box. */
 const scheme = async value => {
   await b.send('Emulation.setEmulatedMedia',
     { features: [{ name: 'prefers-color-scheme', value }] }, b.sessionId);
@@ -291,19 +417,27 @@ const scheme = async value => {
 };
 
 const dark = await scheme('dark');
-eq('dark is the predecessor ground', dark.bg, '#1a1a1a');
+eq('the predecessor ground', dark.bg, '#1a1a1a');
 eq('with its text', dark.text, '#f2f2f2');
-check('and the page paints it rather than borrowing one',
+eq('and BWF red', dark.accent, '#df2027');
+check('set in Roboto', /Roboto/.test(dark.font) && /Roboto/.test(dark.family), dark.family);
+check('painted, not borrowed from whatever is behind the page',
   dark.painted === 'rgb(26, 26, 26)', dark.painted);
 
 const light = await scheme('light');
-eq('light flips to the predecessor light ground', light.bg, '#efefef');
-eq('and its text', light.text, '#1a1a1a');
-check('painted too', light.painted === 'rgb(239, 239, 239)', light.painted);
+eq('a light preference changes nothing', light.bg, dark.bg);
+eq('nor the text', light.text, dark.text);
+check('nor what is painted', light.painted === dark.painted, light.painted);
 
-eq('BWF red in both', dark.accent, '#df2027');
-eq('the same red either way', light.accent, dark.accent);
-check('set in Roboto', /Roboto/.test(dark.font) && /Roboto/.test(dark.family), dark.family);
+const labels = await b.ev(`[...document.querySelectorAll('#seasons .box')].map(el => ({
+  tier: (el.className.match(/r-(\\w+)/) || [])[1],
+  pct: parseInt(el.style.getPropertyValue('--pct')) || 0,
+  colour: getComputedStyle(el).color,
+}))`);
+check('no label is white on a box the fill does not reach',
+  labels.every(l => !(l.colour === 'rgb(255, 255, 255)' && l.pct < 50)),
+  labels.filter(l => l.colour === 'rgb(255, 255, 255)' && l.pct < 50)
+    .map(l => `${l.tier}@${l.pct}%`).join(' '));
 
 await b.send('Emulation.setEmulatedMedia', { features: [] }, b.sessionId);
 

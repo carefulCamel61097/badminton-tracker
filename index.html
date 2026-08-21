@@ -24,18 +24,46 @@
     <ul id="suggest" class="suggest" role="listbox" aria-label="player suggestions" hidden></ul>
   </span>
 
-  <span class="ctl" id="kindWrap" role="group" aria-label="discipline"></span>
-
-  <label class="ctl toggle">
-    <input type="checkbox" id="sized" checked> Size by weight
-  </label>
+  <span class="ctl menu">
+    <button type="button" id="topBtn" class="seg" aria-expanded="false" aria-controls="topPanel">
+      Top ranked <span class="caret">▾</span>
+    </button>
+    <div id="topPanel" class="panel" hidden>
+      <div id="topTabs" class="tabs" role="tablist"></div>
+      <ol id="topList" class="toplist"></ol>
+    </div>
+  </span>
 </form>
+
+<!-- Who you are looking at, said properly: photograph, flag, name. -->
+<section id="hero" class="hero" hidden>
+  <img id="heroAvatar" class="avatar" alt="" hidden>
+  <div class="ident">
+    <h2 id="heroName" class="who"></h2>
+    <p class="meta">
+      <img id="heroFlag" class="flag" alt="" hidden>
+      <span id="heroMeta"></span>
+    </p>
+  </div>
+  <div class="heroctl">
+    <span id="kindWrap" role="group" aria-label="discipline"></span>
+    <label class="toggle"><input type="checkbox" id="sized" checked> Size by weight</label>
+  </div>
+</section>
 
 <div class="chiprow"><span class="lbl">Seasons</span>
   <div id="years" class="chips" role="group" aria-label="seasons"></div>
 </div>
+
 <div class="chiprow"><span class="lbl">Levels</span>
-  <div id="levels" class="chips" role="group" aria-label="tournament levels"></div>
+  <div class="chips" role="group" aria-label="tournament levels">
+    <span id="levels" class="chips"></span>
+    <span class="menu">
+      <button type="button" id="moreBtn" class="chip more" aria-expanded="false"
+              aria-controls="morePanel" hidden></button>
+      <div id="morePanel" class="panel checks" hidden></div>
+    </span>
+  </div>
 </div>
 
 <p id="status" role="status"></p>
@@ -46,8 +74,9 @@
 <footer class="foot">
   <p>
     <strong>Unofficial · data from BWF.</strong>
-    All data comes from <a href="https://bwfbadminton.com/" target="_blank" rel="noopener">BWF</a>
-    and belongs to them. This is a fan tool, not affiliated with or endorsed by BWF.
+    All data, photographs and flags come from
+    <a href="https://bwfbadminton.com/" target="_blank" rel="noopener">BWF</a>
+    and belong to them. This is a fan tool, not affiliated with or endorsed by BWF.
     Each square links back to that tournament's page on their site.
   </p>
   <details id="rawWrap">
