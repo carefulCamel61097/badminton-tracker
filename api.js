@@ -163,6 +163,24 @@ export async function loadPlayer(playerId, opts = {}) {
   };
 }
 
+/* ============================ tournaments ============================ */
+
+/**
+ * A tournament's draws, keyed on its **code** (the GUID) rather than its id —
+ * unlike vue-tournament-draw-data, which takes tmtId.
+ *
+ * This is what lets the season strip say how far a player got against the
+ * ladder that tournament actually had, instead of inferring it. Draw sizes for
+ * a played tournament are a historical fact and never change, so they get the
+ * twelve-hour store rather than the five-minute one, and the low lane: the
+ * strip is already on screen by the time these are asked for.
+ */
+export function loadDraws(tournamentCode, opts = {}) {
+  return getJSON('tournaments/draws', {
+    tournament_code: tournamentCode,
+  }, { priority: 'low', persist: true, ...opts });
+}
+
 /**
  * The player's most recent match, which is the only place a **partner** is
  * exposed: the season endpoint names the discipline but never the second

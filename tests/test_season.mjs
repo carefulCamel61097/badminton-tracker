@@ -138,6 +138,31 @@ check('every square is a link', sq.every(s => /^https?:/.test(s.href)),
   sq.filter(s => !/^https?:/.test(s.href)).map(s => s.name).join(', '));
 check('to bwfbadminton.com', sq.every(s => s.href.includes('bwfbadminton.com')));
 
+/* ============================ the real ladder ============================ */
+
+console.log('\n=== the gauge measures against the real draw ===');
+eq('the Malaysia Open ladder was fetched', await b.ev(`window.BST.rounds(
+  window.BST.season().find(t => /Malaysia/.test(t.name)).code, 'MS')`), 5);
+eq('and the World Championships, which is a 64-draw', await b.ev(`window.BST.rounds(
+  window.BST.season().find(t => /World Champ/.test(t.name)).code, 'MS')`), 6);
+
+const tips = await b.ev(`[...document.querySelectorAll('#strip .sq')]
+  .map(s => s.getAttribute('title'))`);
+check('every square says which ladder it is measured against',
+  tips.every(t => /\d+ of \d+ rounds/.test(t)),
+  tips.filter(t => !/\d+ of \d+ rounds/.test(t)).join(' | ').slice(0, 120));
+check('the Worlds R64 is nought of six',
+  /0 of 6 rounds/.test(tips.find(t => /World Championships/.test(t))),
+  tips.find(t => /World Championships/.test(t)));
+check('and the Asian title is five of five',
+  /5 of 5 rounds/.test(tips.find(t => /Asia Championships/.test(t))),
+  tips.find(t => /Asia Championships/.test(t)));
+
+console.log('\n=== a ladder that never arrives is not a broken square ===');
+check('every square still has a fill',
+  (await squares()).every(s => /^\d+%$/.test(s.pct)),
+  (await squares()).map(s => s.pct).join(' '));
+
 /* ============================ the size toggle ============================ */
 
 console.log('\n=== size is a toggle, on by default ===');
@@ -235,6 +260,27 @@ eq('eighteen tournaments that season',
 await b.ev(`document.getElementById('yearPrev').click()`);
 await b.until('!!window.BST && window.BST.ready');
 eq('the arrow steps back a year', await b.ev(`document.getElementById('year').value`), '2017');
+
+
+console.log('\n=== a level the last season did not have is not hidden ===');
+// Filters are held as what is switched *off*, not what is on. Holding the shown
+// set meant stepping back from 2026 to a Superseries-era season hid all of it,
+// because none of its categories were in a set chosen against 2026.
+check('2017 loads', await open('#p=57945&y=2017'));
+const old2017 = await squares();
+check('its tournaments are shown, not filtered away by last year choice',
+  old2017.length >= 12, `${old2017.length} squares`);
+check('including categories this project has not mapped',
+  old2017.some(s => /^Lv \d+$/.test(s.level)),
+  [...new Set(old2017.map(s => s.level))].join(', '));
+check('and no square is left with a blank level',
+  old2017.every(s => s.level.trim().length > 0),
+  old2017.filter(s => !s.level.trim()).map(s => s.name).join(', '));
+check('an unmapped level still gets a usable chip',
+  await b.ev(`[...document.querySelectorAll('#levels .chip')]
+    .every(c => c.textContent.trim().length > 1)`),
+  await b.ev(`[...document.querySelectorAll('#levels .chip')]
+    .map(c => c.textContent.trim().replace(/\s+/g, ' ')).join(' | ')`));
 
 console.log('\n=== a year with nothing in it says why ===');
 check('2005 loads without error', await open('#p=57945&y=2005'));

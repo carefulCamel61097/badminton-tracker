@@ -17,7 +17,8 @@ import {
   parseSeason, seasonDisciplines, drawFor, drawForKind, dominantDraw,
   kindOf, seasonKinds, defaultKind, seasonLevels,
   positionInfo, fillFraction, boxSize, boxScale, levelLabel, isTeamEvent,
-  shortTmtName, surnameOf, levelAbbr, LEVEL, SLOT_W, BOX_H, MIN_LABEL_PX, LEVEL_ORDER,
+  shortTmtName, surnameOf, levelAbbr, roundsInDraw, mainDrawSize, drawLadder,
+  LEVEL, SLOT_W, BOX_H, MIN_LABEL_PX, LEVEL_ORDER,
 } from '../model.js';
 import { check, eq, near, report } from './check.mjs';
 
@@ -36,6 +37,9 @@ function fixture(pathname, params) {
 }
 
 const byCat = (season, cat) => season.find(t => t.cat === cat);
+
+/** A recorded tournaments/draws payload, by tournament code. */
+const draws = code => fixture('tournaments/draws', { tournament_code: code });
 
 const seasonParams = (playerId, tmtYear) =>
   ({ playerId, isPara: 0, drawCount: 1, activeTab: 0, tmtYear });
@@ -209,6 +213,12 @@ check('the chip order is the ladder, not the numeric ids',
 eq('every mapped level has a chip position', LEVEL_ORDER.length, Object.keys(LEVEL).length);
 eq('the levels of this season, in that order',
   seasonLevels(season).join(' '), '20 23 24 11 25 21');
+eq('a category with no chip position is listed anyway, not dropped',
+  seasonLevels([{ cat: 23 }, { cat: 8 }, { cat: 3 }, { cat: 25 }]).join(' '), '23 25 3 8');
+eq('and it gets a name rather than a blank chip', levelLabel(8), 'Level 8');
+eq('abbreviated under the square', levelAbbr(8), 'Lv 8');
+eq('an unmapped level keeps full size — a guess would shrink it wrongly',
+  boxSize(8).h, BOX_H);
 
 /* ============================ fill ============================ */
 
@@ -234,6 +244,113 @@ eq('N/A is not a result', positionInfo('N/A').tier, 'na');
 eq('qualifying is its own tier', positionInfo('Qualification 2').label, 'Q');
 check('an unknown position survives as itself rather than vanishing',
   positionInfo('R128').label === 'R128');
+
+/* ============================ the real ladder ============================
+
+   `fillFraction` used to infer how deep a draw was from the exit round and the
+   number of matches played. That inference cannot see past R64, and it counts
+   qualifying wins as rounds of the main draw. tournaments/draws gives the real
+   thing, and these payloads are recorded from it.
+   ==================================================================== */
+
+console.log('\n=== rounds in a draw ===');
+eq('a 32-draw takes five rounds to win', roundsInDraw(32), 5);
+eq('a 64-draw, six', roundsInDraw(64), 6);
+eq('a 16-draw, four', roundsInDraw(16), 4);
+eq('a four-player knockout, two', roundsInDraw(4), 2);
+eq('sizes arrive as strings', roundsInDraw('32'), 5);
+check('an odd size rounds up rather than failing', roundsInDraw(48) === 6, String(roundsInDraw(48)));
+eq('nothing usable gives nothing', roundsInDraw(null), null);
+eq('and neither does a single entrant', roundsInDraw(1), null);
+
+console.log('\n=== the main draw, out of all the stages ===');
+const malaysiaDraws = draws('41287386-9043-4062-99C8-3FFBB9B26C1E');   // Super 1000
+const thailandDraws = draws('3B8847C8-A4D7-4C65-B3E1-EA2314FD304B');   // Super 500, has qualifying
+const asiaDraws = draws('C69FDCC5-4CCA-4EE1-9E18-9675557C0605');       // Continental, group qualifying
+const finalsDraws = draws('F0D25C8F-6A9A-49DE-97FC-E58E3DB74CF1');     // groups into a knockout of four
+const sideEntry = draws('3F48544D-A795-4401-9AFE-23A5532931B9');       // unmarked groups into a 32-draw
+const europeDraws = draws('25A4DDB1-A76C-4A9C-B486-B5E9588D8C4A');     // Continental, 64-draw
+
+eq('a Super 1000 runs 32', mainDrawSize(malaysiaDraws, 'MS'), 32);
+eq('the World-level draws run 64', mainDrawSize(europeDraws, 'MS'), 64);
+eq('the qualifying draw is not mistaken for the main one',
+  mainDrawSize(thailandDraws, 'MS'), 32);
+eq('a discipline that is not there gives nothing',
+  mainDrawSize(malaysiaDraws, 'ZZ'), null);
+eq('and neither does an empty payload', mainDrawSize(null, 'MS'), null);
+
+// Sizes differ between disciplines of the same tournament — the 2026 China
+// Masters ran MS at 64 and WS at 32 — so this is asked per draw, never once
+// per tournament.
+const mixed = { data: [
+  { name: 'MS', type: 'Elimination', size: '64', stage_name: 'Main Draw' },
+  { name: 'WS', type: 'Elimination', size: '32', stage_name: 'Main Draw' },
+] };
+eq('MS and WS are asked separately', mainDrawSize(mixed, 'MS'), 64);
+eq('and can disagree', mainDrawSize(mixed, 'WS'), 32);
+
+console.log('\n=== the ladder, including the stages before the knockout ===');
+eq('a straight knockout is just its rounds', drawLadder(malaysiaDraws, 'MS'), 5);
+eq('a qualifying draw does not lengthen it', drawLadder(thailandDraws, 'MS'), 5);
+eq('nor do qualifying groups', drawLadder(asiaDraws, 'MS'), 5);
+eq('a 64-draw is six', drawLadder(europeDraws, 'MS'), 6);
+
+// Two groups of four into a knockout of four: the group *is* the tournament,
+// and a semi-finalist had to win three group matches to reach it.
+eq('a round-robin main stage does lengthen it', drawLadder(finalsDraws, 'MS'), 5);
+
+// Four small groups into a 32-draw is a side entrance for twelve players, not
+// the tournament. These older payloads say nothing about their stage, so the
+// difference is read off the shape: a main stage seats the whole field.
+eq('unmarked groups too small to be the field are a side entrance',
+  drawLadder(sideEntry, 'MS'), 5);
+
+eq('a payload with no such draw gives nothing', drawLadder(malaysiaDraws, 'ZZ'), null);
+
+console.log('\n=== fill, against the real ladder ===');
+const fill = (pos, win, lose, rounds) =>
+  Math.round(fillFraction(positionInfo(pos), { position: pos, win, lose }, rounds) * 100);
+
+eq('a title fills it', fill('1st', 5, 0, 5), 100);
+eq('a runner-up in a 32-draw is four fifths', fill('2nd', 4, 1, 5), 80);
+eq('a semi-final, three fifths', fill('3rd', 3, 1, 5), 60);
+eq('a first-round exit keeps its sliver', fill('R32', 0, 1, 5), 13);
+
+// The point of the exercise: the same placing is a different achievement in a
+// different draw, because one of them had to win a round the other did not.
+eq('a quarter-final of a 32-draw is two of five', fill('QF', 2, 1, 5), 40);
+eq('a quarter-final of a 64-draw is three of six', fill('QF', 3, 1, 6), 50);
+eq('and of a 16-draw, one of four', fill('QF', 1, 1, 4), 25);
+
+console.log('\n=== what the inference got wrong ===');
+// A qualifier who wins two qualifying matches and then loses in R32 has made a
+// first-round exit. Their match record says 2-1, and reading the ladder off
+// that says they won two rounds of seven.
+eq('the inference credited qualifying wins as main-draw rounds',
+  fill('R32', 2, 1, null), 29);
+eq('the real ladder calls it what it is', fill('R32', 2, 1, 5), 13);
+
+eq('a qualifier who then reaches the last 16 won one round, not three',
+  fill('R16', 3, 1, 5), 20);
+eq('where the inference said three of seven', fill('R16', 3, 1, null), 43);
+
+// R128 has no place on a ladder anchored at R64, so the inference had nothing
+// to say about it at all.
+eq('R128 is a round now', positionInfo('R128').label, 'R128');
+eq('and reads as a first-round exit, not as an unknown', positionInfo('R128').tier, 'r1');
+eq('filling accordingly', fill('R128', 0, 1, 7), 13);
+
+console.log('\n=== the fallback, for when the extra call fails ===');
+eq('no ladder means the old inference, not an empty square',
+  fill('2nd', 4, 1, null), 80);
+eq('a title still fills', fill('1st', 5, 0, null), 100);
+eq('a first-round exit still shows', fill('R64', 0, 1, null), 13);
+eq('and an unplayed team tie is still nothing', fill('N/A', 4, 1, null), 0);
+check('the two agree whenever a player entered at round one',
+  [['1st', 5, 0], ['2nd', 4, 1], ['3rd', 3, 1], ['QF', 2, 1], ['R16', 1, 1], ['R32', 0, 1]]
+    .every(([p, w, l]) => fill(p, w, l, 5) === fill(p, w, l, null)),
+  [['1st', 5, 0], ['2nd', 4, 1], ['3rd', 3, 1], ['QF', 2, 1], ['R16', 1, 1], ['R32', 0, 1]]
+    .map(([p, w, l]) => `${p}:${fill(p, w, l, 5)}/${fill(p, w, l, null)}`).join(' '));
 
 /* ============================ names ============================ */
 

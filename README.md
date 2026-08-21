@@ -26,6 +26,11 @@ One square per tournament, chronological, left to right. Each is a gauge: it fil
 bottom by how far the player got, ramping green (title) to red (first-round exit), and the
 label inside says the same thing in words so nothing is carried by colour alone.
 
+How far they got is measured against that draw's **real ladder**, fetched per tournament:
+a quarter-final of a 64-draw fills 3/6 and a quarter-final of a 32-draw fills 2/5. Qualifying
+does not count towards it, and a round robin that *is* the main stage does. The strip renders
+before those sizes arrive and corrects itself when they land, so nothing waits on them.
+
 Squares are sized by tournament weight, which is settled in `HANDOVER.md` Part 2 against
 BWF's own player-commitment rules — Super 750 is the line above which entry is compulsory,
 so that and everything above it is full size. The box shrinks inside a fixed 52px slot, so a
@@ -39,7 +44,7 @@ partner: every doubles tournament that player entered is shown, whoever they pla
 
 | File | What it is |
 |---|---|
-| `model.js` | Pure logic: levels, weights, positions, fill, name tidying, season parsing. No browser globals, so the tests import it straight into Node |
+| `model.js` | Pure logic: levels, weights, positions, the ladder and fill, name tidying, season parsing. No browser globals, so the tests import it straight into Node |
 | `api.js` | The request layer: two-lane queue, 320ms pacing, TTL cache, one retry |
 | `app.js` | The season view: the strip, the discipline toggle, the level filters, the year stepper |
 | `serve.mjs` | Static server for local development |
@@ -68,6 +73,7 @@ that: on the predecessor 467 of them accumulated and took a 238 GB disk to zero 
 ```sh
 node tools/discover.mjs [url…]   # what endpoints does BWF's own frontend call?
 node tools/shot.mjs [#hash…]     # screenshot the strip, from fixtures
+node tools/probe-draws.mjs       # what tournaments/draws returns per format
 ```
 
 `discover.mjs` captures the API requests a BWF page makes and scans its JS bundles for
@@ -75,6 +81,9 @@ endpoint literals. It is how Parts 3.2 and 3.5 of `HANDOVER.md` were found.
 
 `shot.mjs` renders the app against the recorded fixtures and writes PNGs to
 `tests/shots/`, so a change to the strip can be looked at rather than only asserted.
+
+`probe-draws.mjs` reports the stage layout `tournaments/draws` returns for a knockout, a
+draw with qualifying, a group stage and a team event — the shapes the ladder has to handle.
 
 ## Etiquette
 

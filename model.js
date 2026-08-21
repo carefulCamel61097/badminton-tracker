@@ -59,10 +59,19 @@ export const LEVEL = {
  */
 export const LEVEL_ORDER = [20, 22, 23, 24, 11, 25, 26, 27, 5, 6, 7, 21, 17];
 
-/** The levels a season actually contains, in chip order. */
+/**
+ * The levels a season actually contains, in chip order.
+ *
+ * Anything LEVEL_ORDER does not know about goes on the end rather than being
+ * dropped: a Superseries-era season is mostly categories this project has not
+ * mapped, and leaving them out of the chip row rendered their squares with no
+ * way to filter them — visible but unreachable.
+ */
 export function seasonLevels(season) {
-  const present = new Set((season || []).map(t => t.cat));
-  return LEVEL_ORDER.filter(c => present.has(c));
+  const present = new Set((season || []).map(t => t.cat).filter(c => c != null));
+  const known = LEVEL_ORDER.filter(c => present.has(c));
+  const unknown = [...present].filter(c => !LEVEL_ORDER.includes(c)).sort((a, b) => a - b);
+  return known.concat(unknown);
 }
 
 export const SLOT_W = 52;        // every tournament keeps this footprint; the box shrinks within it
@@ -91,13 +100,27 @@ export function boxSize(catId, sized = true) {
   };
 }
 
+/**
+ * The level's name for a filter chip.
+ *
+ * The map above covers what the 2026 calendar uses. Seasons from before about
+ * 2018 carry ids it does not — 1, 2, 3, 4, 8, 10, 13, 16, 33 and 35 have all
+ * been seen, from the Superseries era, the Grand Prix, the Games and the junior
+ * circuit. Rather than render those as a blank chip nobody can click on
+ * knowingly, they are named for what they are: an id this project has not
+ * mapped yet. They keep full size, because guessing a weight downwards would
+ * quietly shrink a season nobody has looked at.
+ */
 export function levelLabel(catId) {
-  return (LEVEL[catId] || {}).label || '';
+  const l = LEVEL[catId];
+  if (l) return l.label;
+  return catId == null ? '' : `Level ${catId}`;
 }
 
 /** The level as it fits under a square: abbreviated only where it has to be. */
 export function levelAbbr(catId) {
-  const l = LEVEL[catId] || {};
+  const l = LEVEL[catId];
+  if (!l) return catId == null ? '' : `Lv ${catId}`;
   return l.abbr || l.label || '';
 }
 
@@ -112,45 +135,161 @@ export function isTeamEvent(catId) {
    position at all.
    ============================================================== */
 
+/**
+ * `steps` is how many rounds from the final the player went out — 0 for the
+ * champion, 1 for the runner-up, and so on outwards. Counting *from the final*
+ * rather than from the first round is what makes the scale independent of how
+ * big the draw was: the final is the final in a 16-draw and a 128-draw alike,
+ * whereas "round one" is R16 in one and R128 in the other.
+ */
 const POSITION = {
-  '1st': { label: 'W',   tier: 'w',   depth: 6, full: 'Champion' },
-  '2nd': { label: 'F',   tier: 'f',   depth: 6, full: 'Runner-up' },
-  '3rd': { label: 'SF',  tier: 'sf',  depth: 5, full: 'Semi-final' },
-  'QF':  { label: 'QF',  tier: 'qf',  depth: 4, full: 'Quarter-final' },
-  'R16': { label: 'R16', tier: 'r16', depth: 3, full: 'Round of 16' },
-  'R32': { label: 'R32', tier: 'r1',  depth: 2, full: 'Round of 32' },
-  'R64': { label: 'R64', tier: 'r1',  depth: 1, full: 'Round of 64' },
+  '1st':  { label: 'W',    tier: 'w',   steps: 0, full: 'Champion' },
+  '2nd':  { label: 'F',    tier: 'f',   steps: 1, full: 'Runner-up' },
+  '3rd':  { label: 'SF',   tier: 'sf',  steps: 2, full: 'Semi-final' },
+  'QF':   { label: 'QF',   tier: 'qf',  steps: 3, full: 'Quarter-final' },
+  'R16':  { label: 'R16',  tier: 'r16', steps: 4, full: 'Round of 16' },
+  'R32':  { label: 'R32',  tier: 'r1',  steps: 5, full: 'Round of 32' },
+  'R64':  { label: 'R64',  tier: 'r1',  steps: 6, full: 'Round of 64' },
+  'R128': { label: 'R128', tier: 'r1',  steps: 7, full: 'Round of 128' },
 };
 
-const FINAL_DEPTH = 6;
 const MIN_FILL = 0.13;           // a first-round exit still shows a sliver
 
 export function positionInfo(pos) {
   if (!pos || pos === 'N/A') return { label: '-', tier: 'na', full: 'Played' };
   if (POSITION[pos]) return POSITION[pos];
-  if (/^Qual/i.test(pos)) return { label: 'Q', tier: 'q', depth: 0, full: pos };
+  if (/^Qual/i.test(pos)) return { label: 'Q', tier: 'q', full: pos };
   return { label: String(pos), tier: 'na', full: String(pos) };
 }
 
 /**
- * How full the gauge should be: rounds won divided by rounds available *in that
- * tournament*, so a Super 300 quarter-final and a Super 1000 quarter-final read
- * the same rather than being skewed by draw size.
- *
- * The entry round is derived from where they went out and how many matches they
- * played: entry = exitDepth - matchesPlayed + 1.
+ * How many rounds a draw of `size` entrants takes to win. 32 -> 5, 64 -> 6.
+ * Rounded up, because BWF's sizes are not always exact powers of two.
  */
-export function fillFraction(info, draw) {
+export function roundsInDraw(size) {
+  const n = parseInt(String(size), 10);
+  if (!Number.isFinite(n) || n < 2) return null;
+  return Math.ceil(Math.log2(n));
+}
+
+/**
+ * The main draw for a discipline out of a tournaments/draws payload, and its
+ * size.
+ *
+ * The endpoint returns one row per *stage*, not per discipline: a Super 500
+ * comes back with ten rows, because every discipline also has a qualifying
+ * draw named "MS - Qualification" and sized "16>4" (sixteen entrants producing
+ * four qualifiers). The Asian Championships adds four round-robin group rows
+ * per discipline on top. Only the row named exactly for the discipline is the
+ * knockout everyone's `position` refers to.
+ *
+ * Sizes differ *between disciplines of the same tournament* — the 2026 China
+ * Masters ran MS at 64 and WS at 32 — so this must be asked per draw and never
+ * cached against the tournament alone.
+ */
+export function mainDrawSize(payload, discipline) {
+  const rows = Array.isArray(payload) ? payload
+    : (payload && Array.isArray(payload.data)) ? payload.data
+    : [];
+  const want = String(discipline || '').toUpperCase();
+  const main = rows.find(d =>
+    String(d.name || '').toUpperCase() === want && d.type === 'Elimination');
+  if (!main) return null;
+  const n = parseInt(String(main.size), 10);
+  return Number.isFinite(n) && n >= 2 ? n : null;
+}
+
+/**
+ * How many rounds a player had to win to take the title in one discipline of
+ * one tournament — the ladder the strip measures against.
+ *
+ * Usually that is just the main knockout. Two stages complicate it, and the
+ * payload distinguishes them:
+ *
+ *   Qualifying — `stage_type: 2`, `stage_name: "Qualifying"`. Either a
+ *   "MS - Qualification" draw sized "16>4", or, at the Asian Championships,
+ *   four round-robin groups of three. These happen *before* the tournament
+ *   proper, so they are not part of the ladder. A qualifier who then loses in
+ *   R32 has made a first-round exit, whatever their match record says — which
+ *   is precisely what the old inference got wrong, since it counted qualifying
+ *   wins as rounds of the main draw.
+ *
+ *   Round-robin as the main stage — the season-ending Finals, where two groups
+ *   of four feed a four-player knockout. Here the group *is* the tournament: a
+ *   semi-finalist won three group matches to get there, and counting only the
+ *   knockout would score them the same as a first-round loser.
+ *
+ * Payloads from before about 2019 leave `stage_type` and `stage_name` null, so
+ * the two cannot always be told apart by what the row says. They can be told
+ * apart by shape: a main stage has to hold the whole field, so its groups seat
+ * at least as many players as the knockout that follows. The 2017 Dubai Finals
+ * ran two groups of four into a knockout of four — the groups are the event.
+ * The 2018 Asian Championships ran four groups of three into a knockout of
+ * thirty-two, which is a side entrance for twelve players, not the tournament.
+ */
+export function drawLadder(payload, discipline) {
+  const rows = Array.isArray(payload) ? payload
+    : (payload && Array.isArray(payload.data)) ? payload.data
+    : [];
+  const want = String(discipline || '').toUpperCase();
+  const mine = rows.filter(d => {
+    const n = String(d.name || '').toUpperCase();
+    return n === want || n.startsWith(want + ' -');
+  });
+
+  const knockout = mainDrawSize(mine, want);
+  const rounds = roundsInDraw(knockout);
+  if (rounds == null) return null;
+
+  const qualifying = d => d.stage_type === 2 || /qualif/i.test(String(d.stage_name || ''));
+  const size = d => parseInt(String(d.size), 10) || 0;
+  const groups = mine.filter(d => d.type === 'Round Robin' && !qualifying(d));
+  if (!groups.length) return rounds;
+
+  const field = groups.reduce((n, g) => n + size(g), 0);
+  if (field < knockout) return rounds;      // a side entrance, not the main stage
+
+  // Everyone in a group plays everyone else in it: size - 1 matches.
+  const biggest = Math.max(...groups.map(size));
+  return biggest >= 2 ? rounds + (biggest - 1) : rounds;
+}
+
+/**
+ * How full the gauge should be: how far through that tournament's own ladder
+ * the player got.
+ *
+ * With `rounds` — the real number of rounds in that draw, from
+ * `tournaments/draws` — this is simply the rounds survived over the rounds
+ * there were. A quarter-final of a 64-draw fills 3/6 and a quarter-final of a
+ * 32-draw fills 2/5, which is the honest difference: one of them had to win a
+ * round the other did not.
+ *
+ * Without it, the ladder depth is inferred from matches played, which is what
+ * the strip did before the draw sizes were available and is still the fallback
+ * when the extra call fails. The two agree whenever a player entered the main
+ * draw at round one; they diverge on byes, on qualifiers whose wins include
+ * qualifying rounds, and on walkovers. The inference also cannot see past R64,
+ * because it has to assume where the ladder starts.
+ */
+export function fillFraction(info, draw, rounds) {
   if (!draw || info.tier === 'na') return 0;
+  // Qualifying, or a placing we do not recognise: they were there, and that is
+  // all this can honestly say.
+  if (info.steps == null) return MIN_FILL;
+
+  if (rounds > 0) {
+    const survived = Math.max(0, rounds - info.steps);
+    return Math.max(MIN_FILL, Math.min(1, survived / rounds));
+  }
+
   const wins = Number(draw.win) || 0;
   const played = wins + (Number(draw.lose) || 0);
-  if (!played || !info.depth) return MIN_FILL;
-
-  const entry = info.depth - played + 1;
-  const rounds = FINAL_DEPTH - entry + 1;
-  if (rounds <= 0) return MIN_FILL;
-
-  return Math.max(MIN_FILL, Math.min(1, wins / rounds));
+  if (!played) return MIN_FILL;
+  // Rounds available from wherever they came in: the ones they won, plus the
+  // ones between their exit and the final.
+  const available = wins + info.steps;
+  if (available <= 0) return MIN_FILL;
+  return Math.max(MIN_FILL, Math.min(1, wins / available));
 }
 
 /* ============================ names ============================ */

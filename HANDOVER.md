@@ -201,6 +201,76 @@ try to filter by one.
 `drawCount=5`. Another face of the polymorphic-`results` trap in Part 3.6.
 
 
+### 2.5 The gauge measures against the real draw — settled
+
+**Decided 21 Aug 2026.** How full a square is comes from the **real size of that
+draw**, fetched per tournament from `tournaments/draws` (Part 3.5), not from an
+inference over the player's match record.
+
+```
+rounds  = log2(main draw size)          # 32 -> 5, 64 -> 6
+fill    = (rounds - stepsFromFinal) / rounds
+```
+
+`stepsFromFinal` counts outwards from the final — champion 0, runner-up 1, semi 2,
+quarter 3, R16 4, R32 5, R64 6, R128 7 — because **the final is the same round in
+every draw whereas "round one" is not**. A quarter-final of a 64-draw fills 3/6 and
+a quarter-final of a 32-draw fills 2/5: the honest difference, since one of them had
+to win a round the other did not.
+
+**Two stages complicate the ladder, and the payload distinguishes them:**
+
+- **Qualifying** (`stage_type: 2`, `stage_name: "Qualifying"`) is *not* part of it.
+  It comes as either a `"MS - Qualification"` draw sized `"16>4"`, or — at the Asian
+  Championships — four round-robin groups of three.
+- **A round robin that is the main stage** *is* part of it. The season-ending Finals
+  run two groups of four into a four-player knockout: a semi-finalist won three group
+  matches to get there, and counting only the knockout would score them the same as a
+  first-round loser.
+
+⚠️ **Payloads from before about 2019 leave `stage_type` and `stage_name` null**, so
+those two cannot always be told apart by what the row says. They can be told apart by
+shape: **a main stage has to seat the whole field**, so its groups hold at least as
+many players as the knockout that follows. The 2017 Dubai Finals ran 2×4 into a
+knockout of 4 — the groups are the event. The 2018 Asian Championships ran 4×3 into a
+knockout of 32, which is a side entrance for twelve players, not the tournament.
+
+**The inference is kept as the fallback** for when the extra call fails, so a square
+degrades to slightly-wrong rather than blank:
+
+```
+fill = wins / (wins + stepsFromFinal)
+```
+
+The two agree exactly whenever a player entered the main draw at round one.
+
+#### What this fixed
+
+Measured across the 255 recorded squares that have a draw size: **9 changed, 3.5%**,
+and every one was the same bug. The inference counted **qualifying wins as rounds of
+the main draw**:
+
+| | record | inferred | real |
+|---|---|---|---|
+| Thailand Open WS, out in R16 | 3-1 | 43% | **20%** |
+| Malaysia Masters MS, out in R32 | 2-1 | 29% | **13%** |
+| Malaysia Masters XD, out in QF | 3-1 | 50% | **40%** |
+
+A qualifier who wins two qualifying matches and then loses their first main-draw
+match has made a first-round exit. Their record says 2-1, and the inference read that
+as two rounds won of seven.
+
+It also fixed **R128**, which had no place on a ladder anchored at R64 and so rendered
+as an unknown rather than as a first-round exit.
+
+#### Cost
+
+One call per tournament — about a dozen for a season, 700 bytes each. The strip
+therefore renders **immediately** with the inferred fill and is corrected when the
+sizes land; for most seasons nothing visibly moves. Draw sizes for a played
+tournament are immutable history, so they go in the twelve-hour `localStorage` cache
+and the low lane.
+
 ---
 
 ## Part 3 — The BWF API
@@ -251,7 +321,7 @@ Each entry also carries `prize_money`, `location`, `country`, `flag_url`, `logo`
 ```
 GET /vue-tmt-live-scores          → {thisWeek[], nextWeek[]}, each with has_live_scores
 GET /match-center/vue-current-live?showpara=0
-GET /vue-tournament-categories?startDate=&endDate=   → authoritative level list
+GET /vue-tournament-categories?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
 GET /vue-tournament-series?startDate=&endDate=       → 205 series
 GET /vue-countries
 GET /vue-rankingdata?rankId=2 · /vue-rankingweek?rankId=2 · /vue-home-ranking?drawCount=2
@@ -377,6 +447,17 @@ oriented to *your query* — swap `t1p1`/`t2p1` and they swap with you. But
 `matches[].result.winner` and `matches[].progress.games[]` stay oriented to **that match's
 own draw**. Reading `result.winner` as "team1 is who I asked about" credits about half of
 all past meetings to the loser. This was a real shipped bug.
+
+⚠️ **`match_win` includes qualifying wins, but `position` is a main-draw placing.**
+A qualifier who wins two qualifying matches and then loses in R32 comes back as
+`{position: "R32", match_win: 2, match_lose: 1}`. Anything that infers how deep a
+player got from the match count will credit those two wins as rounds of the main draw
+— which is exactly why the gauge uses the real draw size instead. See Part 2.5.
+
+⚠️ **`vue-tournament-categories` returns HTTP 500 for empty dates.** It needs a real
+range, and it answers with thirteen *groups* ("HSBC BWF World Tour", "Games",
+"Continental Level") rather than a flat id-to-name list, so mapping a
+`tournament_category_id` through it is a job of its own.
 
 ⚠️ **`position` is a placing, not a round.** `"1st"`, `"2nd"`, `"3rd"`, then `"QF"`,
 `"R16"`, `"R32"`, `"R64"`, `"Qual…"`, and `"N/A"` for team events.
@@ -523,8 +604,14 @@ using the global `WebSocket`. Deployed on GitHub Pages. This worked well — kee
   `day-matches/players`, `day-matches/courts` and `vue-tournament-organizations`;
   see Part 3.5. A per-match live-score endpoint beyond `match-center/vue-current-live`
   is still not among them.
-- **Should `fillFraction` use the real draw size?** `tournaments/draws` gives `size`
-  per draw (Part 3.5), which would replace the inference from exit depth minus
-  matches played — at one extra call per tournament. Decide when the strip is built.
+- ~~**Should `fillFraction` use the real draw size?**~~ — yes, settled 21 Aug 2026 and
+  built. See Part 2.5.
+- **What are the pre-2019 category ids?** Seasons before about 2018 carry
+  `tournament_category_id` values the weighting map does not know: **1, 2, 3, 4, 8,
+  10, 13, 16, 33, 35** have all been seen, from the Superseries era, the Grand Prix,
+  the Games and the junior circuit. They currently render as "Level 8" at full size,
+  which is honest but uninformative, and it means a historical season is drawn without
+  any weighting at all. `vue-tournament-categories` is the lead, with the caveat in
+  Part 3.6.
 - **Does the calendar's `category` string map cleanly onto `tournament_category_id`?**
   Both are in use and the mapping is currently inferred from the level names.

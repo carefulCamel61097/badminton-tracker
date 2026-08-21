@@ -11,11 +11,11 @@
  * this is the same rendering, wired to live data.
  */
 
-import { loadSeason, loadPlayer, queueDepth } from './api.js';
+import { loadSeason, loadPlayer, loadDraws, queueDepth } from './api.js';
 import {
   positionInfo, fillFraction, drawForKind, dominantDraw, seasonKinds,
   defaultKind, seasonLevels, levelLabel, levelAbbr, boxSize, isTeamEvent,
-  SLOT_W, BOX_H, LEVEL,
+  drawLadder, SLOT_W, BOX_H, LEVEL,
 } from './model.js';
 
 const $ = id => document.getElementById(id);
@@ -31,13 +31,29 @@ const state = {
   year: null,
   kind: null,            // 'singles' | 'doubles'; null = follow defaultKind()
   sized: true,
-  levels: null,          // Set of category ids to show; null = "not chosen yet"
+  // Levels are held as what is *hidden*, not what is shown. Holding the shown
+  // set meant that stepping back to a season containing a level the last one
+  // did not — and historical seasons are full of them — hid it silently,
+  // because it was not in a set chosen against a different year.
+  hidden: null,          // category ids switched off
+  touched: null,         // category ids the reader has actually clicked
   player: null,          // {name, country} once the summary lands; null before
   season: null,          // always the whole season, team events included
   kinds: [],
+  // tournament code -> the raw tournaments/draws payload, so the strip can ask
+  // how many rounds *this* draw had. Undefined = not looked up yet, null = the
+  // lookup failed and the square keeps its inferred fill.
+  draws: new Map(),
   error: null,
   loading: false,
 };
+
+/** How many rounds the player's own draw had, or null if not known yet. */
+function roundsFor(tmt, drawName) {
+  const payload = state.draws.get(tmt.code);
+  if (!payload) return null;
+  return drawLadder(payload, drawName);
+}
 
 /* ============================ what gets drawn ============================ */
 
@@ -45,16 +61,23 @@ const state = {
  * Team events are off unless explicitly switched on. They carry no individual
  * position — BWF returns "N/A" — so at full weight they are the largest and
  * emptiest squares in the strip: maximum prominence, zero information.
+ *
+ * Applied to every season as it arrives, but never to a level the reader has
+ * already made a decision about: switching team events on and then stepping a
+ * year should not switch them off again.
  */
-function defaultLevels(season) {
-  return new Set(seasonLevels(season).filter(c => !isTeamEvent(c)));
+function applyLevelDefaults(season) {
+  if (!state.hidden) { state.hidden = new Set(); state.touched = new Set(); }
+  for (const c of seasonLevels(season)) {
+    if (isTeamEvent(c) && !state.touched.has(c)) state.hidden.add(c);
+  }
 }
 
 /** The tournaments the strip should draw, in order. */
 function visibleSeason() {
   const s = state.season || [];
-  if (!state.levels) return s;
-  return s.filter(t => state.levels.has(t.cat));
+  if (!state.hidden) return s;
+  return s.filter(t => !state.hidden.has(t.cat));
 }
 
 /* ============================ the strip ============================ */
@@ -75,15 +98,19 @@ function square(tmt, kind, preferred) {
     ? (tmt.draws || [])[0] || null
     : drawForKind(tmt, kind, preferred);
   const info = positionInfo(draw && draw.position);
-  const pct = Math.round(fillFraction(info, draw) * 100);
+  const rounds = draw ? roundsFor(tmt, draw.name) : null;
+  const pct = Math.round(fillFraction(info, draw, rounds) * 100);
   const box = boxSize(tmt.cat, state.sized);
 
   const weight = (LEVEL[tmt.cat] || {}).weight;
   const wl = draw && draw.win != null ? ` · ${draw.win}-${draw.lose}` : '';
   const entered = draw ? `${draw.name} — ${info.full}${wl}` : 'did not enter';
+  // Naming the ladder makes the gauge checkable: a quarter-final filling 2/5
+  // and another filling 3/6 are both right, and the tooltip says why.
+  const ladder = rounds ? `\n${Math.max(0, rounds - (info.steps || 0))} of ${rounds} rounds` : '';
   const tip = `${tmt.name}\n${tmt.level || 'Unknown level'}`
     + (weight != null ? ` · weight ${weight.toFixed(2)}` : '')
-    + `\n${entered}`;
+    + `\n${entered}${ladder}`;
 
   const inner = `<span class="tn">${esc(tmt.short)}</span>`
     + `<span class="slot" style="height:${BOX_H}px">`
@@ -154,7 +181,7 @@ function renderKinds() {
 function renderLevels() {
   const present = seasonLevels(state.season);
   $('levels').innerHTML = present.map(c => {
-    const on = state.levels && state.levels.has(c);
+    const on = !state.hidden || !state.hidden.has(c);
     const team = isTeamEvent(c);
     const n = (state.season || []).filter(t => t.cat === c).length;
     return `<button type="button" class="chip${on ? ' on' : ''}${team ? ' team' : ''}"
@@ -188,7 +215,42 @@ function render() {
 
 /* ============================ loading ============================ */
 
+/**
+ * Fetch the real ladder for every tournament on screen, then redraw once.
+ *
+ * One call per tournament, so a full season is a dozen of them at 320ms — far
+ * too slow to keep the strip waiting. The squares therefore go up immediately
+ * with the inferred fill and are corrected when the sizes land, which for most
+ * seasons changes nothing visible and for a few corrects a square that was
+ * quietly wrong. Sizes are immutable history, so the twelve-hour cache means
+ * this happens once and not on every visit.
+ *
+ * `token` guards against the answer arriving after the reader has moved on to
+ * another player: a stale response must not repaint somebody else's season.
+ */
+async function loadDrawSizes(token) {
+  const wanted = visibleSeason().filter(t => t.code && !t.team && !state.draws.has(t.code));
+  if (!wanted.length) return;
+
+  await Promise.all(wanted.map(async t => {
+    try {
+      const payload = await loadDraws(t.code);
+      state.draws.set(t.code, payload);
+    } catch {
+      // No ladder for this one; its square keeps the inferred fill rather than
+      // going blank.
+      state.draws.set(t.code, null);
+    }
+  }));
+
+  if (token !== loadToken) return;
+  render();
+}
+
+let loadToken = 0;
+
 async function load() {
+  const token = ++loadToken;
   state.error = null;
   state.loading = true;
   render();
@@ -202,14 +264,7 @@ async function load() {
     if (!state.kind || !state.kinds.some(k => k.kind === state.kind)) {
       state.kind = defaultKind(season);
     }
-    if (!state.levels) state.levels = defaultLevels(season);
-    else {
-      // Keep the choice across a year change, but adopt any level this season
-      // has that the last one did not — otherwise stepping back a year can
-      // silently hide half of it.
-      const known = defaultLevels(season);
-      for (const c of known) if (!seasonLevels(state.season).includes(c)) state.levels.add(c);
-    }
+    applyLevelDefaults(season);
     state.loading = false;
     render();
 
@@ -222,6 +277,8 @@ async function load() {
         if (who && who.id === String(state.playerId)) { state.player = who; render(); }
       } catch { /* a name is a nicety, not the page */ }
     }
+
+    await loadDrawSizes(token);
   } catch (e) {
     // BWF's API is undocumented and can change without notice. Say so plainly
     // rather than showing an empty strip, which reads as "no tournaments".
@@ -240,7 +297,7 @@ function readForm() {
   // A discipline and a set of levels belong to a player. Carrying them across
   // meant opening a doubles player on singles and every square reading as
   // "did not enter".
-  if (player !== state.playerId) { state.kind = null; state.levels = null; }
+  if (player !== state.playerId) { state.kind = null; state.hidden = null; state.touched = null; }
   state.playerId = player;
   state.year = year;
   state.sized = $('sized').checked;
@@ -281,10 +338,14 @@ $('levels').addEventListener('click', e => {
   const b = e.target.closest('[data-cat]');
   if (!b) return;
   const cat = Number(b.dataset.cat);
-  if (state.levels.has(cat)) state.levels.delete(cat);
-  else state.levels.add(cat);
+  state.touched.add(cat);
+  if (state.hidden.has(cat)) state.hidden.delete(cat);
+  else state.hidden.add(cat);
   writeHash();
   render();
+  // Switching a level on can reveal tournaments whose ladder was never fetched,
+  // because only what was on screen got looked up.
+  loadDrawSizes(loadToken);
 });
 
 /* ============================ hash routing ============================
@@ -300,7 +361,10 @@ function readHash() {
   if (h.has('sz')) $('sized').checked = h.get('sz') !== '0';
   readForm();
   if (h.has('k')) state.kind = h.get('k');
-  if (h.has('lv')) state.levels = new Set(h.get('lv').split('.').map(Number).filter(Boolean));
+  if (h.has('hide')) {
+    state.hidden = new Set(h.get('hide').split('.').map(Number).filter(Boolean));
+    state.touched = new Set(state.hidden);
+  }
 }
 
 function writeHash() {
@@ -309,13 +373,9 @@ function writeHash() {
   p.set('y', state.year);
   if (state.kind) p.set('k', state.kind);
   if (!state.sized) p.set('sz', '0');
-  // Only when it differs from the default, so an untouched strip has a short
-  // shareable link rather than thirteen category ids.
-  if (state.levels && state.season) {
-    const def = defaultLevels(state.season);
-    const same = def.size === state.levels.size && [...def].every(c => state.levels.has(c));
-    if (!same) p.set('lv', [...state.levels].join('.'));
-  }
+  // Hidden levels only, so an untouched strip has a short shareable link rather
+  // than a list of every category the season happens to contain.
+  if (state.hidden && state.hidden.size) p.set('hide', [...state.hidden].join('.'));
   const next = '#' + p.toString();
   if (location.hash !== next) history.replaceState(null, '', next);
 }
@@ -348,6 +408,7 @@ window.BST = {
     };
   }),
   SLOT_W, BOX_H, LEVEL, boxSize, positionInfo, fillFraction,
+  rounds: (code, drawName) => { const t = (state.season||[]).find(x => x.code === code); return t ? roundsFor(t, drawName) : null; },
 };
 
 readHash();
