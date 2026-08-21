@@ -627,6 +627,14 @@ individual event. The missing gender is the only signal.
 ⚠️ **`position` is a placing, not a round.** `"1st"`, `"2nd"`, `"3rd"`, then `"QF"`,
 `"R16"`, `"R32"`, `"R64"`, `"Qual…"`, and `"N/A"` for team events.
 
+⚠️ **A bare `R` and a single digit is a group-stage exit, not a round of a draw.**
+Every occurrence in the recorded data is a round-robin event: at the season-ending
+Finals, groups of four play three matches and anyone who fails to come out of one is
+`"R3"` with a 1-2 or 0-3 record; at the Asian Championships, where the groups are the
+qualifying stage, it is `"R3"` again. Whether the digit counts matches or places, the
+meaning is the same. A single digit is what makes it safe to key on — every knockout
+round is `R16` or larger.
+
 ⚠️ **`matchStatus` has a fourth value beyond `F`/`N`/`P`**: `O` = "Off court".
 
 ⚠️ **`tournament_category_id: 7` (Future Series) exists** and was missing from the old

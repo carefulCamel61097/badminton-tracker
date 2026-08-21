@@ -406,6 +406,26 @@ check('with no ladder position, so it fills the minimum',
   positionInfo('Group A').steps === undefined);
 near('which is the sliver', fillFraction(positionInfo('Group A'), { win: 1, lose: 2 }, 5), 0.13);
 
+console.log('\n=== a bare R and one digit is a group stage ===');
+// Every occurrence in the recorded data is a round-robin event: at the Tour
+// Finals, groups of four play three matches and anyone who fails to come out of
+// one is "R3" with a 1-2 or 0-3 record; at the Asian Championships, where the
+// groups are the qualifying stage, it is "R3" again.
+eq('R3 is a group exit, not an unknown placing', positionInfo('R3').label, 'Grp');
+eq('coloured as the earliest exit there is', positionInfo('R3').tier, 'r1');
+check('and BWF\'s own wording is kept for the tooltip',
+  /R3/.test(positionInfo('R3').full), positionInfo('R3').full);
+eq('the same as a named group', positionInfo('Group B').label, positionInfo('R3').label);
+near('filling the minimum, because they got no further',
+  fillFraction(positionInfo('R3'), { win: 1, lose: 2 }, 5), 0.13);
+
+// A single digit is what makes this safe: every knockout round is R16 or larger.
+eq('R16 is still a round of the draw', positionInfo('R16').label, 'R16');
+eq('so is R32', positionInfo('R32').label, 'R32');
+eq('and R128', positionInfo('R128').label, 'R128');
+check('none of them mistaken for a group',
+  ['R16', 'R32', 'R64', 'R128'].every(p => positionInfo(p).label !== 'Grp'));
+
 console.log('\n=== a dash is not a result ===');
 eq('BWF writes "-" for some junior events', positionInfo('-').tier, 'na');
 eq('same as N/A', positionInfo('N/A').tier, 'na');

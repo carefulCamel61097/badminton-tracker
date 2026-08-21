@@ -411,9 +411,15 @@ check('but a click outside still closes it',
 console.log('\n=== a placing we do not recognise is still a result ===');
 // "R3" turns up at a Tour Finals. The player was there; an empty square says
 // there was no individual result at all, which is a different statement.
-const unknown = await positionInfoOf('R3');
-eq('it keeps its own tier rather than reading as absent', unknown.tier, 'unk');
-eq('and the label is what BWF said', unknown.label, 'R3');
+const group = await positionInfoOf('R3');
+eq('"R3" is a group-stage exit, which is what it means at a Tour Finals',
+  group.label, 'Grp');
+check('filling the same minimum sliver every other result does',
+  group.pct === '13%', group.pct);
+
+const unknown = await positionInfoOf('Some New Thing');
+eq('a placing nobody has seen before keeps its own tier', unknown.tier, 'unk');
+eq('and the label is what BWF said', unknown.label, 'Some New Thing');
 check('it fills the same minimum sliver every other result does',
   unknown.pct === '13%', unknown.pct);
 const teamTie = await positionInfoOf('N/A');

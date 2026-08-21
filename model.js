@@ -209,11 +209,20 @@ export function positionInfo(pos, draw) {
     return POSITION[POSITION_ALIAS[key]];
   }
 
-  // Group stages: the Olympics and the season-ending Finals both seed a
-  // knockout from round-robin groups, and "Group A" means they went out in it.
-  // That is the earliest exit there is, so it reads red, but there is no ladder
-  // position for it and it fills the minimum.
-  if (/^(GROUP|GRP)\b/i.test(raw)) {
+  /* Group stages: the Olympics and the season-ending Finals both seed a knockout
+     from round-robin groups, and going out in one is the earliest exit there is
+     — so it reads red, but there is no ladder position for it and it fills the
+     minimum.
+
+     Two spellings. "Group A" is the obvious one. The other is a bare "R" and a
+     single digit, which every occurrence in the recorded data is also a group
+     exit: at the Tour Finals, groups of four play three matches and everyone
+     who fails to come out of one is "R3" with a 1-2 or 0-3 record; at the Asian
+     Championships, where the groups are a qualifying stage, it is "R3" again.
+     Whether the digit counts matches or places, the meaning is the same.
+
+     A single digit is unambiguous: the knockout rounds are R16 and larger. */
+  if (/^(GROUP|GRP)\b/i.test(raw) || /^R[1-9]$/i.test(raw)) {
     return { label: 'Grp', tier: 'r1', full: 'Group stage — ' + raw };
   }
   if (/^Qual/i.test(raw)) return { label: 'Q', tier: 'q', full: raw };
