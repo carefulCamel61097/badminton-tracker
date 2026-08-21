@@ -13,6 +13,7 @@
 
 import {
   loadSeason, loadPlayer, loadDraws, searchPlayers, loadTopRanked,
+  loadWorldRank, loadRaceRank, loadLastMatch, rankingFor,
   RANKING_CATEGORIES, queueDepth,
 } from './api.js';
 import {
@@ -47,6 +48,7 @@ const state = {
   seasons: [],           // [{year, tournaments}], newest first
   draws: new Map(),      // tournament code -> tournaments/draws payload, or null
   kinds: [],
+  ranks: null,           // {draw, world, race, pair} once looked up
   error: null,
   loading: false,
   suggestions: null,
@@ -243,12 +245,23 @@ function renderHero() {
   else { flag.hidden = true; flag.removeAttribute('src'); }
 
   const n = state.seasons.length;
+  const r = state.ranks;
   const bits = [];
   if (p && p.country) bits.push(p.country);
+  if (p && p.age != null) bits.push(`${p.age}`);
+  if (r && r.world != null) bits.push(`${r.draw} #${r.world}${r.pair ? '*' : ''}`);
+  if (r && r.race != null) bits.push(`Race #${r.race}`);
   bits.push(`${n} season${n === 1 ? '' : 's'}`);
   if (state.loading) bits.push('loading…');
   else if (n) bits.push(`${allTournaments().length} tournaments`);
   $('heroMeta').textContent = bits.join(' · ');
+
+  // A doubles ranking belongs to the pair, and BWF only files it against one
+  // half of it. Saying so beats quietly presenting somebody else's number as
+  // this player's.
+  $('heroMeta').title = r && r.pair
+    ? `BWF files this doubles ranking against ${r.pair} — it is the pair's, not one player's`
+    : '';
 }
 
 function setStatus(text, isError) {
@@ -295,6 +308,7 @@ async function loadCareer(playerId, { keepFilters = false } = {}) {
   if (!state.player || state.player.id !== state.playerId) state.player = null;
   state.seasons = [];
   state.kinds = [];
+  state.ranks = null;
 
   // Picking a different player starts fresh — their discipline and their years
   // are not this one's. But a link that arrives already carrying filters, or a
@@ -357,6 +371,48 @@ async function loadCareer(playerId, { keepFilters = false } = {}) {
   if (token !== loadToken) return;
   state.loading = false;
   render();
+  loadRanks(token);
+}
+
+/**
+ * The player's current standing, once their discipline is known.
+ *
+ * Both of these depend on which draw they play, so neither can be asked before
+ * the season has told us — and neither may be cached against the player alone,
+ * because BWF answers "-" for a discipline they do not play rather than
+ * refusing the question.
+ */
+async function loadRanks(token) {
+  const draw = dominantDraw(allTournaments(), state.kind);
+  const cat = rankingFor(draw);
+  if (!cat) return;
+
+  const playerId = state.playerId;
+  const ranks = { draw, world: null, race: null, pair: null };
+
+  try {
+    ranks.world = await loadWorldRank(playerId, cat.id);
+
+    // A doubles ranking only resolves against player1_id, and in mixed doubles
+    // BWF stores the man as player1 — so asking as the woman returns nothing at
+    // all. Retry through the partner and say whose number it is.
+    if (ranks.world == null && cat.doubles) {
+      const last = await loadLastMatch(playerId, { priority: 'low' });
+      const partner = last && last.partner;
+      if (partner) {
+        const viaPartner = await loadWorldRank(partner.id, cat.id);
+        if (viaPartner != null) { ranks.world = viaPartner; ranks.pair = partner.name; }
+      }
+    }
+  } catch { /* a ranking is a nicety, not the page */ }
+
+  try {
+    ranks.race = await loadRaceRank(playerId, state.player && state.player.name, cat.race);
+  } catch { /* likewise */ }
+
+  if (token !== loadToken) return;
+  state.ranks = ranks;
+  renderHero();
 }
 
 /**
@@ -610,8 +666,10 @@ $('kindWrap').addEventListener('click', e => {
   const b = e.target.closest('[data-kind]');
   if (!b) return;
   state.kind = b.dataset.kind;
+  state.ranks = null;          // a different discipline has a different ranking
   writeHash();
   render();
+  loadRanks(loadToken);
 });
 
 $('years').addEventListener('click', e => {
@@ -712,6 +770,7 @@ window.BST = {
     });
   },
   loadLadders,
+  loadRanks: () => loadRanks(loadToken),
   search: searchPlayers,
   top: () => topCache.get(topCat) || null,
   showTop,

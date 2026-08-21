@@ -362,6 +362,39 @@ markup.
 Images are **hotlinked, not copied**: they are BWF's photographs, the tool credits
 BWF, and re-hosting somebody else's pictures would be the worse choice.
 
+The heading also carries **age**, the **BWF World Ranking** and the **Race to Finals**
+standing. All three depend on the discipline, so none can be asked before the season
+has said which one the player plays.
+
+```
+vue-player-summary → date_of_birth "1996-02-28 00:00:00"
+vue-player-ranking-current?playerId&isPara=0&rankingEvent={6..10}  → {results: 12} | {results: "-"}
+vue-rankingtable?rankId=9&catId={57..61}&searchKey={full name}     → the race row
+```
+
+⚠️ **There is no race variant of `vue-player-ranking-current`.** It answers for the
+world ranking categories (MS 6, WS 7, MD 8, WD 9, XD 10) and returns `"-"` for
+everything else — including the race ids 57–61, which were tried against it and gave
+nothing for every player. The race standing has to come out of the ranking *table*.
+
+⚠️ **`vue-rankingtable`'s `searchKey` matches the whole displayed name.** "SHI Yu Qi"
+finds exactly one row there — and nothing at all in `vue-popular-players`, which
+matches a single token. The two searches take opposite inputs.
+
+⚠️ **A doubles ranking only resolves against `player1_id`**, and in mixed doubles BWF
+stores the man as player1 — so asking as Delphine DELRUE returns `"-"`, not her pair's
+rank. The app retries through the partner from `vue-player-match-previous` and marks
+the figure with an asterisk, because it is the **pair's** number and presenting it as
+one player's would be a quiet lie. This is the one thing `loadLastMatch` is still used
+for.
+
+⚠️ `Number(null)` is 0 and `Number('')` is 0, so an empty ranking has to be ruled out
+*before* the conversion or every unranked player shows as number 0.
+
+Age is counted on the calendar rather than by dividing a millisecond difference —
+otherwise anyone born on the 29th of February is a year out.
+
+
 ---
 
 ## Part 3 — The BWF API
@@ -641,6 +674,22 @@ and the answers changed underneath as the tournament progressed. The fix:
 - Key on a SHA-1 of the full URL.
 
 Result: 16 suites in 10 minutes.
+
+### 4.4b Record what the app *can* ask for, not what a scroll happens to reach
+
+Ladders load on an `IntersectionObserver`, so only season rows that come into view
+cost requests. The recorder drove that by scrolling, which quietly made the fixture
+set a function of the window size and the scroll step — jumping to the bottom of a
+fifteen-season page skips every row in between, and rows that never intersected were
+never recorded.
+
+Nothing failed at record time. It surfaced much later as **fixture misses in a suite
+whose window is a different shape**, and looked like a bug in the app. Fixing the
+scroll step did not help either, because the shape had changed again.
+
+**The recorder now calls `window.BST.loadLadders(year)` for every season outright.**
+That found 76 ladders it had been missing. Where a fixture set depends on lazy loading,
+drive the loading directly rather than reproducing the conditions that trigger it.
 
 ### 4.5 Name handling
 

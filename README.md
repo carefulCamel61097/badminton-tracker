@@ -24,7 +24,7 @@ Requires Node 24 for the global `WebSocket` the test harness uses.
 
 Search a player by name — or pick one out of the top ten of any discipline — and their
 career stacks up as one row per season, newest first. The heading is the player: BWF's own
-photograph, their flag, and their name.
+photograph, their flag, their name, age, world ranking and place in the Race to Finals.
 Within a row, one square per tournament in chronological order. Each is a gauge: it fills
 from the bottom by how far the player got, ramping green (title) to red (first-round exit),
 and the label inside says the same thing in words so nothing is carried by colour alone.

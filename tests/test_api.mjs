@@ -22,7 +22,8 @@ function webStorageStub() {
 globalThis.sessionStorage = webStorageStub();
 globalThis.localStorage = webStorageStub();
 
-const { getJSON, loadSeason, loadLastMatch, API } = await import('../api.js');
+const { getJSON, loadSeason, loadLastMatch, loadWorldRank, loadRaceRank, ageOn, API } =
+  await import('../api.js');
 const { check, eq, report } = await import('./check.mjs');
 
 /* ============================ the fetch stub ============================ */
@@ -138,6 +139,70 @@ reset();
 responder = (url, n) => (n === 1 ? { ok: false } : { ok: true, body: '{"ok":1}' });
 await getJSON('http500', {});
 eq('a bad status is retried the same way', calls.length, 2);
+
+responder = () => ({ ok: true, body: '{"results":[]}' });
+
+/* ============================ age ============================ */
+
+console.log('\n=== age ===');
+const on = (dob, ymd) => ageOn(dob, new Date(ymd + 'T12:00:00Z'));
+eq('BWF sends a datetime, not a date', on('1996-02-28 00:00:00', '2026-08-22'), 30);
+eq('the day before a birthday is still the year before', on('1996-08-23', '2026-08-22'), 29);
+eq('the birthday itself counts', on('1996-08-22', '2026-08-22'), 30);
+// Subtracting milliseconds and dividing by 365.25 gets this wrong: it is a
+// calendar question, so it is answered on the calendar.
+eq('born on a leap day, before the 29th', on('2004-02-29', '2026-02-28'), 21);
+eq('and on the 1st of March', on('2004-02-29', '2026-03-01'), 22);
+eq('nothing usable gives nothing', ageOn(null), null);
+eq('and neither does junk', ageOn('not a date'), null);
+
+/* ============================ rankings ============================ */
+
+console.log('\n=== the world ranking ===');
+reset();
+responder = () => ({ ok: true, body: '{"results":12}' });
+eq('a rank comes back as a number', await loadWorldRank(57945, 6), 12);
+eq('asked of the current-ranking endpoint',
+  calls[0].url,
+  `${API}/vue-player-ranking-current?playerId=57945&isPara=0&rankingEvent=6`);
+
+reset();
+responder = () => ({ ok: true, body: '{"results":"-"}' });
+eq('a dash is not a ranking', await loadWorldRank(70762, 10), null);
+reset();
+responder = () => ({ ok: true, body: '{"results":null}' });
+eq('nor is nothing', await loadWorldRank(70762, 10), null);
+
+console.log('\n=== the race to finals ===');
+// There is no race variant of the current-ranking endpoint — it answers for the
+// world categories and returns "-" for everything else — so the standing comes
+// out of the ranking table instead.
+const raceRow = (p1, p2, rank) => ({
+  rank, player1_id: p1, player2_id: p2,
+  player1_model: { id: p1, name_display_bold: '<span>A</span>' },
+  player2_model: p2 ? { id: p2, name_display_bold: '<span>B</span>' } : null,
+});
+
+reset();
+responder = () => ({ ok: true, body: JSON.stringify({ results: [raceRow(57945, null, 20)] }) });
+eq('the race standing is read off the table', await loadRaceRank(57945, 'SHI Yu Qi', 57), 20);
+check('searched on the whole displayed name, which this endpoint accepts',
+  /searchKey=SHI\+Yu\+Qi/.test(calls[0].url), calls[0].url);
+check('against the race board, not the world one',
+  /rankId=9&catId=57/.test(calls[0].url), calls[0].url);
+
+reset();
+responder = () => ({ ok: true, body: JSON.stringify({
+  results: [raceRow(11111, 22222, 3), raceRow(68544, 70762, 5), raceRow(33333, null, 9)] }) });
+eq('the right row is found by id, not by position', await loadRaceRank(68544, 'GICQUEL', 61), 5);
+eq('including when the player is the second half of the pair',
+  await loadRaceRank(70762, 'DELRUE', 61), 5);
+eq('and somebody not in the table has no standing',
+  await loadRaceRank(99999, 'NOBODY', 61), null);
+
+reset();
+eq('no name means no search', await loadRaceRank(57945, '', 57), null);
+eq('and no request either', calls.length, 0);
 
 responder = () => ({ ok: true, body: '{"results":[]}' });
 

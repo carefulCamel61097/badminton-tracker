@@ -84,13 +84,18 @@ for (const player of roster) {
 
     // Ladders load only for rows that have scrolled into view, so walk the page
     // to the bottom and let every row ask.
-    let last = -1;
-    for (let i = 0; i < 40; i++) {
-      await b.ev('window.scrollTo(0, document.body.scrollHeight)');
+    // Ask for every season's ladder outright rather than scrolling and hoping.
+    //
+    // In the app these load on an IntersectionObserver, so only rows that come
+    // into view cost requests. Driving that from here made the fixture set a
+    // function of the window size and the scroll step: rows that never happened
+    // to intersect were silently skipped, and it surfaced much later as a
+    // fixture miss in a suite whose window is a different shape.
+    const years = await b.ev('window.BST.seasons().map(s => s.year)');
+    for (const year of years || []) {
+      await b.ev(`window.BST.loadLadders(${year})`);
+      await b.wait(400);
       await b.until('window.BST.ready', { timeout: 240000 });
-      const got = await b.ev('window.BST.state.draws.size');
-      if (got === last) break;
-      last = got;
     }
 
     const err = await b.ev('window.BST.state.error');

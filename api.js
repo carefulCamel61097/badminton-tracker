@@ -191,7 +191,26 @@ export async function loadPlayer(playerId, opts = {}) {
     countryCode: country.code_iso3 || '',
     flag: flagUrl(country),
     avatar: avatarUrl(r.avatar),
+    born: String(r.date_of_birth || '').slice(0, 10) || null,
+    age: ageOn(r.date_of_birth),
   };
+}
+
+/**
+ * Whole years between a date of birth and today.
+ *
+ * BWF sends "1996-02-28 00:00:00". Compared as numbers rather than by
+ * subtracting milliseconds: a birthday is a calendar event, and dividing by the
+ * length of a year gets it wrong for anyone born on the 29th of February.
+ */
+export function ageOn(dateOfBirth, today = new Date()) {
+  const m = String(dateOfBirth || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return null;
+  const [, y, mo, d] = m.map(Number);
+  let age = today.getFullYear() - y;
+  const md = (today.getMonth() + 1) * 100 + today.getDate();
+  if (md < mo * 100 + d) age--;
+  return age >= 0 && age < 120 ? age : null;
 }
 
 /**
@@ -199,12 +218,73 @@ export async function loadPlayer(playerId, opts = {}) {
  * WD 9, XD 10. rankId 2 is the BWF World Rankings (9 is the Race to Finals).
  */
 export const RANKING_CATEGORIES = [
-  { id: 6,  code: 'MS', label: "Men's singles",   doubles: false },
-  { id: 7,  code: 'WS', label: "Women's singles", doubles: false },
-  { id: 8,  code: 'MD', label: "Men's doubles",   doubles: true },
-  { id: 9,  code: 'WD', label: "Women's doubles", doubles: true },
-  { id: 10, code: 'XD', label: 'Mixed doubles',   doubles: true },
+  { id: 6,  race: 57, code: 'MS', label: "Men's singles",   doubles: false },
+  { id: 7,  race: 58, code: 'WS', label: "Women's singles", doubles: false },
+  { id: 8,  race: 59, code: 'MD', label: "Men's doubles",   doubles: true },
+  { id: 9,  race: 60, code: 'WD', label: "Women's doubles", doubles: true },
+  { id: 10, race: 61, code: 'XD', label: 'Mixed doubles',   doubles: true },
 ];
+
+export const rankingFor = drawCode =>
+  RANKING_CATEGORIES.find(c => c.code === String(drawCode || '').toUpperCase()) || null;
+
+/**
+ * A player's current BWF World Ranking in one discipline, or null.
+ *
+ * Returns `{results: 12}` for a ranked player and `{results: "-"}` otherwise —
+ * including when the discipline is not one they play, so this must never be
+ * asked before the discipline is known, nor cached against the player alone.
+ *
+ * ⚠️ **A doubles ranking only resolves against `player1_id`.** Asking as the
+ * other half of the pair returns "-", not the pair's rank, and in mixed doubles
+ * BWF stores the man as player1 — so querying by the woman silently yields
+ * nothing. The caller has to retry with the partner and label the figure as the
+ * pair's; see `loadLastMatch` for where a partner comes from.
+ */
+export async function loadWorldRank(playerId, rankingEvent, opts = {}) {
+  const raw = await getJSON('vue-player-ranking-current', {
+    playerId, isPara: 0, rankingEvent,
+  }, { priority: 'low', ...opts });
+  const v = raw && raw.results;
+  // Number(null) is 0 and Number('') is 0, so the empty answers have to be
+  // ruled out before the conversion rather than after it. There is no rank 0.
+  if (v == null || v === '' || v === '-') return null;
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * A player's place in the HSBC Race to Finals, or null.
+ *
+ * ⚠️ There is no race variant of `vue-player-ranking-current`: it answers for
+ * the world ranking categories and returns "-" for everything else, including
+ * the race ids. The race standing has to come from the ranking *table*, which
+ * `searchKey` can be pointed at.
+ *
+ * ⚠️ Unlike `vue-popular-players`, this search matches the **whole displayed
+ * name** — "SHI Yu Qi" finds exactly one row here and nothing at all there.
+ *
+ * The row is matched back by id rather than by name, because a search for a
+ * common surname returns several and a doubles row holds two players.
+ */
+export async function loadRaceRank(playerId, name, raceCat, opts = {}) {
+  const cat = RANKING_CATEGORIES.find(c => c.race === Number(raceCat));
+  if (!name || !cat) return null;
+
+  const raw = await getJSON('vue-rankingtable', {
+    rankId: 9, catId: raceCat, page: 1, drawCount: 1,
+    searchKey: name, publicationId: 0,
+    doubles: cat.doubles, pageKey: 10,
+  }, { priority: 'low', persist: true, ...opts });
+
+  const r = raw && raw.results;
+  const rows = Array.isArray(r) ? r : (r && Array.isArray(r.data)) ? r.data : [];
+  const me = String(playerId);
+  const mine = rows.find(row =>
+    String(row.player1_id) === me || String(row.player2_id) === me);
+  const rank = Number(mine && mine.rank);
+  return Number.isFinite(rank) ? rank : null;
+}
 
 /**
  * The top of a ranking table, as a shortcut to the players most people arrive

@@ -292,6 +292,17 @@ check('and it loaded too', hero.avatarW > 0, `naturalWidth ${hero.avatarW}`);
 check('both come from BWF rather than being re-hosted',
   /bwf/i.test(hero.flag) && /bwf/i.test(hero.avatar), `${hero.flag} | ${hero.avatar}`);
 
+console.log('\n=== age and standing ===');
+await b.until('window.BST.state.ranks !== null', { timeout: 60000 });
+const ranks = await b.ev('window.BST.state.ranks');
+const meta = await b.ev(`document.getElementById('heroMeta').textContent`);
+eq('the discipline the ranking belongs to', ranks.draw, 'WS');
+eq('her world ranking', ranks.world, 1);
+check('and her place in the race', Number.isFinite(ranks.race), JSON.stringify(ranks));
+check('the age is shown', /\b2\d\b/.test(meta), meta);
+check('the world ranking is shown', /WS #\d+/.test(meta), meta);
+check('and the race standing', /Race #\d+/.test(meta), meta);
+
 /* ============================ the top-ranked shortcut ============================ */
 
 console.log('\n=== the top ten, per discipline ===');
@@ -376,6 +387,24 @@ check('unticking one drops its tournaments',
 check('and the button now says how many are off',
   /off/.test(await b.ev(`document.getElementById('moreBtn').textContent`)),
   await b.ev(`document.getElementById('moreBtn').textContent.trim()`));
+
+console.log('\n=== a doubles ranking belongs to the pair ===');
+// BWF files a doubles ranking against player1_id only, and in mixed doubles
+// stores the man as player1 — so asking as Delphine DELRUE returns "-", not her
+// pair's rank. It has to be retried through the partner and labelled.
+check('DELRUE loads', await open('#p=70762'));
+await b.until('window.BST.state.ranks !== null', { timeout: 90000 });
+const pairRanks = await b.ev('window.BST.state.ranks');
+eq('the discipline is mixed doubles', pairRanks.draw, 'XD');
+check('a ranking was found even though BWF answers "-" for her',
+  Number.isFinite(pairRanks.world), JSON.stringify(pairRanks));
+eq('by going through her partner', pairRanks.pair, 'Thom GICQUEL');
+const pairMeta = await b.ev(`document.getElementById('heroMeta').textContent`);
+check('and the page marks it as the pair\'s rather than hers',
+  /#\d+\*/.test(pairMeta), pairMeta);
+check('with the reason spelled out on hover',
+  /pair/i.test(await b.ev(`document.getElementById('heroMeta').title`)),
+  await b.ev(`document.getElementById('heroMeta').title`));
 
 /* ============================ the disclaimer ============================ */
 
