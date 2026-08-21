@@ -48,6 +48,7 @@
   <div class="heroctl">
     <span id="kindWrap" role="group" aria-label="discipline"></span>
     <label class="toggle"><input type="checkbox" id="sized" checked> Size by weight</label>
+    <button type="button" id="gridBtn" class="seg">Grid &amp; compare</button>
   </div>
 </section>
 
@@ -84,6 +85,48 @@
     <pre id="raw"></pre>
   </details>
 </footer>
+
+<!-- The same seasons re-indexed by tournament: one column per event, one row per
+     year, every cell the same size and filled solid. A modal because it is a
+     second reading of what is already on the page, not a second page. -->
+<dialog id="gridModal" class="modal" aria-labelledby="gridTitle">
+  <header class="modalhead">
+    <h2 id="gridTitle">Career grid</h2>
+    <span id="gridKind" class="kindwrap" role="group" aria-label="discipline"></span>
+
+    <form id="cmpPick" class="ctl search cmp" autocomplete="off" role="search">
+      <input type="search" id="cmpQ" placeholder="Compare with…"
+             aria-label="compare with another player" role="combobox"
+             aria-expanded="false" aria-controls="cmpSuggest" aria-autocomplete="list">
+      <ul id="cmpSuggest" class="suggest" role="listbox" aria-label="player suggestions" hidden></ul>
+    </form>
+
+    <button type="button" id="gridClose" class="seg close" aria-label="close">✕</button>
+  </header>
+
+  <div class="chiprow"><span class="lbl">Columns</span>
+    <div id="gridGroups" class="chips" role="group" aria-label="column groups"></div>
+  </div>
+
+  <div id="gridBody" class="gridbody"></div>
+
+  <p class="legend">
+    <span class="key"><i class="cell r-w"></i> won</span>
+    <span class="key"><i class="cell r-f"></i> final</span>
+    <span class="key"><i class="cell r-sf"></i> semi</span>
+    <span class="key"><i class="cell r-qf"></i> quarter</span>
+    <span class="key"><i class="cell r-r16"></i> last 16</span>
+    <span class="key"><i class="cell r-r1"></i> earlier</span>
+    <span class="key"><i class="cell r-q"></i> qualifying</span>
+    <span class="key"><i class="cell r-none"></i> other discipline</span>
+    <span class="key"><i class="cell r-off"></i> did not play</span>
+  </p>
+  <p class="legend note">
+    Columns are the tournaments these players have entered at least once —
+    BWF is asked what a player played, not what the calendar held. Hover a cell
+    for the event and the result.
+  </p>
+</dialog>
 
 <script type="module" src="app.js"></script>
 </body>

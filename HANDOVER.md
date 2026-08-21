@@ -70,6 +70,36 @@ New on top of it:
   years worth comparing. Nothing says which years a player competed in, so the app walks
   back from the current year until it hits a run of empty ones (one request each).
 
+### 1.1b Career grid (the simpler reading)
+
+*Added 22 Aug 2026.* A second view of the same career, opened as a modal from the season
+strip, that deliberately throws away everything the strip spends its detail on.
+
+- **Rows are seasons**, newest at the top, same as the strip.
+- **Columns are tournaments** — one column is one event read down the years, present in
+  every row whether the player entered it that season or not.
+- **Every cell is the same size** (14px) and **flooded with one colour**. No labels, no
+  weight sizing, no partial fills. The difficulty is encoded by *where* the column is,
+  never by how big or how full the cell is.
+- Cells **butt against each other**, so runs of the same result merge into one shape. The
+  only separators are hairlines between tiers.
+- **Super 100 and above only**, with the junior circuit and the team events out entirely.
+- Columns run **hardest-first**: Olympics, Worlds, Tour Finals, Super 1000, Super 750,
+  Continental, Super 500, Super 300, Super 100, then the unmapped pre-2018 era. A toggle
+  chip per group; all on by default.
+- **Two players side by side**, sharing one set of columns and one set of rows, with
+  their profiles — photograph, flag, age, world ranking, Race standing — above each grid.
+
+Why a second view at all: the strip answers *how did this year go*, and answers it well
+enough that the answer takes a moment to read. The grid answers *which events does this
+player turn up at, and how do they do there* at a glance, and it is the only view in which
+two careers can be laid over one another.
+
+Both grids live in **one** horizontal scroller. Two independently scrolling grids side by
+side stop being a comparison the moment either one moves.
+
+The comparison is in the hash (`&g=1&c=87442`), so a side-by-side is a link.
+
 ### 1.2 Tournament view (auto-following)
 
 Shows whatever tournament is current, switching by itself a few days before a new one
@@ -406,6 +436,59 @@ otherwise anyone born on the 29th of February is a year out.
 
 ---
 
+### 2.9 The grid's columns — settled 22 Aug 2026
+
+Three decisions, each of which the data forced.
+
+**Column identity is the tidied name, with the words sorted.** No id survives an edition:
+`tournament_id` and `code` are per-edition and the name carries a sponsor that changes with
+the contract. `shortTmtName` already strips the sponsor, the year and the "presented by"
+tail, so the key is that, lowercased, reduced to letters and digits, **split into words and
+sorted**. The sort is not decoration — BWF writes the same event both ways round ("Japan
+Open" one year, "Open Japan" the next; "Chinese Taipei Open" and "Open Chinese Taipei"),
+and each spelling would otherwise be its own half-empty column. `(Cancelled)` is stripped
+from the key but kept on the strip's label, because there it changes what the result means.
+
+This is the one place the grid can be wrong in a way the strip cannot. A genuinely renamed
+event splits into two columns; two events that tidy to the same words merge into one.
+"Thaihot China Open" (2015) does not merge with "China Open", and it stays visible as a
+half-empty column. The cell tooltip always names the actual tournament, so the split is
+inspectable rather than silent.
+
+**Olympics, Worlds, Tour Finals and Continental each collapse to a single column**,
+whatever the edition is called. A player enters at most one per season and the column
+means the *event*, not the edition. It also settles the continental championships, which
+are named for the continent: an Asian and a European player compared side by side share
+one Continental column instead of each having a column the other can never fill.
+
+**What is in the grid is decided from the payload, not from the category id.** Three
+exclusions and one rescue, in that order:
+
+- *Team events*: every draw is a bare "Singles"/"Doubles" with no gender, so
+  `canonicalDraw` returns null. That catches the Suhandinata Cup, the Asia Mixed Team
+  Championships and the Asian Games team event, none of which carry the mapped team ids.
+- *Junior*: the name says so ("World Junior Championships", "Dutch Junior", "Asia Youth
+  U19") or a draw carries the age band ("BS U19"). ⚠️ **`LI NING BWF World Junior
+  Championship 2018` is category 20 — the senior World Championships id.** The ids cannot
+  be trusted for this even inside the mapped range.
+- *Below Super 100*: categories 5, 6 and 7.
+- *Rescued by name*: the 2017 World Championships is category **1**, the 2010 and 2012
+  Asian Championships are **3** and **1**, and the 2017 Dubai World Superseries Finals is
+  **8**. Without a name rule the Worlds column has a hole in 2017 and a one-cell "World
+  Champs" column appears at the far right instead — a wrong statement, not a missing one.
+  The rule moves nothing but which column an event lands in; the strip keeps weighting by
+  the id it was given.
+
+Everything else unmapped stays, grouped as **"Unmapped"** on the right with its own
+toggle. Those *are* Super-100-and-above events under Superseries and Grand Prix names, and
+dropping them would silently blank the first half of a long career.
+
+**What the columns are not**: they are the tournaments these players entered at least
+once, not the calendar. `vue-grouped-year-tournaments` (Part 3.2) would give the real
+per-season calendar and is the obvious upgrade — see Part 7.
+
+---
+
 ## Part 3 — The BWF API
 
 Base: `https://extranet-lv.bwfbadminton.com/api`
@@ -576,6 +659,16 @@ what 3.2 says it does.
 
 ⚠️ **`results` is polymorphic.** A plain array when `drawCount` is passed, a paginated
 object (`{current_page, data, …}`) otherwise. Handle both.
+
+⚠️ **The Race standing is looked up by *name*, so it depends on a request you may not
+have made yet.** There is no race variant of `vue-player-ranking-current`, so the standing
+has to come from `vue-rankingtable&searchKey=<display name>` — and the display name arrives
+on `vue-player-summary`, which is a separate call the view fires and does not await. Read
+the name up front and it is `undefined` about as often as not, and `loadRaceRank` then
+returns null without complaining: the Race standing silently disappears from the heading.
+Caught 22 Aug 2026 when refactoring the rank lookup to serve two players hoisted that read
+by one round trip. Read the name at the moment it is needed, and await the summary if it
+still is not there.
 
 ⚠️ **Ranking paging is hard-locked at 15 rows.** `per_page`, `perPage`, `limit`,
 `pageSize`, `size`, `count` are all ignored; `drawCount` changes the response *shape*, not
@@ -770,6 +863,10 @@ using the global `WebSocket`. Deployed on GitHub Pages. This worked well — kee
    stylesheet cannot quietly override the settled sizes.
 3. ~~**Player selection.**~~ **Done 21 Aug 2026.** Type-ahead over
    `vue-popular-players`, debounced, newest-keystroke-wins. Recently-viewed is still open.
+3b. ~~**Career grid + compare.**~~ **Done 22 Aug 2026.** The modal grid of Part 1.1b, its
+   column model in `model.js` (Part 2.9), and two careers side by side sharing one set of
+   columns. The type-ahead was made a factory at this point because the comparison needs a
+   second one; the career walk was extracted as `walkCareer` for the same reason.
 4. **Tournament view.** `vue-tmt-schedule` drives it. Results when a tournament is
    finished, draws when the next one is up, live scores while it runs.
 5. **Bracket + drill-down.** Port the bracket; wire season square → that tournament's
@@ -803,5 +900,28 @@ using the global `WebSocket`. Deployed on GitHub Pages. This worked well — kee
   which is honest but uninformative, and it means a historical season is drawn without
   any weighting at all. `vue-tournament-categories` is the lead, with the caveat in
   Part 3.6.
+
+  Building the grid (22 Aug 2026) read a lot of them off real names, which is evidence
+  rather than a mapping — **do not turn this into weights without checking it against
+  more than one career**: **2** Superseries (Korea, French, Japan, Hong Kong, Australian,
+  Singapore Opens) · **8** Superseries Premier (All England, Malaysia, Indonesia, China,
+  Denmark, and the Dubai Finals) · **3**/**4** Grand Prix Gold and Grand Prix · **1** a
+  grab-bag of "Championships", senior and junior together · **10**/**13**/**9**/**12**
+  junior · **33** the World Junior Championships **and the Youth Olympic Games** ·
+  **35** the World Junior Mixed Team · **16**/**28**/**29**/**74** the Asian, European and
+  Mediterranean Games.
+
+  ⚠️ Two of those bite whatever the weights end up being. Category **1** and category
+  **33** each hold senior and junior events at once, and `LI NING BWF World Junior
+  Championship 2018` sits under **20**, the senior World Championships id. Any rule keyed
+  on the id alone will let a junior event through.
 - **Does the calendar's `category` string map cleanly onto `tournament_category_id`?**
   Both are in use and the mapping is currently inferred from the level names.
+- **Should the grid's columns come from the calendar rather than from the players?**
+  Today a column exists because one of the players on screen entered that event at least
+  once, so "did not play" covers only tournaments they played in *some* season.
+  `vue-grouped-year-tournaments?year=&category[]=` (Part 3.2) returns the real calendar for
+  a year and would make the columns the events that actually existed — one extra call per
+  season, immutable history, so the 12-hour store covers it. The blocker is the trap in
+  Part 3.2: the level arrives there as a **display string**, not an id, so it needs the
+  mapping the question above is about.

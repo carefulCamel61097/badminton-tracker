@@ -46,9 +46,19 @@ export const LEVEL = {
  */
 export const LEVEL_ORDER = ['OLY', 20, 22, 23, 24, 11, 25, 26, 27, 5, 6, 7, 21, 17];
 
-/** True for a tournament that is an Olympic Games rather than a World Championships. */
+/**
+ * True for a tournament that is an Olympic Games rather than a World
+ * Championships.
+ *
+ * ⚠️ The **Youth Olympic Games** are not the Olympics. BWF files them under
+ * category 33 with the World Junior Championships, and matching on "olympic"
+ * alone promoted them to the senior Games — so Shi Yu Qi's 2014 Youth Olympic
+ * gold drew as a full-size Olympic title next to Tokyo and Paris. Found while
+ * building the grid, where all three landed in one column.
+ */
 export function isOlympics(name) {
-  return /\bolympic/i.test(String(name || ''));
+  const n = String(name || '');
+  return /\bolympic/i.test(n) && !/\byouth\b/i.test(n);
 }
 
 /**
@@ -644,4 +654,332 @@ export function drawForKind(tmt, kind, preferred) {
   const inKind = tmt.draws.filter(d => kindOf(d.name) === kind);
   if (!inKind.length) return null;
   return inKind.find(d => d.name === preferred) || inKind[0];
+}
+
+/* ============================ the career grid ============================
+
+   A second reading of the same data, and a deliberately poorer one.
+
+   The season strip answers "how did this year go": squares in the order they
+   were played, sized by what they were worth, filled by how far the player got.
+   The grid answers a different question — "which events does this player turn
+   up at, and how do they do *there*" — by throwing away everything the strip
+   spends its detail on. Every cell is the same size, filled solid, with no
+   label. A column is one tournament read down the years, so a career reads as
+   a block of colour: dense green on the left is a player who wins majors, a
+   ragged right-hand edge is one who fills the calendar with small events.
+
+   Nothing here is new data. It is the same seasons, re-indexed by tournament
+   instead of by date.
+   ==================================================================== */
+
+/**
+ * Column groups, left to right: hardest to win on the left, Super 100 on the
+ * right. The same judgement as LEVEL_ORDER, minus everything the grid does not
+ * show.
+ */
+export const GRID_ORDER = ['OLY', 20, 22, 23, 24, 11, 25, 26, 27, 'OTHER'];
+
+/** Below Super 100: the feeder circuit. */
+const BELOW_GRID = new Set([5, 6, 7]);
+
+/**
+ * Groups that collapse to a single column however they are named.
+ *
+ * A player enters at most one of each per season, and the column means the
+ * *event*, not the edition: three Olympic Games four years apart are one
+ * column with three cells in it, not three columns with one cell each. It also
+ * settles the continental championships, which are named for the continent —
+ * an Asian and a European player compared side by side share one Continental
+ * column instead of each having a column the other can never fill.
+ */
+const ONE_COLUMN = new Set(['OLY', 20, 22, 11]);
+
+/**
+ * A tournament every one of whose draws is a team tie.
+ *
+ * The category ids only name the team events this project has mapped — 17 and
+ * 21 — and the unmapped era is full of others: the Suhandinata Cup, the Asia
+ * Mixed Team Championships, the Asian Games team event. They are recognisable
+ * without the id, because BWF names a tie's draws bare "Singles"/"Doubles"
+ * with no gender: the tie is the competitor, so `canonicalDraw` returns null
+ * and `kindOf` says "team". That is a fact in the payload rather than a guess
+ * from a name.
+ */
+function isTeamTournament(tmt) {
+  if (isTeamEvent(tmt && tmt.cat)) return true;
+  const draws = (tmt && tmt.draws) || [];
+  return draws.length > 0 && draws.every(d => kindOf(d.name) === 'team');
+}
+
+/**
+ * The junior circuit, which no reading of "Super 100 and above" includes.
+ *
+ * Again the ids do not say so — 10, 13, 33 and 35 are all junior and all
+ * unmapped — but the payload does, twice over: the tournament is named for it
+ * ("World Junior Championships", "Dutch Junior", "Asia Youth U19") and the
+ * draws carry the age band ("BS U19"). Either is enough.
+ */
+const JUNIOR = /\b(junior|youth|u1[3-9]|u2[01]|under[\s-]*1[3-9])\b/i;
+
+function isJunior(tmt) {
+  if (JUNIOR.test(String((tmt && tmt.name) || ''))) return true;
+  return ((tmt && tmt.draws) || []).some(d => JUNIOR.test(String(d.raw || '')));
+}
+
+/**
+ * The grid group a tournament belongs to, or null if it does not belong in the
+ * grid at all.
+ *
+ * Super 100 and above (settled 22 Aug 2026). Below that, an event is rarely
+ * the same event twice — the feeder circuit reshuffles year to year, so those
+ * columns would be one cell deep and would push the majors off the screen.
+ * Team events are out for the older reason: they carry no individual position,
+ * so a team column is a column of blanks. The junior circuit is out because it
+ * is not the same sport being measured.
+ *
+ * Takes the whole tournament rather than its category because the category is
+ * exactly what cannot be trusted here: the ids from before 2018 are unmapped,
+ * and among them are team events and junior events that would otherwise be
+ * waved through into the grid.
+ *
+ * The rest of the unmapped ids — the Superseries, Premier and Grand Prix era —
+ * are kept together as one 'OTHER' group on the end rather than dropped. They
+ * *are* Super-100-and-above events under earlier names, and dropping them
+ * would silently blank the first half of a long career. Putting them last, in
+ * one group with one toggle, says plainly that their placing is a guess.
+ */
+/**
+ * The three majors, recognised by name where the category id cannot be
+ * trusted.
+ *
+ * This is the pre-2019 id gap (Part 7) showing up where it does the most
+ * damage. The 2017 World Championships is category **1**, the 2012 and 2010
+ * Asian Championships are **1** and **3**, and the 2017 Dubai World
+ * Superseries Finals is **8** — so without this the Worlds column has a hole
+ * in 2017 and a one-cell "World Champs" column appears at the far right of the
+ * grid instead. A column that is *supposed* to be the same event every year is
+ * the whole premise of the grid, and a gap in it is a wrong statement, not a
+ * missing one.
+ *
+ * Narrow on purpose, and applied only after the junior and team exclusions —
+ * "BWF World Junior Championships" is category 20, the senior id, and must not
+ * come through here. It moves nothing but which column an event lands in: the
+ * strip keeps weighting by the id it was given, which is the honest thing for
+ * a size to do.
+ */
+const MAJOR_BY_NAME = [
+  [/\bworld\s+championships?\b/i, 20],
+  [/\b(world\s+tour|world\s+super\s?series|super\s?series)\s+finals\b/i, 22],
+  [/\b(asian?|europ(e|ean)|africa[n]?|oceania|americas?|pan\s?americ\w*)\s+championships?\b/i, 11],
+];
+
+export function gridGroup(tmt) {
+  const cat = tmt && tmt.cat;
+  if (cat == null || cat === '') return null;
+  if (isTeamTournament(tmt) || isJunior(tmt)) return null;
+
+  const g = cat === 'OLY' ? 'OLY' : Number(cat);
+  if (GRID_ORDER.includes(g)) return g;
+
+  const name = String(tmt.name || '');
+  for (const [re, group] of MAJOR_BY_NAME) if (re.test(name)) return group;
+
+  if (BELOW_GRID.has(g)) return null;
+  return 'OTHER';
+}
+
+export function gridGroupLabel(group) {
+  return group === 'OTHER' ? 'Unmapped' : levelLabel(group);
+}
+
+export function gridGroupAbbr(group) {
+  return group === 'OTHER' ? 'Other' : levelAbbr(group);
+}
+
+/**
+ * The group as it fits above a single 14px column.
+ *
+ * The band over the grid is the only text there is, and four of the groups —
+ * Olympics, Worlds, Finals, Continental — are one column wide by construction,
+ * so the ordinary labels clipped to "WO", "FI" and "CO", which reads as a bug
+ * rather than as an abbreviation. Three characters is what fits, so three
+ * characters is what they get; the full name is on the segment's tooltip.
+ */
+const GRID_CODE = {
+  OLY: 'OLY', 20: 'WCH', 22: 'WTF', 11: 'CON',
+  23: 'S1000', 24: 'S750', 25: 'S500', 26: 'S300', 27: 'S100',
+  OTHER: 'OTH',
+};
+
+export function gridGroupCode(group) {
+  return GRID_CODE[group] || String(group == null ? '' : group);
+}
+
+/**
+ * The column a tournament falls in, or null if it is not in the grid.
+ *
+ * Editions have to collapse onto one key, and there is no id that survives
+ * them: `tournament_id` and `code` are per-edition, and the name carries a
+ * sponsor that changes with the contract. So the key is the *tidied* name —
+ * the same normalisation the squares are labelled with, which already strips
+ * the sponsor, the year and the "presented by" tail — reduced to letters and
+ * digits. "YONEX All England Open 2024" and "All England Open Badminton
+ * Championships 2015" both land on `allenglandopen`.
+ *
+ * This is the one place the grid can be wrong in a way the strip cannot: an
+ * event that genuinely renames itself splits into two columns, and two events
+ * that tidy to the same words merge into one. Both are visible on screen — a
+ * split column is half-empty, a merged one has two cells fighting for a season
+ * — which is why the tooltip always names the actual tournament.
+ */
+export function columnKey(tmt) {
+  const group = gridGroup(tmt);
+  if (group == null) return null;
+  if (ONE_COLUMN.has(group)) return 'g:' + group;
+  // Words sorted, not joined in order. BWF writes the same event both ways
+  // round — "Japan Open" one year and "Open Japan" the next, "Chinese Taipei
+  // Open" and "Open Chinese Taipei" — and each spelling would otherwise be its
+  // own half-empty column. Two genuinely different tournaments sharing a word
+  // multiset is not a thing that happens.
+  // A cancelled edition is still that tournament. The square keeps the word,
+  // because there it changes what the result means; the column drops it,
+  // because "Singapore Open (Cancelled)" standing beside "Singapore Open" is
+  // two columns claiming to be one event. Dropped before the tidy rather than
+  // after: shortTmtName truncates at 24 characters, and "Singapore Open
+  // (Cancell…" has no whole word left to match on.
+  const name = String(tmt.name || '').replace(/\s*\(\s*cancell?ed\s*\)/i, '');
+  const slug = shortTmtName(name).toLowerCase()
+    .split(/[^a-z0-9]+/).filter(Boolean).sort().join('-');
+  return 't:' + (slug || String(tmt.code || tmt.tournamentId || '?'));
+}
+
+/** The middle month an event is held in — how the columns sort within a tier. */
+function medianMonth(months) {
+  if (!months.length) return 13;               // no date: sorts to the end of its tier
+  const a = months.slice().sort((x, y) => x - y);
+  return a[Math.floor(a.length / 2)];
+}
+
+/**
+ * The columns for a set of careers, in reading order.
+ *
+ * Takes every career that will be drawn, not one, because two grids side by
+ * side are only comparable if they share their columns: a tournament one
+ * player enters and the other does not has to be a *gap* in the second grid,
+ * which means the column has to exist in both.
+ *
+ * Within a tier the order is the calendar — the median month the event is held
+ * in — so a row reads roughly left to right in time as well as down in
+ * importance.
+ */
+export function gridColumns(careers) {
+  const cols = new Map();
+
+  for (const seasons of careers || []) {
+    for (const s of seasons || []) {
+      for (const t of s.tournaments || []) {
+        const group = gridGroup(t);
+        if (group == null) continue;
+        const key = columnKey(t);
+        let c = cols.get(key);
+        if (!c) cols.set(key, c = { key, group, label: t.short || '', name: t.name || '', months: [], seasons: new Set(), last: '' });
+        // Group and label follow the most recent edition: an event promoted
+        // from Super 100 to Super 300 belongs where it is now, under the name
+        // it goes by now.
+        if (!c.last || String(t.start) > c.last) {
+          c.last = String(t.start || '');
+          c.group = group;
+          c.label = t.short || c.label;
+          c.name = t.name || c.name;
+        }
+        const m = Number(String(t.start || '').slice(5, 7));
+        if (m >= 1 && m <= 12) c.months.push(m);
+        c.seasons.add(s.year);
+      }
+    }
+  }
+
+  const list = [...cols.values()].map(c => ({
+    key: c.key,
+    group: c.group,
+    // A collapsed group is named for the group, not for whichever edition
+    // happened to be most recent — "Continental", not "Asian Champs".
+    label: ONE_COLUMN.has(c.group) ? gridGroupLabel(c.group) : c.label,
+    // The untidied name of the most recent edition, for the tooltip on a cell
+    // that has no tournament of its own to name.
+    name: ONE_COLUMN.has(c.group) ? gridGroupLabel(c.group) : (c.name || c.label),
+    month: medianMonth(c.months),
+    count: c.seasons.size,
+  }));
+
+  list.sort((a, b) =>
+    GRID_ORDER.indexOf(a.group) - GRID_ORDER.indexOf(b.group)
+    || a.month - b.month
+    || (a.label < b.label ? -1 : a.label > b.label ? 1 : 0));
+  return list;
+}
+
+/**
+ * The years a set of careers covers, most recent first, with no gaps in the
+ * middle.
+ *
+ * Counts only seasons that put something *in the grid*. A player whose first
+ * recorded year is a junior season would otherwise open with a row that is
+ * blank by construction — every tournament in it was excluded — which reads as
+ * a year they did not play rather than a year the grid does not cover.
+ */
+export function gridYears(careers) {
+  const years = new Set();
+  for (const seasons of careers || []) {
+    for (const s of seasons || []) {
+      if ((s.tournaments || []).some(t => gridGroup(t) != null)) years.add(s.year);
+    }
+  }
+  if (!years.size) return [];
+  const lo = Math.min(...years), hi = Math.max(...years);
+  // Every year between the first and the last, not only the ones with results:
+  // a season somebody missed entirely is a fact about the career and should be
+  // an empty row, not a row that is not there.
+  const out = [];
+  for (let y = hi; y >= lo; y--) out.push(y);
+  return out;
+}
+
+/** Of two entries in the same column and season, the one worth showing. */
+function betterOf(a, b, kind, preferred) {
+  const da = drawForKind(a, kind, preferred), db = drawForKind(b, kind, preferred);
+  if (!da !== !db) return da ? a : b;                 // one of them was actually entered
+  if (!da) return a;
+  const sa = positionInfo(da.position, da).steps, sb = positionInfo(db.position, db).steps;
+  if (sa == null) return sb == null ? a : b;
+  if (sb == null) return a;
+  return sa <= sb ? a : b;                            // fewer steps from the final
+}
+
+/**
+ * One row of cells: the season's result in each column, in column order.
+ *
+ * Three states, and they are different statements:
+ *   `off`  — no tournament of this column that season. Did not play it.
+ *   `none` — played the tournament, but not in this discipline.
+ *   a tier — a result, coloured by the same ramp the squares use.
+ */
+export function gridCells(season, columns, kind, preferred) {
+  const byKey = new Map();
+  for (const t of (season && season.tournaments) || []) {
+    const key = columnKey(t);
+    if (!key) continue;
+    const prev = byKey.get(key);
+    byKey.set(key, prev ? betterOf(prev, t, kind, preferred) : t);
+  }
+
+  return columns.map(col => {
+    const tmt = byKey.get(col.key) || null;
+    if (!tmt) return { col, tmt: null, draw: null, info: null, tier: 'off' };
+    const draw = drawForKind(tmt, kind, preferred);
+    if (!draw) return { col, tmt, draw: null, info: null, tier: 'none' };
+    const info = positionInfo(draw.position, draw);
+    return { col, tmt, draw, info, tier: info.tier };
+  });
 }

@@ -19,6 +19,7 @@ import {
   positionInfo, fillFraction, boxSize, boxScale, levelLabel, isTeamEvent,
   shortTmtName, surnameOf, levelAbbr, roundsInDraw, mainDrawSize, drawLadder,
   canonicalDraw, isOlympics,
+  gridGroup, columnKey, gridColumns, gridCells, gridYears, GRID_ORDER,
   LEVEL, SLOT_W, BOX_H, MIN_LABEL_PX, LEVEL_ORDER,
 } from '../model.js';
 import { check, eq, near, report } from './check.mjs';
@@ -518,5 +519,187 @@ eq('a paginated response parses the same', parseSeason(paginated).length, 10);
 eq('an empty response is an empty season, not a crash', parseSeason({}).length, 0);
 eq('so is a null one', parseSeason(null).length, 0);
 eq('and a results-less one', parseSeason({ results: null }).length, 0);
+
+/* ============================ the career grid ============================
+
+   Whole careers out of the recorded fixtures, so these are checks against real
+   twenty-year data rather than against a hand-built season. Shi Yu Qi is the
+   interesting one: his career straddles the 2018 category renumbering, so it
+   carries the junior circuit, the Superseries era and the World Tour at once.
+   ==================================================================== */
+
+console.log('\n=== the career grid ===');
+
+/** Every recorded season for a player, newest first, the way the app holds them. */
+function career(playerId) {
+  const out = [];
+  for (let year = 2026; year >= 2005; year--) {
+    let tournaments;
+    try { tournaments = parseSeason(fixture('vue-player-tournaments', seasonParams(playerId, year))); }
+    catch { continue; }                       // not recorded, which is not a failure
+    if (tournaments.length) out.push({ year, tournaments });
+  }
+  return out;
+}
+
+const shi = career(57945);
+const anSeYoung = career(87442);
+const findTmt = (seasons, re) => seasons.flatMap(s => s.tournaments).find(t => re.test(t.name));
+
+check('a whole career comes out of the fixtures', shi.length >= 14, `${shi.length} seasons`);
+
+/* ---- what belongs in the grid at all ---- */
+
+eq('a Super 750 is in the grid, in its own group',
+  gridGroup(findTmt(shi, /DAIHATSU Japan Open 2026/)), 24);
+eq('the Olympics are the leftmost group',
+  gridGroup(findTmt(shi, /Paris 2024 Olympic/)), 'OLY');
+eq('a team event is not in the grid at all',
+  gridGroup(findTmt(shi, /Thomas & Uber Cup Finals 2026/)), null);
+eq('nor is a team event under an unmapped id — its draws are bare "Singles"',
+  gridGroup(findTmt(shi, /Asia Team Championships 2016/)), null);
+eq('nor is the junior circuit',
+  gridGroup(findTmt(shi, /World Junior Championships 2013/)), null);
+eq('a junior event filed under the SENIOR Worlds id is still junior',
+  gridGroup({ cat: 20, name: 'LI NING BWF World Junior Championship 2018', draws: [{ name: 'MS' }] }), null);
+eq('and the age band on a draw gives one away even when the name does not',
+  gridGroup({ cat: 3, name: 'Some Asia Cup 2014', draws: [{ name: 'MS', raw: 'BS U19' }] }), null);
+eq('a Challenge is below the grid',
+  gridGroup({ cat: 5, name: 'Welsh International 2022', draws: [{ name: 'MS' }] }), null);
+eq('an unmapped senior id lands in OTHER, not in the bin',
+  gridGroup(findTmt(shi, /^Korea Grand Prix Gold$/)), 'OTHER');
+
+/* The 2014 Youth Olympic Games is category 33 with the World Junior
+   Championships. It used to be promoted to the Olympics by name alone. */
+eq('the Youth Olympics are not the Olympics', isOlympics('2014 Youth Olympic Games'), false);
+eq('the Olympics still are', isOlympics('Paris 2024 Olympic Games Badminton Competition'), true);
+
+/* ---- the majors keep one column each, across the id renumbering ---- */
+
+eq('the 2017 Worlds are category 1, and still go in the Worlds column',
+  gridGroup(findTmt(shi, /TOTAL BWF World Championships 2017/)), 20);
+eq('the 2017 season-ending Finals are category 8, and still go in the Finals column',
+  gridGroup(findTmt(shi, /Dubai World Superseries Finals 2017/)), 22);
+// Name and category as BWF actually sends them, from a career the roster
+// records but this file does not walk.
+eq('the 2012 Asian Championships are category 1, and still go in Continental',
+  gridGroup({ cat: 1, name: 'Badminton Asia Championships 2012', draws: [{ name: 'MS' }] }), 11);
+eq('so does a European Championships under an unmapped id',
+  gridGroup({ cat: 3, name: '2016 European Championships', draws: [{ name: 'WS' }] }), 11);
+eq('an Open whose name ends in "Championships" is not a continental',
+  gridGroup(findTmt(shi, /All England Open Badminton Championships 2026/)), 23);
+
+/* ---- column identity across editions ---- */
+
+const keyOf = (cat, name) => columnKey({ cat, name, draws: [{ name: 'MS' }] });
+eq('the sponsor and the year fall out of the key',
+  keyOf(23, 'YONEX All England Open Badminton Championships 2024'),
+  keyOf(23, 'All England Open Badminton Championships 2015'));
+eq('so does the word order — BWF writes it both ways round',
+  keyOf(24, 'Japan Open 2019'), keyOf(24, 'Open Japan 2016'));
+eq('a cancelled edition is still that tournament',
+  keyOf(25, 'Singapore Open 2021 (Cancelled)'), keyOf(25, 'Singapore Open 2022'));
+check('two different tournaments do not collide',
+  keyOf(24, 'Denmark Open 2024') !== keyOf(26, 'Denmark Masters 2024'));
+eq('every edition of the Olympics is one column',
+  columnKey(findTmt(shi, /Paris 2024 Olympic/)), columnKey(findTmt(shi, /Tokyo 2020 Olympic/)));
+eq('a tournament that is not in the grid has no column', keyOf(21, 'BWF Thomas & Uber Cup Finals 2026'), null);
+
+/* ---- the columns themselves ---- */
+
+const shiCols = gridColumns([shi]);
+const col = label => shiCols.find(c => c.label === label);
+
+check('a fifteen-year career is a readable number of columns',
+  shiCols.length > 30 && shiCols.length < 60, `${shiCols.length} columns`);
+
+const groupsSeen = [...new Set(shiCols.map(c => c.group))];
+eq('the groups run hardest-first, exactly as GRID_ORDER says',
+  groupsSeen.join(','), GRID_ORDER.filter(g => groupsSeen.includes(g)).join(','));
+check('and each group is one unbroken run of columns', (() => {
+  const closed = new Set();
+  let open = null;
+  for (const c of shiCols) {
+    if (c.group === open) continue;
+    if (closed.has(c.group)) return false;      // a group resumed after another
+    if (open !== null) closed.add(open);
+    open = c.group;
+  }
+  return true;
+})());
+eq('the leftmost column is the Olympics', shiCols[0].group, 'OLY');
+eq('the unmapped era is last', shiCols[shiCols.length - 1].group, 'OTHER');
+
+eq('two Olympic Games, not three — the Youth Games is gone', col('Olympics').count, 2);
+eq('six World Championships, including the one filed under category 1', col('Worlds').count, 6);
+eq('five season-ending Finals, including the 2017 Dubai one', col('Tour Finals').count, 5);
+eq('seven Asian Championships', col('Continental').count, 7);
+check('the All England is in every season it was played',
+  col('All England Open').count >= 7, `${col('All England Open').count}`);
+
+check('columns inside a tier are in calendar order', (() => {
+  let ok = true;
+  for (let i = 1; i < shiCols.length; i++) {
+    if (shiCols[i].group === shiCols[i - 1].group && shiCols[i].month < shiCols[i - 1].month) ok = false;
+  }
+  return ok;
+})());
+
+/* ---- the cells ---- */
+
+const shiKind = defaultKind(shi.flatMap(s => s.tournaments));
+const shiPref = dominantDraw(shi.flatMap(s => s.tournaments), shiKind);
+const rowFor = year => gridCells(shi.find(s => s.year === year) || { tournaments: [] },
+  shiCols, shiKind, shiPref);
+
+const row2026 = rowFor(2026);
+eq('one cell per column, always', row2026.length, shiCols.length);
+
+const cellIn = (row, label) => row[shiCols.findIndex(c => c.label === label)];
+eq('the 2026 Worlds were an R64 exit', cellIn(row2026, 'Worlds').tier, 'r1');
+eq('the 2026 Asian Championships were a title', cellIn(row2026, 'Continental').tier, 'w');
+eq('and the tournament is named on the cell, not guessed from the column',
+  /Asia Championships 2026/.test(cellIn(row2026, 'Continental').tmt.name), true);
+eq('a tournament he did not play that year is off, not a result',
+  cellIn(row2026, 'Korea Grand Prix Gold').tier, 'off');
+eq('and it carries no tournament to name', cellIn(row2026, 'Korea Grand Prix Gold').tmt, null);
+
+check('a season reads as mostly results, not mostly blanks',
+  row2026.filter(c => c.tier !== 'off').length >= 8,
+  `${row2026.filter(c => c.tier !== 'off').length} played`);
+
+/* A year in the middle of a career with nothing in it still gets a row: 2021
+   was a thin season, not an absent one. */
+const shiYears = gridYears([shi]);
+eq('the years run newest first', shiYears[0] > shiYears[shiYears.length - 1], true);
+eq('with no gaps in the middle',
+  shiYears.length, shiYears[0] - shiYears[shiYears.length - 1] + 1);
+check('a season whose every tournament is junior is not a row',
+  !shiYears.includes(2012), `2012 was Asia Youth U19 only; years start at ${shiYears[shiYears.length - 1]}`);
+
+/* ---- two careers share one set of columns ---- */
+
+const bothCols = gridColumns([shi, anSeYoung]);
+const bothYears = gridYears([shi, anSeYoung]);
+const shiOnly = new Set(shiCols.map(c => c.key));
+const anOnly = new Set(gridColumns([anSeYoung]).map(c => c.key));
+
+check('the shared column set covers both careers',
+  [...shiOnly].every(k => bothCols.some(c => c.key === k))
+  && [...anOnly].every(k => bothCols.some(c => c.key === k)));
+check('and it is their union, with the events they share counted once',
+  bothCols.length < shiOnly.size + anOnly.size,
+  `${bothCols.length} vs ${shiOnly.size} + ${anOnly.size}`);
+eq('the years span both careers', bothYears[0], Math.max(shiYears[0], gridYears([anSeYoung])[0]));
+
+const anRow = gridCells(anSeYoung.find(s => s.year === 2026), bothCols,
+  defaultKind(anSeYoung.flatMap(s => s.tournaments)),
+  dominantDraw(anSeYoung.flatMap(s => s.tournaments), 'singles'));
+eq('both grids are the same width, so the columns line up', anRow.length, bothCols.length);
+check('a column only one of them has is a blank in the other, not a missing cell',
+  anRow.some(c => c.tier === 'off'));
+
+eq('nothing to draw is an empty list, not a crash', gridColumns([]).length, 0);
+eq('and so is a career of nothing', gridYears([[]]).length, 0);
 
 process.exit(report());

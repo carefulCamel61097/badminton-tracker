@@ -54,13 +54,37 @@ as the World Championships — and spells their draws and rounds out in full
 ("Men's Singles", "Quarterfinals") where the World Tour uses codes, which is a good way to
 lose them entirely. See `HANDOVER.md` Part 2.6.
 
+## The grid
+
+The seasons again, read the other way round, in a popup from **Grid & compare**. Rows are
+still seasons; columns are tournaments — one column is one event down the years, present in
+every row whether the player entered it that season or not. Every cell is the same size and
+flooded with one colour: no labels, no weight sizing, no partial fills. The difficulty is in
+*where* a column is, not in how big or how full the cell is, and cells butt together so runs
+of the same result merge into one shape.
+
+Columns run hardest-first — Olympics, Worlds, Tour Finals, Super 1000, Super 750,
+Continental, Super 500, Super 300, Super 100 — then the pre-2018 category ids this project
+has no name for, grouped as "Unmapped" on the end. A chip per group switches it in or out.
+Below Super 100, the junior circuit and the team events are not in the grid at all.
+
+**Compare with…** loads a second whole career and puts it beside the first, sharing one set
+of columns and one set of rows so the two are actually readable against each other, with
+each player's photograph, flag, age, world ranking and Race standing above their grid. The
+comparison is in the URL, so it is a link.
+
+Column identity is the tidied tournament name with its words sorted, which is the only thing
+that survives an edition — see `HANDOVER.md` Part 2.9 for what that gets right, what it gets
+wrong, and why the Worlds column needs a name rule to stay whole across BWF's 2018
+renumbering.
+
 ## Where things are
 
 | File | What it is |
 |---|---|
 | `model.js` | Pure logic: levels, weights, positions, the ladder and fill, name tidying, season parsing. No browser globals, so the tests import it straight into Node |
 | `api.js` | The request layer: two-lane queue, 320ms pacing, TTL cache, one retry. Also player search, rankings, and the URLs for BWF's flags and photographs |
-| `app.js` | The season view: the strip, the discipline toggle, the level filters, the year stepper |
+| `app.js` | The views: the strip, the discipline toggle, the level filters, the year stepper, and the grid/compare modal |
 | `serve.mjs` | Static server for local development |
 | `HANDOVER.md` | The design and engineering brief. Read it before changing anything: the weighting, the doubles model and the API traps are all settled there, several of them by testing |
 
@@ -94,7 +118,9 @@ node tools/probe-draws.mjs       # what tournaments/draws returns per format
 endpoint literals. It is how Parts 3.2 and 3.5 of `HANDOVER.md` were found.
 
 `shot.mjs` renders the app against the recorded fixtures and writes PNGs to
-`tests/shots/`, so a change to the strip can be looked at rather than only asserted.
+`tests/shots/`, so a change to the strip can be looked at rather than only asserted. Its
+defaults cover a singles career, a doubles one, the grid and a two-player comparison; any
+`#hash` works, and one carrying `g=1` is captured at the width the modal needs.
 
 `probe-draws.mjs` reports the stage layout `tournaments/draws` returns for a knockout, a
 draw with qualifying, a group stage and a team event — the shapes the ladder has to handle.

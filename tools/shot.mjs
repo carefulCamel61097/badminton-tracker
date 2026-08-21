@@ -22,7 +22,12 @@ const PORT = 8797, DBG = 9457;
 const DEFAULTS = [
   ['career', '#p=57945'],                 // a singles career
   ['doubles', '#p=72885&k=doubles'],      // a player who plays both
+  ['grid', '#p=57945&g=1'],               // the same career as a grid
+  ['compare', '#p=57945&g=1&c=87442'],    // two careers side by side
 ];
+
+/** The grid is a modal and needs the width; the strip does not. */
+const wide = hash => /(^|&)g=1/.test(hash);
 
 const args = process.argv.slice(2).filter(a => a.startsWith('#'));
 const shots = args.length ? args.map((h, i) => [`shot${i + 1}`, h]) : DEFAULTS;
@@ -33,7 +38,7 @@ sweepProfiles({ quiet: true });
 const server = createServer(ROOT);
 await new Promise(r => server.listen(PORT, r));
 
-const b = await launch({ port: DBG, tag: 'shot', windowSize: '1000,1100' });
+const b = await launch({ port: DBG, tag: 'shot', windowSize: '1680,1200' });
 const fx = await installFixtures(b.send, b.sessionId, { quiet: true });
 b.on(fx.handle);
 
@@ -46,11 +51,16 @@ for (const [name, hash] of shots) {
   // Ladders load per row as it scrolls in; give the visible ones a moment.
   await b.wait(2000);
   await b.until('window.BST.ready', { timeout: 120000 });
+  // A comparison is a second whole career, and BST.ready knows nothing about it.
+  await b.until('window.BST.grid.ready()', { timeout: 240000 });
+  await b.wait(400);
 
   const r = await b.send('Page.captureScreenshot', {
     format: 'png',
     captureBeyondViewport: true,
-    clip: { x: 0, y: 0, width: 1000, height: 900, scale: 2 },
+    clip: wide(hash)
+      ? { x: 0, y: 0, width: 1660, height: 1000, scale: 1.5 }
+      : { x: 0, y: 0, width: 1000, height: 900, scale: 2 },
   }, b.sessionId);
 
   const file = path.join(SHOTS, name + '.png');

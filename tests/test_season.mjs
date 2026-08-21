@@ -479,6 +479,140 @@ check('with the reason spelled out on hover',
   /pair/i.test(await b.ev(`document.getElementById('heroMeta').title`)),
   await b.ev(`document.getElementById('heroMeta').title`));
 
+/* ============================ the career grid ============================
+
+   The second reading of the same career: a row per season, a column per
+   tournament, every cell identical. Measured off the laid-out geometry for the
+   same reason the strip is — "all the cells are the same size and they touch"
+   is a claim about pixels, and the model cannot make it on its own.
+   ==================================================================== */
+
+console.log('\n=== the grid: one row per season, one column per tournament ===');
+
+check('SHI Yu Qi loads', await open('#p=57945'));
+check('the grid is shut until it is asked for',
+  await b.ev(`!document.getElementById('gridModal').hasAttribute('open')`));
+
+await b.ev(`document.getElementById('gridBtn').click()`);
+check('the button opens it', await b.ev('window.BST.grid.isOpen()'));
+
+const gCols = await b.ev('window.BST.grid.columns()');
+const gYears = await b.ev('window.BST.grid.years()');
+const cards = await b.ev('window.BST.grid.cards()');
+
+eq('one card, for one player', cards.length, 1);
+eq('a row per season', cards[0].years.length, gYears.length);
+eq('newest at the top, the same way round as the strip',
+  cards[0].years[0] > cards[0].years[cards[0].years.length - 1], true);
+
+eq('a cell per column per row', cards[0].cells.length, gYears.length * gCols.length);
+
+/* Fixed size and no partial fills: the difficulty is in *where* the cell is,
+   never in how big it is or how full. */
+const sizes = [...new Set(cards[0].cells.map(c => `${c.w}x${c.h}`))];
+eq('every cell is the same size', sizes.length, 1);
+eq('and square', sizes[0], '14x14');
+check('no cell carries any text',
+  await b.ev(`[...document.querySelectorAll('.gcard .cell')].every(c => c.textContent === '')`));
+check('and none of them is a partial fill',
+  await b.ev(`[...document.querySelectorAll('.gcard .cell')]
+    .every(c => !getComputedStyle(c).backgroundImage.includes('gradient'))`));
+
+/* Pixels, not tiles: adjacent cells share an edge. */
+const firstRow = cards[0].cells.filter(c => c.year === cards[0].years[0])
+  .sort((a, b) => a.x - b.x);
+check('cells in a row touch, with no gap between them',
+  firstRow.every((c, i) => i === 0 || Math.abs(c.x - (firstRow[i - 1].x + 14)) < 0.6),
+  firstRow.slice(0, 6).map(c => c.x).join(' '));
+
+/* Columns run hardest-first, and the band above says which is which. */
+check('the tier band names the groups left to right',
+  cards[0].tiers.length >= 5 && cards[0].tiers[0] === 'OLY',
+  cards[0].tiers.join(' | '));
+eq('the leftmost column is the Olympics', gCols[0].group, 'OLY');
+eq('the rightmost is the unmapped era', gCols[gCols.length - 1].group, 'OTHER');
+
+/* The ramp is the strip's ramp, flooded rather than filled. */
+const colIndex = label => gCols.findIndex(c => c.label === label);
+const cellAt = (year, label) => cards[0].cells
+  .filter(c => c.year === year)[colIndex(label)];
+eq('a title floods the cell green',
+  cellAt(2026, 'Continental').bg, 'rgb(26, 127, 55)');
+eq('a first-round exit floods it red', cellAt(2026, 'Worlds').bg, 'rgb(207, 75, 63)');
+check('a tournament he did not play is the ground colour, not a result',
+  cellAt(2026, 'Korea Grand Prix Gold').bg === 'rgb(41, 41, 41)',
+  cellAt(2026, 'Korea Grand Prix Gold').bg);
+check('and the cell says which tournament and which result',
+  /Asia Championships/.test(cellAt(2026, 'Continental').title)
+  && /Champion/.test(cellAt(2026, 'Continental').title),
+  cellAt(2026, 'Continental').title);
+
+/* ---- the column toggles ---- */
+
+console.log('\n=== the odd tournaments can be switched out ===');
+
+const gChips = await b.ev(`[...document.querySelectorAll('#gridGroups .chip')].map(c => ({
+  group: c.dataset.group, on: c.getAttribute('aria-pressed') === 'true',
+  label: c.textContent }))`);
+check('every group present has a toggle', gChips.length >= 6, gChips.map(c => c.label).join(' '));
+check('and they all start on', gChips.every(c => c.on));
+check('the Olympics are one of them', gChips.some(c => c.group === 'OLY'));
+
+await b.ev(`document.querySelector('#gridGroups .chip[data-group="OTHER"]').click()`);
+const trimmed = await b.ev('window.BST.grid.cards()');
+check('switching the unmapped era off narrows every row',
+  trimmed[0].cells.length < cards[0].cells.length,
+  `${trimmed[0].cells.length} vs ${cards[0].cells.length}`);
+eq('the rows are still all there', trimmed[0].years.length, cards[0].years.length);
+check('and the tier band loses that segment',
+  !trimmed[0].tiers.includes('OTH'), trimmed[0].tiers.join(' | '));
+await b.ev(`document.querySelector('#gridGroups .chip[data-group="OTHER"]').click()`);
+
+/* ---- two players side by side ---- */
+
+console.log('\n=== two careers, one set of columns ===');
+
+// `void`, so the evaluate returns at once rather than blocking on a career
+// that is dozens of requests long — the wait below is what watches for it.
+await b.ev(`void window.BST.grid.compareWith(87442)`);
+const bothLoaded = await b.until('window.BST.grid.ready()', { timeout: 180000 });
+check('a second whole career loads', bothLoaded);
+
+const two = await b.ev('window.BST.grid.cards()');
+eq('two cards', two.length, 2);
+check('each one names its player',
+  /SHI/.test(two[0].name) && /AN/i.test(two[1].name), `${two[0].name} / ${two[1].name}`);
+check('with the profile BWF supplies — photograph and flag',
+  await b.ev(`[...document.querySelectorAll('.gcard')].every(c =>
+    c.querySelector('.avatar') && c.querySelector('.meta'))`));
+check('and their age and world ranking beside it',
+  await b.ev(`[...document.querySelectorAll('.gcard .meta')]
+    .every(m => m.textContent.includes('#'))`),
+  (await b.ev(`[...document.querySelectorAll('.gcard .meta')].map(m => m.textContent)`)).join(' || '));
+
+eq('the two grids are the same width', two[0].cells.length, two[1].cells.length);
+eq('and cover the same years', two[0].years.join(','), two[1].years.join(','));
+check('so a column means the same tournament in both',
+  two[0].cells.slice(0, 40).every((c, i) => c.col === two[1].cells[i].col));
+check('a tournament only one of them plays is a blank in the other',
+  two[1].cells.some(c => c.bg === 'rgb(41, 41, 41)'));
+check('both grids scroll together, in one scroller',
+  await b.ev(`document.querySelectorAll('#gridBody').length === 1
+    && getComputedStyle(document.getElementById('gridBody')).overflowX === 'auto'`));
+
+check('the comparison is in the link, so it can be shared',
+  await b.ev(`location.hash.includes('c=87442') && location.hash.includes('g=1')`),
+  await b.ev('location.hash'));
+
+await b.ev(`document.getElementById('cmpDrop').click()`);
+eq('and it can be dropped again', (await b.ev('window.BST.grid.cards()')).length, 1);
+check('which takes it back out of the link',
+  await b.ev(`!location.hash.includes('c=')`), await b.ev('location.hash'));
+
+await b.ev(`document.getElementById('gridClose').click()`);
+check('the grid closes', await b.ev(`!window.BST.grid.isOpen()`));
+check('and the strip underneath is untouched', (await squares(2026)).length > 0);
+
 /* ============================ the disclaimer ============================ */
 
 console.log('\n=== attribution, at the foot of the page ===');
