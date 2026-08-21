@@ -14,15 +14,20 @@
    (Future Series), which the predecessor's map was missing.
    ======================================================================== */
 
+/**
+ * `label` is what a filter chip says; `abbr` is what fits under a 52px square.
+ * Only the ones that overflow carry an abbreviation — "Super 1000" fits, and
+ * abbreviating it would cost legibility for nothing.
+ */
 export const LEVEL = {
   5:  { label: 'Challenge',   weight: 0.40 },
   6:  { label: 'Series',      weight: 0.40 },
   7:  { label: 'Future',      weight: 0.40 },
-  11: { label: 'Continental', weight: 1.00 },
-  17: { label: 'Cont. Team',  weight: 1.00, team: true },
+  11: { label: 'Continental', weight: 1.00, abbr: 'Cont.' },
+  17: { label: 'Cont. Team',  weight: 1.00, abbr: 'C. Team', team: true },
   20: { label: 'Worlds',      weight: 1.00 },
-  21: { label: 'Team event',  weight: 1.00, team: true },
-  22: { label: 'Tour Finals', weight: 1.00 },
+  21: { label: 'Team event',  weight: 1.00, abbr: 'Team', team: true },
+  22: { label: 'Tour Finals', weight: 1.00, abbr: 'Finals' },
   23: { label: 'Super 1000',  weight: 1.00 },
   24: { label: 'Super 750',   weight: 1.00 },
   25: { label: 'Super 500',   weight: 0.80 },
@@ -47,19 +52,53 @@ export const LEVEL = {
  * Super 750 lands within ~1.3px of Super 1000), to prize money (too wide —
  * Super 100 dies at ~10px), and opacity (collides with the result ramp).
  */
-export const FULL_BOX_PX = 42;   // at 30px the whole weight range is 11px and reads as noise
-export const SLOT_PX = 52;       // every tournament keeps the same footprint; the box shrinks within it
-export const MIN_LABEL_PX = 9;   // never scale the round label below this — a Challenge QF became unreadable
+/**
+ * Chip order for the level filters: the majors, then the World Tour ladder,
+ * then everything below it, then the team events last because they are off by
+ * default. Not the numeric order of the ids, which is arbitrary.
+ */
+export const LEVEL_ORDER = [20, 22, 23, 24, 11, 25, 26, 27, 5, 6, 7, 21, 17];
 
-/** Box side in px for a category id. `side = sqrt(area)`, both dimensions scale by it. */
-export function boxSide(catId, sized = true) {
+/** The levels a season actually contains, in chip order. */
+export function seasonLevels(season) {
+  const present = new Set((season || []).map(t => t.cat));
+  return LEVEL_ORDER.filter(c => present.has(c));
+}
+
+export const SLOT_W = 52;        // every tournament keeps this footprint; the box shrinks within it
+export const BOX_H = 42;         // at 30px the whole weight range is 11px and reads as noise
+export const BOX_FONT = 11;      // round label at full size
+export const MIN_LABEL_PX = 9;   // never scale it below this — a Challenge QF became unreadable
+
+/** How much of full size a category draws at. `side = sqrt(area)`. */
+export function boxScale(catId, sized = true) {
   const w = (LEVEL[catId] || {}).weight;
-  if (!sized || w == null) return FULL_BOX_PX;
-  return FULL_BOX_PX * Math.sqrt(w);
+  if (!sized || w == null) return 1;
+  return Math.sqrt(w);
+}
+
+/**
+ * The box for a category: both dimensions scale by the side, but the label is
+ * floored. Scaling the label with the box is what made a Challenge
+ * quarter-final unreadable, and a square nobody can read encodes nothing.
+ */
+export function boxSize(catId, sized = true) {
+  const s = boxScale(catId, sized);
+  return {
+    w: SLOT_W * s,
+    h: BOX_H * s,
+    font: Math.max(MIN_LABEL_PX, BOX_FONT * s),
+  };
 }
 
 export function levelLabel(catId) {
   return (LEVEL[catId] || {}).label || '';
+}
+
+/** The level as it fits under a square: abbreviated only where it has to be. */
+export function levelAbbr(catId) {
+  const l = LEVEL[catId] || {};
+  return l.abbr || l.label || '';
 }
 
 export function isTeamEvent(catId) {
@@ -242,12 +281,25 @@ export function parseSeason(raw, opts = {}) {
 }
 
 /**
- * Which disciplines a season actually contains, commonest first.
+ * Singles or doubles — the only distinction the strip makes.
  *
- * This drives the discipline step of player selection: pick a player, then
- * singles or doubles, then — for doubles — a partner. Ties go to singles, so a
- * player splitting a season evenly opens on the simpler view.
+ * A doubles season is not filtered by partner. `vue-player-tournaments` carries
+ * no partner at all (HANDOVER 2.4), and more to the point a player's doubles
+ * season is worth reading whole: someone who changes partner mid-year has still
+ * played one season. So the toggle is the discipline, and every tournament the
+ * player entered in it is shown.
+ *
+ * Team ties are their own kind and are never a choice — their draws are called
+ * "Singles"/"Doubles" and carry no position.
  */
+export function kindOf(drawName) {
+  const n = String(drawName || '').toUpperCase();
+  if (SINGLES_DRAWS.includes(n)) return 'singles';
+  if (DOUBLES_DRAWS.includes(n)) return 'doubles';
+  return 'team';
+}
+
+/** Which disciplines a season contains, commonest first. */
 export function seasonDisciplines(season) {
   const counts = new Map();
   for (const t of season || []) {
@@ -256,16 +308,40 @@ export function seasonDisciplines(season) {
       counts.set(d.name, (counts.get(d.name) || 0) + 1);
     }
   }
-  const rank = n => (SINGLES_DRAWS.includes(n) ? 0 : DOUBLES_DRAWS.includes(n) ? 1 : 2);
-  const kindOf = n => (rank(n) === 0 ? 'singles' : rank(n) === 1 ? 'doubles' : 'team');
+  const rank = n => (kindOf(n) === 'singles' ? 0 : kindOf(n) === 'doubles' ? 1 : 2);
   return [...counts.entries()]
     .map(([name, count]) => ({ name, count, kind: kindOf(name) }))
     .sort((a, b) => b.count - a.count || rank(a.name) - rank(b.name));
 }
 
-/** The discipline a season should open on: most played, ties to singles. */
-export function defaultDiscipline(season) {
-  const ds = seasonDisciplines(season).filter(d => d.kind !== 'team');
+/** Singles/doubles the season contains, with how many tournaments each. */
+export function seasonKinds(season) {
+  const counts = { singles: 0, doubles: 0 };
+  for (const t of season || []) {
+    const kinds = new Set((t.draws || []).map(d => kindOf(d.name)));
+    for (const k of kinds) if (k in counts) counts[k]++;
+  }
+  return ['singles', 'doubles'].filter(k => counts[k] > 0).map(k => ({ kind: k, count: counts[k] }));
+}
+
+/** The kind a season should open on: most played, ties to singles. */
+export function defaultKind(season) {
+  const ks = seasonKinds(season);
+  if (!ks.length) return null;
+  return ks.slice().sort((a, b) => b.count - a.count
+    || (a.kind === 'singles' ? -1 : 1))[0].kind;
+}
+
+/**
+ * The draw a player plays most of within one kind — MD for someone who plays
+ * mostly men's doubles and the occasional mixed.
+ *
+ * This exists for the one tournament where they entered both: the square can
+ * only show one result, and showing whichever the API happened to list first
+ * would make the strip inconsistent from event to event.
+ */
+export function dominantDraw(season, kind) {
+  const ds = seasonDisciplines(season).filter(d => d.kind === kind);
   return ds.length ? ds[0].name : null;
 }
 
@@ -274,4 +350,17 @@ export function drawFor(tmt, discipline) {
   if (!tmt || !tmt.draws || !tmt.draws.length) return null;
   const want = String(discipline || '').toUpperCase();
   return tmt.draws.find(d => d.name === want) || null;
+}
+
+/**
+ * The draw to show for a tournament under a singles/doubles toggle.
+ *
+ * `preferred` is the season's dominant draw for that kind, which settles the
+ * both-MD-and-XD case in favour of the one the player actually plays.
+ */
+export function drawForKind(tmt, kind, preferred) {
+  if (!tmt || !tmt.draws) return null;
+  const inKind = tmt.draws.filter(d => kindOf(d.name) === kind);
+  if (!inKind.length) return null;
+  return inKind.find(d => d.name === preferred) || inKind[0];
 }

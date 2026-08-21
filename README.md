@@ -20,13 +20,28 @@ node serve.mjs          # http://localhost:8080
 
 Requires Node 24 for the global `WebSocket` the test harness uses.
 
+## The season strip
+
+One square per tournament, chronological, left to right. Each is a gauge: it fills from the
+bottom by how far the player got, ramping green (title) to red (first-round exit), and the
+label inside says the same thing in words so nothing is carried by colour alone.
+
+Squares are sized by tournament weight, which is settled in `HANDOVER.md` Part 2 against
+BWF's own player-commitment rules — Super 750 is the line above which entry is compulsory,
+so that and everything above it is full size. The box shrinks inside a fixed 52px slot, so a
+lighter event reads as more air rather than as a narrower column, and the round label never
+scales below 9px.
+
+Singles or doubles is the only other choice. A doubles season is **not** filtered by
+partner: every doubles tournament that player entered is shown, whoever they played it with.
+
 ## Where things are
 
 | File | What it is |
 |---|---|
 | `model.js` | Pure logic: levels, weights, positions, fill, name tidying, season parsing. No browser globals, so the tests import it straight into Node |
 | `api.js` | The request layer: two-lane queue, 320ms pacing, TTL cache, one retry |
-| `app.js` | The page. Currently prints a season as text — the visual layer is next |
+| `app.js` | The season view: the strip, the discipline toggle, the level filters, the year stepper |
 | `serve.mjs` | Static server for local development |
 | `HANDOVER.md` | The design and engineering brief. Read it before changing anything: the weighting, the doubles model and the API traps are all settled there, several of them by testing |
 
@@ -52,10 +67,14 @@ that: on the predecessor 467 of them accumulated and took a 238 GB disk to zero 
 
 ```sh
 node tools/discover.mjs [url…]   # what endpoints does BWF's own frontend call?
+node tools/shot.mjs [#hash…]     # screenshot the strip, from fixtures
 ```
 
-Captures the API requests a BWF page makes and scans its JS bundles for endpoint literals.
-It is how Parts 3.2 and 3.5 of `HANDOVER.md` were found.
+`discover.mjs` captures the API requests a BWF page makes and scans its JS bundles for
+endpoint literals. It is how Parts 3.2 and 3.5 of `HANDOVER.md` were found.
+
+`shot.mjs` renders the app against the recorded fixtures and writes PNGs to
+`tests/shots/`, so a change to the strip can be looked at rather than only asserted.
 
 ## Etiquette
 

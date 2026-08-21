@@ -37,7 +37,12 @@ const DEFAULT_PLAYERS = [
 const args = process.argv.slice(2);
 const yearArg = args.indexOf('--years');
 const years = yearArg >= 0 ? args[yearArg + 1].split(',') : ['2026'];
-const players = args.filter(a => /^\d+$/.test(a)).map(Number);
+// Skip the value belonging to --years, or `--years 2017` records a season for
+// the player with id 2017 as well. Guarded on yearArg >= 0: indexOf returns -1
+// when the flag is absent, and -1 + 1 is the first real argument.
+const players = args
+  .filter((a, i) => /^\d+$/.test(a) && !(yearArg >= 0 && i === yearArg + 1))
+  .map(Number);
 const roster = players.length ? players : DEFAULT_PLAYERS;
 
 const server = createServer(ROOT);

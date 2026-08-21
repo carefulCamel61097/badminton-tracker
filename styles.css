@@ -1,54 +1,275 @@
-/* Step 1 only: enough type and spacing to read the output. The visual layer —
-   the season strip, its gauges and its weighting — comes next and gets its own
-   pass. Nothing here is meant to survive that. */
+/* Deliberately single-theme, and the same ground the weighting was judged on.
+   The encoding is a green-to-red ramp; rendering it on a light surface would
+   change the very thing that was tested against real seasons. Every colour is
+   painted explicitly so the page holds its own ground whatever is behind it. */
 
 :root {
-  color-scheme: light dark;
-  --ink: #1a1a1a;
-  --dim: #666;
-  --bg: #fff;
-  --rule: #ddd;
-  --bad: #b3261e;
+  color-scheme: dark;
+  --ground: #0f1319;
+  --surface: #161b23;
+  --raised: #1e242e;
+  --sunk: #0a0d12;
+  --line: #2a333f;
+  --line-soft: #212933;
+  --text: #e4eaf1;
+  --dim: #9aa9ba;
+  --muted: #6e7f92;
+  --accent: #e0443e;
+  --accent-dim: #7d2825;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root { --ink: #e8e8e8; --dim: #999; --bg: #141414; --rule: #333; --bad: #f2b8b5; }
-}
+* { box-sizing: border-box; }
 
 body {
-  margin: 0 auto;
-  padding: 1.5rem 1rem 4rem;
-  max-width: 72rem;
-  background: var(--bg);
-  color: var(--ink);
-  font: 15px/1.5 system-ui, sans-serif;
+  margin: 0;
+  padding: 30px 32px 60px;
+  background: var(--ground);
+  color: var(--text);
+  font: 15px/1.55 var(--sans);
+  -webkit-font-smoothing: antialiased;
 }
 
-h1 { font-size: 1.25rem; margin: 0 0 .25rem; }
+/* ---- head ---- */
 
-.unofficial { margin: 0 0 1.5rem; color: var(--dim); font-size: .8125rem; max-width: 46rem; }
+.eyebrow {
+  margin: 0;
+  font: 500 10.5px/1 var(--mono);
+  text-transform: uppercase;
+  letter-spacing: .16em;
+  color: var(--muted);
+}
 
-form {
+h1 {
+  font: 600 21px/1.2 var(--sans);
+  letter-spacing: -.015em;
+  margin: 9px 0 18px;
+}
+
+/* ---- controls ---- */
+
+.controls {
   display: flex;
   flex-wrap: wrap;
-  gap: .75rem 1rem;
+  gap: 10px 18px;
   align-items: center;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--rule);
+  margin-bottom: 14px;
 }
 
-label { display: inline-flex; align-items: center; gap: .35rem; font-size: .875rem; }
+.ctl {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font: 400 12.5px var(--sans);
+  color: var(--dim);
+}
 
-input, select, button { font: inherit; font-size: .875rem; padding: .25rem .4rem; }
+input[type=text], input:not([type]) {
+  background: var(--sunk);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 4px 7px;
+  font: 400 12.5px var(--mono);
+  font-variant-numeric: tabular-nums;
+}
 
-#status { color: var(--dim); font-size: .8125rem; min-height: 1.5em; }
-#status.error { color: var(--bad); }
+.years { gap: 4px; }
+.years input { width: 58px; text-align: center; }
 
+.step {
+  background: var(--raised);
+  color: var(--dim);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 3px 8px;
+  font-size: 10px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.step:hover { color: var(--text); border-color: #3d4855; }
+
+.seg {
+  background: var(--sunk);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 11px;
+  font: 400 12px var(--sans);
+  cursor: pointer;
+  text-transform: capitalize;
+}
+.seg + .seg { margin-left: -1px; }
+.seg:hover { color: var(--dim); }
+.seg.on { background: var(--raised); color: var(--text); border-color: #3d4855; }
+.seg .n, .chip .n {
+  font: 400 10px var(--mono);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  margin-left: 3px;
+}
+
+.only { color: var(--muted); font-size: 12px; text-transform: capitalize; }
+
+.toggle { cursor: pointer; }
+.toggle input { accent-color: var(--accent-dim); }
+
+/* ---- level chips ---- */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.chip {
+  font: 400 11.5px var(--sans);
+  padding: 4px 11px;
+  border-radius: 999px;
+  cursor: pointer;
+  user-select: none;
+  border: 1px solid var(--line);
+  background: var(--sunk);
+  color: var(--muted);
+  transition: background .12s, color .12s, border-color .12s;
+}
+.chip:hover { border-color: #3a4654; color: var(--dim); }
+.chip.on { background: var(--raised); color: var(--text); border-color: #3d4855; }
+/* Team events are a different sort of thing, not just another level: no
+   individual position, so they are dashed and off by default. */
+.chip.team { border-style: dashed; }
+.chip.team.on { border-color: var(--accent-dim); color: #f0b3b0; }
+
+button:focus-visible, input:focus-visible, a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---- the strip ---- */
+
+.readout {
+  background: var(--sunk);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 16px 18px 8px;
+}
+
+.strip-hd {
+  display: flex;
+  gap: 11px;
+  align-items: baseline;
+  margin: 0 0 9px;
+  font: 500 10.5px/1 var(--mono);
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  color: var(--muted);
+}
+.strip-hd .who { color: var(--text); letter-spacing: .06em; }
+.strip-hd .cnt { font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+
+.season {
+  display: flex;
+  gap: 5px;
+  overflow-x: auto;
+  padding-bottom: 9px;
+}
+
+.sq {
+  flex: none;
+  width: 52px;
+  text-align: center;
+  text-decoration: none;
+  color: inherit;
+}
+
+.tn {
+  display: -webkit-box;
+  font: 400 8.5px/1.15 var(--sans);
+  color: var(--muted);
+  height: 20px;
+  margin-bottom: 2px;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+}
+.sq:hover .tn { color: var(--dim); }
+
+/* Fixed slot: every tournament keeps an identical footprint, the box just fills
+   less of it, so a lighter event reads as air rather than as a shifted column. */
+.slot { display: flex; justify-content: center; align-items: center; }
+
+.box {
+  border-radius: 3px;
+  display: grid;
+  place-items: center;
+  font-family: var(--mono);
+  font-weight: 600;
+  letter-spacing: -.03em;
+  color: var(--text);
+  border: 1px solid var(--line-soft);
+  overflow: hidden;
+  background: linear-gradient(to top,
+    var(--fill) 0 var(--pct, 0%), var(--raised) var(--pct, 0%) 100%);
+}
+
+.lv {
+  display: block;
+  font: 400 8.5px/1.2 var(--mono);
+  color: var(--muted);
+  margin-top: 3px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  letter-spacing: -.02em;
+}
+
+/* The result ramp: green for a title through to red for a first-round exit.
+   The label inside the box says the same thing in words, so nothing here is
+   carried by colour alone. */
+.r-w   { --fill: #1a7f37; }
+.r-f   { --fill: #3fa34d; }
+.r-sf  { --fill: #7cb342; }
+.r-qf  { --fill: #c9a227; }
+.r-r16 { --fill: #e07b39; }
+.r-r1  { --fill: #cf4b3f; }
+.r-q   { --fill: #8f5a55; }
+.r-na  { --fill: transparent; color: var(--muted); }
+.r-w, .r-f { color: #fff; }
+/* Entered no draw of this discipline: an outline, not a result. */
+.r-none { --fill: transparent; border-style: dashed; border-color: var(--line); }
+
+.empty {
+  margin: 4px 0 8px;
+  color: var(--muted);
+  font-size: 12.5px;
+  max-width: 60ch;
+}
+
+#status { min-height: 1.4em; margin: 0 0 10px; color: var(--muted); font-size: 12.5px; }
+#status.error { color: #f0b3b0; }
+
+/* ---- foot ---- */
+
+.foot {
+  margin-top: 26px;
+  color: var(--muted);
+  font-size: 12px;
+  max-width: 72ch;
+}
+.foot a { color: var(--dim); }
+.foot p { line-height: 1.6; }
+
+details { margin-top: 14px; }
+summary { cursor: pointer; color: var(--muted); font-size: 11.5px; }
 pre {
   overflow-x: auto;
-  font: 12px/1.45 ui-monospace, Consolas, monospace;
-  white-space: pre;
+  font: 11px/1.45 var(--mono);
+  color: var(--dim);
+  background: var(--sunk);
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  padding: 10px 12px;
 }
-
-details { margin-top: 2rem; color: var(--dim); }
-summary { cursor: pointer; font-size: .8125rem; }

@@ -5,41 +5,63 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Badminton Season Tracker</title>
 <!-- An empty data URI, so the browser stops asking for a favicon that does not
-     exist yet and the console stays clean enough for a suite to assert on. A
-     real one comes with the visual layer. -->
+     exist yet and the console stays clean enough for a suite to assert on. -->
 <link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<header>
-  <h1>Badminton Season Tracker</h1>
-  <p class="unofficial">
-    An unofficial fan tool. All data comes from
-    <a href="https://bwfbadminton.com/" target="_blank" rel="noopener">BWF</a>
-    and belongs to them; this site is not affiliated with or endorsed by BWF.
-  </p>
+<header class="head">
+  <p class="eyebrow">Unofficial · data from BWF</p>
+  <h1>Season</h1>
 </header>
 
-<form id="pick" autocomplete="off">
-  <label>Player id <input id="playerId" name="playerId" inputmode="numeric" size="8" value="57945"></label>
-  <label>Year <input id="year" name="year" inputmode="numeric" size="6" value="2026"></label>
-  <label>Discipline
-    <select id="discipline"><option value="">auto</option></select>
+<form id="pick" class="controls" autocomplete="off">
+  <label class="ctl">Player
+    <input id="playerId" name="playerId" inputmode="numeric" size="7" value="57945">
   </label>
-  <label><input type="checkbox" id="includeTeam"> team events</label>
-  <button type="submit">Load season</button>
+
+  <span class="ctl years">Year
+    <button type="button" id="yearPrev" class="step" aria-label="previous year">&#9664;</button>
+    <input id="year" name="year" inputmode="numeric" size="5" value="2026"
+           aria-label="season year">
+    <button type="button" id="yearNext" class="step" aria-label="next year">&#9654;</button>
+  </span>
+
+  <span class="ctl" id="kindWrap" role="group" aria-label="discipline"></span>
+
+  <label class="ctl toggle">
+    <input type="checkbox" id="sized" checked> Size by weight
+  </label>
 </form>
+
+<div id="levels" class="chips" role="group" aria-label="tournament levels"></div>
 
 <p id="status" role="status"></p>
 
-<!-- Step 1 renders the season as text and JSON. No visual layer yet: the point
-     is to prove the data path end to end before anything is drawn. -->
-<pre id="out"></pre>
-<details id="rawWrap">
-  <summary>Parsed season as JSON</summary>
-  <pre id="raw"></pre>
-</details>
+<section id="stripWrap" class="readout" hidden>
+  <div class="strip-hd">
+    <span id="stripWho" class="who"></span>
+    <span id="stripCount" class="cnt"></span>
+  </div>
+  <div id="strip" class="season"></div>
+  <p id="empty" class="empty" hidden></p>
+</section>
+
+<footer class="foot">
+  <p>
+    All data comes from <a href="https://bwfbadminton.com/" target="_blank" rel="noopener">BWF</a>
+    and belongs to them. This is an unofficial fan tool, not affiliated with or endorsed by
+    BWF. Each square links back to that tournament's page on their site.
+  </p>
+  <details id="rawWrap">
+    <summary>The season as data</summary>
+    <pre id="raw"></pre>
+  </details>
+</footer>
 
 <script type="module" src="app.js"></script>
 </body>

@@ -140,11 +140,27 @@ export async function loadSeason(playerId, year, opts = {}) {
   return parseSeason(raw, opts);
 }
 
-/** Bio, avatars and slug. */
-export function loadPlayer(playerId, opts = {}) {
-  return getJSON('vue-player-summary', {
+/**
+ * Who a player id belongs to: name, country and slug.
+ *
+ * Everything the season needs is in vue-player-tournaments, so this is a
+ * nicety — but a strip that never says whose season it is asks the reader to
+ * recognise a five-digit id. Rides the low lane and is allowed to fail.
+ */
+export async function loadPlayer(playerId, opts = {}) {
+  const raw = await getJSON('vue-player-summary', {
     playerId, isPara: 0, drawCount: 5,
   }, opts);
+  const r = (raw && raw.results) || raw;
+  if (!r || r.name_display == null) return null;
+  const country = r.country_model || {};
+  return {
+    id: String(r.id != null ? r.id : playerId),
+    name: r.name_display || '',
+    slug: r.slug || '',
+    country: country.name || '',
+    countryCode: country.code_iso3 || '',
+  };
 }
 
 /**

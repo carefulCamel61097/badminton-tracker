@@ -14,9 +14,10 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import {
-  parseSeason, seasonDisciplines, defaultDiscipline, drawFor,
-  positionInfo, fillFraction, boxSide, levelLabel, isTeamEvent,
-  shortTmtName, surnameOf, LEVEL, FULL_BOX_PX,
+  parseSeason, seasonDisciplines, drawFor, drawForKind, dominantDraw,
+  kindOf, seasonKinds, defaultKind, seasonLevels,
+  positionInfo, fillFraction, boxSize, boxScale, levelLabel, isTeamEvent,
+  shortTmtName, surnameOf, levelAbbr, LEVEL, SLOT_W, BOX_H, MIN_LABEL_PX, LEVEL_ORDER,
 } from '../model.js';
 import { check, eq, near, report } from './check.mjs';
 
@@ -33,6 +34,8 @@ function fixture(pathname, params) {
   const body = raw.base64Encoded ? Buffer.from(raw.body, 'base64').toString('utf8') : raw.body;
   return JSON.parse(body);
 }
+
+const byCat = (season, cat) => season.find(t => t.cat === cat);
 
 const seasonParams = (playerId, tmtYear) =>
   ({ playerId, isPara: 0, drawCount: 1, activeTab: 0, tmtYear });
@@ -97,19 +100,60 @@ const ds = seasonDisciplines(season);
 eq('MS is the commonest draw', ds[0].name, 'MS');
 eq('nine MS entries', ds[0].count, 9);
 eq('classified as singles', ds[0].kind, 'singles');
-eq('opens on MS', defaultDiscipline(season), 'MS');
 check('a team tie is not offered as a discipline',
   !ds.filter(d => d.kind !== 'team').some(d => d.name === 'SINGLES'),
   JSON.stringify(ds));
+
+/* ============================ singles or doubles ============================
+
+   The only distinction the strip makes. Not partner: a doubles season belongs
+   to the player and is shown whole, however many people they played with.
+   ======================================================================== */
+
+console.log('\n=== singles / doubles ===');
+eq('MS is singles', kindOf('MS'), 'singles');
+eq('WS too', kindOf('WS'), 'singles');
+eq('MD is doubles', kindOf('MD'), 'doubles');
+eq('and XD', kindOf('XD'), 'doubles');
+eq('a team tie is neither', kindOf('Singles'), 'team');
+eq('nor is nonsense', kindOf(''), 'team');
+
+eq('a singles player gets one kind, so no toggle', seasonKinds(season).length, 1);
+eq('opens on singles', defaultKind(season), 'singles');
+
+const shiMS = drawForKind(byCat(season, 23), 'singles', 'MS');
+check('the singles draw is found by kind', shiMS && shiMS.name === 'MS', shiMS && shiMS.name);
+eq('and no doubles draw is invented',
+  drawForKind(byCat(season, 23), 'doubles', 'MD'), null);
 
 /* ============================ Delphine DELRUE, 2026 ============================ */
 
 console.log('\n=== a doubles season ===');
 const delrue = parseSeason(fixture('vue-player-tournaments', seasonParams(70762, 2026)));
-eq('opens on XD', defaultDiscipline(delrue), 'XD');
-check('every XD entry names only the discipline, never a partner',
+eq('opens on doubles', defaultKind(delrue), 'doubles');
+eq('her doubles draw is XD', dominantDraw(delrue, 'doubles'), 'XD');
+check('every doubles tournament is shown, whoever the partner was',
+  delrue.filter(t => drawForKind(t, 'doubles', 'XD')).length >= 10,
+  String(delrue.filter(t => drawForKind(t, 'doubles', 'XD')).length));
+check('and the parse still names no partner anywhere',
   delrue.every(t => (t.draws || []).every(d => !('partner' in d) && !('player' in d))),
   'the season endpoint carries no second player — see HANDOVER 2.4');
+
+// A player entering both MD and XD at one tournament gives "doubles" two draws
+// for one square. It resolves to the one they play more of across the season,
+// not to whichever BWF happened to list first.
+const bothDraws = {
+  draws: [
+    { name: 'XD', position: 'R16', win: 1, lose: 1 },
+    { name: 'MD', position: 'QF', win: 2, lose: 1 },
+  ],
+};
+eq('a both-MD-and-XD entry follows the season, not the array order',
+  drawForKind(bothDraws, 'doubles', 'MD').name, 'MD');
+eq('and the other way round for a mixed specialist',
+  drawForKind(bothDraws, 'doubles', 'XD').name, 'XD');
+eq('with no preference it still picks one rather than none',
+  drawForKind(bothDraws, 'doubles', null).name, 'XD');
 
 /* ============================ weighting ============================
 
@@ -119,23 +163,52 @@ check('every XD entry names only the discipline, never a partner',
    ================================================================ */
 
 console.log('\n=== weighting ===');
-eq('Super 1000 is full size', boxSide(23), FULL_BOX_PX);
-eq('Super 750 is full size too — it is the compulsory line', boxSide(24), FULL_BOX_PX);
-eq('Worlds full', boxSide(20), FULL_BOX_PX);
-eq('Tour Finals full', boxSide(22), FULL_BOX_PX);
-eq('Continental is full size (settled 21 Aug 2026, not 0.80)', boxSide(11), FULL_BOX_PX);
-near('Super 500 is 0.80 of the area', boxSide(25), 37.6, 0.1);
-near('Super 300 is 0.60', boxSide(26), 32.5, 0.1);
-near('Super 100 is 0.40', boxSide(27), 26.6, 0.1);
-eq('Challenge shares the Super 100 size', boxSide(5), boxSide(27));
-eq('Series too', boxSide(6), boxSide(27));
+const h = c => boxSize(c).h;
+eq('Super 1000 is full size', h(23), BOX_H);
+eq('Super 750 is full size too — it is the compulsory line', h(24), BOX_H);
+eq('Worlds full', h(20), BOX_H);
+eq('Tour Finals full', h(22), BOX_H);
+eq('Continental is full size (settled 21 Aug 2026, not 0.80)', h(11), BOX_H);
+near('Super 500 is 0.80 of the area', h(25), 37.6, 0.1);
+near('Super 300 is 0.60', h(26), 32.5, 0.1);
+near('Super 100 is 0.40', h(27), 26.6, 0.1);
+eq('Challenge shares the Super 100 size', h(5), h(27));
+eq('Series too', h(6), h(27));
 eq('Future Series exists and is mapped', levelLabel(7), 'Future');
-eq('sizing off means every box is full size', boxSide(27, false), FULL_BOX_PX);
-check('an unknown category degrades to full size rather than to zero',
-  boxSide(999) === FULL_BOX_PX);
+eq('Continental is abbreviated for a 52px square', levelAbbr(11), 'Cont.');
+eq('but its chip spells it out', levelLabel(11), 'Continental');
+eq('a label that already fits is left alone', levelAbbr(23), 'Super 1000');
+check('no strip label is longer than the longest that fits',
+  LEVEL_ORDER.every(c => levelAbbr(c).length <= 10),
+  LEVEL_ORDER.map(c => levelAbbr(c)).join(' | '));
+eq('sizing off means every box is full size', boxSize(27, false).h, BOX_H);
+check('an unknown category degrades to full size rather than to zero', h(999) === BOX_H);
 check('team categories are flagged', isTeamEvent(21) && isTeamEvent(17));
 check('the ladder never increases going down',
-  [23, 24, 25, 26, 27].every((c, i, a) => i === 0 || boxSide(a[i - 1]) >= boxSide(c)));
+  [23, 24, 25, 26, 27].every((c, i, a) => i === 0 || h(a[i - 1]) >= h(c)));
+
+// Both dimensions scale by the side, so the box keeps its shape. The slot does
+// not scale — that is the whole point of the fixed footprint.
+eq('a full box is as wide as its slot', boxSize(23).w, SLOT_W);
+near('and both dimensions shrink together',
+  boxSize(27).w / boxSize(27).h, SLOT_W / BOX_H, 0.001);
+near('the side is the square root of the area', boxScale(25), Math.sqrt(0.8), 0.001);
+
+console.log('\n=== the label floor ===');
+eq('a full box labels at 11px', boxSize(23).font, 11);
+check('a Super 100 label never goes below 9px', boxSize(27).font >= MIN_LABEL_PX,
+  String(boxSize(27).font));
+check('nor does anything else — a Challenge QF became unreadable when it did',
+  LEVEL_ORDER.every(c => boxSize(c).font >= MIN_LABEL_PX),
+  LEVEL_ORDER.map(c => boxSize(c).font.toFixed(1)).join(' '));
+check('the chip order is the ladder, not the numeric ids',
+  LEVEL_ORDER.indexOf(23) < LEVEL_ORDER.indexOf(25)
+  && LEVEL_ORDER.indexOf(11) < LEVEL_ORDER.indexOf(25)
+  && LEVEL_ORDER.indexOf(21) > LEVEL_ORDER.indexOf(27),
+  LEVEL_ORDER.join(' '));
+eq('every mapped level has a chip position', LEVEL_ORDER.length, Object.keys(LEVEL).length);
+eq('the levels of this season, in that order',
+  seasonLevels(season).join(' '), '20 23 24 11 25 21');
 
 /* ============================ fill ============================ */
 

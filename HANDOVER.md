@@ -159,36 +159,47 @@ squares. At full weight they become the largest and emptiest things in the strip
 prominence, zero information. **Default them off**; the toggle exists for when you want
 them.
 
-### 2.4 Doubles seasons are a partnership — settled
+### 2.4 Doubles is a discipline, not a partnership — settled
 
-**Decided 21 Aug 2026.** A doubles season belongs to the *pair*, not to the named player.
-The selection flow is therefore three steps, not one:
+**Decided 21 Aug 2026.** The strip makes exactly one distinction beyond the player:
+**singles or doubles**. There is no partner picker.
 
-1. **Pick a player.**
-2. **Pick a discipline** — singles or doubles. Default to whichever they have played more
-   of that season; ties go to singles.
-3. **If doubles, pick a partner.** Default to the **most recent** partner, since a season
-   strip is usually read to answer "how is this pairing going".
+- A player with only one kind gets **no toggle at all**, rather than a dead one.
+- A player with both — Toma Popov, and 4 of the 36 recorded seasons — gets a
+  two-button segmented control. **Ties go to singles**, so a season split evenly
+  opens on the simpler view.
+- Under `doubles`, **every doubles tournament that player entered is shown**,
+  whoever they played it with. A season in which somebody changed partner in
+  March is still one season, and reading it whole is the point.
 
-⚠️ **`vue-player-tournaments` carries no partner.** Verified against 36 recorded seasons:
-a draw entry is `{event_id, name:"XD", score_player, score_opponent, match_count,
-match_win, match_lose, game_*, points_percent, position}` and there is no second player
-anywhere in the payload. The discipline is knowable from `draws[].name`; the partner is
-not.
+⚠️ **One tournament can give `doubles` two draws** — a player entering both MD and
+XD. The square can only show one, and taking whichever BWF listed first makes the
+strip inconsistent from event to event. It resolves to the discipline the player
+played **more of across that season** (`dominantDraw`).
 
-**`vue-player-match-previous` is where the partner lives** —
-`t1p1_player_model` / `t1p2_player_model` / `t2p1_player_model` / `t2p2_player_model`,
-each `{id, slug, name_display, name_display_bold}`, plus `draw_model {id, name}`. It
-answers "who did they last play with" in one call, which is exactly the default above.
+An earlier draft of this section specified a partner picker defaulting to the most
+recent partner. It was dropped as more machinery than the question deserves.
 
-⚠️ **It returns `results` as a single match object, not an array**, even at `drawCount=5`.
-Another face of the polymorphic-`results` trap in Part 3.6.
+#### What the API does and does not carry
 
-**Still unresolved: the partner *per tournament*.** Neither endpoint gives a partner
-history, so a strip filtered to one partnership cannot yet drop the tournaments played
-with somebody else — that needs per-tournament draw data, one call per tournament. Until
-that is solved, a doubles strip shows every doubles tournament and names the default
-partner. Do not pretend to a precision the data does not support.
+⚠️ **`vue-player-tournaments` carries no partner.** Verified against 36 recorded
+seasons: a draw entry is `{event_id, name:"XD", score_player, score_opponent,
+match_count, match_win, match_lose, game_*, points_percent, position}` and there is
+no second player anywhere in the payload. The discipline is knowable; the partner
+is not.
+
+**`vue-player-match-previous` is the only place a partner appears** —
+`t1p1_player_model` / `t1p2_player_model` / `t2p1_player_model` /
+`t2p2_player_model`, each `{id, slug, name_display, name_display_bold}`, plus
+`draw_model {id, name}`. `api.js` keeps `loadLastMatch()` for it, unused by the
+season view. It answers "who did they last play with" in one call and nothing more:
+there is **no partner history** anywhere, so a per-tournament partner would need
+draw data, one call per tournament. Which is a further reason the strip does not
+try to filter by one.
+
+⚠️ **It returns `results` as a single match object, not an array**, even at
+`drawCount=5`. Another face of the polymorphic-`results` trap in Part 3.6.
+
 
 ---
 
@@ -480,10 +491,13 @@ using the global `WebSocket`. Deployed on GitHub Pages. This worked well — kee
 
 ## Part 6 — Build order
 
-1. **Skeleton + API client.** Port the queue, cache and name helpers. One page that
-   resolves a player and prints their season as JSON.
-2. **Season view.** Port the strip, add the year selector, the weighting from Part 2, the
-   level filters and the team toggle. This is the product; get it right first.
+1. ~~**Skeleton + API client.**~~ **Done 21 Aug 2026.** The two-lane queue, the cache, the
+   retry and the name helpers, with the harness and the stale-profile sweep in from the
+   first commit.
+2. ~~**Season view.**~~ **Done 21 Aug 2026.** The strip, the year stepper, the Part 2
+   weighting, the level filters, the team toggle and the singles/doubles toggle. Geometry
+   is asserted off the laid-out DOM in `tests/test_season.mjs`, not off the model, so a
+   stylesheet cannot quietly override the settled sizes.
 3. **Player selection.** `vue-rankingtable` with `searchKey`, plus recently-viewed.
 4. **Tournament view.** `vue-tmt-schedule` drives it. Results when a tournament is
    finished, draws when the next one is up, live scores while it runs.
@@ -498,8 +512,12 @@ using the global `WebSocket`. Deployed on GitHub Pages. This worked well — kee
 
 - ~~**Continental Championships weight**~~ — settled at full size. See Part 2.2.
 - ~~**Doubles seasons**~~ — settled. See Part 2.4.
-- **How far back do seasons go?** `tmtYear` is a parameter; nobody has tested how early it
-  still returns data, or what a retired player returns.
+- ~~**How far back do seasons go?**~~ — tested 21 Aug 2026. `tmtYear` accepts **any**
+  year and returns an empty `results` array rather than an error for one it has nothing
+  for, so an empty season is never distinguishable from an out-of-range year by the
+  response alone — the view has to say both. Real data reaches back to at least **2007**
+  (CHOU Tien Chen, id 34810: 3 tournaments in 2007, 0 in 2006). SHI Yu Qi returns 9 for
+  2014 and 0 for 2010, which is his career rather than the floor of the data.
 - ~~**Is there a draw/live endpoint we still have not found?**~~ — run 21 Aug 2026
   against two tournament pages. It found `tournaments/draws`,
   `day-matches/players`, `day-matches/courts` and `vue-tournament-organizations`;
