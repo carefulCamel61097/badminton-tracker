@@ -514,6 +514,9 @@ eq('four Super 1000 slots', secN(23), 4);
 eq('six Super 750 slots', secN(24), 6);
 eq('one Olympics slot', secN('OLY'), 1);
 eq('one Worlds slot', secN(20), 1);
+// There is exactly one season-ending Finals per season. BWF files the delayed
+// 2020 edition under 2021, which used to make this 2.
+eq('and one Tour Finals slot, whatever COVID did to the calendar', secN(22), 1);
 check('and the grid is far narrower than a column per tournament',
   width < 45, `${width} cells wide`);
 

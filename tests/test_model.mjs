@@ -19,7 +19,8 @@ import {
   positionInfo, fillFraction, boxSize, boxScale, levelLabel, isTeamEvent,
   shortTmtName, surnameOf, levelAbbr, roundsInDraw, mainDrawSize, drawLadder,
   canonicalDraw, isOlympics,
-  gridGroup, seasonResults, gridSections, sectionCells, gridYears, resultRank, GRID_ORDER,
+  gridGroup, seasonResults, careerRows, gridSections, sectionCells, gridYears,
+  resultRank, tournamentSeason, GRID_ORDER,
   LEVEL, SLOT_W, BOX_H, MIN_LABEL_PX, LEVEL_ORDER,
 } from '../model.js';
 import { check, eq, near, report } from './check.mjs';
@@ -546,8 +547,7 @@ function career(playerId) {
 function rowsOf(seasons) {
   const all = seasons.flatMap(s => s.tournaments);
   const kind = defaultKind(all);
-  const preferred = dominantDraw(all, kind);
-  return seasons.map(s => ({ year: s.year, by: seasonResults(s, kind, preferred) }));
+  return careerRows(seasons, kind, dominantDraw(all, kind));
 }
 
 const shi = career(57945);
@@ -614,6 +614,7 @@ check('a placing we do not recognise below that again',
   resultRank({ tier: 'unk' }) > resultRank({ tier: 'q' }));
 
 const shiRows = rowsOf(shi);
+const anRows = rowsOf(anSeYoung);
 const rowFor = year => shiRows.find(r => r.year === year);
 
 for (const row of shiRows) {
@@ -643,6 +644,42 @@ check('a tournament entered in the other discipline takes no slot',
   !rowFor(2026).by.get(23).some(c => c.draw.name !== 'MS'),
   rowFor(2026).by.get(23).map(c => c.draw.name).join(' '));
 
+/* ---- which season a tournament belongs to ---- */
+
+console.log('\n--- the delayed Finals goes back where it belongs ---');
+
+/* COVID pushed the 2020 season-ending Finals to 27 January 2021, and BWF files
+   it under tmtYear=2021 — so AN Se Young has two Tour Finals in her 2021 row
+   unless the edition year in the name is honoured. The Finals is the one event
+   there is exactly one of per season. */
+const finalsCells = [];
+for (const row of anRows) for (const c of row.by.get(22) || []) finalsCells.push({ year: row.year, c });
+
+check('AN Se Young has more than one Finals in her career',
+  finalsCells.length >= 5, `${finalsCells.length}`);
+check('but never two in one season',
+  new Set(finalsCells.map(f => f.year)).size === finalsCells.length,
+  finalsCells.map(f => `${f.year}:${f.c.tmt.start}`).join(' '));
+check('the delayed one sits in 2020, the season it concludes',
+  finalsCells.some(f => f.year === 2020 && f.c.tmt.start.startsWith('2021-01')),
+  finalsCells.map(f => `${f.year}<-${f.c.tmt.start}`).join(' '));
+check('and the 2021 edition stays in 2021',
+  finalsCells.some(f => f.year === 2021 && f.c.tmt.start.startsWith('2021-12')));
+
+eq('a Finals played in its own year does not move',
+  tournamentSeason({ cat: 22, name: 'HSBC BWF World Tour Finals 2025', start: '2025-12-17', draws: [{ name: 'MS' }] }), 2025);
+eq('one played the January after belongs to the season it closes',
+  tournamentSeason({ cat: 22, name: 'HSBC BWF World Tour Finals 2020 (New Dates)', start: '2021-01-27', draws: [{ name: 'MS' }] }), 2020);
+
+/* ⚠️ Deliberately narrow. Three other events in the recorded data carry an
+   earlier year than the date they were played on, and all three stay put. */
+eq('the Tokyo 2020 Olympics were played in 2021 and belong to 2021',
+  tournamentSeason({ cat: 'OLY', name: 'Tokyo 2020 Olympic Games Badminton', start: '2021-07-24', draws: [{ name: 'WS' }] }), 2021);
+eq('so do the 2022 Asian Games, held in 2023',
+  tournamentSeason({ cat: 74, name: 'ASIAN Games 2022 (Individual Event)', start: '2023-10-02', draws: [{ name: 'MS' }] }), 2023);
+eq('and a qualifier named for next year is still played this year',
+  tournamentSeason({ cat: 29, name: '2024 European Team Championships Qualification', start: '2023-12-07', draws: [{ name: 'MS' }] }), 2023);
+
 /* ---- section widths ---- */
 
 console.log('\n--- sections are as wide as the busiest season ---');
@@ -658,8 +695,8 @@ eq('the unmapped era is last', shiSections[shiSections.length - 1].group, 'OTHER
 
 eq('four Super 1000 slots, which is what the calendar holds', sec(23).n, 4);
 eq('six Super 750 slots', sec(24).n, 6);
-eq('one Olympics, one Worlds, one Continental',
-  `${sec('OLY').n}${sec(20).n}${sec(11).n}`, '111');
+eq('one Olympics, one Worlds, one Continental, one Finals',
+  `${sec('OLY').n}${sec(20).n}${sec(11).n}${sec(22).n}`, '1111');
 
 check('the width is the most he played in any one season', (() => {
   for (const s of shiSections) {
@@ -722,9 +759,8 @@ eq('a year with no season at all is all padding',
 
 console.log('\n--- two careers, one set of sections ---');
 
-const anRows = rowsOf(anSeYoung);
 const both = gridSections([shiRows.map(r => r.by), anRows.map(r => r.by)]);
-const bothYears = gridYears([shi, anSeYoung]);
+const bothYears = gridYears([shiRows, anRows]);
 
 check('a shared section is at least as wide as either career needs',
   both.every(s => {
@@ -737,16 +773,17 @@ check('and wide enough for both, so neither overflows',
 eq('every row is the same width in both grids',
   sectionCells(shiRows[0].by, both).length, sectionCells(anRows[0].by, both).length);
 
-const shiYears = gridYears([shi]);
+const shiYears = gridYears([shiRows]);
 eq('the years run newest first', shiYears[0] > shiYears[shiYears.length - 1], true);
 eq('with no gaps in the middle',
   shiYears.length, shiYears[0] - shiYears[shiYears.length - 1] + 1);
 check('a season whose every tournament is junior is not a row',
   !shiYears.includes(2012), `2012 was Asia Youth U19 only`);
-eq('the years span both careers', bothYears[0], Math.max(shiYears[0], gridYears([anSeYoung])[0]));
+eq('the years span both careers', bothYears[0], Math.max(shiYears[0], gridYears([anRows])[0]));
 
 eq('nothing to draw is an empty list, not a crash', gridSections([]).length, 0);
 eq('and so is a career of nothing', gridYears([[]]).length, 0);
+eq('and rows out of nothing', careerRows(null, 'singles', 'MS').length, 0);
 eq('a season of nothing buckets to nothing', seasonResults(null, 'singles', 'MS').size, 0);
 
 process.exit(report());

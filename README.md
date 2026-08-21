@@ -75,7 +75,14 @@ Below Super 100, the junior circuit and the team events are not in the grid at a
 A block is as wide as **the most anyone on screen played at that level in a single season**.
 That is measured rather than declared, because the declared answer moves: four Super 1000s
 in 2026, five in 2027, and five in 2021 because that January ran two Super 1000 Thailand
-Opens back to back in the Bangkok bubble.
+Opens back to back in the Bangkok bubble. The Super 750s grew from five events to six after
+2019, so a six-wide block means an empty slot in an old row and a skipped event in a recent
+one — see `HANDOVER.md` 2.9.
+
+One thing does not go by the date it was played: **the season-ending Finals belongs to the
+season it concludes.** BWF files the COVID-delayed 2020 edition under 2021, which put two
+Tour Finals in one row. It is the one event there is exactly one of per season, and BWF's
+own name still says which edition it is.
 
 **Compare with…** loads a second whole career and puts it beside the first, sharing one set
 of blocks and one set of rows so the two are readable against each other, with each player's

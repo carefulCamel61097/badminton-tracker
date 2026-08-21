@@ -20,7 +20,8 @@ import {
   positionInfo, fillFraction, drawForKind, dominantDraw, seasonKinds,
   defaultKind, seasonLevels, levelLabel, levelAbbr, boxSize, isTeamEvent,
   drawLadder, BOX_H, LEVEL, LEVEL_ORDER,
-  seasonResults, gridSections, sectionCells, gridYears, gridGroupLabel,
+  careerRows, gridSections, sectionCells, gridYears, gridGroupLabel,
+  seasonResults, tournamentSeason,
 } from './model.js';
 
 const $ = id => document.getElementById(id);
@@ -675,14 +676,14 @@ function renderGrid() {
   for (const c of list) {
     const kind = gridKindFor(c.seasons);
     const preferred = dominantDraw(c.seasons.flatMap(s => s.tournaments), kind);
-    c.rows = c.seasons.map(s => ({ year: s.year, by: seasonResults(s, kind, preferred) }));
+    c.rows = careerRows(c.seasons, kind, preferred);
   }
 
   // Widths are measured across *both* careers and then filtered, so the two
   // grids line up and the chip counts do not move when one section is hidden.
   const sections = gridSections(list.map(c => c.rows.map(r => r.by)));
   const shown = sections.filter(s => !grid.hiddenGroups.has(String(s.group)));
-  const years = gridYears(list.map(c => c.seasons));
+  const years = gridYears(list.map(c => c.rows));
 
   renderGridGroups(sections);
   renderGridKinds();
@@ -1204,12 +1205,16 @@ window.BST = {
     close: closeGrid,
     isOpen: () => grid.open && $('gridModal').hasAttribute('open'),
     /** The sections and their widths, as the render would compute them. */
-    sections: () => gridSections(careers().map(c => {
+    rows: () => careers().map(c => {
       const kind = gridKindFor(c.seasons);
-      const preferred = dominantDraw(c.seasons.flatMap(s => s.tournaments), kind);
-      return c.seasons.map(s => seasonResults(s, kind, preferred));
-    })),
-    years: () => gridYears(careers().map(c => c.seasons)),
+      return careerRows(c.seasons, kind,
+        dominantDraw(c.seasons.flatMap(s => s.tournaments), kind));
+    }),
+    sections: () => gridSections(window.BST.grid.rows().map(rows => rows.map(r => r.by))),
+    years: () => gridYears(window.BST.grid.rows()),
+    seasonOf: name => tournamentSeason(
+      careers().flatMap(c => c.seasons).flatMap(s => s.tournaments)
+        .find(t => t.name === name) || null),
     kindFor: i => gridKindFor((careers()[i] || { seasons: [] }).seasons),
     compareWith: id => loadCompare({ id: String(id), name: '' }),
     drop: removeCompare,

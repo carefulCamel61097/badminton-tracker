@@ -828,6 +828,43 @@ export function resultRank(info) {
 }
 
 /**
+ * The season a tournament belongs to, which is not always the year it was
+ * played in.
+ *
+ * ⚠️ **The season-ending Finals belongs to the season it concludes.** COVID
+ * pushed the 2020 edition to 27 January 2021, and BWF files it under
+ * `tmtYear=2021` — so a player who competed in both it and the 2021 edition
+ * that December has *two* Tour Finals in one row, which is a contradiction: the
+ * Finals is the one event there is exactly one of per season. The fix is
+ * BWF's own name, which still says which edition it is:
+ * "HSBC BWF World Tour Finals 2020 (New Dates)".
+ *
+ * ⚠️ Deliberately **not** a general "the year in the name wins" rule. Three
+ * other events in the recorded data carry an earlier year than the date they
+ * were played on — the Tokyo 2020 Olympics (July 2021) and both halves of the
+ * 2022 Asian Games (September 2023) — and those should stay where they were
+ * played. The difference is not that BWF marked two of them "(New Dates)",
+ * which it did inconsistently; it is that the Finals is *retrospective*. It is
+ * the final of a season already played, contested by the players that season's
+ * results qualified. An Olympics is not the conclusion of anything, and saying
+ * a player competed at the Olympics in 2020 would be false.
+ */
+export function tournamentSeason(tmt) {
+  const start = Number(String((tmt && tmt.start) || '').slice(0, 4)) || null;
+  if (gridGroup(tmt) !== 22) return start;
+
+  const years = (String((tmt && tmt.name) || '').match(/\b(?:19|20)\d{2}\b/g) || []).map(Number);
+  if (!years.length) return start;
+  // The last year in the name: "Dubai World Superseries Finals 2017" has one,
+  // and a name that ever carries two would mean the edition, not the venue.
+  const edition = years[years.length - 1];
+  // Only ever backwards. A qualifier played in December for next year's event
+  // — "2024 European … Championships Qualification" ran in 2023 — was still
+  // played in the season it was played in.
+  return start && edition < start ? edition : start;
+}
+
+/**
  * One season's results, bucketed by section and sorted best-first inside each.
  *
  * Only results in the chosen discipline. A tournament the player entered in some
@@ -916,20 +953,41 @@ export function sectionCells(by, sections) {
 }
 
 /**
+ * A whole career as grid rows, newest first.
+ *
+ * Regroups every tournament by the season it *belongs* to rather than by the
+ * `tmtYear` BWF returned it under, which is what moves the delayed 2020 Finals
+ * out of the 2021 row. Done over the career as a whole, not season by season,
+ * because a tournament can move between rows and one of those rows may not
+ * exist yet — or at all.
+ */
+export function careerRows(seasons, kind, preferred) {
+  const byYear = new Map();
+  for (const s of seasons || []) {
+    for (const t of s.tournaments || []) {
+      const year = tournamentSeason(t) || s.year;
+      const list = byYear.get(year);
+      if (list) list.push(t); else byYear.set(year, [t]);
+    }
+  }
+  return [...byYear.keys()].sort((a, b) => b - a).map(year =>
+    ({ year, by: seasonResults({ year, tournaments: byYear.get(year) }, kind, preferred) }));
+}
+
+/**
  * The years a set of careers covers, most recent first, with no gaps in the
  * middle.
  *
- * Counts only seasons that put something *in the grid*. A player whose first
- * recorded year is a junior season would otherwise open with a row that is blank
- * by construction — every tournament in it was excluded — which reads as a year
- * they did not play rather than a year the grid does not cover.
+ * Takes the bucketed rows rather than the raw seasons, so it counts only years
+ * that put something *in the grid*. A player whose first recorded year is a
+ * junior season would otherwise open with a row that is blank by construction —
+ * every tournament in it was excluded — which reads as a year they did not play
+ * rather than a year the grid does not cover.
  */
-export function gridYears(careers) {
+export function gridYears(rowsPerCareer) {
   const years = new Set();
-  for (const seasons of careers || []) {
-    for (const s of seasons || []) {
-      if ((s.tournaments || []).some(t => gridGroup(t) != null)) years.add(s.year);
-    }
+  for (const rows of rowsPerCareer || []) {
+    for (const row of rows || []) if (row.by && row.by.size) years.add(row.year);
   }
   if (!years.size) return [];
   const lo = Math.min(...years), hi = Math.max(...years);

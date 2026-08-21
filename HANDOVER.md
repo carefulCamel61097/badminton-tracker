@@ -465,10 +465,50 @@ Opens back to back in the Bangkok bubble, so Delphine DELRUE's Super 1000 block 
 wide where Shi Yu Qi's is four. Measuring it is the narrowest the grid can be while still
 fitting every row.
 
-⚠️ The cost: a level a player never fills completely is never drawn at full width. Somebody
-who plays three of the four Super 1000s every year gets a three-slot block, and the fourth
-is invisible rather than empty. Fixing that means asking BWF what the calendar held — see
-Part 7.
+⚠️ The cost runs both ways, and the Super 750s show it. A level a player never fills
+completely is never drawn at full width: somebody who plays three of the four Super 1000s
+every year gets a three-slot block, and the fourth is invisible rather than empty. And a
+level whose *size changed* gets one width for the whole grid, so an empty slot does not
+always mean the same thing. Counting distinct events per year across every recorded career:
+
+```
+2018  5   Malaysia, Japan, Denmark, French, Fuzhou China
+2019  5   Malaysia, Japan, Denmark, French, Fuzhou China
+2023  6   India, Singapore, Japan, China Masters, Denmark, French
+2024  6   (same six)
+2025  6   (same six)
+```
+
+The tier grew from **five to six** somewhere in the reshuffle after 2019. The block is six
+wide, so a 2018 row shows an empty sixth slot that means "there were only five that year",
+while a 2024 row's empty slot means "they skipped one". Both look identical. Fixing that
+means asking BWF what the calendar held — see Part 7.
+
+**The season-ending Finals belongs to the season it concludes, not the year it was
+played.** COVID pushed the 2020 edition to 27 January 2021 and BWF files it under
+`tmtYear=2021`, so a player who competed in both it and the 2021 edition that December had
+*two* Tour Finals in one row — a contradiction, because the Finals is the one event there
+is exactly one of per season. BWF's own name still says which edition it is: "HSBC BWF
+World Tour Finals 2020 (New Dates)".
+
+⚠️ Deliberately **not** a general "the year in the name wins" rule. Three other events in
+the recorded data carry an earlier year than the date they were played on, and all three
+stay where they were played:
+
+```
+cat 22  tmtYear 2021  start 2021-01-27  HSBC BWF World Tour Finals 2020 (New Dates)   -> moves to 2020
+cat OLY tmtYear 2021  start 2021-07-24  Tokyo 2020 Olympic Games Badminton            -> stays
+cat 21  tmtYear 2021  start 2021-10-09  Thomas & Uber Cup Finals 2020 (New Dates)     -> stays (team, not in the grid)
+cat 74  tmtYear 2023  start 2023-10-02  ASIAN Games 2022 (Individual Event)           -> stays
+cat 29  tmtYear 2023  start 2023-12-07  2024 European Team Champs Qualification        -> stays (name year is LATER)
+```
+
+The distinction is not the "(New Dates)" marker, which BWF applies inconsistently — the
+Asian Games were postponed just as hard and are not marked. It is that the Finals is
+**retrospective**: it is the final of a season already played, contested by whoever that
+season's results qualified. An Olympics concludes nothing, and saying a player competed at
+the Olympics in 2020 would be false. So the rule is scoped to group 22, and it only ever
+moves a tournament backwards.
 
 **Results sort best-first, by steps from the final.** Champion 0, runner-up 1, out to a
 round of 128 at 7, and then the placings with no rung on the ladder, in the order they
@@ -925,6 +965,17 @@ using the global `WebSocket`. Deployed on GitHub Pages. This worked well — kee
   is still not among them.
 - ~~**Should `fillFraction` use the real draw size?**~~ — yes, settled 21 Aug 2026 and
   built. See Part 2.5.
+- **Is entry to every Super 750 really compulsory?** Part 2.1 rests the whole weighting on
+  it: "a top-15 singles player must enter every Super 1000 and every Super 750", which is
+  what makes Super 750 the full-size tier. The recorded data does not obviously agree. AN
+  Se Young played six of the six Super 750s in 2025 but five in 2024 (no Japan Open); SHI
+  Yu Qi played six in 2023 and five in 2024 (no Denmark Open). Top-ranked players skipping
+  one is the norm rather than the exception, which suggests the commitment programme
+  permits absences, or is a minimum count rather than a full slate. **Not** acted on: the
+  weighting is settled and shipped, and this is an observation about a premise, not a
+  measurement of one. Worth checking against BWF's actual regulations before the weighting
+  is ever revisited.
+
 - **What are the pre-2019 category ids?** Seasons before about 2018 carry
   `tournament_category_id` values the weighting map does not know: **1, 2, 3, 4, 8,
   10, 13, 16, 33, 35** have all been seen, from the Superseries era, the Grand Prix,
