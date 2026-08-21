@@ -382,14 +382,25 @@ export async function loadLastMatch(playerId, opts = {}) {
  * still miss anyone unranked. This endpoint is one call and covers everybody —
  * it returns players with no ranking and none since 2015.
  *
- * ⚠️ It matches a **single name token**, not the displayed name: "delrue" and
- * "axelsen" work, "an se young" and "shi yu qi" both return nothing. So a query
- * with spaces that comes back empty is retried on its longest word, which is
- * usually the surname.
+ * ⚠️⚠️ **It matches against a given-name-first form, whichever way BWF displays
+ * the name elsewhere.** AN Se Young is stored here as "Se Young AN" and SHI Yu
+ * Qi as "Yu Qi SHI", so searching either of them the way the rest of the site
+ * writes them — surname first, which is how anybody would type a Korean or
+ * Chinese name — returns **nothing at all**.
  *
- * Results arrive alphabetically by given name rather than by any measure of
- * relevance, so they are ordered here: whole-word matches first, then names
- * that begin with the query, then the rest.
+ * So a multi-word query that comes back empty is retried **rotated**: the first
+ * word moved to the end. "an se young" becomes "se young an", which is a
+ * substring of what BWF holds. Failing that, the longest single word, which
+ * catches the orderings the rotation does not.
+ *
+ * ⚠️ Falling back to one word is a last resort rather than the first move,
+ * because results arrive **alphabetically by given name across 44 pages** for a
+ * query like "shi" — 1310 of them — and the player being looked for is
+ * generally not on page one. A query that matches precisely is worth far more
+ * here than a broad one.
+ *
+ * What does come back is ordered on arrival: whole-word matches first, then
+ * names that begin with the query, then the rest.
  */
 export async function searchPlayers(query, opts = {}) {
   const q = String(query || '').trim();
@@ -406,10 +417,15 @@ export async function searchPlayers(query, opts = {}) {
       : [];
   };
 
+  const words = q.split(/\s+/).filter(Boolean);
   let rows = await ask(q);
-  if (!rows.length && /\s/.test(q)) {
-    const longest = q.split(/\s+/).sort((a, b) => b.length - a.length)[0];
-    if (longest && longest.length >= 2) rows = await ask(longest);
+
+  if (!rows.length && words.length > 1) {
+    rows = await ask(words.slice(1).concat(words[0]).join(' '));
+  }
+  if (!rows.length && words.length > 1) {
+    const longest = words.slice().sort((a, b) => b.length - a.length)[0];
+    if (longest.length >= 2) rows = await ask(longest);
   }
 
   const needle = q.toLowerCase();

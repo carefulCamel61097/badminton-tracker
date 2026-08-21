@@ -362,6 +362,10 @@ button:focus-visible, input:focus-visible, a:focus-visible, li:focus-visible {
 .box.r-r1  { --fill: #cf4b3f; }
 .box.r-q   { --fill: #8f5a55; }
 .box.r-na  { --fill: transparent; color: var(--text-muted); }
+/* A placing we do not recognise: they were there, so it shows the same minimum
+   sliver every other result does, in a colour that claims nothing about how far
+   they got. */
+.box.r-unk { --fill: #6e6e6e; }
 /* White only where the fill reaches the middle of the box, which is where the
    label sits. A first-round exit fills 13%, so its label is on the *unfilled*
    ground and must stay in the ordinary text colour. */

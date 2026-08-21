@@ -642,11 +642,19 @@ $('morePanel').addEventListener('change', e => {
   toggleLevel(box.dataset.cat);
 });
 
-// A panel left open over the seasons is in the way; anything outside closes it.
+/**
+ * A panel left open over the seasons is in the way; anything outside closes it.
+ *
+ * Capture phase, deliberately. The handlers inside these panels redraw their own
+ * contents — picking a discipline tab re-renders the tabs — so by the time a
+ * bubbling listener ran, the clicked element had already been replaced and
+ * detached, `closest()` found nothing above it, and the panel closed itself
+ * every time somebody used it.
+ */
 document.addEventListener('click', e => {
   if (!e.target.closest('#topBtn, #topPanel')) openPanel($('topBtn'), $('topPanel'), false);
   if (!e.target.closest('#moreBtn, #morePanel')) openPanel($('moreBtn'), $('morePanel'), false);
-});
+}, true);
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   openPanel($('topBtn'), $('topPanel'), false);
@@ -772,6 +780,7 @@ window.BST = {
   loadLadders,
   loadRanks: () => loadRanks(loadToken),
   search: searchPlayers,
+  positionInfo, fillFraction,
   top: () => topCache.get(topCat) || null,
   showTop,
 };

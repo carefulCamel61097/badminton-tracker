@@ -92,13 +92,22 @@ only within one ranking category: finding an arbitrary player would mean five ca
 would still miss anyone unranked. The old tool paginated 20 pages to build an index
 because it knew about neither.
 
-⚠️ **It matches a single name token, not the displayed name.** `delrue` and `axelsen`
-work; `an se young` and `shi yu qi` both return nothing at all. A query containing
-spaces that comes back empty is worth retrying on its longest word, which is usually the
-surname.
+⚠️⚠️ **It matches a given-name-first form, whichever way BWF displays the name
+everywhere else.** AN Se Young is held here as **"Se Young AN"** and SHI Yu Qi as
+**"Yu Qi SHI"**, so searching either of them the way the rest of the site writes them —
+surname first, which is how anybody would type a Korean or Chinese name — returns
+**nothing at all**. This is not a near miss or a ranking problem: zero rows.
 
-⚠️ **Results come back alphabetically by given name, not by relevance** — searching
-`shi` leads with ". JADESHI". They need ordering client-side.
+The fix is to retry the query **rotated**, first word moved to the end: `an se young`
+becomes `se young an`, which is a substring of what BWF holds. Only after that is it
+worth falling back to a single word.
+
+⚠️ **A single-word fallback is a last resort, not a first move.** Results come back
+**alphabetically by given name**, and `shi` returns **1310 of them across 44 pages** —
+led by ". JADESHI" — with SHI Yu Qi nowhere near page one. Broadening the query makes
+the answer worse, not better. Whatever does come back needs ordering client-side.
+
+⚠️ `activeTab` does not change any of this; 0, 1, 2 and 3 all behave the same.
 
 ---
 

@@ -82,8 +82,6 @@ for (const player of roster) {
     // A career is one request per year, so this can take a couple of minutes.
     const ok = await b.until('!!window.BST && window.BST.ready', { timeout: 240000 });
 
-    // Ladders load only for rows that have scrolled into view, so walk the page
-    // to the bottom and let every row ask.
     // Ask for every season's ladder outright rather than scrolling and hoping.
     //
     // In the app these load on an IntersectionObserver, so only rows that come
@@ -108,7 +106,15 @@ for (const player of roster) {
 
 /* The player search the suites type into. Driven through the real input rather
    than called directly, so what is recorded is the request the app makes. */
-const QUERIES = ['axelsen', 'shi', 'delrue', 'popov', 'an se young'];
+const QUERIES = [
+  'axelsen',          // a surname, which matches directly
+  'delrue',
+  'popov',
+  // Surname-first names, which BWF holds given-name-first and which therefore
+  // only match once the query is rotated.
+  'Shi Yu Qi',
+  'an se young',
+];
 process.stdout.write(`  searches (${QUERIES.length}) … `);
 {
   const before = fixtureCount();

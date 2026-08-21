@@ -65,6 +65,13 @@ async function ladders(year) {
 }
 
 const squares = year => b.ev(`window.BST.squares(${year || ''})`);
+
+/** positionInfo + fillFraction as the page itself computes them. */
+const positionInfoOf = async pos => b.ev(`(() => {
+  const i = window.BST.positionInfo(${JSON.stringify(pos)});
+  return { label: i.label, tier: i.tier,
+    pct: Math.round(window.BST.fillFraction(i, { win: 1, lose: 1 }, 5) * 100) + '%' };
+})()`);
 const find = (list, re) => list.find(s => re.test(s.name));
 
 await b.send('Page.navigate', { url: `http://localhost:${PORT}/` }, b.sessionId);
@@ -119,6 +126,35 @@ const multi = await b.ev('window.BST.suggestions()');
 check('a full name still finds the player, by falling back to a word of it',
   Array.isArray(multi) && multi.some(p => /YOUNG/i.test(p.name)),
   (multi || []).map(p => p.name).slice(0, 4).join(', '));
+
+console.log('\n=== a name typed the way the site writes it ===');
+// BWF's player search holds names given-name-first — "Se Young AN", "Yu Qi SHI"
+// — whichever way the rest of the site displays them. Typing a Korean or
+// Chinese name surname-first, which is how everybody writes them, matched
+// nothing at all until the query was retried rotated.
+for (const [typed, wanted] of [['Shi Yu Qi', /SHI/i], ['an se young', /Se Young|AN Se/i]]) {
+  await b.ev(`(() => {
+    const i = document.getElementById('q');
+    i.value = '';
+    i.dispatchEvent(new Event('input'));
+  })()`);
+  await b.until('window.BST.suggestions() === null', { timeout: 10000 });
+  await b.ev(`(() => {
+    const i = document.getElementById('q');
+    i.value = ${JSON.stringify(typed)};
+    i.dispatchEvent(new Event('input'));
+  })()`);
+  await b.until('window.BST.suggestions() !== null', { timeout: 30000 });
+  const found = await b.ev('window.BST.suggestions()');
+  check(`"${typed}" finds the player`,
+    Array.isArray(found) && found.some(p => wanted.test(p.name)),
+    (found || []).map(p => p.name).slice(0, 5).join(', ') || 'nothing');
+}
+await b.ev(`(() => {
+  const i = document.getElementById('q');
+  i.value = '';
+  i.dispatchEvent(new Event('input'));
+})()`);
 
 /* ============================ a whole career ============================ */
 
@@ -352,6 +388,37 @@ check('the heading changes to the player picked',
   /SHI Yu Qi/.test(await b.ev(`document.getElementById('heroName').textContent`)),
   await b.ev(`document.getElementById('heroName').textContent`));
 await b.until('window.BST.ready', { timeout: 180000 });
+
+console.log('\n=== choosing a discipline leaves the panel open ===');
+// The tab handler redraws the tabs, so the clicked node is detached by the time
+// a bubbling document listener sees it — closest() finds nothing above it and
+// the panel closed itself every time anybody used it.
+await b.ev(`document.getElementById('topBtn').click()`);
+check('open to begin with', await b.ev(`!document.getElementById('topPanel').hidden`));
+await b.ev(`document.querySelector('#topTabs button[data-cat="9"]').click()`);
+await b.wait(400);
+check('still open after picking another discipline',
+  await b.ev(`!document.getElementById('topPanel').hidden`));
+check('and that discipline is the selected one',
+  await b.ev(`document.querySelector('#topTabs button[data-cat="9"]').classList.contains('on')`));
+await b.until(`window.BST.top() !== null`, { timeout: 30000 });
+check('showing its table', (await b.ev('window.BST.top()')).length > 0);
+
+await b.ev(`document.querySelector('h1').click()`);
+check('but a click outside still closes it',
+  await b.ev(`document.getElementById('topPanel').hidden`));
+
+console.log('\n=== a placing we do not recognise is still a result ===');
+// "R3" turns up at a Tour Finals. The player was there; an empty square says
+// there was no individual result at all, which is a different statement.
+const unknown = await positionInfoOf('R3');
+eq('it keeps its own tier rather than reading as absent', unknown.tier, 'unk');
+eq('and the label is what BWF said', unknown.label, 'R3');
+check('it fills the same minimum sliver every other result does',
+  unknown.pct === '13%', unknown.pct);
+const teamTie = await positionInfoOf('N/A');
+check('while a team tie, which has no individual result, stays empty',
+  teamTie.pct === '0%', teamTie.pct);
 
 /* ============================ the level overflow ============================ */
 

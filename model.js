@@ -217,7 +217,13 @@ export function positionInfo(pos, draw) {
     return { label: 'Grp', tier: 'r1', full: 'Group stage — ' + raw };
   }
   if (/^Qual/i.test(raw)) return { label: 'Q', tier: 'q', full: raw };
-  return { label: raw, tier: 'na', full: raw };
+
+  // A placing this project does not recognise — "R3" at a Tour Finals, and
+  // whatever else BWF has used over twenty years. The player was *there*, so it
+  // gets its own tier and the minimum fill rather than the blank square an
+  // absent result draws: "we do not know how far" and "there was no individual
+  // result" are different statements and should not look the same.
+  return { label: raw, tier: 'unk', full: 'Placing: ' + raw };
 }
 
 /**
