@@ -44,7 +44,7 @@ export const LEVEL = {
  * then everything below it, then the team events last because they are off by
  * default. Not the numeric order of the ids, which is arbitrary.
  */
-export const LEVEL_ORDER = ['OLY', 20, 22, 23, 11, 24, 25, 26, 27, 5, 6, 7, 21, 17];
+export const LEVEL_ORDER = ['OLY', 20, 22, 11, 23, 24, 25, 26, 27, 5, 6, 7, 21, 17];
 
 /**
  * True for a tournament that is an Olympic Games rather than a World
@@ -764,7 +764,7 @@ export function drawForKind(tmt, kind, preferred) {
  * Sections, left to right: hardest to win on the left, Super 100 on the right.
  * The same judgement as LEVEL_ORDER, minus everything the grid does not show.
  */
-export const GRID_ORDER = ['OLY', 20, 22, 23, 11, 24, 25, 26, 27, 'OTHER'];
+export const GRID_ORDER = ['OLY', 20, 22, 11, 23, 24, 25, 26, 27, 'OTHER'];
 
 /** Below Super 100: the feeder circuit. */
 const BELOW_GRID = new Set([5, 6, 7]);
@@ -1138,8 +1138,12 @@ export const PHI = (1 + Math.sqrt(5)) / 2;
 const HONOUR_SIDE_RATIO = Math.sqrt(PHI);
 
 /**
- * Levels that share the rung of the one above them in `GRID_ORDER` instead of
- * taking a step of their own.
+ * Levels that take no rung of their own, and the level whose rung they share.
+ *
+ * Names its partner rather than meaning "the one above me in `GRID_ORDER`", so
+ * that where a level is *listed* and what it is *worth* stay independent. The
+ * Continentals are listed above the Super 1000s and sized with them; under the
+ * positional rule they would have silently inherited the Tour Finals instead.
  *
  * ⚠️ **The Continental Championships are a peer of the Super 1000, not a step
  * below the Super 750.** Two reasons, and the second is the one that bites:
@@ -1151,7 +1155,9 @@ const HONOUR_SIDE_RATIO = Math.sqrt(PHI);
  *    between them, Super 1000 → Super 750 was one step and Super 750 → Super
  *    500 was two, so the official five-rung ladder came out unevenly spaced for
  *    a reason that had nothing to do with the Super events. Sharing a rung puts
- *    Super 1000/750/500/300/100 back on five consecutive steps.
+ *    Super 1000/750/500/300/100 back on five consecutive steps, and listing the
+ *    Continentals *above* the Super 1000 leaves the five as an unbroken run of
+ *    rows as well as an unbroken run of sizes.
  *
  * Sharing rather than promoting is deliberate. A Continental title is not
  * uniform — the Asian Championships is arguably harder than any Super 1000 and
@@ -1160,16 +1166,26 @@ const HONOUR_SIDE_RATIO = Math.sqrt(PHI);
  * it *above* the Super 1000 would be asserting something about Europe that is
  * not true.
  */
-const SHARES_RUNG = new Set([11]);
+const SHARES_RUNG = new Map([[11, 23]]);
 
-/* Derived from GRID_ORDER and the set above, never written out. A level added
-   to the order gets its own rung automatically, and the two cannot drift. */
+/* Derived from GRID_ORDER and the map above, never written out. A level added
+   to the order gets its own rung automatically, and the two cannot drift.
+
+   Two passes, because a sharer can be listed either side of its partner: the
+   rungs are handed out to the levels that earn one, in order, and the sharers
+   are then given their partner's. That is also what keeps the five Super levels
+   on five consecutive rungs — the Continentals take no rung out of the run
+   however they are ordered against it. */
 const RUNGS = (() => {
   const rung = new Map();
   let r = -1;
   for (const g of GRID_ORDER) {
-    if (!SHARES_RUNG.has(g)) r++;
-    rung.set(String(g), Math.max(r, 0));
+    if (SHARES_RUNG.has(g)) continue;
+    rung.set(String(g), ++r);
+  }
+  for (const [g, peer] of SHARES_RUNG) {
+    const shared = rung.get(String(peer));
+    if (shared != null) rung.set(String(g), shared);
   }
   return { rung, last: Math.max(r, 0) };
 })();

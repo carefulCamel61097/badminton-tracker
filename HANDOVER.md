@@ -87,7 +87,7 @@ its detail on.
 - Cells **butt against each other**, so runs of the same result merge into one shape. The
   only lines are at the start of each block.
 - **Super 100 and above only**, with the junior circuit and the team events out entirely.
-- Blocks run **hardest-first**: Olympics, Worlds, Tour Finals, Super 1000, Continental,
+- Blocks run **hardest-first**: Olympics, Worlds, Tour Finals, Continental, Super 1000,
   Super 750, Super 500, Super 300, Super 100, then the unmapped pre-2018 era. A toggle
   chip per level; all on by default. (Continental moved up beside the Super 1000s on
   22 Aug 2026 — see 2.11.)
@@ -635,7 +635,7 @@ The multipliers, which are pleasant: every second rung is an exact power of φ.
 | 0 | Olympics | 6.854 | 55px |
 | 1 | Worlds | 5.388 | 43px |
 | 2 | Tour Finals | 4.236 | 34px |
-| 3 | **Super 1000 · Continental** | 3.330 | 27px |
+| 3 | **Continental · Super 1000** | 3.330 | 27px |
 | 4 | Super 750 | 2.618 | 21px |
 | 5 | Super 500 | 2.058 | 16px |
 | 6 | Super 300 | 1.618 | 13px |
@@ -694,8 +694,16 @@ Asian Championships is arguably harder than any Super 1000, and the Oceania one 
 is the honest claim. Ranking it *above* the Super 1000 would assert something about Europe
 that is not true.
 
-`GRID_ORDER` and `LEVEL_ORDER` both moved id 11 to sit directly after 23, so the grid's
-columns, the strip's chips and the board's rows all agree.
+`GRID_ORDER` and `LEVEL_ORDER` both moved id 11 to sit **directly before 23**, so the
+grid's columns, the strip's chips and the board's rows all agree — and so that the five
+Super levels are an unbroken run of *rows* as well as an unbroken run of sizes. Nothing is
+listed between Super 1000 and Super 100.
+
+⚠️ `SHARES_RUNG` is a **map naming the partner** (`11 → 23`), not a set meaning "shares with
+whatever is above me". Under the positional rule, listing the Continentals above the Super
+1000s would have silently handed them the **Tour Finals'** size. Where a level is *listed*
+and what it is *worth* have to stay independent, which is the whole reason a rung is not a
+place in `GRID_ORDER`.
 
 ---
 

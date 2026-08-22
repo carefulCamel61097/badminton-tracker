@@ -846,6 +846,18 @@ check('and bigger than a Super 750, where it used to sit',
 check('so the five Supers sit on five consecutive rungs, nothing wedged between',
   [23, 24, 25, 26, 27].every((g, i, a) => i === 0 || rungs(g) === rungs(a[i - 1]) + 1),
   [23, 24, 25, 26, 27].map(g => `${g}@${rungs(g)}`).join(' '));
+/* And they are an unbroken run of rows, not only of sizes: the Continentals are
+   listed above the Super 1000, so nothing at all sits between one Super row and
+   the next on screen. */
+const supRows = board.map(r => r.group).filter(g => ['23', '24', '25', '26', '27'].includes(g));
+const firstSup = board.findIndex(r => r.group === '23');
+check('and run as consecutive rows down the board',
+  board.slice(firstSup, firstSup + supRows.length).map(r => r.group).join(',')
+  === supRows.join(','),
+  board.map(r => r.group).join(' '));
+check('with the Continental row directly above the first of them',
+  board[firstSup - 1] && board[firstSup - 1].group === '11',
+  board.map(r => r.group).join(' '));
 const supers = [23, 24, 25, 26, 27].filter(g => sideOf(g) != null);
 check('and every step down the painted Super ladder is the same step',
   supers.every((g, i) => i === 0

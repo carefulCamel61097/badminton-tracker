@@ -220,7 +220,7 @@ eq('every mapped level has a chip position', LEVEL_ORDER.length, Object.keys(LEV
 // Continental now sits with the Super 1000s rather than under the Super 750s —
 // see the honours ladder below, and HANDOVER 2.2 for why it is a major.
 eq('the levels of this season, in that order',
-  seasonLevels(season).join(' '), '20 23 11 24 25 21');
+  seasonLevels(season).join(' '), '20 11 23 24 25 21');
 eq('a category with no chip position is listed anyway, not dropped',
   seasonLevels([{ cat: 23 }, { cat: 8 }, { cat: 3 }, { cat: 25 }]).join(' '), '23 25 3 8');
 eq('and it gets a name rather than a blank chip', levelLabel(8), 'Level 8');
@@ -887,11 +887,25 @@ eq('a level the ladder does not know sits at the bottom rather than vanishing',
    major" — so a ladder that put it under a Super 750 was contradicting the
    strip it sits next to. */
 eq('the Continentals share the Super 1000 rung', honourRung(11), honourRung(23));
+/* The sharing names its partner rather than meaning "the level above me", so
+   that where a level is listed and what it is worth stay independent — under a
+   positional rule, listing the Continentals above the Super 1000s would have
+   silently given them the Tour Finals' size instead. */
+check('and get it from the Super 1000 itself, not from whatever is listed above',
+  honourRung(11) !== honourRung(22) && honourScale(11) !== honourScale(22),
+  `CON ${honourScale(11).toFixed(3)} vs WTF ${honourScale(22).toFixed(3)}`);
 eq('and therefore the same size', honourScale(11), honourScale(23));
 check('which is above the Super 750, where they used to sit',
   honourScale(11) > honourScale(24));
-check('and they are listed with the Super 1000s rather than mid-ladder',
-  GRID_ORDER.indexOf(11) === GRID_ORDER.indexOf(23) + 1, GRID_ORDER.join(' '));
+check('and are listed directly above them',
+  GRID_ORDER.indexOf(11) === GRID_ORDER.indexOf(23) - 1, GRID_ORDER.join(' '));
+/* Listed above rather than below so that the five Super levels are an unbroken
+   run of *rows* as well as an unbroken run of sizes. Nothing at all comes
+   between Super 1000 and Super 100 now. */
+check('so nothing is listed between one Super level and the next',
+  GRID_ORDER.slice(GRID_ORDER.indexOf(23), GRID_ORDER.indexOf(27) + 1)
+    .join(',') === '23,24,25,26,27',
+  GRID_ORDER.join(' '));
 
 /* The reason sharing beats promoting: a rung of its own pushed everything below
    it down one, so the official Super ladder came out unevenly spaced for a

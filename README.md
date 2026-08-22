@@ -72,7 +72,7 @@ partial fills. The difficulty is in *which block* a cell is in and how far left 
 cells butt together so runs of the same result merge into one shape. A zoom slider sets the
 size; it is a viewing preference and stays out of the link.
 
-Blocks run hardest-first — Olympics, Worlds, Tour Finals, Super 1000, Continental,
+Blocks run hardest-first — Olympics, Worlds, Tour Finals, Continental, Super 1000,
 Super 750, Super 500, Super 300, Super 100 — then the pre-2018 category ids this project
 has no name for, grouped as "Unmapped" on the end. A chip per level switches it in or out.
 Below Super 100, the junior circuit and the team events are not in the grid at all.
@@ -110,11 +110,13 @@ career reads as a shape rather than a list. It is the golden ratio applied to ar
 than to side: nine rungs at φ per *side* would make the top row 47 times the bottom, which
 is one square and some dust.
 
-The **Continentals share the Super 1000 rung** rather than taking one of their own. An
-Asian Championships title is a major, and giving it a step to itself used to push every
-Super below it down one — so Super 1000 → 750 was a single step while 750 → 500 was a
-double, and the official five-level ladder came out unevenly spaced for a reason that had
-nothing to do with the Super events. `HANDOVER.md` 2.10 has the table.
+The **Continentals share the Super 1000 rung** rather than taking one of their own, and are
+listed just above it. An Asian Championships title is a major, and giving it a step to
+itself used to push every Super below it down one — so Super 1000 → 750 was a single step
+while 750 → 500 was a double, and the official five-level ladder came out unevenly spaced
+for a reason that had nothing to do with the Super events. Now the five Supers are an
+unbroken run of rows and of sizes, with nothing listed between them. `HANDOVER.md` 2.10 has
+the table.
 
 An empty row is a claim too, and there are two different ones. Hovering says which: `26
 entered, none at QF+`, or `never played at this level`.
