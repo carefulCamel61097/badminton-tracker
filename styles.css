@@ -764,11 +764,13 @@ body.oncompare .seasonsonly { display: none; }
 
 .pagenav {
   display: flex;
-  gap: 2px;
-  margin: 0 0 14px;
-  border-bottom: 1px solid var(--border-soft);
+  gap: 9px;
+  margin: 0 0 16px;
 }
 
+/* Outlined in BWF red, both of them, so the bar reads as the two halves of the
+   application rather than as a heading with an underline under one word. The
+   one you are on is filled; the one you are not is the same shape waiting. */
 .tab {
   flex: none;
   min-width: 210px;
@@ -776,16 +778,14 @@ body.oncompare .seasonsonly { display: none; }
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
-  padding: 11px 22px 10px;
+  padding: 10px 22px;
   background: none;
-  border: 0;
-  /* Sits on the bar's own rule, so the active tab joins the page below it. */
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  color: var(--text-muted);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-card);
+  color: var(--text-dim);
   cursor: pointer;
   text-align: left;
-  transition: color .12s, border-color .12s, background .12s;
+  transition: color .12s, background .12s;
 }
 .tab .name {
   font: 500 16px/1.2 var(--font);
@@ -793,18 +793,19 @@ body.oncompare .seasonsonly { display: none; }
 }
 .tab .sub {
   font: 400 11.5px/1.2 var(--font);
-  opacity: .75;
+  opacity: .8;
 }
 
-.tab:hover { color: var(--text-dim); background: var(--surface); }
+.tab:hover { background: rgba(223, 32, 39, .13); color: var(--text); }
 .tab.on {
-  color: var(--text);
-  border-bottom-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-fg);
 }
-.tab.on .name { color: var(--text); }
-.tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tab.on:hover { background: var(--accent-hover); }
+/* Not the accent: a red ring 2px outside a red border is no ring at all. */
+.tab:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 
 @media (max-width: 640px) {
-  .tab { min-width: 0; flex: 1; padding: 10px 12px 9px; }
+  .tab { min-width: 0; flex: 1; padding: 9px 12px; }
   .tab .sub { display: none; }
 }

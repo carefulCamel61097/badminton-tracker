@@ -185,9 +185,13 @@ because they govern a square the compare page does not draw.
 ⚠️ **The nav is not a segmented control.** It was one, in the top-right corner of the hero,
 for about an hour. At that size and in that position it reads as *a setting about the thing
 you are looking at*, not as *the other half of the application* — whatever the labels say.
-It is now a 16px tab bar with a subtitle under each name, an accent underline on the active
-tab, and it lives outside both page sections so it survives the switch (the suite asserts
-that containment). It appears with the hero, because it is about a player.
+It is now a 16px tab bar with a subtitle under each name, **both tabs outlined in BWF red**
+and the active one filled, and it lives outside both page sections so it survives the switch
+(the suite asserts that containment). It appears with the hero, because it is about a player.
+
+The outline is on *both* tabs deliberately: outlining only the active one makes the other
+look disabled, and the point of the bar is that there are two places to go. Note the focus
+ring is `--text`, **not** `--accent` — a red ring 2px outside a red border is no ring at all.
 
 The bar costs about 60px of vertical space, which pushes one season row below the fold on
 first paint — the suite's fixture count dropped from 292 to 256 because ladders load for
