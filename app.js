@@ -20,8 +20,9 @@ import {
   positionInfo, fillFraction, drawForKind, dominantDraw, seasonKinds,
   defaultKind, seasonLevels, levelLabel, levelAbbr, boxSize, isTeamEvent,
   drawLadder, BOX_H, LEVEL, LEVEL_ORDER,
-  careerRows, gridSections, sectionCells, gridYears, gridGroupLabel, seasonLabels,
+  careerRows, gridSections, sectionCells, gridYears, gridGroupLabel, seasonLabels, GRID_ORDER,
   seasonResults, tournamentSeason,
+  HONOUR_STEPS, HONOUR_DEFAULT, honourStep, honourScale, careerHonours, honourSections,
 } from './model.js';
 
 const $ = id => document.getElementById(id);
@@ -524,8 +525,10 @@ function watchRows() {
 
 const grid = {
   open: false,
+  view: 'grid',                  // 'grid' | 'honours' — two readings of one career
   kind: null,                    // null = follow the main view's discipline
   hiddenGroups: new Set(),       // column groups switched off
+  threshold: HONOUR_DEFAULT,     // the honours board's bar
   pending: null,                 // a compare id from the hash, waiting to load
 };
 
@@ -650,13 +653,20 @@ function gridCard(career, sections, years) {
     + `<div class="gmatrix">${rows}</div>${note}</section>`;
 }
 
-function renderGridGroups(sections) {
+function renderGridGroups(sections, honours) {
   $('gridGroups').innerHTML = sections.map(s => {
     const on = !grid.hiddenGroups.has(String(s.group));
+    // The same chips, but the number on them counts a different thing in each
+    // view, and a chip that says "6" without saying six of what is a chip that
+    // will be misread.
+    const why = honours
+      ? `${s.label} — ${s.n} at ${honourStep(grid.threshold).label},`
+        + ' the most either player has'
+      : `${s.label} — ${s.n} slot${s.n === 1 ? '' : 's'},`
+        + ' the most anyone here played in one season';
     return `<button type="button" class="chip${on ? ' on' : ''}"`
       + ` data-group="${esc(String(s.group))}" aria-pressed="${on}"`
-      + ` title="${esc(`${s.label} — ${s.n} slot${s.n === 1 ? '' : 's'},`
-        + ' the most anyone here played in one season')}">`
+      + ` title="${esc(why)}">`
       + `${esc(s.label)}<span class="n">${s.n}</span></button>`;
   }).join('');
 }
@@ -670,19 +680,147 @@ function renderGridKinds() {
     + ` data-gkind="${k.kind}" aria-pressed="${k.kind === active}">${esc(k.kind)}</button>`).join('');
 }
 
-function renderGrid() {
-  if (!grid.open) return;
-  const list = careers();
+/* ---------- the honours board ----------
 
-  // Every career's season bucketed by section, once. Both the widths and the
-  // cells are read off this, so a row cannot be laid out against widths that
-  // were measured from something else.
-  for (const c of list) {
-    const kind = gridKindFor(c.seasons);
-    const preferred = dominantDraw(c.seasons.flatMap(s => s.tournaments), kind);
-    c.rows = careerRows(c.seasons, kind, preferred);
+   One row per level, only the results that cleared the bar, and the size of a
+   square saying what the level was worth. See the model for why φ is applied
+   to area rather than to side.
+
+   Nothing here is laid out on a shared grid: the rows have different pitches
+   by design, so a run of green in the Super 1000 row is worth more area than a
+   longer run below it, which is the entire point. */
+
+/** One honour. Sized by the row it is in, so it carries no geometry itself. */
+function honourCellHtml(cell) {
+  const wl = cell.draw && cell.draw.win != null ? ` · ${cell.draw.win}-${cell.draw.lose}` : '';
+  return `<i class="cell r-${cell.tier}" data-group="${esc(String(cell.group))}"`
+    + ` data-year="${cell.year}"`
+    + ` title="${esc(`${cell.year} — ${cell.tmt.name}\n${cell.info.full}${wl}`)}"></i>`;
+}
+
+/**
+ * One player's half of one row.
+ *
+ * `mirror` is the left-hand player in a comparison, whose results run outward
+ * from the middle so that the two players' *best* results are the ones meeting
+ * at the spine. Reading a comparison means reading from the line outwards, and
+ * mirroring is what makes the two halves the same shape rather than two lists
+ * that happen to point the same way.
+ *
+ * The count sits on the inside for the same reason: it is the one piece of
+ * text worth having and it should not be the first thing to fall off the end.
+ */
+function honourSide(career, section, bar, mirror) {
+  const h = career.honours;
+  const list = h.by.get(section.group) || [];
+  const entered = h.entries.get(section.group) || 0;
+  const cls = `hside${mirror ? ' mirror' : ''}`;
+
+  // An empty row is not one thing. "Played twenty Super 750s and never made a
+  // quarter-final" and "never entered one" are both worth saying and they are
+  // emphatically not the same sentence, so the ghost carries which it is.
+  if (!list.length) {
+    const why = entered ? `${entered} entered, none at ${bar.label}`
+      : 'never played at this level';
+    return `<div class="${cls}"><i class="hnone" data-group="${esc(String(section.group))}"`
+      + ` title="${esc(`${section.label} — ${why}`)}"></i></div>`;
   }
 
+  const cells = list.map(honourCellHtml);
+  if (mirror) cells.reverse();
+  const n = `<span class="hn" title="${esc(`${list.length} at ${bar.label}`
+    + ` from ${entered} ${section.label}${entered === 1 ? '' : 's'}`)}">${list.length}</span>`;
+  return `<div class="${cls}">${mirror ? cells.join('') + n : n + cells.join('')}</div>`;
+}
+
+function honourRow(section, list, bar) {
+  const label = `<span class="hlvl" title="${esc(section.label)}">${esc(section.label)}</span>`;
+  const sides = list.map((c, i) => honourSide(c, section, bar, list.length > 1 && i === 0));
+  const inner = list.length > 1 ? sides[0] + label + sides[1] : label + sides[0];
+  return `<div class="hrow" data-group="${esc(String(section.group))}"`
+    + ` style="--k:${section.scale.toFixed(4)}">${inner}</div>`;
+}
+
+/* The gap between squares, as a fraction of one square — the same number CSS
+   uses, kept here because the board's width is computed from it. */
+const HGAP = 0.09;
+const HN_W = 26;      // the count, fixed width, so the arithmetic below is exact
+
+/**
+ * The widest half any row needs, in units of `--hbase`.
+ *
+ * Handed to CSS as a multiplier rather than a pixel width so that the zoom
+ * slider — which moves `--hbase` and nothing else — keeps working without a
+ * re-render. `minmax(halfw, 1fr)` then guarantees no row is ever cut short:
+ * the board grows and the modal scrolls instead, which is the honest failure
+ * for a view whose whole claim is how much of something there is.
+ *
+ * n squares carry n − 1 gaps between them and one more out to the count, so the
+ * run is n × 1.09 squares wide. An empty row still needs its ghost.
+ */
+function honourHalfUnits(sections, list) {
+  let units = 0;
+  for (const s of sections) {
+    for (const c of list) {
+      const n = (c.honours.by.get(s.group) || []).length;
+      units = Math.max(units, s.scale * (n ? 1.09 * n : 1));
+    }
+  }
+  return units;
+}
+
+/** The profiles, on the same three columns as the rows so the spine runs true. */
+function honourHeads(list) {
+  const heads = list.map((c, i) =>
+    `<div class="hhead${list.length > 1 && i === 0 ? ' mirror' : ''}"`
+    + ` data-player="${esc(c.id)}">${gridProfile(c)}</div>`);
+  return `<div class="hheads">${list.length > 1
+    ? heads[0] + '<span class="hlvl spacer"></span>' + heads[1]
+    : heads[0]}</div>`;
+}
+
+function renderHonourMin() {
+  const bar = honourStep(grid.threshold);
+  $('honMin').innerHTML = HONOUR_STEPS.map(s =>
+    `<button type="button" class="seg${s.key === bar.key ? ' on' : ''}"`
+    + ` data-hmin="${s.key}" aria-pressed="${s.key === bar.key}"`
+    + ` title="${esc(`show ${s.full}`)}">${esc(s.label)}</button>`).join('');
+}
+
+function renderHonoursBody(list) {
+  const bar = honourStep(grid.threshold);
+  for (const c of list) c.honours = careerHonours(c.rows, bar.rank);
+
+  // Measured across both careers, like the grid's widths, so a level one of
+  // them never entered still gets a row if the other did — an absence is only
+  // legible next to the thing it is an absence of.
+  const sections = honourSections(list.map(c => c.honours));
+  const shown = sections.filter(s => !grid.hiddenGroups.has(String(s.group)));
+
+  renderGridGroups(sections, true);
+  renderHonourMin();
+
+  const body = $('honBody');
+  body.classList.toggle('two', list.length > 1);
+  const half = `--halfw: calc(var(--hbase) * ${honourHalfUnits(shown, list).toFixed(3)}`
+    + ` + ${HN_W}px)`;
+  body.innerHTML = shown.length
+    ? `<div class="hboard" style="${half}">`
+      + honourHeads(list) + shown.map(s => honourRow(s, list, bar)).join('') + '</div>'
+    : sections.length ? '<p class="gnote">Every level is switched off.</p>'
+    : list.some(c => c.loading) ? '<p class="gnote">Loading the career…</p>'
+    : '<p class="gnote">Nothing here reaches Super 100, which is where the board starts.</p>';
+}
+
+function renderViewSwitch() {
+  $('gridView').querySelectorAll('[data-view]').forEach(b => {
+    const on = b.dataset.view === grid.view;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+}
+
+function renderGridBody(list) {
   // Widths are measured across *both* careers and then filtered, so the two
   // grids line up and the chip counts do not move when one section is hidden.
   const sections = gridSections(list.map(c => c.rows.map(r => r.by)));
@@ -690,7 +828,6 @@ function renderGrid() {
   const years = gridYears(list.map(c => c.rows));
 
   renderGridGroups(sections);
-  renderGridKinds();
 
   const body = $('gridBody');
   body.classList.toggle('two', list.length > 1);
@@ -700,6 +837,36 @@ function renderGrid() {
     : sections.length ? '<p class="gnote">Every level is switched off.</p>'
     : list.some(c => c.loading) ? '<p class="gnote">Loading the career…</p>'
     : '<p class="gnote">Nothing here reaches Super 100, which is where the grid starts.</p>';
+}
+
+function renderGrid() {
+  if (!grid.open) return;
+  const list = careers();
+
+  // Every career's season bucketed by section, once, whichever view is up.
+  // Both the widths and the cells are read off this, so a row cannot be laid
+  // out against widths that were measured from something else — and the two
+  // views cannot disagree about what a career contains.
+  for (const c of list) {
+    const kind = gridKindFor(c.seasons);
+    const preferred = dominantDraw(c.seasons.flatMap(s => s.tournaments), kind);
+    c.rows = careerRows(c.seasons, kind, preferred);
+  }
+
+  renderGridKinds();
+  renderViewSwitch();
+
+  const honours = grid.view === 'honours';
+  $('gridBody').hidden = honours;
+  $('honBody').hidden = !honours;
+  $('gridLegend').hidden = honours;
+  $('gridNote').hidden = honours;
+  $('honLegend').hidden = !honours;
+  $('honNote').hidden = !honours;
+  $('honMin').hidden = !honours;
+  $('gridTitle').textContent = honours ? 'Honours' : 'Career grid';
+
+  if (honours) renderHonoursBody(list); else renderGridBody(list);
 }
 
 function openGrid() {
@@ -783,21 +950,56 @@ wireSearch({
    it lives in localStorage rather than in the hash: a shared link should open on
    the reader's own zoom, not on whatever the sender happened to be using. */
 
-const ZOOM_KEY = 'bst:gridzoom';
-const ZOOM_DEFAULT = 20;
+/* One slider, two scales. The grid's cell is a flat 10–40px; the board's base
+   is the size of its *smallest* row and everything above it is multiplied by up
+   to 8.7, so the two views cannot share a range without one of them being
+   useless at both ends. They keep separate settings for the same reason: a
+   zoom that suits a 20px grid does not suit a board 8.7 times as tall. */
+const ZOOM = {
+  grid: {
+    key: 'bst:gridzoom', prop: '--cell', target: 'gridBody',
+    min: 10, max: 40, step: 2, def: 20, label: 'cell size',
+  },
+  honours: {
+    key: 'bst:honourzoom', prop: '--hbase', target: 'honBody',
+    // 7 is the largest default that fits the two longest careers in the data
+    // side by side without the board needing to scroll — see honourHalfUnits.
+    min: 3, max: 14, step: 1, def: 7, label: 'square size',
+  },
+};
 
-function setZoom(px, save = true) {
-  const n = Math.max(10, Math.min(40, Number(px) || ZOOM_DEFAULT));
-  $('gridZoom').value = String(n);
-  $('gridBody').style.setProperty('--cell', n + 'px');
-  if (save) { try { localStorage.setItem(ZOOM_KEY, String(n)); } catch { /* private mode */ } }
+function zoomOf(view) { return ZOOM[view] || ZOOM.grid; }
+
+function setZoom(px, save = true, view = grid.view) {
+  const z = zoomOf(view);
+  const n = Math.max(z.min, Math.min(z.max, Number(px) || z.def));
+  $(z.target).style.setProperty(z.prop, n + 'px');
+  if (view === grid.view) $('gridZoom').value = String(n);
+  if (save) { try { localStorage.setItem(z.key, String(n)); } catch { /* private mode */ } }
+  return n;
+}
+
+/** Point the one slider at whichever view is up, without changing its value. */
+function syncZoomControl() {
+  const z = zoomOf(grid.view);
+  const input = $('gridZoom');
+  input.min = String(z.min);
+  input.max = String(z.max);
+  input.step = String(z.step);
+  input.setAttribute('aria-label', z.label);
+  let saved = null;
+  try { saved = localStorage.getItem(z.key); } catch { /* private mode */ }
+  setZoom(saved || z.def, false);
 }
 
 $('gridZoom').addEventListener('input', e => setZoom(e.target.value));
 
-let saved = null;
-try { saved = localStorage.getItem(ZOOM_KEY); } catch { /* private mode */ }
-setZoom(saved || ZOOM_DEFAULT, false);
+for (const view of Object.keys(ZOOM)) {
+  let saved = null;
+  try { saved = localStorage.getItem(ZOOM[view].key); } catch { /* private mode */ }
+  setZoom(saved || ZOOM[view].def, false, view);
+}
+syncZoomControl();
 
 $('gridBtn').addEventListener('click', openGrid);
 $('gridClose').addEventListener('click', closeGrid);
@@ -830,6 +1032,32 @@ $('gridKind').addEventListener('click', e => {
   grid.kind = b.dataset.gkind;
   renderGrid();
   writeHash();
+});
+
+function setGridView(view) {
+  if (view !== 'grid' && view !== 'honours') return;
+  if (grid.view === view) return;
+  grid.view = view;
+  syncZoomControl();     // the slider now means something else
+  renderGrid();
+  writeHash();
+}
+
+$('gridView').addEventListener('click', e => {
+  const b = e.target.closest('[data-view]');
+  if (b) setGridView(b.dataset.view);
+});
+
+$('honMin').addEventListener('click', e => {
+  const b = e.target.closest('[data-hmin]');
+  if (!b) return;
+  grid.threshold = honourStep(b.dataset.hmin).key;
+  renderGrid();
+  writeHash();
+});
+
+$('honBody').addEventListener('click', e => {
+  if (e.target.closest('#cmpDrop')) removeCompare();
 });
 
 $('gridBody').addEventListener('click', e => {
@@ -1101,7 +1329,7 @@ $('levels').addEventListener('click', e => {
 
 /* ============================ hash routing ============================
 
-   #p=57945&k=doubles&sz=0&hy=2019.2018&hl=21&g=1&c=87442 — enough to link to a
+   #p=57945&k=doubles&sz=0&hy=2019.2018&hl=21&g=1&v=h&th=w&c=87442 — enough to link to a
    career exactly as it is on screen, comparison and all, and enough for a suite
    to open one directly.
    ================================================================== */
@@ -1117,6 +1345,13 @@ function readHash() {
   }
   if (h.has('gk')) grid.kind = h.get('gk');
   if (h.has('hg')) grid.hiddenGroups = new Set(h.get('hg').split('.').filter(Boolean));
+  /* Set unconditionally, not `if (h.has(...))`. Both have a real default, so a
+     link that does not carry them is *claiming* the default — and a reader that
+     only ever turns things on leaves the last view in place when you navigate
+     back to one that never mentioned it. The season and level filters above are
+     deliberately sticky, because they have no default to return to; these do. */
+  grid.view = h.get('v') === 'h' ? 'honours' : 'grid';
+  grid.threshold = h.has('th') ? honourStep(h.get('th')).key : HONOUR_DEFAULT;
   // The comparison is a whole second career — dozens of requests — so it is
   // handed back rather than started here, and only once, by whoever asked.
   grid.pending = { compare: h.get('c') || null, open: h.get('g') === '1' };
@@ -1125,6 +1360,10 @@ function readHash() {
 
 /** Act on the parts of the hash that cost requests or open something. */
 function applyGridHash() {
+  // The hash can have just changed which view is up, and the slider means a
+  // different thing in each — it is read at boot, which is before the hash has
+  // been looked at, so it has to be pointed again here.
+  syncZoomControl();
   const want = grid.pending;
   grid.pending = null;
   if (!want) return;
@@ -1144,6 +1383,11 @@ function writeHash() {
   if (grid.open) p.set('g', '1');
   if (grid.kind) p.set('gk', grid.kind);
   if (grid.hiddenGroups.size) p.set('hg', [...grid.hiddenGroups].join('.'));
+  if (grid.view === 'honours') p.set('v', 'h');
+  // The bar is part of what the board *says*, so it travels; the zoom is a
+  // viewing preference and stays in localStorage. A shared link should open on
+  // the reader's own zoom and on the sender's argument.
+  if (grid.threshold !== HONOUR_DEFAULT) p.set('th', grid.threshold);
   if (cmp.playerId) p.set('c', cmp.playerId);
   const next = '#' + p.toString();
   if (location.hash !== next) history.replaceState(null, '', next);
@@ -1245,6 +1489,65 @@ window.BST = {
       }),
     })),
     ready: () => !cmp.loading && !state.loading && queueDepth() === 0,
+  },
+
+  /* The honours board. Same principle: what the browser laid out, not what the
+     model said it should — the row sizes are the whole claim of the view, so
+     they are read back as painted pixels. */
+  honours: {
+    view: v => (v == null ? grid.view : (setGridView(v), grid.view)),
+    bar: k => (k == null ? grid.threshold
+      : (grid.threshold = honourStep(k).key, renderGrid(), writeHash(), grid.threshold)),
+    scale: honourScale,
+    /** Each career's honours, straight from the model. */
+    of: () => careers().map(c => {
+      const kind = gridKindFor(c.seasons);
+      const rows = careerRows(c.seasons, kind,
+        dominantDraw(c.seasons.flatMap(s => s.tournaments), kind));
+      return careerHonours(rows, honourStep(grid.threshold).rank);
+    }),
+    sections: () => honourSections(window.BST.honours.of()),
+    zoom: px => (px == null ? Number($('gridZoom').value)
+      : (setZoom(px), Number($('gridZoom').value))),
+    /** Every row on screen, with both players' halves and the real geometry. */
+    rows: () => [...document.querySelectorAll('#honBody .hrow')].map(row => {
+      const side = el => [...el.querySelectorAll('.cell')].map(c => {
+        const r = c.getBoundingClientRect();
+        return {
+          tier: (c.className.match(/r-([\w]+)/) || [])[1],
+          year: Number(c.dataset.year),
+          w: Math.round(r.width * 10) / 10,
+          h: Math.round(r.height * 10) / 10,
+          x: Math.round(r.left * 10) / 10,
+          bg: getComputedStyle(c).backgroundColor,
+          title: c.getAttribute('title') || '',
+        };
+      });
+      const sides = [...row.querySelectorAll('.hside')];
+      return {
+        group: row.dataset.group,
+        label: (row.querySelector('.hlvl') || {}).textContent || '',
+        counts: [...row.querySelectorAll('.hn')].map(n => Number(n.textContent)),
+        empty: [...row.querySelectorAll('.hnone')].map(n => n.getAttribute('title') || ''),
+        sides: sides.map(side),
+        mirrored: sides.map(el => el.classList.contains('mirror')),
+      };
+    }),
+    /* Where the spine actually is. Measured off `.hboard` and not off the
+       scroller around it: when the board is wider than the modal the two have
+       different middles, and the line is drawn on the board. */
+    spine: () => {
+      const board = document.querySelector('#honBody .hboard');
+      if (!board) return null;
+      const r = board.getBoundingClientRect();
+      return Math.round((r.left + r.width / 2) * 10) / 10;
+    },
+    order: () => GRID_ORDER,
+    heads: () => [...document.querySelectorAll('#honBody .hhead')].map(h => ({
+      player: h.dataset.player,
+      name: (h.querySelector('.who') || {}).textContent || '',
+      mirrored: h.classList.contains('mirror'),
+    })),
   },
 };
 

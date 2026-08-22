@@ -1072,3 +1072,151 @@ export function gridYears(rowsPerCareer) {
   for (let y = hi; y >= lo; y--) out.push(y);
   return out;
 }
+
+/* ============================ the honours board ============================
+
+   The third view, and the only one that is not organised by season.
+
+   The strip asks "what did this year look like", and the grid asks "what did
+   their seasons look like". Both are answers to a question about *time*, and
+   both spend most of their area saying that somebody went out in the early
+   rounds — which is true, and is most of any career, and is not what anybody
+   means when they ask how good a player was.
+
+   This asks the other question: what have they actually done. One row per
+   level, every result that cleared a bar, nothing else drawn at all. A career
+   collapses to a shape you can hold in your eye, and two of them can be laid
+   against each other.
+
+   Two things carry the meaning, and neither of them is position in a row:
+
+   - **Height.** Which row a square is in says what it was worth. The rows are
+     the same order as the grid's sections, hardest at the top.
+   - **Size.** A row's squares are φ times the *area* of the row below, so the
+     ladder is geometric rather than a list. An Olympic gold is not one more
+     title; it is worth a great deal more than even a World Championship, and
+     the picture should say so without being read.
+
+   ⚠️ φ is applied to **area, not to side**. Ten levels at φ per side is a
+   ratio of φ⁹ ≈ 76 between the top row and the bottom, which is not a
+   drawing, it is one square and some dust. Per area the side ratio is
+   √φ ≈ 1.272 and the range is 8.4, which fits on a screen and still reads as
+   a step change at every rung. Area is also the right dimension on its own
+   merits: it is what the eye totals up when it judges a block, and worth is
+   what the ratio is trying to express.
+   ==================================================================== */
+
+/**
+ * The bar a result has to clear to be drawn, hardest last.
+ *
+ * `rank` is compared against `resultRank`, so these are steps from the final
+ * and the off-ladder results — a group-stage exit, a qualifying loss — are
+ * excluded by arithmetic rather than by a special case.
+ */
+export const HONOUR_STEPS = [
+  { key: 'qf', label: 'QF+', full: 'quarter-final or better', rank: 3 },
+  { key: 'sf', label: 'SF+', full: 'semi-final or better',    rank: 2 },
+  { key: 'f',  label: 'F+',  full: 'final or better',         rank: 1 },
+  { key: 'w',  label: 'W',   full: 'titles only',             rank: 0 },
+];
+
+export const HONOUR_DEFAULT = 'qf';
+
+export function honourStep(key) {
+  return HONOUR_STEPS.find(s => s.key === key)
+    || HONOUR_STEPS.find(s => s.key === HONOUR_DEFAULT);
+}
+
+export const PHI = (1 + Math.sqrt(5)) / 2;
+
+/* One row up multiplies the *area* by φ, so the side goes up by √φ. See the
+   warning above for why this is not φ itself. */
+const HONOUR_SIDE_RATIO = Math.sqrt(PHI);
+
+/**
+ * How many times the base size a row's squares are, as a bare number.
+ *
+ * Unitless on purpose: the app hands it to CSS as `--k` and the zoom slider
+ * moves the base underneath it, so changing the size of everything is one
+ * custom property and no re-render.
+ *
+ * Keyed on the level's place in `GRID_ORDER` rather than on which rows happen
+ * to be on screen, so switching a level off does not resize the ones left
+ * behind — a square means the same thing whatever else is showing, which is
+ * the whole basis for comparing two boards.
+ */
+export function honourScale(group) {
+  // Compared as strings: the level ids are numbers in `GRID_ORDER` but they
+  // make a round trip through `data-group` on the way back from the DOM, and
+  // `indexOf('23')` silently missing would put a Super 1000 row at the size of
+  // the bottom rung rather than failing.
+  const i = GRID_ORDER.findIndex(g => String(g) === String(group));
+  const up = i < 0 ? 0 : GRID_ORDER.length - 1 - i;
+  return Math.pow(HONOUR_SIDE_RATIO, up);
+}
+
+/**
+ * A whole career as honours: every result at or above the bar, by level.
+ *
+ * Takes the rows the grid already built, so the Finals reattribution and the
+ * junior/team exclusions are settled in one place and cannot disagree between
+ * the two views.
+ *
+ * `entries` counts everything at that level whatever it scored, which is what
+ * separates the two ways a row can be empty. "Never won a match that mattered
+ * at Super 750" and "never played a Super 750" look identical on a board that
+ * only draws what cleared the bar, and they are not remotely the same claim.
+ */
+export function careerHonours(rows, maxRank) {
+  const by = new Map();
+  const entries = new Map();
+
+  for (const row of rows || []) {
+    for (const [group, list] of (row.by || new Map())) {
+      entries.set(group, (entries.get(group) || 0) + list.length);
+      for (const cell of list) {
+        if (cell.rank > maxRank) continue;
+        const kept = { ...cell, year: row.year };
+        const bucket = by.get(group);
+        if (bucket) bucket.push(kept); else by.set(group, [kept]);
+      }
+    }
+  }
+
+  // Best first, then oldest first — the same tie-break as a grid row, so a
+  // board is stable from render to render.
+  for (const list of by.values()) {
+    list.sort((a, b) => a.rank - b.rank
+      || (String(a.tmt.start) < String(b.tmt.start) ? -1
+        : String(a.tmt.start) > String(b.tmt.start) ? 1 : 0));
+  }
+  return { by, entries };
+}
+
+/**
+ * The rows to draw, hardest first.
+ *
+ * A level appears if anyone on screen ever *entered* it, not if they placed in
+ * it — an empty Super 1000 row is a fact about a career and one of the more
+ * eloquent ones. Levels nobody has ever played are left out entirely, because
+ * that is a fact about the calendar instead.
+ */
+export function honourSections(perCareer) {
+  const present = new Set();
+  const most = new Map();
+  for (const h of perCareer || []) {
+    for (const [group, n] of (h.entries || new Map())) {
+      if (n > 0) present.add(group);
+    }
+    for (const [group, list] of (h.by || new Map())) {
+      most.set(group, Math.max(most.get(group) || 0, list.length));
+    }
+  }
+  return GRID_ORDER.filter(g => present.has(g)).map(g => ({
+    group: g,
+    label: gridGroupLabel(g),
+    code: gridGroupCode(g),
+    n: most.get(g) || 0,
+    scale: honourScale(g),
+  }));
+}

@@ -722,6 +722,238 @@ await b.ev(`document.getElementById('gridClose').click()`);
 check('the grid closes', await b.ev(`!window.BST.grid.isOpen()`));
 check('and the strip underneath is untouched', (await squares(2026)).length > 0);
 
+/* ============================ the honours board ============================
+
+   The third reading: no seasons at all, one row per level, only what cleared
+   the bar, and the size of a square carrying what the level was worth.
+
+   The ladder is the claim this view lives or dies by, and it is a claim about
+   pixels — so it is measured off what the browser painted, not off the model
+   that asked for it. Every step is checked, not just the ends: an off-by-one in
+   the exponent would leave the extremes right and the middle wrong.
+   ======================================================================== */
+
+console.log('\n=== the honours board: a row per level, sized by what it is worth ===');
+
+const PHI = (1 + Math.sqrt(5)) / 2;
+
+check('the board opens straight from a link', await open('#p=57945&g=1&v=h'));
+/* A link that does not mention the view is claiming the grid, and one that does
+   not mention the bar is claiming QF+. Caught by a screenshot, not by the suite:
+   `#p=…&g=1` came back as the honours board at W, because the last one had been. */
+await b.ev(`window.BST.honours.bar('w')`);
+check('a link without the view goes back to the grid', await open('#p=57945&g=1')
+  && await b.ev(`window.BST.honours.view() === 'grid'`));
+check('and without the bar, back to the default one',
+  await b.ev(`window.BST.grid.state.threshold === 'qf'`),
+  await b.ev('window.BST.grid.state.threshold'));
+check('the board comes back', await open('#p=57945&g=1&v=h'));
+check('and it really is open', await b.ev('window.BST.grid.isOpen()'));
+eq('showing the board and not the grid', await b.ev('window.BST.honours.view()'), 'honours');
+check('the grid is out of the way, not merely behind it',
+  await b.ev(`document.getElementById('gridBody').offsetParent === null`));
+check('and so is the grid\'s legend, which describes something else',
+  await b.ev(`document.getElementById('gridNote').offsetParent === null
+    && document.getElementById('honNote').offsetParent !== null`));
+
+let board = await b.ev('window.BST.honours.rows()');
+check('a row for every level he has ever entered', board.length >= 8, `${board.length} rows`);
+eq('hardest first, so the Olympics are at the top', board[0].group, 'OLY');
+check('and the rows are the grid\'s own order',
+  board.map(r => r.group).join(',')
+  === (await b.ev('window.BST.honours.sections()')).map(s => String(s.group)).join(','));
+
+/* ---- the ladder, measured ---- */
+
+const sideOf = g => {
+  const row = board.find(r => r.group === String(g));
+  const cell = (row.sides[0] || [])[0];
+  return cell ? cell.h : null;
+};
+const painted = board
+  .map(r => ({ group: r.group, side: (r.sides[0] || [])[0] }))
+  .filter(r => r.side);
+
+check('every square in a row is square, and the same size as its neighbours',
+  board.every(r => r.sides.every(s => s.every(c => Math.abs(c.w - c.h) < 1.5
+    && Math.abs(c.h - s[0].h) < 1.5))),
+  board.map(r => `${r.group}:${(r.sides[0] || [])[0] ? (r.sides[0][0].h) : '-'}`).join(' '));
+
+/* Counted in rungs of the ladder, not in rows on screen. SHI Yu Qi has never
+   played a Super 100, so Super 300 sits directly above Unmapped on his board
+   and the step between them is *two* levels — and measures φ², correctly. An
+   adjacency check would have called that a bug and it is the opposite. */
+const order = await b.ev('window.BST.honours.order()');
+const rungs = g => order.findIndex(x => String(x) === String(g));
+const areaRatio = (a, b2) => Math.pow(a.side.h, 2) / Math.pow(b2.side.h, 2);
+
+check('each rung of the ladder is φ times the AREA of the one below it',
+  painted.every((r, i) => {
+    if (i === 0) return true;
+    const steps = rungs(r.group) - rungs(painted[i - 1].group);
+    return Math.abs(areaRatio(painted[i - 1], r) - Math.pow(PHI, steps)) < 0.14 * steps;
+  }),
+  painted.map((r, i) => i === 0 ? `${r.group}=${r.side.h}`
+    : `${r.group}=${r.side.h}(×${areaRatio(painted[i - 1], r).toFixed(2)}`
+      + ` over ${rungs(r.group) - rungs(painted[i - 1].group)})`).join(' '));
+
+/* The same claim stated as one number: every painted row sits on a single
+   geometric ladder, so `side ÷ √φ^rung` is the same for all of them. Immune to
+   which levels a career happens to contain. */
+const feet = painted.map(r => r.side.h / Math.pow(Math.sqrt(PHI), order.length - 1 - rungs(r.group)));
+check('so every row on screen sits on one ladder with one base',
+  feet.every(v => Math.abs(v - feet[0]) < 0.25),
+  feet.map(v => v.toFixed(2)).join(' '));
+
+check('so an Olympic square dwarfs a Super 500 one rather than nudging it',
+  sideOf('OLY') > sideOf(25) * 2, `${sideOf('OLY')} vs ${sideOf(25)}`);
+check('and the whole ladder is a bit under nine to one, not seventy-six',
+  (() => {
+    const top = painted[0].side.h, bottom = painted[painted.length - 1].side.h;
+    return top / bottom > 5 && top / bottom < 12;
+  })(),
+  `${painted[0].side.h} / ${painted[painted.length - 1].side.h}`);
+
+/* ---- only what cleared the bar ---- */
+
+const RED = [RAMP[4], RAMP[5]];
+const allCells = rows => rows.flatMap(r => r.sides.flat());
+
+check('nothing below a quarter-final is on the board at all',
+  allCells(board).every(c => !RED.includes(c.bg) && c.bg !== GROUND),
+  allCells(board).filter(c => RED.includes(c.bg)).length + ' too poor to be here');
+check('every square runs best-first, away from the label',
+  board.every(r => r.sides.every((s, i) =>
+    s.every((c, j) => j === 0 || (r.mirrored[i]
+      ? rank(c.bg) <= rank(s[j - 1].bg)      // mirrored: worst outermost
+      : rank(c.bg) >= rank(s[j - 1].bg))))));
+
+const olyRow = board.find(r => r.group === 'OLY');
+eq('both his Olympics are quarter-finals', olyRow.sides[0].length, 2);
+check('painted the quarter-final colour', olyRow.sides[0].every(c => c.bg === RAMP[3]),
+  olyRow.sides[0].map(c => c.bg).join(' '));
+eq('and the count beside the row says two', olyRow.counts[0], 2);
+
+/* Raising the bar is the same board with less on it, and the row he cannot
+   reach has to say which kind of empty it is. */
+await b.ev(`window.BST.honours.bar('f')`);
+board = await b.ev('window.BST.honours.rows()');
+const olyF = board.find(r => r.group === 'OLY');
+eq('at F+ his Olympic row empties out', olyF.sides[0].length, 0);
+eq('and leaves a ghost rather than nothing', olyF.empty.length, 1);
+check('which says he went twice and never got that far',
+  /2 entered, none at F\+/.test(olyF.empty[0]), olyF.empty[0]);
+check('everything still on the board is a final or a title',
+  allCells(board).every(c => c.bg === RAMP[0] || c.bg === RAMP[1]));
+
+await b.ev(`window.BST.honours.bar('w')`);
+board = await b.ev('window.BST.honours.rows()');
+check('at W, only titles are left', allCells(board).every(c => c.bg === RAMP[0]));
+check('and the bar travels in the link, because it is part of the argument',
+  await b.ev(`location.hash.includes('th=w')`), await b.ev('location.hash'));
+await b.ev(`window.BST.honours.bar('qf')`);
+check('the default bar stays out of the link, being the default',
+  await b.ev(`!location.hash.includes('th=')`), await b.ev('location.hash'));
+
+/* ---- zoom moves the whole ladder together ---- */
+
+const zoomBefore = (await b.ev('window.BST.honours.rows()'))
+  .map(r => (r.sides[0] || [])[0]).filter(Boolean).map(c => c.h);
+await b.ev(`window.BST.honours.zoom(12)`);
+const zoomAfter = (await b.ev('window.BST.honours.rows()'))
+  .map(r => (r.sides[0] || [])[0]).filter(Boolean).map(c => c.h);
+check('the slider makes every row bigger', zoomAfter.every((h, i) => h > zoomBefore[i]),
+  `${zoomBefore[0]} -> ${zoomAfter[0]}`);
+const zoomFeet = zoomAfter.map((h, i) =>
+  h / Math.pow(Math.sqrt(PHI), order.length - 1 - rungs(painted[i].group)));
+check('and the ladder survives it — every row still shares one base',
+  zoomFeet.every(v => Math.abs(v - zoomFeet[0]) < 0.35),
+  zoomFeet.map(v => v.toFixed(2)).join(' '));
+check('which is a bigger base than before, not a different shape',
+  zoomFeet[0] > feet[0], `${feet[0].toFixed(2)} -> ${zoomFeet[0].toFixed(2)}`);
+await b.ev(`window.BST.honours.zoom(7)`);
+
+/* ---- two boards across one line ---- */
+
+console.log('\n=== two players, mirrored about the centre line ===');
+
+await b.ev(`void window.BST.grid.compareWith(87442)`);
+check('a second career loads into the board',
+  await b.until('window.BST.grid.ready()', { timeout: 180000 }));
+
+const hTwo = await b.ev('window.BST.honours.rows()');
+const heads = await b.ev('window.BST.honours.heads()');
+const spine = await b.ev('window.BST.honours.spine()');
+
+eq('two profiles', heads.length, 2);
+check('the left one is mirrored and the right one is not',
+  heads[0].mirrored && !heads[1].mirrored,
+  heads.map(h => `${h.name}${h.mirrored ? '(mirror)' : ''}`).join(' | '));
+check('every row has two halves', hTwo.every(r => r.sides.length === 2));
+check('the left half is the mirrored one',
+  hTwo.every(r => r.mirrored[0] && !r.mirrored[1]));
+
+check('the left player stays left of the line',
+  hTwo.every(r => r.sides[0].every(c => c.x + c.w <= spine + 1)),
+  `spine ${spine}`);
+check('and the right player right of it',
+  hTwo.every(r => r.sides[1].every(c => c.x >= spine - 1)));
+
+/* Mirroring is what makes it a comparison rather than two lists: the best of
+   each player is what meets in the middle. */
+const wide = hTwo.find(r => r.sides[0].length > 2 && r.sides[1].length > 2);
+check('so the best result of each is the one nearest the line',
+  rank(wide.sides[0][wide.sides[0].length - 1].bg) <= rank(wide.sides[0][0].bg)
+  && rank(wide.sides[1][0].bg) <= rank(wide.sides[1][wide.sides[1].length - 1].bg),
+  wide.group);
+
+/* The widths are derived rather than assumed, and this is the case that made it
+   necessary: AN Se Young has twenty Super 1000 results at QF+, which overflowed
+   a half sized by `1fr` and silently lost the last of them. */
+const clipped = await b.ev(`(() => {
+  const bad = [];
+  for (const side of document.querySelectorAll('#honBody .hside')) {
+    if (side.scrollWidth > side.clientWidth + 1) {
+      bad.push(side.closest('.hrow').dataset.group
+        + ': ' + side.scrollWidth + ' > ' + side.clientWidth);
+    }
+  }
+  return bad;
+})()`);
+check('no half is cut short, however many results it holds',
+  clipped.length === 0, clipped.slice(0, 3).join(' | '));
+
+check('both halves are the same width, so the line stays in the middle',
+  await b.ev(`(() => {
+    const r = document.querySelector('#honBody .hrow');
+    const w = [...r.querySelectorAll('.hside')].map(s => Math.round(s.getBoundingClientRect().width));
+    return w.length === 2 && Math.abs(w[0] - w[1]) <= 1;
+  })()`));
+
+const s100 = hTwo.find(r => r.group === '27');
+check('a level only one of them has ever played is still a row for both',
+  !!s100 && s100.sides[0].length === 0 && s100.sides[1].length > 0);
+check('and his empty half says he never entered one, not that he never placed',
+  /never played at this level/.test(s100.empty[0] || ''), s100.empty[0]);
+
+check('the board is in the link, comparison and all',
+  await b.ev(`location.hash.includes('v=h') && location.hash.includes('c=87442')`),
+  await b.ev('location.hash'));
+
+await b.ev(`document.getElementById('cmpDrop').click()`);
+eq('the comparison can be dropped', (await b.ev('window.BST.honours.heads()')).length, 1);
+
+/* ---- and back to the grid ---- */
+
+await b.ev(`window.BST.honours.view('grid')`);
+check('the switch goes back to the grid',
+  await b.ev(`document.getElementById('gridBody').offsetParent !== null
+    && document.getElementById('honBody').offsetParent === null`));
+check('which takes the board out of the link',
+  await b.ev(`!location.hash.includes('v=h')`), await b.ev('location.hash'));
+await b.ev(`document.getElementById('gridClose').click()`);
+check('and the modal closes on either view', await b.ev(`!window.BST.grid.isOpen()`));
+
 /* ============================ the disclaimer ============================ */
 
 console.log('\n=== attribution, at the foot of the page ===');

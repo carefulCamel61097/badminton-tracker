@@ -120,6 +120,33 @@ side stop being a comparison the moment either one moves.
 
 The comparison is in the hash (`&g=1&c=87442`), so a side-by-side is a link.
 
+### 1.1c Honours board (what they have actually done)
+
+*Added 22 Aug 2026.* The third view of the same career, and the only one **not organised by
+season**. Shares the modal, the level chips, the discipline toggle and the comparison with
+the grid; switch between them with the Grid / Honours segmented control.
+
+- **Rows are levels**, hardest at the top, in the same order as the grid's blocks.
+- **Only results at or above a bar.** Default **QF+**, with SF+, F+ and W as the other
+  settings. Everything below it is simply not drawn — no ground, no ghost, nothing.
+- **Squares are sized by their row**, and the ladder is geometric: each row up has **φ times
+  the area** of the row below. See 2.10 for why area and not side.
+- **One player: rows centred.** **Two players: mirrored about a centre line**, left player
+  right-aligned and reversed, so the *best* results of each meet at the spine.
+- An **empty row still appears** if either player has ever entered that level, and its ghost
+  square says which kind of empty it is: `26 entered, none at QF+` or `never played at this
+  level`. That distinction is the reason the ghost exists at all.
+- A **count** sits on the inside of each half, next to the label.
+- The **bar is in the hash** (`&th=w`) because it is part of what the board claims; the
+  **zoom is not**, for the same reason the grid's is not.
+
+Why a third view: the strip and the grid both spend most of their area saying that somebody
+went out early, which is true, and is most of any career, and is not what anybody means when
+they ask how good a player is. The board answers *what have they actually done*. Shi Yu Qi
+against An Se Young at QF+ is the case that justifies it — his Super 1000 row is a gradient
+running out to yellow, hers is a wall of dark green, and no reading of either season strip
+gets you there as fast.
+
 ### 1.2 Tournament view (auto-following)
 
 Shows whatever tournament is current, switching by itself a few days before a new one
@@ -577,6 +604,62 @@ either way. Here the question does not arise, and the legend is one item shorter
 
 ---
 
+### 2.10 The honours ladder is φ per *area* — settled 22 Aug 2026
+
+The board's rows are sized geometrically, hardest at the top. The ratio is the golden
+ratio, and the dimension it is applied to is **area**, so the sides go up by √φ ≈ 1.272.
+
+⚠️ **Do not "fix" this to φ per side.** `GRID_ORDER` has ten levels. At φ per side the top
+row is φ⁹ ≈ **76 times** the side of the bottom one: a 10px Super 100 square puts the
+Olympics at 760px, and choosing a base that keeps the Olympics on screen puts Super 100 at
+under a pixel. Per area the whole ladder spans 8.7, which fits, and every rung still reads
+as a step change.
+
+Area is also the right dimension on the merits. The claim the view makes is *how much* — the
+eye totals a block of colour by area, not by edge length — and the argument for the ratio in
+the first place was **worth**, not width. It is the same reasoning as the strip's
+`side = sqrt(weight)` in 2.1, and the two views agree because of it.
+
+The multipliers, which are pleasant: every second rung is an exact power of φ.
+
+| Level | ×side | at base 7 |
+|---|---|---|
+| Olympics | 8.719 | 61px |
+| Worlds | 6.854 | 48px |
+| Tour Finals | 5.388 | 38px |
+| Super 1000 | 4.236 | 30px |
+| Super 750 | 3.330 | 23px |
+| Continental | 2.618 | 18px |
+| Super 500 | 2.058 | 14px |
+| Super 300 | 1.618 | 11px |
+| Super 100 | 1.272 | 9px |
+| Unmapped | 1.000 | 7px |
+
+`honourScale` keys on the level's place in `GRID_ORDER`, **not** on which rows happen to be
+on screen. Switching a level off must not resize the ones left behind: a square has to mean
+the same thing whatever else is showing, which is the entire basis for comparing two boards.
+
+**The widths are computed, not assumed.** `honourHalfUnits` returns the widest half any row
+needs *in units of `--hbase`*, and CSS uses it as `minmax(var(--halfw), 1fr)`. Two
+consequences worth keeping:
+
+- The unit is a bare multiplier so the **zoom slider keeps working without a re-render** —
+  it moves `--hbase` and every row follows.
+- The gap between squares is therefore **strictly proportional** (`calc(var(--hs) * .09)`)
+  with no `max(1px, …)` floor. A floor would make a row's width a different function of the
+  base at the bottom of the board than at the top, and the arithmetic would stop matching
+  what was painted.
+
+⚠️ An earlier version sized the halves with a plain `1fr` and clipped. **An Se Young has
+twenty Super 1000 results at QF+**, which is wider than half a 1800px modal at any
+comfortable base, and the twentieth was silently cut off — the one failure mode a view about
+*how much* cannot have. The end-to-end suite now asserts `scrollWidth <= clientWidth` for
+every half. The honours default base is **7**, the largest that fits the two longest careers
+in the data side by side without the board needing to scroll.
+
+The spine hangs off `.hboard`, not off the scroller, so `left: 50%` stays true when the
+board is wider than the modal.
+
 ## Part 3 — The BWF API
 
 Base: `https://extranet-lv.bwfbadminton.com/api`
@@ -922,6 +1005,24 @@ tall canvas. Filtering rounds is a layout change, not a visibility change.
 
 The **array order from `day-matches` is the order of play.** Do not sort by `matchTime` —
 BWF spaces the estimates a flat 50 minutes apart and they are not real.
+
+### 4.8 `el.hidden = true` does not hide anything this sheet styles
+
+⚠️ The `hidden` attribute is only a **user-agent** `display: none`, so *any* author rule
+that sets `display` outranks it. This sheet sets `display` on nearly everything, so
+`el.hidden = true` was a no-op on `.legend` (flex), `.kindwrap` (inline-flex) and
+`.gridbody` (flex). Switching the modal to the honours board left the grid's legend and its
+explanatory note sitting underneath the board, describing a view that was not on screen —
+and would have left the whole grid visible had it been rendered.
+
+Fixed once, next to the box-sizing reset, rather than remembered at every call site:
+
+```css
+[hidden] { display: none !important; }
+```
+
+Worth knowing before adding any other view that toggles: the symptom is not an error, it is
+two things on screen at once, and it is easy to read as a render bug in the new code.
 
 ---
 

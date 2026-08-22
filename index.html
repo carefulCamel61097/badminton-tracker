@@ -93,7 +93,14 @@
 <dialog id="gridModal" class="modal" aria-labelledby="gridTitle">
   <header class="modalhead">
     <h2 id="gridTitle">Career grid</h2>
+
+    <span id="gridView" class="kindwrap" role="group" aria-label="view">
+      <button type="button" class="seg on" data-view="grid" aria-pressed="true">Grid</button>
+      <button type="button" class="seg" data-view="honours" aria-pressed="false">Honours</button>
+    </span>
+
     <span id="gridKind" class="kindwrap" role="group" aria-label="discipline"></span>
+    <span id="honMin" class="kindwrap" role="group" aria-label="minimum round" hidden></span>
 
     <label class="zoom" for="gridZoom">Zoom
       <input type="range" id="gridZoom" min="10" max="40" step="2" value="20"
@@ -115,8 +122,9 @@
   </div>
 
   <div id="gridBody" class="gridbody"></div>
+  <div id="honBody" class="honours" hidden></div>
 
-  <p class="legend">
+  <p class="legend" id="gridLegend">
     <span class="key"><i class="cell r-w"></i> won</span>
     <span class="key"><i class="cell r-f"></i> final</span>
     <span class="key"><i class="cell r-sf"></i> semi</span>
@@ -126,12 +134,29 @@
     <span class="key"><i class="cell r-q"></i> qualifying</span>
     <span class="key"><i class="cell r-off"></i> nothing there</span>
   </p>
-  <p class="legend note">
+  <p class="legend note" id="gridNote">
     Each block is one level, and the cells in it are that season's results at
     that level, <strong>best first</strong> — not one column per tournament. A
     block is as wide as the most anyone here played at that level in a single
     season, so the empty cells on the right of a block are events they did not
     enter that year. Hover any cell for the tournament and the result.
+  </p>
+
+  <p class="legend" id="honLegend" hidden>
+    <span class="key"><i class="cell r-w"></i> won</span>
+    <span class="key"><i class="cell r-f"></i> final</span>
+    <span class="key"><i class="cell r-sf"></i> semi</span>
+    <span class="key"><i class="cell r-qf"></i> quarter</span>
+    <span class="key"><i class="hnone"></i> nothing that good</span>
+  </p>
+  <p class="legend note" id="honNote" hidden>
+    Every result that reached the chosen round, whatever season it was in — one
+    row per level, hardest at the top. A row's squares have
+    <strong>&#966; times the area</strong> of the row below, so an Olympic medal
+    is not one more square: it is worth about nine Super&nbsp;100 ones. An empty
+    row is a claim too — hover it to see whether they never got that far or never
+    entered. Comparing two players mirrors the board about the centre line, so
+    the best results of each meet in the middle.
   </p>
 </dialog>
 

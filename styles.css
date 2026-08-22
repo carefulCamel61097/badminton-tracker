@@ -59,6 +59,13 @@
 
 * { box-sizing: border-box; }
 
+/* `hidden` has to actually hide. The attribute is only a UA `display: none`, so
+   any rule that sets `display` at all outranks it — and this sheet sets it on
+   nearly everything, which meant `el.hidden = true` on a flex legend or an
+   inline-flex button group did precisely nothing. Asserted once, here, rather
+   than remembered at every call site. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   padding: 16px 20px 36px;
@@ -566,3 +573,136 @@ dialog.modal::backdrop { background: rgba(0, 0, 0, .74); }
 .zoom input[type=range] { width: 96px; accent-color: var(--accent); cursor: pointer; }
 .key { display: inline-flex; align-items: center; gap: 5px; }
 .key .cell { width: 11px; height: 11px; border-radius: 2px; }
+
+/* ========================== the honours board ==========================
+
+   One row per level, hardest at the top, and only the results that cleared the
+   bar. Nothing is on a shared grid: each row has its own pitch, because the
+   size of a square is what says how much the result was worth.
+
+   `--k` comes from the model as a bare multiplier — φ per row, applied to area,
+   so the sides go up by √φ ≈ 1.272 and the top row is 8.7 times the bottom one.
+   The zoom slider moves `--hbase` and every row follows without a re-render.
+   ========================================================================== */
+
+.honours {
+  --hbase: 8px;         /* the smallest row; every other row multiplies it */
+  --hlvlw: 84px;        /* the label gutter, and the spine runs down its middle */
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-card);
+  padding: 11px 13px 15px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+/* The board proper, inside the scroller.
+   `--halfw` is set from JS as the widest half any row needs, in units of
+   `--hbase` — so it survives the zoom slider without a re-render, and both
+   halves are the same width whichever player is longer. `minmax(halfw, 1fr)`
+   is the whole trick: never narrower than the results need, so nothing is ever
+   silently cut off, and wider when there is room, so a short board still
+   centres. */
+.hboard {
+  position: relative;
+  width: max-content;
+  min-width: 100%;
+}
+
+/* The centre line, drawn once for the whole board rather than per row: it is an
+   axis, and an axis that restarts at every row is a row of ticks. It hangs off
+   the board and not the scroller, so it stays true when the board is wider than
+   the modal and has to scroll. */
+.honours.two .hboard::before {
+  content: '';
+  position: absolute;
+  top: 9px;
+  bottom: 9px;
+  left: 50%;
+  width: 1px;
+  background: var(--border);
+}
+
+.hheads { display: grid; grid-template-columns: minmax(0, 1fr); margin-bottom: 13px; }
+.hrow {
+  display: grid;
+  grid-template-columns: var(--hlvlw) minmax(var(--halfw), 1fr);
+  align-items: center;
+  margin-bottom: 5px;
+  /* Every size in the row derives from this one number. */
+  --hs: calc(var(--hbase) * var(--k));
+}
+.honours.two .hheads,
+.honours.two .hrow {
+  grid-template-columns: minmax(var(--halfw), 1fr) var(--hlvlw) minmax(var(--halfw), 1fr);
+}
+
+/* The left-hand player is mirrored — profile and results both — so that the two
+   boards face each other across the line instead of pointing the same way. */
+.hhead.mirror .gprofile { flex-direction: row-reverse; }
+.hhead.mirror .ident,
+.hhead.mirror .who { text-align: right; }
+.hhead.mirror .meta { flex-direction: row-reverse; }
+.hhead.mirror .gprofile .close { margin: 0 0 0 0; margin-right: 14px; }
+
+.hlvl {
+  position: relative;
+  z-index: 1;
+  font: 400 10px/1.4 var(--mono);
+  color: var(--text-muted);
+  letter-spacing: .02em;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  /* Opaque, so it masks the spine rather than sitting on top of it. */
+  background: var(--surface);
+  padding: 3px 0;
+}
+.honours:not(.two) .hlvl { text-align: left; }
+.hlvl.spacer { background: none; }
+
+.hside {
+  display: flex;
+  align-items: center;
+  /* Strictly proportional, with no floor: `--halfw` is computed from it, and a
+     max() would make the width of a row a different function at the bottom of
+     the board than at the top. */
+  gap: calc(var(--hs) * .09);
+  min-width: 0;
+  /* Only ever fires on a career long enough to overflow half the modal, and
+     when it does the mirroring means it is the *worst* results that go — the
+     ones nearest the outer edge. */
+  overflow: hidden;
+}
+.hside.mirror { justify-content: flex-end; }
+.honours:not(.two) .hside { justify-content: center; }
+
+/* Square, sized by its row rather than by the grid's flat `--cell`. */
+.honours .cell,
+.hnone {
+  flex: none;
+  display: block;
+  width: var(--hs);
+  height: var(--hs);
+  border-radius: max(1px, calc(var(--hs) * .08));
+}
+.hnone {
+  border: 1px dashed var(--border);
+  background: none;
+  opacity: .5;
+}
+
+/* On the inside of the row, next to the label: it is the one number worth
+   having, and out at the far end it would be the first thing clipped. */
+.hn {
+  flex: none;
+  /* Fixed, because `--halfw` adds it as a constant. */
+  width: 26px;
+  text-align: center;
+  font: 500 10px var(--mono);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.key .hnone { width: 11px; height: 11px; border-radius: 2px; }

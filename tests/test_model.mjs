@@ -22,6 +22,7 @@ import {
   canonicalDraw, isOlympics,
   gridGroup, seasonResults, careerRows, gridSections, sectionCells, gridYears,
   resultRank, tournamentSeason, GRID_ORDER,
+  HONOUR_STEPS, HONOUR_DEFAULT, honourStep, honourScale, careerHonours, honourSections,
   LEVEL, SLOT_W, BOX_H, MIN_LABEL_PX, LEVEL_ORDER,
 } from '../model.js';
 import { check, eq, near, report } from './check.mjs';
@@ -841,5 +842,152 @@ eq('nothing to draw is an empty list, not a crash', gridSections([]).length, 0);
 eq('and so is a career of nothing', gridYears([[]]).length, 0);
 eq('and rows out of nothing', careerRows(null, 'singles', 'MS').length, 0);
 eq('a season of nothing buckets to nothing', seasonResults(null, 'singles', 'MS').size, 0);
+
+
+/* ============================ the honours board ============================
+
+   The other reading of the same rows: no seasons, one row per level, and only
+   what cleared the bar. The expectations below were read off the raw payload —
+   SHI Yu Qi went out in the quarter-finals at Tokyo 2020 (4-2) and again at
+   Paris 2024 (3-1), won the 2025 World Championships 6-0, and has never entered
+   a Super 100 in his life; AN Se Young won Paris 2024 6-0 and lost her Tokyo
+   quarter-final 6-2.
+   ==================================================================== */
+
+console.log('\n=== the honours board ===');
+
+/* ---- the golden ratio, and which dimension it is applied to ---- */
+
+const PHI_ = (1 + Math.sqrt(5)) / 2;
+eq('the bottom row of the ladder is the unit', honourScale('OTHER'), 1);
+check('each row up is φ times the AREA of the one below, which is what the eye totals',
+  GRID_ORDER.every((g, i) => {
+    if (i === 0) return true;
+    const area = Math.pow(honourScale(GRID_ORDER[i - 1]), 2) / Math.pow(honourScale(g), 2);
+    return Math.abs(area - PHI_) < 1e-9;
+  }));
+check('so the sides go up by √φ, not by φ',
+  Math.abs(honourScale(23) / honourScale(24) - Math.sqrt(PHI_)) < 1e-9);
+/* The whole reason it is area and not side: ten levels at φ per side is a
+   ratio of 76 between the top row and the bottom, and a 10px Super 100 square
+   would put the Olympics at 760. Per area it is 8.7, which is a picture. */
+near('the Olympics are 8.7 times the side of the bottom row, not 76',
+  honourScale('OLY'), 8.719, 0.001);
+check('and the ladder only ever goes up', GRID_ORDER.every((g, i) =>
+  i === 0 || honourScale(GRID_ORDER[i - 1]) > honourScale(g)));
+eq('a level the ladder does not know sits at the bottom rather than vanishing',
+  honourScale(999), 1);
+
+/* ---- the bar ---- */
+
+eq('the default bar is the quarter-finals', honourStep(HONOUR_DEFAULT).rank, 3);
+eq('a bar nobody set falls back to it, rather than showing everything',
+  honourStep('nonsense').key, HONOUR_DEFAULT);
+eq('and so does no bar at all', honourStep(undefined).key, HONOUR_DEFAULT);
+check('the bars are the four rounds that are worth naming, hardest last',
+  HONOUR_STEPS.map(s => s.rank).join(' ') === '3 2 1 0');
+
+/* ---- a career as honours ---- */
+
+const shiH = careerHonours(shiRows, 3);
+const anH = careerHonours(anRows, 3);
+
+eq('SHI Yu Qi entered two Olympics', shiH.entries.get('OLY'), 2);
+eq('and both are honours at QF+', (shiH.by.get('OLY') || []).length, 2);
+check('because both were quarter-finals',
+  shiH.by.get('OLY').every(c => c.info.label === 'QF'),
+  shiH.by.get('OLY').map(c => `${c.year} ${c.info.label}`).join(', '));
+
+const shiWorlds = shiH.by.get(20) || [];
+eq('his best Worlds is the 2025 title', shiWorlds[0].info.label, 'W');
+eq('and it is first, because a row is sorted best first', shiWorlds[0].year, 2025);
+check('with the rest in descending order of how far he got',
+  shiWorlds.every((c, i) => i === 0 || c.rank >= shiWorlds[i - 1].rank),
+  shiWorlds.map(c => c.info.label).join(' '));
+check('and ties broken oldest first, so the row does not reshuffle itself',
+  (() => {
+    const s1000 = shiH.by.get(23) || [];
+    return s1000.every((c, i) => i === 0
+      || c.rank > s1000[i - 1].rank
+      || String(c.tmt.start) >= String(s1000[i - 1].tmt.start));
+  })());
+
+eq('AN Se Young won Paris 2024', (anH.by.get('OLY') || [])[0].info.label, 'W');
+eq('and it outranks her Tokyo quarter-final', (anH.by.get('OLY') || [])[1].info.label, 'QF');
+
+/* ---- raising the bar ---- */
+
+const counted = h => [...h.by.values()].reduce((a, l) => a + l.length, 0);
+const shiBars = HONOUR_STEPS.map(s => counted(careerHonours(shiRows, s.rank)));
+check('raising the bar can only ever remove results',
+  shiBars.every((n, i) => i === 0 || n <= shiBars[i - 1]), shiBars.join(' >= '));
+check('and what survives is a subset of what was there before',
+  (() => {
+    const wide = new Set((careerHonours(shiRows, 3).by.get(23) || []).map(c => c.tmt.code));
+    return (careerHonours(shiRows, 0).by.get(23) || []).every(c => wide.has(c.tmt.code));
+  })());
+check('at titles only, nothing below a win is left anywhere',
+  [...careerHonours(shiRows, 0).by.values()].every(l => l.every(c => c.info.label === 'W')));
+
+/* The distinction the whole ghost square exists for. Both his Olympics were
+   quarter-finals, so at F+ the row is empty — and "went twice and never made a
+   final" is not the same claim as "never went", which is what an empty row
+   would otherwise be taken for. */
+const shiF = careerHonours(shiRows, 1);
+eq('at F+ his Olympic row is empty', (shiF.by.get('OLY') || []).length, 0);
+eq('but the entry count still says he was there twice', shiF.entries.get('OLY'), 2);
+
+check('entries never undercount the honours, at any bar',
+  HONOUR_STEPS.every(s => {
+    const h = careerHonours(shiRows, s.rank);
+    return [...h.by].every(([g, list]) => list.length <= h.entries.get(g));
+  }));
+check('and entries do not move when the bar does',
+  HONOUR_STEPS.every(s =>
+    careerHonours(shiRows, s.rank).entries.get(23) === shiH.entries.get(23)));
+
+/* ---- the rows to draw ---- */
+
+const shiBoard = honourSections([shiH]);
+const bothBoard = honourSections([shiH, anH]);
+const groups = b => b.map(s => s.group);
+
+check('the rows run hardest first, in the grid\'s own order',
+  (() => {
+    const want = GRID_ORDER.filter(g => groups(shiBoard).includes(g));
+    return want.join(',') === groups(shiBoard).join(',');
+  })(), groups(shiBoard).join(' '));
+
+check('SHI Yu Qi has never entered a Super 100, so he has no such row',
+  !groups(shiBoard).includes(27));
+check('but comparing him with somebody who has gives them both one',
+  groups(bothBoard).includes(27));
+eq('and his half of it is empty', (shiH.by.get(27) || []).length, 0);
+eq('with nothing entered either — which is the other kind of empty',
+  shiH.entries.get(27) || 0, 0);
+
+check('every row either player has appears exactly once',
+  new Set(groups(bothBoard)).size === groups(bothBoard).length);
+const anBoard = honourSections([anH]);
+check('and the shared board is the union of the two',
+  [...groups(shiBoard), ...groups(anBoard)].every(g => groups(bothBoard).includes(g)));
+eq('and no wider than that union',
+  groups(bothBoard).length, new Set([...groups(shiBoard), ...groups(anBoard)]).size);
+
+check('a row carries the size its level earns, not one derived from the board',
+  bothBoard.every(s => s.scale === honourScale(s.group)));
+check('so switching a level off cannot resize the ones left',
+  honourSections([shiH]).find(s => s.group === 23).scale
+  === bothBoard.find(s => s.group === 23).scale);
+
+eq('the count on a row is the most either player has, so the two line up',
+  bothBoard.find(s => s.group === 23).n,
+  Math.max((shiH.by.get(23) || []).length, (anH.by.get(23) || []).length));
+
+/* ---- nothing at all ---- */
+
+eq('a career of nothing is an empty board', honourSections([]).length, 0);
+eq('and honours out of nothing is an empty map', careerHonours(null, 3).by.size, 0);
+eq('with nothing entered', careerHonours(undefined, 3).entries.size, 0);
 
 process.exit(report());

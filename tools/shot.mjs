@@ -24,6 +24,8 @@ const DEFAULTS = [
   ['doubles', '#p=72885&k=doubles'],      // a player who plays both
   ['grid', '#p=57945&g=1'],               // the same career as a grid
   ['compare', '#p=57945&g=1&c=87442'],    // two careers side by side
+  ['honours', '#p=57945&g=1&v=h'],        // the same career as an honours board
+  ['honours2', '#p=57945&g=1&v=h&c=87442'],   // two boards across the spine
 ];
 
 /** The grid is a modal and needs the width; the strip does not. */

@@ -98,13 +98,35 @@ See `HANDOVER.md` Part 1.1b for what this layout gives up — a cell no longer s
 tournament without hovering it — and 2.9 for why the first attempt, a column per
 tournament, did not survive contact with 2021.
 
+## The honours board
+
+The same popup, switched to **Honours**. This one has no seasons in it at all: one row per
+level, hardest at the top, holding every result in the career that reached at least a
+**quarter-final** — the bar moves to SF+, F+ or W. Everything below it is simply not drawn.
+
+The rows are different sizes, and that is the whole idea. Each row up has **φ times the
+area** of the row below, so an Olympic square is about nine Super 100 squares and a career
+reads as a shape rather than a list. It is the golden ratio applied to area rather than to
+side: ten levels at φ per *side* would make the top row 76 times the bottom, which is one
+square and some dust. `HANDOVER.md` 2.10 has the table.
+
+An empty row is a claim too, and there are two different ones. Hovering says which: `26
+entered, none at QF+`, or `never played at this level`.
+
+**Compare with…** mirrors the board about a centre line — left player reversed and
+right-aligned — so the best results of each meet in the middle and the two shapes face each
+other. Shi Yu Qi against An Se Young at QF+ is the case it was built for: his Super 1000 row
+runs out to yellow, hers is a wall of dark green.
+
+The bar is in the link because it is part of what the board says. The zoom is not.
+
 ## Where things are
 
 | File | What it is |
 |---|---|
 | `model.js` | Pure logic: levels, weights, positions, the ladder and fill, name tidying, season parsing. No browser globals, so the tests import it straight into Node |
 | `api.js` | The request layer: two-lane queue, 320ms pacing, TTL cache, one retry. Also player search, rankings, and the URLs for BWF's flags and photographs |
-| `app.js` | The views: the strip, the discipline toggle, the level filters, the year stepper, and the grid/compare modal |
+| `app.js` | The views: the strip, the discipline toggle, the level filters, the year stepper, and the modal that holds the grid, the honours board and the comparison |
 | `serve.mjs` | Static server for local development |
 | `HANDOVER.md` | The design and engineering brief. Read it before changing anything: the weighting, the doubles model and the API traps are all settled there, several of them by testing |
 
