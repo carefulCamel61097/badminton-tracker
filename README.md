@@ -61,7 +61,7 @@ lose them entirely. See `HANDOVER.md` Part 2.6.
 
 ## The grid
 
-The seasons again, read the other way round, in a popup from **Grid & compare**. Rows are
+The seasons again, read the other way round, from **Grid** in the hero. Rows are
 still seasons. Columns are **levels**, not tournaments: each level gets a block of slots,
 and a season's results at that level fill it **left to right, best first**. Four Super 1000
 slots read `W W W SF` for Shi Yu Qi in 2025 and `F QF R16 R32` in 2026. Unplayed slots pad
@@ -100,7 +100,7 @@ tournament, did not survive contact with 2021.
 
 ## The honours board
 
-The same popup, switched to **Honours**. This one has no seasons in it at all: one row per
+**Honours** in the hero, beside Grid. This one has no seasons in it at all: one row per
 level, hardest at the top, holding every result in the career that reached at least a
 **semi-final** — the bar moves to QF+, F+ or W. Everything below it is simply not drawn.
 
@@ -128,6 +128,11 @@ out to yellow, hers is a wall of dark green — and at **W** his Olympic row is 
 hers holds Paris.
 
 The bar is in the link because it is part of what the board says. The zoom is not.
+
+The board is deliberately **not** what you land on. It is superb for the very best players
+and it collapses for everyone else — a working professional at world #22 is seven squares
+and eight empty rows, which is true and looks like a bug. The strip is the only view that
+always has something to say, so that is the one a player opens on.
 
 ## Where things are
 

@@ -526,8 +526,15 @@ check('SHI Yu Qi loads', await open('#p=57945'));
 check('the grid is shut until it is asked for',
   await b.ev(`!document.getElementById('gridModal').hasAttribute('open')`));
 
-await b.ev(`document.getElementById('gridBtn').click()`);
-check('the button opens it', await b.ev('window.BST.grid.isOpen()'));
+/* All three readings are named in the hero. The grid and the board used to be
+   behind one button labelled "Grid & compare", which named neither of them. */
+const picks = await b.ev(`[...document.querySelectorAll('#viewPick [data-open]')]
+  .map(b => b.dataset.open + (b.classList.contains('on') ? '*' : ''))`);
+eq('the hero offers all three views by name', picks.join(' '), 'seasons* grid honours');
+
+await b.ev(`document.querySelector('#viewPick [data-open="grid"]').click()`);
+check('the grid button opens the grid', await b.ev('window.BST.grid.isOpen()'));
+eq('and the hero says so', await b.ev(`window.BST.honours.view()`), 'grid');
 
 const sections = await b.ev('window.BST.grid.sections()');
 const gYears = await b.ev('window.BST.grid.years()');
@@ -1015,6 +1022,23 @@ check('which takes the board out of the link',
   await b.ev(`!location.hash.includes('v=h')`), await b.ev('location.hash'));
 await b.ev(`document.getElementById('gridClose').click()`);
 check('and the modal closes on either view', await b.ev(`!window.BST.grid.isOpen()`));
+check('which puts the hero back on the seasons',
+  await b.ev(`document.querySelector('#viewPick [data-open="seasons"]')
+    .classList.contains('on')`));
+
+/* Straight to the board from the hero, without going through the grid first —
+   the whole point of naming it out there. */
+await b.ev(`document.querySelector('#viewPick [data-open="honours"]').click()`);
+check('the honours button opens the board directly',
+  await b.ev(`window.BST.grid.isOpen() && window.BST.honours.view() === 'honours'`));
+check('and the hero follows it',
+  await b.ev(`document.querySelector('#viewPick [data-open="honours"]')
+    .classList.contains('on')`));
+check('the slider is pointed at the board, not the grid',
+  await b.ev(`Number(document.getElementById('gridZoom').max) === 16`),
+  await b.ev(`document.getElementById('gridZoom').max`));
+await b.ev(`document.querySelector('#viewPick [data-open="seasons"]').click()`);
+check('and seasons closes it again', await b.ev(`!window.BST.grid.isOpen()`));
 
 /* ============================ the disclaimer ============================ */
 

@@ -73,8 +73,8 @@ New on top of it:
 ### 1.1b Career grid (the simpler reading)
 
 *Added 22 Aug 2026, layout revised the same day.* A second view of the same career, opened
-as a modal from the season strip, that deliberately throws away everything the strip spends
-its detail on.
+from **Grid** in the hero, that deliberately throws away everything the strip spends its
+detail on.
 
 - **Rows are seasons**, newest at the top, same as the strip.
 - **Columns are levels, not tournaments.** Each level gets a **block** of slots, and a
@@ -124,8 +124,9 @@ The comparison is in the hash (`&g=1&c=87442`), so a side-by-side is a link.
 ### 1.1c Honours board (what they have actually done)
 
 *Added 22 Aug 2026.* The third view of the same career, and the only one **not organised by
-season**. Shares the modal, the level chips, the discipline toggle and the comparison with
-the grid; switch between them with the Grid / Honours segmented control.
+season**. Opened from **Honours** in the hero. Shares the modal, the level chips, the
+discipline toggle and the comparison with the grid; switch between them without closing
+using the Grid / Honours control in the modal header.
 
 - **Rows are levels**, hardest at the top, in the same order as the grid's blocks.
 - **Only results at or above a bar.** Default **SF+**, with QF+, F+ and W as the other
@@ -153,6 +154,16 @@ they ask how good a player is. The board answers *what have they actually done*.
 against An Se Young at QF+ is the case that justifies it — his Super 1000 row is a gradient
 running out to yellow, hers is a wall of dark green, and no reading of either season strip
 gets you there as fast.
+
+⚠️ **The board is not the landing view, and should not become one.** It was proposed as the
+default on 22 Aug 2026 and measured before deciding. It is magnificent for the handful of
+players it was built on — both of them world #1 — and it collapses for everyone else.
+**Christo POPOV**, a working professional at world MD #22 with eleven recorded seasons, is
+**seven squares and eight empty ghost rows** at SF+. That is a true statement about his
+career and it reads as a broken page. The strip is the only one of the three that always has
+something to say, so it stays the thing a reader lands on; the board is one visible click
+away instead of being the first impression. Re-open this only with a shot of a mid-table
+career that looks like a view rather than an error.
 
 ### 1.2 Tournament view (auto-following)
 

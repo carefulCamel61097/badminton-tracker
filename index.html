@@ -48,7 +48,11 @@
   <div class="heroctl">
     <span id="kindWrap" role="group" aria-label="discipline"></span>
     <label class="toggle"><input type="checkbox" id="sized" checked> Size by weight</label>
-    <button type="button" id="gridBtn" class="seg">Grid &amp; compare</button>
+    <span id="viewPick" class="kindwrap" role="group" aria-label="view">
+      <button type="button" class="seg on" data-open="seasons" aria-pressed="true">Seasons</button>
+      <button type="button" class="seg" data-open="grid" aria-pressed="false">Grid</button>
+      <button type="button" class="seg" data-open="honours" aria-pressed="false">Honours</button>
+    </span>
   </div>
 </section>
 

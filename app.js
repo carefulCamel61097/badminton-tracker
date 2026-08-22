@@ -870,11 +870,31 @@ function renderGrid() {
   if (honours) renderHonoursBody(list); else renderGridBody(list);
 }
 
+/** Open the modal straight onto one of its two views. */
+function openGridOn(view) {
+  if (view !== grid.view) {
+    grid.view = view;
+    syncZoomControl();      // the slider means something else in each
+  }
+  openGrid();
+}
+
+/** Which of the three the hero says you are looking at. */
+function renderViewPick() {
+  const now = grid.open ? grid.view : 'seasons';
+  $('viewPick').querySelectorAll('[data-open]').forEach(b => {
+    const on = b.dataset.open === now;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+}
+
 function openGrid() {
   grid.open = true;
   const d = $('gridModal');
   if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute('open', ''); }
   renderGrid();
+  renderViewPick();
   writeHash();
 }
 
@@ -882,6 +902,7 @@ function closeGrid() {
   grid.open = false;
   const d = $('gridModal');
   if (d.close && d.open) d.close(); else d.removeAttribute('open');
+  renderViewPick();
   writeHash();
 }
 
@@ -1003,13 +1024,30 @@ for (const view of Object.keys(ZOOM)) {
 }
 syncZoomControl();
 
-$('gridBtn').addEventListener('click', openGrid);
+/* The three readings of a career, named and side by side.
+
+   This used to be one button saying "Grid & compare", which hid two views
+   behind a label that named neither of them — there was no way to find out the
+   honours board existed except by opening something else and noticing a tab.
+   Naming all three costs one row of the hero and makes the alternatives
+   visible from the view you are already in.
+
+   The strip stays the landing view. It is the only one of the three that always
+   has something to say: at SF+ a world #22 is seven squares and eight empty
+   rows, which is true and reads as a broken page. */
+$('viewPick').addEventListener('click', e => {
+  const b = e.target.closest('[data-open]');
+  if (!b) return;
+  if (b.dataset.open === 'seasons') closeGrid();
+  else openGridOn(b.dataset.open);
+});
 $('gridClose').addEventListener('click', closeGrid);
 // Escape, the backdrop and the close button all route through the same place,
 // so the hash cannot be left claiming the grid is open when it is not.
 $('gridModal').addEventListener('close', () => {
   if (!grid.open) return;
   grid.open = false;
+  renderViewPick();
   writeHash();
 });
 $('gridModal').addEventListener('click', e => {
@@ -1042,6 +1080,7 @@ function setGridView(view) {
   grid.view = view;
   syncZoomControl();     // the slider now means something else
   renderGrid();
+  renderViewPick();
   writeHash();
 }
 
