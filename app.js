@@ -770,14 +770,38 @@ function honourHalfUnits(sections, list) {
   return units;
 }
 
+/**
+ * The empty second slot.
+ *
+ * The page is called Compare and it should look like it even before anybody has
+ * been chosen — an empty seat is a much better instruction than a search box
+ * labelled "Compare with…" up in the header, which is where this used to live
+ * and where nobody found it.
+ *
+ * It focuses that search rather than containing it: the body is re-rendered on
+ * every keystroke of a career walk, and an input inside it would lose focus and
+ * its value each time.
+ */
+function addSlot(what) {
+  return `<button type="button" class="addslot" id="cmpAdd">`
+    + '<span class="plus">+</span>'
+    + `<span class="say">Compare with a second player</span>`
+    + `<span class="hint">their ${esc(what)} beside this one</span></button>`;
+}
+
 /** The profiles, on the same three columns as the rows so the spine runs true. */
 function honourHeads(list) {
   const heads = list.map((c, i) =>
     `<div class="hhead${list.length > 1 && i === 0 ? ' mirror' : ''}"`
     + ` data-player="${esc(c.id)}">${gridProfile(c)}</div>`);
-  return `<div class="hheads">${list.length > 1
+  // With one player the board below stays centred — the rows are the reading and
+  // half a board of nothing is not an improvement on all of it — but the seat
+  // beside them is still set, which is what says a second player can sit there.
+  const inner = list.length > 1
     ? heads[0] + '<span class="hlvl spacer"></span>' + heads[1]
-    : heads[0]}</div>`;
+    : heads[0] + '<span class="hlvl spacer"></span>'
+      + `<div class="hhead empty">${addSlot('board')}</div>`;
+  return `<div class="hheads two">${inner}</div>`;
 }
 
 function renderHonourMin() {
@@ -834,7 +858,10 @@ function renderGridBody(list) {
   body.classList.toggle('two', list.length > 1);
   // "Nothing is loaded yet" and "you have switched everything off" both leave no
   // sections, and they are not the same thing to be told.
-  body.innerHTML = shown.length ? list.map(c => gridCard(c, shown, years)).join('')
+  const cards = list.map(c => gridCard(c, shown, years)).join('')
+    + (list.length > 1 ? ''
+      : `<section class="gcard empty">${addSlot('grid')}</section>`);
+  body.innerHTML = shown.length ? cards
     : sections.length ? '<p class="gnote">Every level is switched off.</p>'
     : list.some(c => c.loading) ? '<p class="gnote">Loading the career…</p>'
     : '<p class="gnote">Nothing here reaches Super 100, which is where the grid starts.</p>';
@@ -870,41 +897,30 @@ function renderGrid() {
   if (honours) renderHonoursBody(list); else renderGridBody(list);
 }
 
-/** Open the modal straight onto one of its two views. */
-function openGridOn(view) {
-  if (view !== grid.view) {
-    grid.view = view;
-    syncZoomControl();      // the slider means something else in each
-  }
-  openGrid();
-}
-
-/** Which of the three the hero says you are looking at. */
+/** Which page the hero says you are on. */
 function renderViewPick() {
-  const now = grid.open ? grid.view : 'seasons';
-  $('viewPick').querySelectorAll('[data-open]').forEach(b => {
-    const on = b.dataset.open === now;
+  $('viewPick').querySelectorAll('[data-page]').forEach(b => {
+    const on = (b.dataset.page === 'compare') === grid.open;
     b.classList.toggle('on', on);
     b.setAttribute('aria-pressed', String(on));
   });
 }
 
-function openGrid() {
-  grid.open = true;
-  const d = $('gridModal');
-  if (!d.open) { if (d.showModal) d.showModal(); else d.setAttribute('open', ''); }
-  renderGrid();
+/* Two pages, one at a time. `grid.open` is now "the compare page is up" rather
+   than "a modal is showing", which is the same boolean meaning something more
+   respectable. */
+function showPage(compare) {
+  grid.open = compare;
+  $('seasonsPage').hidden = compare;
+  $('comparePage').hidden = !compare;
+  document.body.classList.toggle('oncompare', compare);
+  if (compare) renderGrid();
   renderViewPick();
   writeHash();
 }
 
-function closeGrid() {
-  grid.open = false;
-  const d = $('gridModal');
-  if (d.close && d.open) d.close(); else d.removeAttribute('open');
-  renderViewPick();
-  writeHash();
-}
+function openGrid() { showPage(true); }
+function closeGrid() { showPage(false); }
 
 /** Load a second whole career, rendering it into the grid as it arrives. */
 async function loadCompare(player) {
@@ -1036,24 +1052,8 @@ syncZoomControl();
    has something to say: at SF+ a world #22 is seven squares and eight empty
    rows, which is true and reads as a broken page. */
 $('viewPick').addEventListener('click', e => {
-  const b = e.target.closest('[data-open]');
-  if (!b) return;
-  if (b.dataset.open === 'seasons') closeGrid();
-  else openGridOn(b.dataset.open);
-});
-$('gridClose').addEventListener('click', closeGrid);
-// Escape, the backdrop and the close button all route through the same place,
-// so the hash cannot be left claiming the grid is open when it is not.
-$('gridModal').addEventListener('close', () => {
-  if (!grid.open) return;
-  grid.open = false;
-  renderViewPick();
-  writeHash();
-});
-$('gridModal').addEventListener('click', e => {
-  // A click on the dialog element itself is a click on the backdrop: the
-  // content is all in children.
-  if (e.target === $('gridModal')) closeGrid();
+  const b = e.target.closest('[data-page]');
+  if (b) showPage(b.dataset.page === 'compare');
 });
 
 $('gridGroups').addEventListener('click', e => {
@@ -1097,13 +1097,15 @@ $('honMin').addEventListener('click', e => {
   writeHash();
 });
 
-$('honBody').addEventListener('click', e => {
-  if (e.target.closest('#cmpDrop')) removeCompare();
-});
+function wireBody(id) {
+  $(id).addEventListener('click', e => {
+    if (e.target.closest('#cmpDrop')) removeCompare();
+    else if (e.target.closest('.addslot')) $('cmpQ').focus();
+  });
+}
+wireBody('honBody');
 
-$('gridBody').addEventListener('click', e => {
-  if (e.target.closest('#cmpDrop')) removeCompare();
-});
+wireBody('gridBody');
 
 /* ============================ player search ============================ */
 
@@ -1492,7 +1494,7 @@ window.BST = {
     compare: cmp,
     open: openGrid,
     close: closeGrid,
-    isOpen: () => grid.open && $('gridModal').hasAttribute('open'),
+    isOpen: () => grid.open && !$('comparePage').hidden && $('seasonsPage').hidden,
     /** The sections and their widths, as the render would compute them. */
     rows: () => careers().map(c => {
       const kind = gridKindFor(c.seasons);
@@ -1509,7 +1511,9 @@ window.BST = {
     drop: removeCompare,
     zoom: px => (px == null ? Number($('gridZoom').value) : (setZoom(px), Number($('gridZoom').value))),
     /** Every card on screen, as cells with their laid-out geometry. */
-    cards: () => [...document.querySelectorAll('.gcard')].map(card => ({
+    /* `:not(.empty)` — the seat waiting for a second player is not a career and
+       has no profile to read. */
+    cards: () => [...document.querySelectorAll('.gcard:not(.empty)')].map(card => ({
       player: card.dataset.player,
       name: card.querySelector('.who').textContent,
       tiers: [...card.querySelectorAll('.gt')].map(t => t.textContent),
@@ -1578,6 +1582,11 @@ window.BST = {
     /* Where the spine actually is. Measured off `.hboard` and not off the
        scroller around it: when the board is wider than the modal the two have
        different middles, and the line is drawn on the board. */
+    /** Is the second seat on screen, and empty? */
+    seat: () => {
+      const el = document.querySelector('#comparePage .addslot');
+      return el ? (el.textContent || '').replace(/\s+/g, ' ').trim() : null;
+    },
     spine: () => {
       const board = document.querySelector('#honBody .hboard');
       if (!board) return null;
@@ -1585,7 +1594,7 @@ window.BST = {
       return Math.round((r.left + r.width / 2) * 10) / 10;
     },
     order: () => GRID_ORDER,
-    heads: () => [...document.querySelectorAll('#honBody .hhead')].map(h => ({
+    heads: () => [...document.querySelectorAll('#honBody .hhead:not(.empty)')].map(h => ({
       player: h.dataset.player,
       name: (h.querySelector('.who') || {}).textContent || '',
       mirrored: h.classList.contains('mirror'),

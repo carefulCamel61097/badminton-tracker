@@ -46,15 +46,16 @@
     </p>
   </div>
   <div class="heroctl">
-    <span id="kindWrap" role="group" aria-label="discipline"></span>
-    <label class="toggle"><input type="checkbox" id="sized" checked> Size by weight</label>
-    <span id="viewPick" class="kindwrap" role="group" aria-label="view">
-      <button type="button" class="seg on" data-open="seasons" aria-pressed="true">Seasons</button>
-      <button type="button" class="seg" data-open="grid" aria-pressed="false">Grid</button>
-      <button type="button" class="seg" data-open="honours" aria-pressed="false">Honours</button>
+    <span id="kindWrap" class="seasonsonly" role="group" aria-label="discipline"></span>
+    <label class="toggle seasonsonly"><input type="checkbox" id="sized" checked> Size by weight</label>
+    <span id="viewPick" class="kindwrap" role="group" aria-label="page">
+      <button type="button" class="seg on" data-page="seasons" aria-pressed="true">Seasons</button>
+      <button type="button" class="seg" data-page="compare" aria-pressed="false">Compare</button>
     </span>
   </div>
 </section>
+
+<section id="seasonsPage">
 
 <div class="chiprow"><span class="lbl">Seasons</span>
   <div id="years" class="chips" role="group" aria-label="seasons"></div>
@@ -76,26 +77,16 @@
 <div id="seasons" class="seasons"></div>
 <p id="empty" class="empty" hidden></p>
 
-<footer class="foot">
-  <p>
-    <strong>Unofficial · data from BWF.</strong>
-    All data, photographs and flags come from
-    <a href="https://bwfbadminton.com/" target="_blank" rel="noopener">BWF</a>
-    and belong to them. This is a fan tool, not affiliated with or endorsed by BWF.
-    Each square links back to that tournament's page on their site.
-  </p>
-  <details id="rawWrap">
-    <summary>The seasons as data</summary>
-    <pre id="raw"></pre>
-  </details>
-</footer>
+</section>
 
-<!-- The same seasons re-indexed by level: a row per year, a block of slots per
-     level, filled best-first, every cell the same size and flooded solid. A
-     modal because it is a second reading of what is already on the page, not a
-     second page. -->
-<dialog id="gridModal" class="modal" aria-labelledby="gridTitle">
-  <header class="modalhead">
+
+<!-- The second page. Two readings of a career that the strip cannot give —
+     re-indexed by season and level (the grid), or by level alone (the board) —
+     and, either way, room for a second player beside the first. It is a page
+     rather than a modal because comparing is a thing you come here to do, not a
+     detail you peek at and dismiss. -->
+<section id="comparePage" class="page" aria-labelledby="gridTitle" hidden>
+  <header class="pagehead">
     <h2 id="gridTitle">Career grid</h2>
 
     <span id="gridView" class="kindwrap" role="group" aria-label="view">
@@ -117,8 +108,6 @@
              aria-expanded="false" aria-controls="cmpSuggest" aria-autocomplete="list">
       <ul id="cmpSuggest" class="suggest" role="listbox" aria-label="player suggestions" hidden></ul>
     </form>
-
-    <button type="button" id="gridClose" class="seg close" aria-label="close">✕</button>
   </header>
 
   <div class="chiprow"><span class="lbl">Levels</span>
@@ -164,7 +153,21 @@
     players mirrors the board about the centre line, so the best results of each
     meet in the middle.
   </p>
-</dialog>
+</section>
+
+<footer class="foot">
+  <p>
+    <strong>Unofficial · data from BWF.</strong>
+    All data, photographs and flags come from
+    <a href="https://bwfbadminton.com/" target="_blank" rel="noopener">BWF</a>
+    and belong to them. This is a fan tool, not affiliated with or endorsed by BWF.
+    Each square links back to that tournament's page on their site.
+  </p>
+  <details id="rawWrap">
+    <summary>The seasons as data</summary>
+    <pre id="raw"></pre>
+  </details>
+</footer>
 
 <script type="module" src="app.js"></script>
 </body>

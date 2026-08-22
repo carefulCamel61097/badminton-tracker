@@ -72,9 +72,9 @@ New on top of it:
 
 ### 1.1b Career grid (the simpler reading)
 
-*Added 22 Aug 2026, layout revised the same day.* A second view of the same career, opened
-from **Grid** in the hero, that deliberately throws away everything the strip spends its
-detail on.
+*Added 22 Aug 2026, layout revised the same day.* One of the two readings on the **Compare**
+page (1.1d), and one that deliberately throws away everything the strip spends its detail
+on.
 
 - **Rows are seasons**, newest at the top, same as the strip.
 - **Columns are levels, not tournaments.** Each level gets a **block** of slots, and a
@@ -124,9 +124,9 @@ The comparison is in the hash (`&g=1&c=87442`), so a side-by-side is a link.
 ### 1.1c Honours board (what they have actually done)
 
 *Added 22 Aug 2026.* The third view of the same career, and the only one **not organised by
-season**. Opened from **Honours** in the hero. Shares the modal, the level chips, the
-discipline toggle and the comparison with the grid; switch between them without closing
-using the Grid / Honours control in the modal header.
+season**. The other reading on the **Compare** page (1.1d). Shares the page, the level chips,
+the discipline toggle and the second player with the grid; switch between them with the
+Grid / Honours control in the page header.
 
 - **Rows are levels**, hardest at the top, in the same order as the grid's blocks.
 - **Only results at or above a bar.** Default **SF+**, with QF+, F+ and W as the other
@@ -164,6 +164,37 @@ career and it reads as a broken page. The strip is the only one of the three tha
 something to say, so it stays the thing a reader lands on; the board is one visible click
 away instead of being the first impression. Re-open this only with a shot of a mid-table
 career that looks like a view rather than an error.
+
+### 1.1d Two pages: Seasons and Compare
+
+*Restructured 23 Aug 2026.* The app is two pages, switched from the hero:
+
+- **Seasons** — the strip. The landing page, and the only one that always has something to
+  say (see the warning in 1.1c).
+- **Compare** — the grid or the board, for one player or two, with the levels, the
+  discipline, the bar and the zoom in its own header.
+
+The grid and the board **used to be a modal**, reached by a button labelled "Grid & compare"
+that named neither of them. Two things were wrong with that and only one was discoverability:
+a modal says *glance and dismiss*, and comparing two careers is a thing you come to the app
+to do. It is a page now. `#seasonsPage` and `#comparePage` swap on `hidden`; the hero's
+`.seasonsonly` controls — "Size by weight", the discipline toggle — go with the strip,
+because they govern a square the compare page does not draw.
+
+**The empty seat.** With one player loaded, the compare page draws a dashed
+`+ Compare with a second player` slot beside them — an empty grid card, or the right-hand
+half of the board's profile row. The search that actually loads them stays in the page
+header and the seat focuses it, because the body is re-rendered on every season of a career
+walk and an input living inside it would lose focus and its value each time.
+
+⚠️ The seat is **not** a career: `.gcard.empty` and `.hhead.empty` are excluded from the
+`cards()` and `heads()` test seams by `:not(.empty)`. The first version was not, and every
+grid assertion in the suite broke at once on `card.querySelector('.who').textContent`.
+
+With one player the board's **rows stay centred** and only the profile row splits in two.
+Right-aligning a single career against a spine to make room for nobody wastes half the width
+and looks like a bug rather than an invitation — the seat beside the profile says the same
+thing at a fraction of the cost.
 
 ### 1.2 Tournament view (auto-following)
 
@@ -674,7 +705,7 @@ consequences worth keeping:
   what was painted.
 
 ⚠️ An earlier version sized the halves with a plain `1fr` and clipped. **An Se Young has
-twenty Super 1000 results at QF+**, which is wider than half a 1800px modal at any
+twenty Super 1000 results at QF+**, which is wider than half a 1800px page at any
 comfortable base, and the twentieth was silently cut off — the one failure mode a view about
 *how much* cannot have. The end-to-end suite now asserts `scrollWidth <= clientWidth` for
 every half. The honours default base is **8**, the largest that fits the two longest careers
@@ -682,7 +713,7 @@ in the data side by side on a 1440-wide screen — measured at QF+, the *widest*
 moving the bar can never introduce a scrollbar.
 
 The spine hangs off `.hboard`, not off the scroller, so `left: 50%` stays true when the
-board is wider than the modal.
+board is wider than the page.
 
 ### 2.11 The Continentals share the Super 1000 rung — settled 22 Aug 2026
 
@@ -1039,7 +1070,11 @@ the picture looks exactly like a modal that failed to open, and the obvious next
 go debugging the app. Cost about ten minutes on 22 Aug 2026; the dialog was open the whole
 time, with two cards rendered in it.
 
-Capture a modal **without** `captureBeyondViewport` and clip to the viewport. `shot.mjs`
+*(No longer live here — the modal became a page on 23 Aug 2026, see 1.1d — but keep the
+lesson: it applies to any `<dialog>`, `popover`, or anything else in the top layer.)*
+
+Capture a top-layer element **without** `captureBeyondViewport` and clip to the viewport.
+`shot.mjs`
 picks per shot: the season strip needs the whole document, the grid does not.
 
 ### 4.5 Name handling
@@ -1069,7 +1104,7 @@ BWF spaces the estimates a flat 50 minutes apart and they are not real.
 ⚠️ The `hidden` attribute is only a **user-agent** `display: none`, so *any* author rule
 that sets `display` outranks it. This sheet sets `display` on nearly everything, so
 `el.hidden = true` was a no-op on `.legend` (flex), `.kindwrap` (inline-flex) and
-`.gridbody` (flex). Switching the modal to the honours board left the grid's legend and its
+`.gridbody` (flex). Switching to the honours board left the grid's legend and its
 explanatory note sitting underneath the board, describing a view that was not on screen —
 and would have left the whole grid visible had it been rendered.
 
@@ -1122,7 +1157,7 @@ using the global `WebSocket`. Deployed on GitHub Pages. This worked well — kee
    stylesheet cannot quietly override the settled sizes.
 3. ~~**Player selection.**~~ **Done 21 Aug 2026.** Type-ahead over
    `vue-popular-players`, debounced, newest-keystroke-wins. Recently-viewed is still open.
-3b. ~~**Career grid + compare.**~~ **Done 22 Aug 2026.** The modal grid of Part 1.1b, its
+3b. ~~**Career grid + compare.**~~ **Done 22 Aug 2026.** The grid of Part 1.1b, its
    block model in `model.js` (Part 2.9), a zoom slider, and two careers side by side
    sharing one set of blocks. Built twice: the first layout gave every tournament its own
    column and did not survive 2021 — see 1.1b. The type-ahead was made a factory at this

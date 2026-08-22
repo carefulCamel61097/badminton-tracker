@@ -524,17 +524,23 @@ check('and no other row in her career repeats a label either',
 
 check('SHI Yu Qi loads', await open('#p=57945'));
 check('the grid is shut until it is asked for',
-  await b.ev(`!document.getElementById('gridModal').hasAttribute('open')`));
+  await b.ev(`document.getElementById('comparePage').hidden
+    && !document.getElementById('seasonsPage').hidden`));
 
-/* All three readings are named in the hero. The grid and the board used to be
-   behind one button labelled "Grid & compare", which named neither of them. */
-const picks = await b.ev(`[...document.querySelectorAll('#viewPick [data-open]')]
-  .map(b => b.dataset.open + (b.classList.contains('on') ? '*' : ''))`);
-eq('the hero offers all three views by name', picks.join(' '), 'seasons* grid honours');
+/* Two pages, named in the hero. This used to be one button labelled
+   "Grid & compare", which named neither of the things behind it. */
+const picks = await b.ev(`[...document.querySelectorAll('#viewPick [data-page]')]
+  .map(b => b.dataset.page + (b.classList.contains('on') ? '*' : ''))`);
+eq('the hero offers two pages by name', picks.join(' '), 'seasons* compare');
 
-await b.ev(`document.querySelector('#viewPick [data-open="grid"]').click()`);
-check('the grid button opens the grid', await b.ev('window.BST.grid.isOpen()'));
-eq('and the hero says so', await b.ev(`window.BST.honours.view()`), 'grid');
+await b.ev(`document.querySelector('#viewPick [data-page="compare"]').click()`);
+check('the compare button opens the second page', await b.ev('window.BST.grid.isOpen()'));
+check('and the strip steps aside rather than sitting behind it',
+  await b.ev(`document.getElementById('seasonsPage').hidden
+    && !document.getElementById('comparePage').hidden`));
+check('the controls that only govern the strip go with it',
+  await b.ev(`[...document.querySelectorAll('.heroctl .seasonsonly')]
+    .every(el => el.offsetParent === null)`));
 
 const sections = await b.ev('window.BST.grid.sections()');
 const gYears = await b.ev('window.BST.grid.years()');
@@ -542,6 +548,11 @@ const cards = await b.ev('window.BST.grid.cards()');
 const width = sections.reduce((a, s) => a + s.n, 0);
 
 eq('one card, for one player', cards.length, 1);
+/* The page is called Compare and says so before anybody has been chosen. The
+   search box in the header said the same thing and nobody read it. */
+check('with an empty seat beside it, inviting the second',
+  /Compare with a second player/.test(await b.ev('window.BST.honours.seat()') || ''),
+  await b.ev('window.BST.honours.seat()'));
 eq('a row per season', cards[0].years.length, gYears.length);
 eq('newest at the top, the same way round as the strip',
   cards[0].years[0] > cards[0].years[cards[0].years.length - 1], true);
@@ -725,9 +736,9 @@ eq('and it can be dropped again', (await b.ev('window.BST.grid.cards()')).length
 check('which takes it back out of the link',
   await b.ev(`!location.hash.includes('c=')`), await b.ev('location.hash'));
 
-await b.ev(`document.getElementById('gridClose').click()`);
-check('the grid closes', await b.ev(`!window.BST.grid.isOpen()`));
-check('and the strip underneath is untouched', (await squares(2026)).length > 0);
+await b.ev(`document.querySelector('#viewPick [data-page="seasons"]').click()`);
+check('the seasons button brings the strip back', await b.ev(`!window.BST.grid.isOpen()`));
+check('and it is untouched', (await squares(2026)).length > 0);
 
 /* ============================ the honours board ============================
 
@@ -1020,25 +1031,23 @@ check('the switch goes back to the grid',
     && document.getElementById('honBody').offsetParent === null`));
 check('which takes the board out of the link',
   await b.ev(`!location.hash.includes('v=h')`), await b.ev('location.hash'));
-await b.ev(`document.getElementById('gridClose').click()`);
-check('and the modal closes on either view', await b.ev(`!window.BST.grid.isOpen()`));
+/* Left on the board, so coming back should land on the board — leaving a page
+   is not the same as resetting it. */
+await b.ev(`window.BST.honours.view('honours')`);
+await b.ev(`document.querySelector('#viewPick [data-page="seasons"]').click()`);
+check('and the page can be left from either view', await b.ev(`!window.BST.grid.isOpen()`));
 check('which puts the hero back on the seasons',
-  await b.ev(`document.querySelector('#viewPick [data-open="seasons"]')
+  await b.ev(`document.querySelector('#viewPick [data-page="seasons"]')
     .classList.contains('on')`));
-
-/* Straight to the board from the hero, without going through the grid first —
-   the whole point of naming it out there. */
-await b.ev(`document.querySelector('#viewPick [data-open="honours"]').click()`);
-check('the honours button opens the board directly',
+check('and the strip is showing again',
+  await b.ev(`!document.getElementById('seasonsPage').hidden`));
+await b.ev(`document.querySelector('#viewPick [data-page="compare"]').click()`);
+check('going back to compare returns to the view you left it on',
   await b.ev(`window.BST.grid.isOpen() && window.BST.honours.view() === 'honours'`));
-check('and the hero follows it',
-  await b.ev(`document.querySelector('#viewPick [data-open="honours"]')
-    .classList.contains('on')`));
-check('the slider is pointed at the board, not the grid',
+check('with the slider still pointed at the board',
   await b.ev(`Number(document.getElementById('gridZoom').max) === 16`),
   await b.ev(`document.getElementById('gridZoom').max`));
-await b.ev(`document.querySelector('#viewPick [data-open="seasons"]').click()`);
-check('and seasons closes it again', await b.ev(`!window.BST.grid.isOpen()`));
+await b.ev(`document.querySelector('#viewPick [data-page="seasons"]').click()`);
 
 /* ============================ the disclaimer ============================ */
 

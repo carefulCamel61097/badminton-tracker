@@ -28,7 +28,7 @@ const DEFAULTS = [
   ['honours2', '#p=57945&g=1&v=h&c=87442'],   // two boards across the spine
 ];
 
-/** The grid is a modal and needs the width; the strip does not. */
+/** The compare page is wide; the strip is not. */
 const wide = hash => /(^|&)g=1/.test(hash);
 
 const args = process.argv.slice(2).filter(a => a.startsWith('#'));
