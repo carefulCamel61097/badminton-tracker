@@ -1287,3 +1287,200 @@ export function honourSections(perCareer) {
     scale: honourScale(g),
   }));
 }
+
+/* ============================ the tournament now ============================
+
+   The third page: whatever tournament is on, and its order of play, without
+   anybody having to pick one.
+
+   `vue-tmt-schedule` hands back three tournaments — the one with live scores,
+   the one before it, the one after — each with BWF's own label ("Live Scores!",
+   "View Results", "View Draws"). Everything below turns those into "which one
+   should be on screen, and which day of it".
+
+   ⚠️ **Today is a parameter, never `new Date()`.** Everything here is decided
+   by comparing dates, and a function that reads the clock itself cannot be
+   tested against a recorded fixture: the fixture pins August 2026 and the clock
+   does not. The app passes the real date in one place.
+   ==================================================================== */
+
+/** The date part of any of BWF's timestamps, which are `YYYY-MM-DD HH:MM:SS`. */
+export function dayOf(when) {
+  const s = String(when || '');
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : null;
+}
+
+/** Days are compared as strings — ISO dates sort correctly and never drift. */
+const within = (day, from, to) => !!(day && from && to && day >= from && day <= to);
+
+/**
+ * Which tournament to show, and what state it is in.
+ *
+ * Preference is live, then whichever of the upcoming pair starts soonest, then
+ * the one that just finished. `nextLive` and `nextTmt` are usually the same
+ * event but need not be: `nextLive` is the next one with **live scores**, which
+ * can be further out than the next one on the calendar.
+ *
+ * @param {object} schedule  the `vue-tmt-schedule` payload
+ * @param {string} today     `YYYY-MM-DD`
+ * @returns {{tmt: object, state: 'live'|'upcoming'|'finished'}|null}
+ */
+export function pickTournament(schedule, today) {
+  const s = schedule || {};
+  const at = t => (t ? { from: dayOf(t.start_date), to: dayOf(t.end_date) } : null);
+
+  for (const t of [s.nextLive, s.nextTmt, s.previousTmt]) {
+    const d = at(t);
+    if (d && within(today, d.from, d.to)) return { tmt: t, state: 'live' };
+  }
+
+  const soonest = [s.nextLive, s.nextTmt]
+    .filter(t => t && dayOf(t.start_date) && dayOf(t.start_date) > today)
+    .sort((a, b) => (dayOf(a.start_date) < dayOf(b.start_date) ? -1 : 1))[0];
+  if (soonest) return { tmt: soonest, state: 'upcoming' };
+
+  if (s.previousTmt) return { tmt: s.previousTmt, state: 'finished' };
+  // Nothing live and nothing ahead: whatever there is beats an empty page.
+  const any = [s.nextLive, s.nextTmt].find(Boolean);
+  return any ? { tmt: any, state: 'finished' } : null;
+}
+
+/** Every day of a tournament, first to last. */
+export function tournamentDays(tmt) {
+  const from = dayOf(tmt && tmt.start_date);
+  const to = dayOf(tmt && tmt.end_date);
+  if (!from || !to || to < from) return from ? [from] : [];
+  const out = [];
+  // Stepped in UTC so a local daylight-saving jump cannot skip or repeat a day.
+  for (let t = Date.parse(from + 'T00:00:00Z'); ; t += 86400000) {
+    const day = new Date(t).toISOString().slice(0, 10);
+    out.push(day);
+    if (day >= to || out.length > 60) break;
+  }
+  return out;
+}
+
+/**
+ * Which day to open on: today if the tournament is on, otherwise the day with
+ * something to show — the last one for a tournament that has finished, the
+ * first for one that has not started.
+ */
+export function defaultDay(tmt, state, today) {
+  const days = tournamentDays(tmt);
+  if (!days.length) return null;
+  if (days.includes(today)) return today;
+  return state === 'upcoming' ? days[0] : days[days.length - 1];
+}
+
+/* ---------- one match ---------- */
+
+const SIDE_KEYS = ['team1', 'team2'];
+
+function side(team, seed) {
+  const t = team || {};
+  return {
+    country: t.countryCode || '',
+    flag: t.countryFlagUrl || '',
+    seed: seed == null || seed === '' ? null : String(seed),
+    players: ((t.players || []).map(p => ({
+      id: p.id != null ? String(p.id) : null,
+      name: p.nameDisplay || [p.firstName, p.lastName].filter(Boolean).join(' '),
+    }))).filter(p => p.name),
+  };
+}
+
+/**
+ * A match, normalised.
+ *
+ * `winner` is 1, 2, or 0 for not yet. A finished match reports
+ * `matchStatusValue: "Finished"`; one that has not started has an empty
+ * `score`. Anything between the two is being played — read that way round
+ * rather than by matching a "live" string, because this project has never seen
+ * one and guessing its spelling would fail silently.
+ */
+export function parseMatch(m) {
+  const raw = m || {};
+  const games = (raw.score || [])
+    .filter(g => g && (g.home != null || g.away != null))
+    .map(g => ({ a: Number(g.home) || 0, b: Number(g.away) || 0 }));
+  const winner = Number(raw.winner) || 0;
+  const finished = winner > 0 || raw.matchStatusValue === 'Finished';
+  /* ⚠️ Not every finished match has a score. `scoreStatusValue` is one of
+     Normal, **Walkover** or **Retired**: a walkover has no games at all and a
+     retirement has however many were played. Both were on court at the 2026
+     Worlds inside a single day, so this is ordinary, not exotic — and without
+     it a walkover draws as a finished match with a blank scoreline, which
+     reads as a bug in the app rather than a fact about the match. */
+  const note = raw.scoreStatusValue && raw.scoreStatusValue !== 'Normal'
+    ? String(raw.scoreStatusValue) : '';
+
+  return {
+    id: raw.id != null ? String(raw.id) : '',
+    draw: raw.drawName || raw.eventName || '',
+    round: raw.roundName || '',
+    court: raw.courtName || '',
+    courtCode: raw.courtCode != null ? String(raw.courtCode) : '',
+    // BWF's own words for when it starts: "Starting at 1:00 PM" on the first
+    // match of a court and "Followed by" on every one after it. Its per-match
+    // times are flat 50-minute estimates (Part 4.7) and are not shown.
+    oop: raw.oopText || '',
+    sides: SIDE_KEYS.map((k, i) => side(raw[k], raw[`team${i + 1}seed`])),
+    winner,
+    status: finished ? 'finished' : games.length ? 'live' : 'upcoming',
+    games,
+    note,
+    duration: Number(raw.duration) || null,
+  };
+}
+
+/** `day-matches` is a plain array, already in the order of play. */
+export function parseDayMatches(payload) {
+  const rows = Array.isArray(payload) ? payload
+    : (payload && Array.isArray(payload.results)) ? payload.results
+    : (payload && typeof payload === 'object') ? Object.values(payload) : [];
+  return rows.filter(r => r && typeof r === 'object' && r.team1).map(parseMatch);
+}
+
+/** "Court 10" after "Court 2", not before it. */
+export function courtOrder(name) {
+  const n = parseInt(String(name == null ? '' : name).replace(/\D+/g, ''), 10);
+  return Number.isFinite(n) ? n : 9999;
+}
+
+/**
+ * The day laid out by court: one column per court, matches down it in the
+ * order they will be played.
+ *
+ * ⚠️ The **array order is the order of play** and is preserved as given. Do not
+ * sort on the times — Part 4.7.
+ */
+export function orderOfPlay(matches) {
+  const by = new Map();
+  for (const m of matches || []) {
+    const key = m.court || '—';
+    if (!by.has(key)) by.set(key, []);
+    by.get(key).push(m);
+  }
+  return [...by.entries()]
+    .map(([court, list]) => ({ court, matches: list }))
+    .sort((a, b) => courtOrder(a.court) - courtOrder(b.court));
+}
+
+/** The draws present on a day, in the usual MS/WS/MD/WD/XD order. */
+const DRAW_ORDER = ['MS', 'WS', 'MD', 'WD', 'XD'];
+export function drawsPresent(matches) {
+  const seen = new Set((matches || []).map(m => m.draw).filter(Boolean));
+  const known = DRAW_ORDER.filter(d => seen.has(d));
+  const rest = [...seen].filter(d => !DRAW_ORDER.includes(d)).sort();
+  return [...known, ...rest];
+}
+
+/** How a finished match reads: "21-14 14-21 21-19", winner's score first. */
+export function scoreLine(match) {
+  if (!match || !match.games.length) return '';
+  const flip = match.winner === 2;
+  return match.games
+    .map(g => (flip ? `${g.b}-${g.a}` : `${g.a}-${g.b}`))
+    .join(' ');
+}

@@ -451,3 +451,30 @@ export async function searchPlayers(query, opts = {}) {
   };
   return players.sort((a, b) => score(a) - score(b) || a.name.length - b.name.length);
 }
+
+/* ============================ the tournament now ============================
+
+   `vue-tmt-schedule` is 1.8 KB and answers the whole question of which
+   tournament the app should be showing: the one with live scores, the one
+   before it, and the one after, each with BWF's own label. Nothing here has to
+   know today's calendar.
+   ==================================================================== */
+
+/** Which tournament is live, which just finished, which is next. */
+export function loadSchedule(opts = {}) {
+  return getJSON('vue-tmt-schedule', { drawCount: 1 }, opts);
+}
+
+/**
+ * One day's order of play.
+ *
+ * ⚠️ `order=2` is what BWF's own tournament page sends, and the array comes
+ * back **in the order of play** — see Part 4.7. Do not sort it by `matchTime`:
+ * those are flat 50-minute estimates and on some courts they run backwards.
+ * `court=0` means every court.
+ */
+export function loadDayMatches(tournamentCode, date, opts = {}) {
+  return getJSON('tournaments/day-matches', {
+    tournamentCode, date, order: 2, court: 0,
+  }, opts);
+}

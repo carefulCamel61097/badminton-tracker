@@ -531,7 +531,7 @@ check('the grid is shut until it is asked for',
    of the hero, which is where a setting goes. */
 const picks = await b.ev(`[...document.querySelectorAll('#pageNav [data-page]')]
   .map(b => b.dataset.page + (b.classList.contains('on') ? '*' : ''))`);
-eq('the nav offers two pages by name', picks.join(' '), 'seasons* compare');
+eq('the nav offers every page by name', picks.join(' '), 'seasons* compare tmt');
 eq('each one named at a size you can read',
   await b.ev(`Math.round(parseFloat(getComputedStyle(
     document.querySelector('#pageNav .tab .name')).fontSize))`), 16);
@@ -738,7 +738,7 @@ check('both grids scroll together, in one scroller',
     && getComputedStyle(document.getElementById('gridBody')).overflowX === 'auto'`));
 
 check('the comparison is in the link, so it can be shared',
-  await b.ev(`location.hash.includes('c=87442') && location.hash.includes('g=1')`),
+  await b.ev(`location.hash.includes('c=87442') && location.hash.includes('pg=compare')`),
   await b.ev('location.hash'));
 
 await b.ev(`document.getElementById('cmpDrop').click()`);
@@ -765,7 +765,15 @@ console.log('\n=== the honours board: a row per level, sized by what it is worth
 
 const PHI = (1 + Math.sqrt(5)) / 2;
 
+/* Entered by `g=1` on purpose: that is what the compare page's link was called
+   when it was a modal, links carrying it are still out there, and this is the
+   only place that compatibility is exercised. The app writes `pg=compare` now. */
 check('the board opens straight from a link', await open('#p=57945&g=1&v=h'));
+check('an old g=1 link still lands on the compare page',
+  await b.ev(`window.BST.grid.isOpen()`));
+check('and is rewritten to the name the app uses now',
+  await b.ev(`location.hash.includes('pg=compare') && !location.hash.includes('g=1')`),
+  await b.ev('location.hash'));
 /* A link that does not mention the view is claiming the grid, and one that does
    not mention the bar is claiming QF+. Caught by a screenshot, not by the suite:
    `#p=…&g=1` came back as the honours board at W, because the last one had been. */
@@ -1058,6 +1066,125 @@ check('with the slider still pointed at the board',
   await b.ev(`Number(document.getElementById('gridZoom').max) === 16`),
   await b.ev(`document.getElementById('gridZoom').max`));
 await b.ev(`document.querySelector('#pageNav [data-page="seasons"]').click()`);
+
+/* ============================ the tournament now ============================
+
+   The one page that is not about a player: whatever BWF says is on, and that
+   day's order of play. `now=` pins the date the page reasons from, so a fixture
+   recorded on finals day 2026 answers the same way whenever this is run.
+   ======================================================================== */
+
+console.log('\n=== the tournament page: whatever is on ===');
+
+/** The tournament page has no player, so `BST.ready` is the wrong thing to wait on. */
+async function openTmt(hash) {
+  await b.ev(`location.hash = ${JSON.stringify(hash)}`);
+  const ok = await b.until(
+    '!!window.BST && window.BST.tmt.ready() && window.BST.tmt.pick() !== null',
+    { timeout: 120000 });
+  if (!ok) console.log('LOG  timed out loading ' + hash);
+  return ok;
+}
+
+check('finals day at the Worlds loads', await openTmt('#pg=tmt&now=2026-08-23'));
+
+const navNow = await b.ev(`[...document.querySelectorAll('#pageNav [data-page]')]
+  .map(b => b.dataset.page + (b.classList.contains('on') ? '*' : ''))`);
+eq('three pages now, and the nav says which', navNow.join(' '), 'seasons compare tmt*');
+check('the other two pages step aside',
+  await b.ev(`document.getElementById('seasonsPage').hidden
+    && document.getElementById('comparePage').hidden
+    && !document.getElementById('tmtPage').hidden`));
+
+const pick = await b.ev('window.BST.tmt.pick()');
+eq('it picked the World Championships', pick.name, 'BWF World Championships 2026');
+eq('and knows it is on', pick.state, 'live');
+eq('the badge says so',
+  (await b.ev(`document.getElementById('tmtState').textContent`)).trim(), 'On now');
+
+/* ---- the day bar ---- */
+
+const dayChips = await b.ev(`[...document.querySelectorAll('#tmtDays [data-day]')].map(c =>
+  c.dataset.day + (c.classList.contains('on') ? '*' : '') + (c.classList.contains('today') ? 'T' : ''))`);
+eq('seven days, with today both marked and chosen',
+  dayChips.join(' '),
+  '2026-08-17 2026-08-18 2026-08-19 2026-08-20 2026-08-21 2026-08-22 2026-08-23*T');
+
+/* ---- the order of play ---- */
+
+const finalsDay = await b.ev('window.BST.tmt.courts()');
+eq('finals day is one court', finalsDay.length, 1);
+eq('with five matches on it', finalsDay[0].matches.length, 5);
+check('every one of them a final',
+  finalsDay[0].matches.every(m => m.round === 'Final'),
+  finalsDay[0].matches.map(m => `${m.draw} ${m.round}`).join(', '));
+
+/* BWF's own words, and the reason the y-axis is the running order rather than
+   the clock — its per-match times are flat estimates (Part 4.7). */
+check('the first says when it starts and the rest say they follow',
+  /Starting at/.test(finalsDay[0].matches[0].foot)
+  && finalsDay[0].matches.slice(1).every(m => /Followed by/.test(m.foot)),
+  finalsDay[0].matches.map(m => m.foot.trim()).join(' | '));
+check('nothing is marked as played yet',
+  finalsDay[0].matches.every(m => m.status === 'upcoming'
+    && m.sides.every(s => !s.won && !s.lost)));
+
+/* ---- a day that has been played ---- */
+
+await b.ev(`window.BST.tmt.day('2026-08-19')`);
+check('an earlier day loads', await b.until('window.BST.tmt.ready()', { timeout: 120000 }));
+
+const mid = await b.ev('window.BST.tmt.courts()');
+check('a full day runs on several courts at once', mid.length >= 3,
+  mid.map(c => c.name).join(', '));
+check('the courts are in order', mid.every((c, i) => i === 0
+  || Number(c.name.replace(/\D+/g, '')) > Number(mid[i - 1].name.replace(/\D+/g, ''))),
+  mid.map(c => c.name).join(' '));
+
+const played = mid.flatMap(c => c.matches).filter(m => m.status === 'finished');
+check('most of it has been played', played.length > 40, `${played.length} finished`);
+check('and each finished match marks exactly one winner',
+  played.every(m => m.sides.filter(s => s.won).length === 1
+    && m.sides.filter(s => s.lost).length === 1));
+check('with a scoreline to go with it',
+  played.filter(m => !/Walkover/.test(m.foot))
+    .every(m => /\d+-\d+/.test(m.foot)),
+  (played.find(m => !/\d+-\d+/.test(m.foot)) || {}).foot);
+/* A walkover has no score at all. Without the word it draws as a finished match
+   the app forgot to fill in. */
+const wo = mid.flatMap(c => c.matches).find(m => /Walkover/.test(m.foot));
+check('a walkover says so rather than showing an empty scoreline',
+  !!wo && !/\d+-\d+/.test(wo.foot), wo && wo.foot.trim());
+
+/* ---- the draw filter ---- */
+
+const drawChips = await b.ev(`[...document.querySelectorAll('#tmtDraws [data-draw]')]
+  .map(c => c.dataset.draw)`);
+eq('a chip per draw, in the usual order', drawChips.join(' '), 'MS WS MD WD XD');
+
+const beforeHide = (await b.ev('window.BST.tmt.courts()')).flatMap(c => c.matches).length;
+await b.ev(`document.querySelector('#tmtDraws [data-draw="XD"]').click()`);
+const afterHide = (await b.ev('window.BST.tmt.courts()')).flatMap(c => c.matches).length;
+check('switching a draw off removes its matches and nothing else',
+  afterHide < beforeHide
+  && (await b.ev('window.BST.tmt.courts()')).flatMap(c => c.matches).every(m => m.draw !== 'XD'),
+  `${beforeHide} -> ${afterHide}`);
+check('and it travels in the link',
+  await b.ev(`location.hash.includes('dw=XD')`), await b.ev('location.hash'));
+await b.ev(`document.querySelector('#tmtDraws [data-draw="XD"]').click()`);
+eq('switching it back restores them',
+  (await b.ev('window.BST.tmt.courts()')).flatMap(c => c.matches).length, beforeHide);
+
+check('the day is in the link too, so a day can be shared',
+  await b.ev(`location.hash.includes('d=2026-08-19')`), await b.ev('location.hash'));
+check('and so is the page', await b.ev(`location.hash.includes('pg=tmt')`));
+
+/* ---- and back ---- */
+
+await b.ev(`document.querySelector('#pageNav [data-page="seasons"]').click()`);
+check('the seasons come back', await b.ev(`!document.getElementById('seasonsPage').hidden
+  && document.getElementById('tmtPage').hidden`));
+check('with the strip intact', (await squares(2026)).length > 0);
 
 /* ============================ the disclaimer ============================ */
 

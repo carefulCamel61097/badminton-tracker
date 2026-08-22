@@ -14,7 +14,7 @@
 import {
   loadSeason, loadPlayer, loadDraws, searchPlayers, loadTopRanked,
   loadWorldRank, loadRaceRank, loadLastMatch, rankingFor,
-  RANKING_CATEGORIES, queueDepth,
+  RANKING_CATEGORIES, queueDepth, loadSchedule, loadDayMatches,
 } from './api.js';
 import {
   positionInfo, fillFraction, drawForKind, dominantDraw, seasonKinds,
@@ -24,6 +24,8 @@ import {
   seasonResults, tournamentSeason,
   HONOUR_STEPS, HONOUR_DEFAULT, honourStep, honourScale, honourRung,
   careerHonours, honourSections,
+  pickTournament, tournamentDays, defaultDay, parseDayMatches, orderOfPlay,
+  drawsPresent, scoreLine, dayOf,
 } from './model.js';
 
 const $ = id => document.getElementById(id);
@@ -238,10 +240,8 @@ function renderLevels() {
 
 function renderHero() {
   const hero = $('hero');
-  if (!state.playerId) { hero.hidden = true; $('pageNav').hidden = true; return; }
+  if (!state.playerId) { hero.hidden = true; return; }
   hero.hidden = false;
-  // The nav is about a player, so it arrives with one and not before.
-  $('pageNav').hidden = false;
 
   const p = state.player;
   $('heroName').textContent = p ? p.name : `Player ${state.playerId}`;
@@ -836,6 +836,7 @@ function renderHonoursBody(list) {
       + honourHeads(list) + shown.map(s => honourRow(s, list, bar)).join('') + '</div>'
     : sections.length ? '<p class="gnote">Every level is switched off.</p>'
     : list.some(c => c.loading) ? '<p class="gnote">Loading the career…</p>'
+    : !state.playerId ? '<p class="gnote">Search for a player to compare.</p>'
     : '<p class="gnote">Nothing here reaches Super 100, which is where the board starts.</p>';
 }
 
@@ -866,6 +867,7 @@ function renderGridBody(list) {
   body.innerHTML = shown.length ? cards
     : sections.length ? '<p class="gnote">Every level is switched off.</p>'
     : list.some(c => c.loading) ? '<p class="gnote">Loading the career…</p>'
+    : !state.playerId ? '<p class="gnote">Search for a player to compare.</p>'
     : '<p class="gnote">Nothing here reaches Super 100, which is where the grid starts.</p>';
 }
 
@@ -902,28 +904,34 @@ function renderGrid() {
 /** Which page the nav says you are on. */
 function renderViewPick() {
   $('pageNav').querySelectorAll('[data-page]').forEach(b => {
-    const on = (b.dataset.page === 'compare') === grid.open;
+    const on = b.dataset.page === page;
     b.classList.toggle('on', on);
     if (on) b.setAttribute('aria-current', 'page');
     else b.removeAttribute('aria-current');
   });
 }
 
-/* Two pages, one at a time. `grid.open` is now "the compare page is up" rather
-   than "a modal is showing", which is the same boolean meaning something more
-   respectable. */
-function showPage(compare) {
-  grid.open = compare;
-  $('seasonsPage').hidden = compare;
-  $('comparePage').hidden = !compare;
-  document.body.classList.toggle('oncompare', compare);
-  if (compare) renderGrid();
+/* The pages, one at a time. `grid.open` stays as the compare page's own flag —
+   a great deal of the grid keys off it — but which page is up lives here. */
+const PAGES = ['seasons', 'compare', 'tmt'];
+let page = 'seasons';
+
+function showPage(name) {
+  page = PAGES.includes(name) ? name : 'seasons';
+  grid.open = page === 'compare';
+  $('seasonsPage').hidden = page !== 'seasons';
+  $('comparePage').hidden = page !== 'compare';
+  $('tmtPage').hidden = page !== 'tmt';
+  // Read by the stylesheet to put away the controls that only govern the strip.
+  document.body.dataset.page = page;
+  if (page === 'compare') renderGrid();
+  if (page === 'tmt') { renderTmt(); loadTournament(); }
   renderViewPick();
   writeHash();
 }
 
-function openGrid() { showPage(true); }
-function closeGrid() { showPage(false); }
+function openGrid() { showPage('compare'); }
+function closeGrid() { showPage('seasons'); }
 
 /** Load a second whole career, rendering it into the grid as it arrives. */
 async function loadCompare(player) {
@@ -1056,7 +1064,7 @@ syncZoomControl();
    rows, which is true and reads as a broken page. */
 $('pageNav').addEventListener('click', e => {
   const b = e.target.closest('[data-page]');
-  if (b) showPage(b.dataset.page === 'compare');
+  if (b) showPage(b.dataset.page);
 });
 
 $('gridGroups').addEventListener('click', e => {
@@ -1373,9 +1381,232 @@ $('levels').addEventListener('click', e => {
   if (b) toggleLevel(b.dataset.cat);
 });
 
+/* ============================ the tournament now ============================
+
+   The one page that is not about a player. It shows whatever tournament BWF
+   says is current and that day's order of play, and nobody has to choose
+   anything for it to be right.
+   ==================================================================== */
+
+const tmt = {
+  schedule: null,
+  pick: null,             // {tmt, state} from the model
+  day: null,              // YYYY-MM-DD
+  matches: [],
+  hiddenDraws: new Set(),
+  loading: false,
+  error: null,
+  wantDay: null,          // a day from the hash, before the schedule has landed
+  pickedFor: null,        // the date the current pick was made against
+};
+let tmtToken = 0;
+
+/* Today, as a string, and overridable from the hash.
+ *
+ * Everything on this page is decided by comparing dates against the calendar
+ * BWF returns, so a suite replaying an August 2026 fixture in December would be
+ * testing a different branch every run. `#now=YYYY-MM-DD` pins it. It is a
+ * debugging aid as much as a test seam: it is the only way to see what the page
+ * will do on finals day without waiting for one. */
+let pinnedToday = null;
+function todayStr() {
+  if (pinnedToday) return pinnedToday;
+  const d = new Date();
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
+const STATE_WORD = {
+  live: 'On now',
+  upcoming: 'Up next',
+  finished: 'Finished',
+};
+
+/** The schedule, then the chosen day's matches. */
+async function loadTournament(opts = {}) {
+  if (tmt.loading) return;
+  const token = ++tmtToken;
+  tmt.loading = true;
+  tmt.error = null;
+  renderTmt();
+
+  try {
+    /* Re-decide when the date it was decided against has moved. In the app that
+       is a tab left open overnight; in a suite or a screenshot it is `now=`
+       changing in the hash, which used to be silently ignored because a
+       schedule had already been fetched. */
+    if (!tmt.schedule || opts.fresh || tmt.pickedFor !== todayStr()) {
+      tmt.schedule = await loadSchedule({ fresh: !!opts.fresh });
+      if (token !== tmtToken) return;
+      tmt.pickedFor = todayStr();
+      tmt.pick = pickTournament(tmt.schedule, todayStr());
+      const days = tournamentDays(tmt.pick && tmt.pick.tmt);
+      // A day from the hash only counts if this tournament actually has it.
+      tmt.day = (tmt.wantDay && days.includes(tmt.wantDay)) ? tmt.wantDay
+        : defaultDay(tmt.pick && tmt.pick.tmt, tmt.pick && tmt.pick.state, todayStr());
+      tmt.wantDay = null;
+    } else if (tmt.wantDay) {
+      const days = tournamentDays(tmt.pick && tmt.pick.tmt);
+      if (days.includes(tmt.wantDay)) tmt.day = tmt.wantDay;
+      tmt.wantDay = null;
+    }
+    if (tmt.pick && tmt.day) {
+      const raw = await loadDayMatches(tmt.pick.tmt.code, tmt.day, { fresh: !!opts.fresh });
+      if (token !== tmtToken) return;
+      if (token !== tmtToken) return;
+      tmt.matches = parseDayMatches(raw);
+    }
+  } catch (e) {
+    if (token !== tmtToken) return;
+    tmt.error = 'Could not load from BWF: ' + e.message;
+  }
+
+  if (token !== tmtToken) return;
+  tmt.loading = false;
+  renderTmt();
+  writeHash();
+}
+
+/** Switch day without re-asking for the schedule. */
+async function pickDay(day) {
+  if (!tmt.pick || day === tmt.day) return;
+  const token = ++tmtToken;
+  tmt.day = day;
+  tmt.matches = [];
+  tmt.loading = true;
+  tmt.error = null;
+  renderTmt();
+  writeHash();
+  try {
+    const raw = await loadDayMatches(tmt.pick.tmt.code, day);
+    if (token !== tmtToken) return;
+    tmt.matches = parseDayMatches(raw);
+  } catch (e) {
+    if (token !== tmtToken) return;
+    tmt.error = 'Could not load from BWF: ' + e.message;
+  }
+  if (token !== tmtToken) return;
+  tmt.loading = false;
+  renderTmt();
+}
+
+/* ---------- drawing it ---------- */
+
+function sideHtml(s, match, index) {
+  const won = match.winner === index + 1;
+  const lost = match.winner > 0 && !won;
+  // A pair goes on two lines rather than "A / B" on one. Doubles names are long
+  // — "FENG Yan Zhe / HUANG Dong Ping" — and joined they were being cut off at
+  // the surname of the second player, which is the half that identifies them.
+  const names = s.players.length
+    ? s.players.map(p => `<span class="pl">${esc(p.name)}</span>`).join('')
+    : '<span class="pl">—</span>';
+  return `<div class="mside${won ? ' won' : ''}${lost ? ' lost' : ''}">`
+    + (s.flag ? `<img class="flag" src="${esc(s.flag)}" alt="${esc(s.country)}">` : '<span class="flag"></span>')
+    + `<span class="who">${names}</span>`
+    + (s.seed ? `<span class="seed">${esc(s.seed)}</span>` : '')
+    + '</div>';
+}
+
+function matchHtml(m) {
+  const note = m.note ? `<span class="mnote">${esc(m.note)}</span>` : '';
+  const foot = m.status === 'finished'
+    ? `<span class="sc">${esc(scoreLine(m))}</span>${note}`
+      + (m.duration ? `<span class="dur">${m.duration} min</span>` : '')
+    : m.status === 'live'
+      ? `<span class="livenow">Playing</span><span class="sc">${esc(scoreLine(m))}</span>`
+      : `<span class="oop">${esc(m.oop || 'To be played')}</span>`;
+
+  return `<article class="match ${m.status}" data-draw="${esc(m.draw)}" data-id="${esc(m.id)}">`
+    + `<header class="mhead"><span class="draw">${esc(m.draw)}</span>`
+    + `<span class="round">${esc(m.round)}</span></header>`
+    + m.sides.map((s, i) => sideHtml(s, m, i)).join('')
+    + `<footer class="mfoot">${foot}</footer></article>`;
+}
+
+function renderTmtDays() {
+  const days = tournamentDays(tmt.pick && tmt.pick.tmt);
+  const today = todayStr();
+  $('tmtDays').innerHTML = days.map(d => {
+    const on = d === tmt.day;
+    const isToday = d === today;
+    return `<button type="button" class="chip${on ? ' on' : ''}${isToday ? ' today' : ''}"`
+      + ` data-day="${d}" aria-pressed="${on}"`
+      + ` title="${esc(d + (isToday ? ' — today' : ''))}">`
+      + `${Number(d.slice(8, 10))}<span class="n">${d.slice(5, 7)}</span></button>`;
+  }).join('');
+}
+
+function renderTmtDraws() {
+  const present = drawsPresent(tmt.matches);
+  $('tmtDraws').innerHTML = present.map(d => {
+    const on = !tmt.hiddenDraws.has(d);
+    const n = tmt.matches.filter(m => m.draw === d).length;
+    return `<button type="button" class="chip${on ? ' on' : ''}" data-draw="${esc(d)}"`
+      + ` aria-pressed="${on}">${esc(d)}<span class="n">${n}</span></button>`;
+  }).join('');
+}
+
+function renderTmt() {
+  if (page !== 'tmt') return;
+  const pick = tmt.pick;
+  const t = pick && pick.tmt;
+
+  $('tmtTitle').textContent = t ? t.name : 'Tournament';
+  $('tmtWhen').textContent = t
+    ? `${dayOf(t.start_date)} → ${dayOf(t.end_date)}` : '';
+  const badge = $('tmtState');
+  badge.textContent = pick ? STATE_WORD[pick.state] : '';
+  badge.className = 'badge' + (pick ? ' ' + pick.state : '');
+  const link = $('tmtLink');
+  if (t && t.tmtLink) { link.href = t.tmtLink; link.hidden = false; } else { link.hidden = true; }
+
+  renderTmtDays();
+  renderTmtDraws();
+
+  const shown = tmt.matches.filter(m => !tmt.hiddenDraws.has(m.draw));
+  const body = $('tmtBody');
+
+  if (tmt.error) { body.innerHTML = `<p class="gnote error">${esc(tmt.error)}</p>`; return; }
+  if (!t && tmt.loading) { body.innerHTML = '<p class="gnote">Asking BWF what is on…</p>'; return; }
+  if (!t) { body.innerHTML = '<p class="gnote">BWF is not naming a tournament just now.</p>'; return; }
+  if (tmt.loading && !shown.length) { body.innerHTML = '<p class="gnote">Loading the order of play…</p>'; return; }
+
+  if (!shown.length) {
+    body.innerHTML = tmt.matches.length
+      ? '<p class="gnote">Every draw is switched off.</p>'
+      : `<p class="gnote">Nothing scheduled on ${esc(tmt.day || 'this day')}`
+        + (pick.state === 'upcoming' ? ' — the draws are not out yet.' : '.') + '</p>';
+    return;
+  }
+
+  body.innerHTML = orderOfPlay(shown).map(col =>
+    `<section class="court"><h3 class="courtname">${esc(col.court)}</h3>`
+    + col.matches.map(matchHtml).join('') + '</section>').join('');
+}
+
+/* Live scores go stale inside the five-minute cache, and the page is at its
+   most useful precisely when they are changing. `fresh` skips the read and
+   still writes, so a refresh costs two requests and nothing else. */
+$('tmtRefresh').addEventListener('click', () => loadTournament({ fresh: true }));
+
+$('tmtDays').addEventListener('click', e => {
+  const b = e.target.closest('[data-day]');
+  if (b) pickDay(b.dataset.day);
+});
+
+$('tmtDraws').addEventListener('click', e => {
+  const b = e.target.closest('[data-draw]');
+  if (!b) return;
+  const d = b.dataset.draw;
+  if (tmt.hiddenDraws.has(d)) tmt.hiddenDraws.delete(d); else tmt.hiddenDraws.add(d);
+  renderTmt();
+  writeHash();
+});
+
 /* ============================ hash routing ============================
 
-   #p=57945&k=doubles&sz=0&hy=2019.2018&hl=21&g=1&v=h&th=w&c=87442 — enough to link to a
+   #p=57945&k=doubles&sz=0&hy=2019.2018&hl=21&pg=compare&v=h&th=w&c=87442 — enough to link to a
    career exactly as it is on screen, comparison and all, and enough for a suite
    to open one directly.
    ================================================================== */
@@ -1398,13 +1629,23 @@ function readHash() {
      deliberately sticky, because they have no default to return to; these do. */
   grid.view = h.get('v') === 'h' ? 'honours' : 'grid';
   grid.threshold = h.has('th') ? honourStep(h.get('th')).key : HONOUR_DEFAULT;
+  // `now=` pins what the tournament page believes today is. A debugging aid and
+  // the only way a suite replaying an August fixture can be deterministic.
+  pinnedToday = /^\d{4}-\d{2}-\d{2}$/.test(h.get('now') || '') ? h.get('now') : null;
+  if (h.has('d')) tmt.wantDay = h.get('d');
+  if (h.has('dw')) tmt.hiddenDraws = new Set(h.get('dw').split('.').filter(Boolean));
+  // `g=1` is what the compare page was called when it was a modal, and links
+  // carrying it are still out there.
+  wantPage = h.get('pg') || (h.get('g') === '1' ? 'compare' : 'seasons');
   // The comparison is a whole second career — dozens of requests — so it is
   // handed back rather than started here, and only once, by whoever asked.
-  grid.pending = { compare: h.get('c') || null, open: h.get('g') === '1' };
+  grid.pending = { compare: h.get('c') || null };
   return h.get('p');
 }
 
 /** Act on the parts of the hash that cost requests or open something. */
+let wantPage = 'seasons';
+
 function applyGridHash() {
   // The hash can have just changed which view is up, and the slider means a
   // different thing in each — it is read at boot, which is before the hash has
@@ -1415,18 +1656,24 @@ function applyGridHash() {
   if (!want) return;
   if (want.compare && want.compare !== cmp.playerId) loadCompare({ id: want.compare, name: '' });
   else if (!want.compare && cmp.playerId) removeCompare();
-  if (want.open && !grid.open) openGrid();
+  if (PAGES.includes(wantPage) && wantPage !== page) showPage(wantPage);
+  // Already on the tournament page: the hash may still have moved the day, or
+  // the date the whole page is reasoned from.
+  else if (page === 'tmt') loadTournament();
 }
 
 function writeHash() {
-  if (!state.playerId) return;
+  // The tournament page is about a *tournament*, so it is worth a link with no
+  // player in it at all — which is also the only state the app can be in before
+  // anybody has searched for one.
+  if (!state.playerId && page === 'seasons') return;
   const p = new URLSearchParams();
-  p.set('p', state.playerId);
+  if (state.playerId) p.set('p', state.playerId);
   if (state.kind) p.set('k', state.kind);
   if (!state.sized) p.set('sz', '0');
   if (state.hiddenYears.size) p.set('hy', [...state.hiddenYears].join('.'));
   if (state.hiddenLevels && state.hiddenLevels.size) p.set('hl', [...state.hiddenLevels].join('.'));
-  if (grid.open) p.set('g', '1');
+  if (page !== 'seasons') p.set('pg', page);
   if (grid.kind) p.set('gk', grid.kind);
   if (grid.hiddenGroups.size) p.set('hg', [...grid.hiddenGroups].join('.'));
   if (grid.view === 'honours') p.set('v', 'h');
@@ -1435,6 +1682,9 @@ function writeHash() {
   // the reader's own zoom and on the sender's argument.
   if (grid.threshold !== HONOUR_DEFAULT) p.set('th', grid.threshold);
   if (cmp.playerId) p.set('c', cmp.playerId);
+  if (pinnedToday) p.set('now', pinnedToday);
+  if (page === 'tmt' && tmt.day) p.set('d', tmt.day);
+  if (page === 'tmt' && tmt.hiddenDraws.size) p.set('dw', [...tmt.hiddenDraws].join('.'));
   const next = '#' + p.toString();
   if (location.hash !== next) history.replaceState(null, '', next);
 }
@@ -1537,6 +1787,38 @@ window.BST = {
       }),
     })),
     ready: () => !cmp.loading && !state.loading && queueDepth() === 0,
+  },
+
+  /* The tournament page. Its whole job is deciding *which* tournament and
+     *which day*, so that is what it exposes; the rest is read off the DOM. */
+  tmt: {
+    state: tmt,
+    pick: () => (tmt.pick ? { state: tmt.pick.state, name: tmt.pick.tmt.name,
+      code: tmt.pick.tmt.code, from: dayOf(tmt.pick.tmt.start_date),
+      to: dayOf(tmt.pick.tmt.end_date) } : null),
+    days: () => tournamentDays(tmt.pick && tmt.pick.tmt),
+    day: d => (d == null ? tmt.day : (pickDay(d), tmt.day)),
+    today: () => todayStr(),
+    matches: () => tmt.matches,
+    ready: () => !tmt.loading && queueDepth() === 0,
+    reload: () => loadTournament({ fresh: true }),
+    /** The order of play as laid out: one entry per court, in running order. */
+    courts: () => [...document.querySelectorAll('#tmtPage .court')].map(c => ({
+      name: (c.querySelector('.courtname') || {}).textContent || '',
+      matches: [...c.querySelectorAll('.match')].map(m => ({
+        draw: m.dataset.draw,
+        id: m.dataset.id,
+        status: (m.className.match(/match (\w+)/) || [])[1],
+        round: (m.querySelector('.round') || {}).textContent || '',
+        sides: [...m.querySelectorAll('.mside')].map(sd => ({
+          who: (sd.querySelector('.who') || {}).textContent || '',
+          seed: (sd.querySelector('.seed') || {}).textContent || '',
+          won: sd.classList.contains('won'),
+          lost: sd.classList.contains('lost'),
+        })),
+        foot: (m.querySelector('.mfoot') || {}).textContent || '',
+      })),
+    })),
   },
 
   /* The honours board. Same principle: what the browser laid out, not what the

@@ -54,7 +54,7 @@
 <!-- The two pages, said plainly. This was a segmented control in the corner of
      the hero, which is where you put a setting, not where you put the other
      half of an application. -->
-<nav id="pageNav" class="pagenav" aria-label="pages" hidden>
+<nav id="pageNav" class="pagenav" aria-label="pages">
   <button type="button" class="tab on" data-page="seasons" aria-current="page">
     <span class="name">Seasons</span>
     <span class="sub">every tournament, year by year</span>
@@ -62,6 +62,10 @@
   <button type="button" class="tab" data-page="compare">
     <span class="name">Compare</span>
     <span class="sub">two careers side by side</span>
+  </button>
+  <button type="button" class="tab" data-page="tmt">
+    <span class="name">Tournament</span>
+    <span class="sub">what's on, day by day</span>
   </button>
 </nav>
 
@@ -162,6 +166,37 @@
     hover it to see whether they never got that far or never entered. Comparing two
     players mirrors the board about the centre line, so the best results of each
     meet in the middle.
+  </p>
+</section>
+
+<!-- Whatever tournament is on, without anybody picking one. `vue-tmt-schedule`
+     names the live one, the one before it and the one after; the day bar walks
+     its dates; `day-matches` gives that day's order of play, laid out by court
+     because that is how an order of play is read. -->
+<section id="tmtPage" class="page" hidden>
+  <header class="pagehead">
+    <h2 id="tmtTitle">Tournament</h2>
+    <span id="tmtWhen" class="tmtwhen"></span>
+    <span id="tmtState" class="badge"></span>
+    <button type="button" id="tmtRefresh" class="seg">Refresh</button>
+    <a id="tmtLink" class="seg" href="#" target="_blank" rel="noopener" hidden>On BWF ↗</a>
+  </header>
+
+  <div class="chiprow"><span class="lbl">Day</span>
+    <div id="tmtDays" class="chips" role="group" aria-label="days"></div>
+  </div>
+  <div class="chiprow"><span class="lbl">Draws</span>
+    <div id="tmtDraws" class="chips" role="group" aria-label="draws shown"></div>
+  </div>
+
+  <div id="tmtBody" class="oop"></div>
+
+  <p class="legend note" id="tmtNote">
+    One column per court, and down each one the matches in the order they are
+    played — not by the clock. BWF publishes a flat 50-minute estimate per match
+    and on some courts they run backwards, so what is shown is its own wording:
+    <strong>Starting at</strong> for the first on a court and
+    <strong>Followed by</strong> for everything after it.
   </p>
 </section>
 

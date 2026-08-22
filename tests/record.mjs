@@ -43,8 +43,18 @@ const years = yearArg >= 0 ? args[yearArg + 1].split(',') : [null];   // null = 
 const players = args
   .filter((a, i) => /^\d+$/.test(a) && !(yearArg >= 0 && i === yearArg + 1))
   .map(Number);
-const roster = args.includes('--searches') ? []
+const onlyTmt = args.includes('--tmt');
+const roster = (args.includes('--searches') || onlyTmt) ? []
   : players.length ? players : DEFAULT_PLAYERS;
+
+/* The day the tournament page is recorded as believing it is.
+ *
+ * `vue-tmt-schedule` answers "what is on *now*", so its fixture is a photograph
+ * of one moment and the page's whole decision tree hangs off comparing dates
+ * against it. Pinning the date here — and in the suites, through the same
+ * `now=` hash parameter — is what stops the recorded day and the replayed day
+ * drifting apart the morning after. Move it when you re-record. */
+const TMT_DAY = process.env.TMT_DAY || '2026-08-23';
 
 const server = createServer(ROOT);
 await new Promise(r => server.listen(PORT, r));
@@ -151,6 +161,24 @@ process.stdout.write(`  top-ranked tabs … `);
     await b.wait(300);
   }
   console.log(`+${fixtureCount() - before} fixtures`);
+}
+
+/* The tournament page: the schedule, then every day of whatever it names. One
+   request each, and a tournament is a week, so this is eight calls. */
+process.stdout.write(`  tournament (${TMT_DAY}) … `);
+{
+  const before = fixtureCount();
+  await b.ev(`location.hash = '#pg=tmt&now=${TMT_DAY}'`);
+  const ok = await b.until('window.BST.tmt && window.BST.tmt.pick() !== null', { timeout: 60000 });
+  const pick = await b.ev('window.BST.tmt.pick()');
+  const days = await b.ev('window.BST.tmt.days()');
+  for (const day of days || []) {
+    await b.ev(`window.BST.tmt.day(${JSON.stringify(day)})`);
+    await b.until('window.BST.tmt.ready()', { timeout: 60000 });
+    await b.wait(300);
+  }
+  console.log(`${ok ? '' : 'timeout '}${pick ? pick.state + ' — ' + pick.name : 'nothing'}`
+    + `, ${(days || []).length} days, +${fixtureCount() - before} fixtures`);
 }
 
 finish(0);

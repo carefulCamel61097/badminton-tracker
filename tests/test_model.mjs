@@ -24,6 +24,8 @@ import {
   resultRank, tournamentSeason, GRID_ORDER,
   HONOUR_STEPS, HONOUR_DEFAULT, honourStep, honourScale, honourRung,
   careerHonours, honourSections,
+  pickTournament, tournamentDays, defaultDay, parseDayMatches, orderOfPlay,
+  drawsPresent, scoreLine, courtOrder, dayOf,
   LEVEL, SLOT_W, BOX_H, MIN_LABEL_PX, LEVEL_ORDER,
 } from '../model.js';
 import { check, eq, near, report } from './check.mjs';
@@ -1053,5 +1055,174 @@ eq('the count on a row is the most either player has, so the two line up',
 eq('a career of nothing is an empty board', honourSections([]).length, 0);
 eq('and honours out of nothing is an empty map', careerHonours(null, 3).by.size, 0);
 eq('with nothing entered', careerHonours(undefined, 3).entries.size, 0);
+
+
+/* ============================ the tournament now ============================
+
+   Which tournament to show, which day of it, and one day's order of play.
+   Recorded on 23 August 2026 — the last day of the World Championships — so
+   the fixtures hold a live tournament, its seven days, and both a day that has
+   been played and one that has not.
+
+   ⚠️ Every date below is passed in. Nothing here reads the clock, which is the
+   only reason a fixture from August can be replayed in December.
+   ==================================================================== */
+
+console.log('\n=== the tournament now ===');
+
+const WORLDS = 'B671FB97-491C-46D3-982F-56525168C3AA';
+const dayMatches = (code, date) => fixture('tournaments/day-matches',
+  { tournamentCode: code, date, order: 2, court: 0 });
+
+const schedule = fixture('vue-tmt-schedule', { drawCount: 1 });
+
+check('the schedule names all three tournaments',
+  !!(schedule.nextLive && schedule.previousTmt && schedule.nextTmt),
+  [schedule.nextLive, schedule.previousTmt, schedule.nextTmt]
+    .map(t => t && t.name).join(' | '));
+
+/* ---- which one is on ---- */
+
+const on = d => pickTournament(schedule, d);
+
+eq('on the last day of a tournament it is still live', on('2026-08-23').state, 'live');
+eq('and it is the one with the live scores', on('2026-08-23').tmt.code, WORLDS);
+eq('mid-tournament, the same', on('2026-08-19').state, 'live');
+eq('on its first day, the same again', on('2026-08-17').state, 'live');
+
+const before = on('2026-08-15');
+eq('a week earlier it has not started', before.state, 'upcoming');
+eq('and it is still the tournament being pointed at', before.tmt.code, WORLDS);
+
+const after = on('2026-08-28');
+eq('once it is over, the next one is up', after.state, 'upcoming');
+eq('which is the one after, not the one just finished',
+  after.tmt.name, schedule.nextTmt.name);
+
+/* The far future: nothing in this payload has started, nothing is ahead, so the
+   only honest answer left is the one that finished. */
+const far = on('2027-06-01');
+eq('long afterwards it falls back to the last one played', far.state, 'finished');
+
+eq('a payload with nothing in it is nothing, not a crash',
+  pickTournament({}, '2026-08-23'), null);
+eq('and neither is no payload at all', pickTournament(null, '2026-08-23'), null);
+
+/* ---- which day ---- */
+
+const worlds = schedule.nextLive;
+const days = tournamentDays(worlds);
+eq('the Worlds run seven days', days.length, 7);
+eq('first', days[0], '2026-08-17');
+eq('last', days[6], '2026-08-23');
+check('with no gaps and no repeats',
+  new Set(days).size === days.length
+  && days.every((d, i) => i === 0 || Date.parse(d) - Date.parse(days[i - 1]) === 86400000),
+  days.join(' '));
+
+eq('a live tournament opens on today', defaultDay(worlds, 'live', '2026-08-19'), '2026-08-19');
+eq('one that has finished opens on its last day',
+  defaultDay(worlds, 'finished', '2026-09-30'), '2026-08-23');
+eq('one that has not started opens on its first',
+  defaultDay(worlds, 'upcoming', '2026-08-01'), '2026-08-17');
+eq('a tournament of one day is that day',
+  tournamentDays({ start_date: '2026-05-01 00:00:00', end_date: '2026-05-01 00:00:00' }).length, 1);
+eq('and one with no dates at all is no days', tournamentDays({}).length, 0);
+
+/* ---- a day that has been played ---- */
+
+const day19 = parseDayMatches(dayMatches(WORLDS, '2026-08-19'));
+check('a full day of the Worlds is a lot of matches', day19.length > 40, `${day19.length} matches`);
+check('every one of them names its draw and round',
+  day19.every(m => m.draw && m.round), day19.filter(m => !m.draw || !m.round).length + ' without');
+check('and has two sides with somebody on each',
+  day19.every(m => m.sides.length === 2 && m.sides.every(s => s.players.length)));
+
+const finished = day19.filter(m => m.status === 'finished');
+check('most of a past day has been played', finished.length > 40, `${finished.length} finished`);
+check('a finished match has a winner, and it is side 1 or side 2',
+  finished.every(m => m.winner === 1 || m.winner === 2));
+/* ⚠️ Not "every finished match has two games". Both a walkover and a
+   retirement were played on this one day of the Worlds: the walkover has no
+   score at all and the retirement has the single game it got to. */
+check('and games to show for it, unless it never got that far',
+  finished.every(m => m.games.length >= 2 || m.note),
+  finished.filter(m => m.games.length < 2)
+    .map(m => `${m.draw} ${m.note || '(no note)'} ${m.games.length}g`).join(', '));
+
+const walkover = finished.find(m => m.note === 'Walkover');
+check('a walkover is named as one', !!walkover);
+eq('and has no score whatever', walkover.games.length, 0);
+eq('so its scoreline is empty rather than made up', scoreLine(walkover), '');
+check('a walkover still has a winner', walkover.winner === 1 || walkover.winner === 2);
+
+const retired = finished.find(m => m.note === 'Retired');
+check('a retirement is named too', !!retired);
+check('and keeps the score it reached', retired.games.length >= 1,
+  scoreLine(retired));
+check('an ordinary match carries no note at all',
+  finished.some(m => !m.note && m.games.length >= 2));
+
+/* The score reads from the winner outwards, whichever side won — a scoreline
+   that starts with the loser's total is the kind of thing nobody notices until
+   they are reading it about a match they watched. */
+const wonBy2 = finished.find(m => m.winner === 2 && m.games.length);
+check('a match won by the second side still reads winner-first',
+  (() => {
+    const first = wonBy2.games[0];
+    return scoreLine(wonBy2).startsWith(`${first.b}-${first.a}`);
+  })(), `${JSON.stringify(wonBy2.games[0])} -> ${scoreLine(wonBy2)}`);
+const wonBy1 = finished.find(m => m.winner === 1 && m.games.length);
+check('and one won by the first side reads the same way round',
+  scoreLine(wonBy1).startsWith(`${wonBy1.games[0].a}-${wonBy1.games[0].b}`));
+
+/* ---- the order of play ---- */
+
+const cols = orderOfPlay(day19);
+check('a full day uses several courts', cols.length >= 3, cols.map(c => c.court).join(', '));
+eq('every match lands on exactly one court',
+  cols.reduce((a, c) => a + c.matches.length, 0), day19.length);
+check('courts run 1, 2, 3 … not 1, 10, 2',
+  cols.every((c, i) => i === 0 || courtOrder(c.court) >= courtOrder(cols[i - 1].court)),
+  cols.map(c => c.court).join(' '));
+eq('"Court 10" sorts after "Court 2"', courtOrder('Court 10') > courtOrder('Court 2'), true);
+
+/* ⚠️ The array order **is** the order of play (Part 4.7). This is the check
+   that stops somebody sorting it by `matchTime` and quietly reversing a court's
+   afternoon: within a court, the matches must appear in the order the payload
+   gave them. */
+check('a court keeps the order the payload gave it, which is the order of play',
+  cols.every(c => {
+    const wanted = day19.filter(m => m.court === c.court).map(m => m.id);
+    return wanted.join(',') === c.matches.map(m => m.id).join(',');
+  }));
+
+const first = cols[0].matches[0];
+check('the first match on a court says when it starts',
+  /^Starting at /.test(first.oop), first.oop);
+check('and the ones after it say they follow',
+  cols[0].matches.slice(1).every(m => m.oop === 'Followed by' || /^Starting at /.test(m.oop)),
+  cols[0].matches.map(m => m.oop).join(' | '));
+
+/* ---- a day that has not been played ---- */
+
+const day23 = parseDayMatches(dayMatches(WORLDS, '2026-08-23'));
+eq('the last day is the five finals', day23.length, 5);
+check('all of them finals', day23.every(m => m.round === 'Final'),
+  day23.map(m => m.round).join(' '));
+eq('on one court', orderOfPlay(day23).length, 1);
+check('none of them played yet when this was recorded',
+  day23.every(m => m.status === 'upcoming' && m.winner === 0 && !m.games.length));
+eq('so there is no scoreline to show', scoreLine(day23[0]), '');
+eq('the five draws, in the usual order',
+  drawsPresent(day23).join(' '), 'MS WS MD WD XD');
+
+/* ---- nothing at all ---- */
+
+eq('no payload is no matches', parseDayMatches(null).length, 0);
+eq('an empty one likewise', parseDayMatches([]).length, 0);
+eq('and no matches is no courts', orderOfPlay([]).length, 0);
+eq('nor any draws', drawsPresent([]).length, 0);
+eq('a scoreline out of nothing is empty', scoreLine(null), '');
 
 process.exit(report());

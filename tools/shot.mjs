@@ -27,10 +27,13 @@ const DEFAULTS = [
   ['compare', '#p=57945&g=1&c=87442'],    // two careers side by side
   ['honours', '#p=57945&g=1&v=h'],        // the same career as an honours board
   ['honours2', '#p=57945&g=1&v=h&c=87442'],   // two boards across the spine
+  ['tmt', '#pg=tmt&now=2026-08-23'],      // finals day at the Worlds
 ];
 
-/** The compare page is wide; the strip is not. */
-const wide = hash => /(^|&)g=1/.test(hash);
+/** The compare and tournament pages are wide; the strip is not. */
+/* `[#&]`, not `(^|&)`: the hash arrives with its `#` attached, so `pg=tmt` at
+   the front of it is preceded by neither the start of the string nor an `&`. */
+const wide = hash => /[#&](g=1|pg=(compare|tmt))/.test(hash);
 
 /* `--top` clips to the first 460px: the chrome — nav, hero, page header — at a
    readable scale. A whole-page capture is 1600px of document squeezed into one
@@ -53,14 +56,25 @@ b.on(fx.handle);
 await b.send('Page.navigate', { url: `http://localhost:${PORT}/${shots[0][1]}` }, b.sessionId);
 await b.until('!!window.BST', { timeout: 40000 });
 
+/* ⚠️ `BST.ready` is about a *player* — it is false until one has loaded — and
+   the tournament page has none. Waiting on it there is a four-minute timeout
+   per shot, not a failure, which is a slow way to learn this. */
+const tmtOnly = hash => /[#&]pg=tmt/.test(hash) && !/[#&]p=\d/.test(hash);
+
 for (const [name, hash] of shots) {
   await b.ev(`location.hash = ${JSON.stringify(hash)}`);
-  await b.until('!!window.BST && window.BST.ready', { timeout: 240000 });
-  // Ladders load per row as it scrolls in; give the visible ones a moment.
-  await b.wait(2000);
-  await b.until('window.BST.ready', { timeout: 120000 });
-  // A comparison is a second whole career, and BST.ready knows nothing about it.
-  await b.until('window.BST.grid.ready()', { timeout: 240000 });
+  if (tmtOnly(hash)) {
+    await b.until('!!window.BST && window.BST.tmt.ready() && window.BST.tmt.pick() !== null',
+      { timeout: 120000 });
+    await b.wait(600);
+  } else {
+    await b.until('!!window.BST && window.BST.ready', { timeout: 240000 });
+    // Ladders load per row as it scrolls in; give the visible ones a moment.
+    await b.wait(2000);
+    await b.until('window.BST.ready', { timeout: 120000 });
+    // A comparison is a second whole career, and BST.ready knows nothing about it.
+    await b.until('window.BST.grid.ready()', { timeout: 240000 });
+  }
   await b.wait(400);
 
   /* ⚠️ `captureBeyondViewport` silently drops the **top layer**, so a <dialog>

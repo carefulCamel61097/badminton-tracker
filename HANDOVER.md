@@ -212,11 +212,38 @@ Right-aligning a single career against a spine to make room for nobody wastes ha
 and looks like a bug rather than an invitation — the seat beside the profile says the same
 thing at a fraction of the cost.
 
-### 1.2 Tournament view (auto-following)
+### 1.2 Tournament view (auto-following) — built 23 Aug 2026
 
-Shows whatever tournament is current, switching by itself a few days before a new one
-starts. **This is a solved problem** — `vue-tmt-schedule` returns exactly this. See
-Part 3.
+The third page. Shows whatever tournament is current, switching by itself, and nobody
+picks anything for it to be right.
+
+- **`vue-tmt-schedule` is the whole spine.** One 1.8 KB call returns `nextLive`,
+  `previousTmt` and `nextTmt`, each a full tournament with BWF's own label. `pickTournament`
+  turns those into *live* / *upcoming* / *finished* by comparing dates.
+- **A day bar** across the tournament's dates, opening on today when it is on, its last day
+  when it has finished, its first when it has not started.
+- **One column per court**, and down each one that day's matches **in the order they are
+  played**. Not by the clock — see 4.7, and the wording below.
+- **Draw chips** (MS/WS/MD/WD/XD) to filter, and a **Refresh** that passes `fresh` so a live
+  score is not read out of the five-minute cache.
+- Finished matches show the scoreline **winner-first**, the duration, and a word when there
+  is one — see 3.7.
+
+⚠️ **This page has no player**, which makes it the only one that works on a cold open and
+the reason the nav is visible before anybody has searched. Two things follow: `writeHash`
+must not bail when `state.playerId` is null, and **`window.BST.ready` is the wrong thing for
+a suite or a screenshot to wait on** — it is false until a player has loaded, so waiting on
+it here is a four-minute timeout rather than a failure. Wait on `BST.tmt.ready()`.
+
+⚠️ **`#now=YYYY-MM-DD` pins what the page believes today is.** Everything on it is decided
+by comparing against the calendar BWF returns, so a fixture recorded in August replayed in
+December would exercise a different branch every run. The suites and `record.mjs` both pin
+it. It is a debugging aid as much as a seam: it is the only way to see what finals day looks
+like without waiting for one.
+
+⚠️ Re-decide when that date moves. The first version only picked a tournament when it had
+no schedule yet, so changing `now=` in the hash was silently ignored and every screenshot
+came out as the same day.
 
 ### 1.3 Bracket view
 
@@ -931,6 +958,29 @@ championship site 404 — the results page *is* the tournament view, and it load
 *"View Results"*, `nextTmt` the Pontianak Indonesia Masters *"View Draws"*. It does
 what 3.2 says it does.
 
+### 3.7 A match is not always played — *(read 23 Aug 2026)*
+
+`tournaments/day-matches` returns a **plain array already in the order of play** (4.7). Each
+match carries `team1`/`team2` (players, country, flag), `team1seed`/`team2seed`, `drawName`,
+`roundName`, `courtName`, `oopText`, `duration`, `winner` (1, 2 or 0) and `score`.
+
+`score` is one entry per game: `{set, home, away, lastPointWinner, serve}` — **`home` is
+team1 and `away` is team2**, so a scoreline shown winner-first has to flip when `winner` is 2.
+
+⚠️ **`scoreStatusValue` is `Normal`, `Walkover` or `Retired`.** A walkover has `score: []`
+and a winner; a retirement has however many games were played. Both happened on a **single
+day** of the 2026 Worlds, so this is ordinary rather than exotic. Without a word for it a
+walkover draws as a finished match with a blank scoreline, which reads as a bug in the app
+rather than a fact about the match — `parseMatch` carries it as `note` and the card shows it.
+
+`matchStatusValue` was `Finished` or `none` in everything recorded; a live match has never
+been observed by this project. `parseMatch` therefore reads *finished* from `winner` or
+`Finished`, *upcoming* from an empty score, and treats everything between as being played,
+rather than matching a "live" string whose spelling is a guess.
+
+`tournaments/day-matches/courts` and `/players` exist (3.5) but the view needs neither: the
+courts come out of the matches, which is also what keeps an unused court off the screen.
+
 ### 3.6 API traps — read before writing a client
 
 ⚠️ **`results` is polymorphic.** A plain array when `drawCount` is passed, a paginated
@@ -1184,8 +1234,10 @@ using the global `WebSocket`. Deployed on GitHub Pages. This worked well — kee
    column and did not survive 2021 — see 1.1b. The type-ahead was made a factory at this
    point because the comparison needs a second one; the career walk was extracted as
    `walkCareer` for the same reason.
-4. **Tournament view.** `vue-tmt-schedule` drives it. Results when a tournament is
-   finished, draws when the next one is up, live scores while it runs.
+4. ~~**Tournament view.**~~ **Done 23 Aug 2026.** `vue-tmt-schedule` drives it, exactly as
+   3.2 promised. A day bar across the tournament, one column per court, matches in the order
+   of play, draw filters, and a refresh that bypasses the cache. See 1.2 and 3.7 — the one
+   surprise was that a finished match need not have a score.
 5. **Bracket + drill-down.** Port the bracket; wire season square → that tournament's
    bracket with the player's path lit.
 6. **Harness throughout.** Port `run.mjs` at step 1, not step 6 — with the stale-profile
