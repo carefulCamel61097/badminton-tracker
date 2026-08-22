@@ -87,9 +87,10 @@ its detail on.
 - Cells **butt against each other**, so runs of the same result merge into one shape. The
   only lines are at the start of each block.
 - **Super 100 and above only**, with the junior circuit and the team events out entirely.
-- Blocks run **hardest-first**: Olympics, Worlds, Tour Finals, Super 1000, Super 750,
-  Continental, Super 500, Super 300, Super 100, then the unmapped pre-2018 era. A toggle
-  chip per level; all on by default.
+- Blocks run **hardest-first**: Olympics, Worlds, Tour Finals, Super 1000, Continental,
+  Super 750, Super 500, Super 300, Super 100, then the unmapped pre-2018 era. A toggle
+  chip per level; all on by default. (Continental moved up beside the Super 1000s on
+  22 Aug 2026 — see 2.11.)
 - A **zoom slider** sets the cell size (10–40px, default 20). It lives in `localStorage`,
   not in the hash: a shared link should open at the reader's zoom, not the sender's.
 - **Two players side by side**, sharing one set of blocks and one set of rows, with their
@@ -262,7 +263,8 @@ down to Super 100.
 **Continental Championships (id 11)** — European, Asian, Pan Am — sit outside the World
 Tour, so the commitment rules say nothing about them. **Decided 21 Aug 2026: full size
 (1.00), not 0.80.** An Asian Championships title is a major, and the strip should say so.
-Closed; do not re-open without pixels.
+Closed; do not re-open without pixels. See **2.11** for where that puts them on the honours
+ladder, and why they had to be moved there to keep the two views agreeing.
 
 ### 2.3 Team events
 
@@ -615,11 +617,11 @@ either way. Here the question does not arise, and the legend is one item shorter
 The board's rows are sized geometrically, hardest at the top. The ratio is the golden
 ratio, and the dimension it is applied to is **area**, so the sides go up by √φ ≈ 1.272.
 
-⚠️ **Do not "fix" this to φ per side.** `GRID_ORDER` has ten levels. At φ per side the top
-row is φ⁹ ≈ **76 times** the side of the bottom one: a 10px Super 100 square puts the
-Olympics at 760px, and choosing a base that keeps the Olympics on screen puts Super 100 at
-under a pixel. Per area the whole ladder spans 8.7, which fits, and every rung still reads
-as a step change.
+⚠️ **Do not "fix" this to φ per side.** The ladder has nine rungs. At φ per side the top
+rung is φ⁸ ≈ **47 times** the side of the bottom one: a 10px Super 100 square puts the
+Olympics at 470px, and choosing a base that keeps the Olympics on screen puts Super 100 at
+under a pixel. Per area the whole ladder spans 6.9 in side, which fits, and every rung still
+reads as a step change.
 
 Area is also the right dimension on the merits. The claim the view makes is *how much* — the
 eye totals a block of colour by area, not by edge length — and the argument for the ratio in
@@ -628,22 +630,26 @@ the first place was **worth**, not width. It is the same reasoning as the strip'
 
 The multipliers, which are pleasant: every second rung is an exact power of φ.
 
-| Level | ×side | at base 7 |
-|---|---|---|
-| Olympics | 8.719 | 61px |
-| Worlds | 6.854 | 48px |
-| Tour Finals | 5.388 | 38px |
-| Super 1000 | 4.236 | 30px |
-| Super 750 | 3.330 | 23px |
-| Continental | 2.618 | 18px |
-| Super 500 | 2.058 | 14px |
-| Super 300 | 1.618 | 11px |
-| Super 100 | 1.272 | 9px |
-| Unmapped | 1.000 | 7px |
+| Rung | Level | ×side | at base 8 |
+|---|---|---|---|
+| 0 | Olympics | 6.854 | 55px |
+| 1 | Worlds | 5.388 | 43px |
+| 2 | Tour Finals | 4.236 | 34px |
+| 3 | **Super 1000 · Continental** | 3.330 | 27px |
+| 4 | Super 750 | 2.618 | 21px |
+| 5 | Super 500 | 2.058 | 16px |
+| 6 | Super 300 | 1.618 | 13px |
+| 7 | Super 100 | 1.272 | 10px |
+| 8 | Unmapped | 1.000 | 8px |
 
-`honourScale` keys on the level's place in `GRID_ORDER`, **not** on which rows happen to be
-on screen. Switching a level off must not resize the ones left behind: a square has to mean
-the same thing whatever else is showing, which is the entire basis for comparing two boards.
+**A rung is not a place in `GRID_ORDER`.** Rows are *ordered* one way and *sized* another,
+because two levels can be worth the same without being the same thing — see 2.11. The rung
+map is derived from `GRID_ORDER` plus a one-element `SHARES_RUNG` set, never written out, so
+a level added to the order gets its own rung automatically and the two cannot drift.
+
+`honourScale` keys on the rung, **not** on which rows happen to be on screen. Switching a
+level off must not resize the ones left behind: a square has to mean the same thing whatever
+else is showing, which is the entire basis for comparing two boards.
 
 **The widths are computed, not assumed.** `honourHalfUnits` returns the widest half any row
 needs *in units of `--hbase`*, and CSS uses it as `minmax(var(--halfw), 1fr)`. Two
@@ -660,11 +666,38 @@ consequences worth keeping:
 twenty Super 1000 results at QF+**, which is wider than half a 1800px modal at any
 comfortable base, and the twentieth was silently cut off — the one failure mode a view about
 *how much* cannot have. The end-to-end suite now asserts `scrollWidth <= clientWidth` for
-every half. The honours default base is **7**, the largest that fits the two longest careers
-in the data side by side without the board needing to scroll.
+every half. The honours default base is **8**, the largest that fits the two longest careers
+in the data side by side on a 1440-wide screen — measured at QF+, the *widest* bar, so that
+moving the bar can never introduce a scrollbar.
 
 The spine hangs off `.hboard`, not off the scroller, so `left: 50%` stays true when the
 board is wider than the modal.
+
+### 2.11 The Continentals share the Super 1000 rung — settled 22 Aug 2026
+
+They used to sit between Super 750 and Super 500 in `GRID_ORDER`, and therefore one rung
+*below* a Super 750 on the honours ladder. That was wrong twice over.
+
+**It contradicted 2.2.** The Continentals were settled at full weight a day earlier —
+"an Asian Championships title is a major" — so the strip and the board were saying different
+things about the same event.
+
+**And it broke the Super ladder.** With Continental wedged between them, Super 1000 → Super
+750 was one rung and Super 750 → Super 500 was two, so the official five-level ladder came
+out unevenly spaced for a reason that had nothing whatever to do with the Super events. This
+is the part that is hard to see and easy to reintroduce: *any* level given a rung of its own
+inside the Super run does it.
+
+**Sharing rather than promoting is deliberate.** A Continental title is not uniform — the
+Asian Championships is arguably harder than any Super 1000, and the Oceania one is not — so
+"about a Super 1000, and we are not going to pretend to know better continent by continent"
+is the honest claim. Ranking it *above* the Super 1000 would assert something about Europe
+that is not true.
+
+`GRID_ORDER` and `LEVEL_ORDER` both moved id 11 to sit directly after 23, so the grid's
+columns, the strip's chips and the board's rows all agree.
+
+---
 
 ## Part 3 — The BWF API
 

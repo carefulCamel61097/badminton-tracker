@@ -22,7 +22,8 @@ import {
   canonicalDraw, isOlympics,
   gridGroup, seasonResults, careerRows, gridSections, sectionCells, gridYears,
   resultRank, tournamentSeason, GRID_ORDER,
-  HONOUR_STEPS, HONOUR_DEFAULT, honourStep, honourScale, careerHonours, honourSections,
+  HONOUR_STEPS, HONOUR_DEFAULT, honourStep, honourScale, honourRung,
+  careerHonours, honourSections,
   LEVEL, SLOT_W, BOX_H, MIN_LABEL_PX, LEVEL_ORDER,
 } from '../model.js';
 import { check, eq, near, report } from './check.mjs';
@@ -216,8 +217,10 @@ check('the chip order is the ladder, not the numeric ids',
   && LEVEL_ORDER.indexOf(21) > LEVEL_ORDER.indexOf(27),
   LEVEL_ORDER.join(' '));
 eq('every mapped level has a chip position', LEVEL_ORDER.length, Object.keys(LEVEL).length);
+// Continental now sits with the Super 1000s rather than under the Super 750s —
+// see the honours ladder below, and HANDOVER 2.2 for why it is a major.
 eq('the levels of this season, in that order',
-  seasonLevels(season).join(' '), '20 23 24 11 25 21');
+  seasonLevels(season).join(' '), '20 23 11 24 25 21');
 eq('a category with no chip position is listed anyway, not dropped',
   seasonLevels([{ cat: 23 }, { cat: 8 }, { cat: 3 }, { cat: 25 }]).join(' '), '23 25 3 8');
 eq('and it gets a name rather than a blank chip', levelLabel(8), 'Level 8');
@@ -859,24 +862,58 @@ console.log('\n=== the honours board ===');
 /* ---- the golden ratio, and which dimension it is applied to ---- */
 
 const PHI_ = (1 + Math.sqrt(5)) / 2;
-eq('the bottom row of the ladder is the unit', honourScale('OTHER'), 1);
-check('each row up is φ times the AREA of the one below, which is what the eye totals',
-  GRID_ORDER.every((g, i) => {
-    if (i === 0) return true;
-    const area = Math.pow(honourScale(GRID_ORDER[i - 1]), 2) / Math.pow(honourScale(g), 2);
-    return Math.abs(area - PHI_) < 1e-9;
+eq('the bottom rung of the ladder is the unit', honourScale('OTHER'), 1);
+check('each RUNG up is φ times the AREA of the one below, which is what the eye totals',
+  GRID_ORDER.every(g => {
+    const area = Math.pow(honourScale(g), 2);
+    const rungsUp = honourRung('OTHER') - honourRung(g);
+    return Math.abs(area - Math.pow(PHI_, rungsUp)) < 1e-9;
   }));
 check('so the sides go up by √φ, not by φ',
   Math.abs(honourScale(23) / honourScale(24) - Math.sqrt(PHI_)) < 1e-9);
-/* The whole reason it is area and not side: ten levels at φ per side is a
-   ratio of 76 between the top row and the bottom, and a 10px Super 100 square
-   would put the Olympics at 760. Per area it is 8.7, which is a picture. */
-near('the Olympics are 8.7 times the side of the bottom row, not 76',
-  honourScale('OLY'), 8.719, 0.001);
-check('and the ladder only ever goes up', GRID_ORDER.every((g, i) =>
-  i === 0 || honourScale(GRID_ORDER[i - 1]) > honourScale(g)));
+/* The whole reason it is area and not side: nine rungs at φ per side is a ratio
+   of 47 between the top and the bottom, and a 10px Super 100 square would put
+   the Olympics off the screen. Per area it is 6.9, which is a picture. */
+near('the Olympics are 6.9 times the side of the bottom rung, not 47',
+  honourScale('OLY'), 6.854, 0.001);
+check('and the ladder never goes back up as you go down it', GRID_ORDER.every((g, i) =>
+  i === 0 || honourScale(GRID_ORDER[i - 1]) >= honourScale(g)));
 eq('a level the ladder does not know sits at the bottom rather than vanishing',
   honourScale(999), 1);
+
+/* ---- Continental is a peer of the Super 1000, not a step below the 750 ---- */
+
+/* Settled at full weight in HANDOVER 2.2 — "an Asian Championships title is a
+   major" — so a ladder that put it under a Super 750 was contradicting the
+   strip it sits next to. */
+eq('the Continentals share the Super 1000 rung', honourRung(11), honourRung(23));
+eq('and therefore the same size', honourScale(11), honourScale(23));
+check('which is above the Super 750, where they used to sit',
+  honourScale(11) > honourScale(24));
+check('and they are listed with the Super 1000s rather than mid-ladder',
+  GRID_ORDER.indexOf(11) === GRID_ORDER.indexOf(23) + 1, GRID_ORDER.join(' '));
+
+/* The reason sharing beats promoting: a rung of its own pushed everything below
+   it down one, so the official Super ladder came out unevenly spaced for a
+   reason that had nothing to do with the Super events. */
+const SUPERS = [23, 24, 25, 26, 27];
+check('the five Super levels sit on five consecutive rungs',
+  SUPERS.every((g, i) => i === 0 || honourRung(g) === honourRung(SUPERS[i - 1]) + 1),
+  SUPERS.map(g => `${g}@${honourRung(g)}`).join(' '));
+check('so every step down the Super ladder is the same step',
+  SUPERS.every((g, i) => i === 0
+    || Math.abs(honourScale(SUPERS[i - 1]) / honourScale(g) - Math.sqrt(PHI_)) < 1e-9),
+  SUPERS.map(g => honourScale(g).toFixed(3)).join(' '));
+check('and no other level doubles up — sharing is the exception, not the rule',
+  (() => {
+    const seen = new Map();
+    for (const g of GRID_ORDER) {
+      const r = honourRung(g);
+      seen.set(r, [...(seen.get(r) || []), g]);
+    }
+    const shared = [...seen.values()].filter(l => l.length > 1);
+    return shared.length === 1 && shared[0].length === 2;
+  })());
 
 /* ---- the bar ---- */
 

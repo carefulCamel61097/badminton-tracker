@@ -44,7 +44,7 @@ export const LEVEL = {
  * then everything below it, then the team events last because they are off by
  * default. Not the numeric order of the ids, which is arbitrary.
  */
-export const LEVEL_ORDER = ['OLY', 20, 22, 23, 24, 11, 25, 26, 27, 5, 6, 7, 21, 17];
+export const LEVEL_ORDER = ['OLY', 20, 22, 23, 11, 24, 25, 26, 27, 5, 6, 7, 21, 17];
 
 /**
  * True for a tournament that is an Olympic Games rather than a World
@@ -764,7 +764,7 @@ export function drawForKind(tmt, kind, preferred) {
  * Sections, left to right: hardest to win on the left, Super 100 on the right.
  * The same judgement as LEVEL_ORDER, minus everything the grid does not show.
  */
-export const GRID_ORDER = ['OLY', 20, 22, 23, 24, 11, 25, 26, 27, 'OTHER'];
+export const GRID_ORDER = ['OLY', 20, 22, 23, 11, 24, 25, 26, 27, 'OTHER'];
 
 /** Below Super 100: the feeder circuit. */
 const BELOW_GRID = new Set([5, 6, 7]);
@@ -1138,25 +1138,72 @@ export const PHI = (1 + Math.sqrt(5)) / 2;
 const HONOUR_SIDE_RATIO = Math.sqrt(PHI);
 
 /**
+ * Levels that share the rung of the one above them in `GRID_ORDER` instead of
+ * taking a step of their own.
+ *
+ * ⚠️ **The Continental Championships are a peer of the Super 1000, not a step
+ * below the Super 750.** Two reasons, and the second is the one that bites:
+ *
+ * 1. It is what this project already decided. Part 2.2 settled the
+ *    Continentals at full weight — "an Asian Championships title is a major" —
+ *    and a ladder that ranks them under a Super 750 contradicts the strip.
+ * 2. A rung of their own **breaks the Super ladder**. With Continental sitting
+ *    between them, Super 1000 → Super 750 was one step and Super 750 → Super
+ *    500 was two, so the official five-rung ladder came out unevenly spaced for
+ *    a reason that had nothing to do with the Super events. Sharing a rung puts
+ *    Super 1000/750/500/300/100 back on five consecutive steps.
+ *
+ * Sharing rather than promoting is deliberate. A Continental title is not
+ * uniform — the Asian Championships is arguably harder than any Super 1000 and
+ * the Oceania one is not — so "about a Super 1000, and we are not going to
+ * pretend to know better continent by continent" is the honest claim. Ranking
+ * it *above* the Super 1000 would be asserting something about Europe that is
+ * not true.
+ */
+const SHARES_RUNG = new Set([11]);
+
+/* Derived from GRID_ORDER and the set above, never written out. A level added
+   to the order gets its own rung automatically, and the two cannot drift. */
+const RUNGS = (() => {
+  const rung = new Map();
+  let r = -1;
+  for (const g of GRID_ORDER) {
+    if (!SHARES_RUNG.has(g)) r++;
+    rung.set(String(g), Math.max(r, 0));
+  }
+  return { rung, last: Math.max(r, 0) };
+})();
+
+/**
+ * Which rung of the size ladder a level sits on, counting from the top.
+ *
+ * Not the same as its place in `GRID_ORDER`: rows are ordered one way and sized
+ * another, because two levels can be worth the same without being the same
+ * thing.
+ */
+export function honourRung(group) {
+  // Compared as strings: the level ids are numbers in `GRID_ORDER` but they
+  // make a round trip through `data-group` on the way back from the DOM, and a
+  // lookup silently missing would put a Super 1000 row at the size of the
+  // bottom rung rather than failing.
+  const r = RUNGS.rung.get(String(group));
+  return r == null ? RUNGS.last : r;
+}
+
+/**
  * How many times the base size a row's squares are, as a bare number.
  *
  * Unitless on purpose: the app hands it to CSS as `--k` and the zoom slider
  * moves the base underneath it, so changing the size of everything is one
  * custom property and no re-render.
  *
- * Keyed on the level's place in `GRID_ORDER` rather than on which rows happen
- * to be on screen, so switching a level off does not resize the ones left
- * behind — a square means the same thing whatever else is showing, which is
- * the whole basis for comparing two boards.
+ * Keyed on the level's rung rather than on which rows happen to be on screen,
+ * so switching a level off does not resize the ones left behind — a square
+ * means the same thing whatever else is showing, which is the whole basis for
+ * comparing two boards.
  */
 export function honourScale(group) {
-  // Compared as strings: the level ids are numbers in `GRID_ORDER` but they
-  // make a round trip through `data-group` on the way back from the DOM, and
-  // `indexOf('23')` silently missing would put a Super 1000 row at the size of
-  // the bottom rung rather than failing.
-  const i = GRID_ORDER.findIndex(g => String(g) === String(group));
-  const up = i < 0 ? 0 : GRID_ORDER.length - 1 - i;
-  return Math.pow(HONOUR_SIDE_RATIO, up);
+  return Math.pow(HONOUR_SIDE_RATIO, RUNGS.last - honourRung(group));
 }
 
 /**

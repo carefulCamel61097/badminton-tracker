@@ -784,9 +784,12 @@ check('and the rows are the grid\'s own order',
 
 /* ---- the ladder, measured ---- */
 
+/* Null rather than a throw: a level the player never entered has no row at all
+   — SHI Yu Qi has never played a Super 100 — and a check that wants to skip it
+   should be able to ask. */
 const sideOf = g => {
   const row = board.find(r => r.group === String(g));
-  const cell = (row.sides[0] || [])[0];
+  const cell = row && (row.sides[0] || [])[0];
   return cell ? cell.h : null;
 };
 const painted = board
@@ -798,19 +801,26 @@ check('every square in a row is square, and the same size as its neighbours',
     && Math.abs(c.h - s[0].h) < 1.5))),
   board.map(r => `${r.group}:${(r.sides[0] || [])[0] ? (r.sides[0][0].h) : '-'}`).join(' '));
 
-/* Counted in rungs of the ladder, not in rows on screen. SHI Yu Qi has never
-   played a Super 100, so Super 300 sits directly above Unmapped on his board
-   and the step between them is *two* levels — and measures φ², correctly. An
-   adjacency check would have called that a bug and it is the opposite. */
+/* Counted in rungs of the ladder, not in rows on screen and not in places in
+   the order. Two things make those three different numbers: SHI Yu Qi has never
+   played a Super 100, so Super 300 sits directly above Unmapped on his board and
+   the step between them is *two* rungs; and the Continentals share a rung with
+   the Super 1000s, so they are two places apart in the order and no distance at
+   all in size. An adjacency check would call both of those bugs, and they are
+   the opposite. */
 const order = await b.ev('window.BST.honours.order()');
-const rungs = g => order.findIndex(x => String(x) === String(g));
+const rungOf = {};
+for (const g of order) rungOf[String(g)] = await b.ev(`window.BST.honours.rung(${JSON.stringify(g)})`);
+const rungs = g => rungOf[String(g)];
+const bottom = Math.max(...Object.values(rungOf));
 const areaRatio = (a, b2) => Math.pow(a.side.h, 2) / Math.pow(b2.side.h, 2);
 
 check('each rung of the ladder is φ times the AREA of the one below it',
   painted.every((r, i) => {
     if (i === 0) return true;
     const steps = rungs(r.group) - rungs(painted[i - 1].group);
-    return Math.abs(areaRatio(painted[i - 1], r) - Math.pow(PHI, steps)) < 0.14 * steps;
+    return Math.abs(areaRatio(painted[i - 1], r) - Math.pow(PHI, steps))
+      < 0.14 * Math.max(steps, 1);
   }),
   painted.map((r, i) => i === 0 ? `${r.group}=${r.side.h}`
     : `${r.group}=${r.side.h}(×${areaRatio(painted[i - 1], r).toFixed(2)}`
@@ -819,17 +829,35 @@ check('each rung of the ladder is φ times the AREA of the one below it',
 /* The same claim stated as one number: every painted row sits on a single
    geometric ladder, so `side ÷ √φ^rung` is the same for all of them. Immune to
    which levels a career happens to contain. */
-const feet = painted.map(r => r.side.h / Math.pow(Math.sqrt(PHI), order.length - 1 - rungs(r.group)));
+const feet = painted.map(r => r.side.h / Math.pow(Math.sqrt(PHI), bottom - rungs(r.group)));
 check('so every row on screen sits on one ladder with one base',
   feet.every(v => Math.abs(v - feet[0]) < 0.25),
   feet.map(v => v.toFixed(2)).join(' '));
 
+/* The Continentals are a peer of the Super 1000, not a step under the 750:
+   settled at full weight in HANDOVER 2.2, and giving them a rung of their own
+   pushed every Super below them down one, so the official five-level ladder came
+   out unevenly spaced for a reason that had nothing to do with the Supers. */
+check('a Continental square is exactly a Super 1000 square',
+  sideOf(11) != null && Math.abs(sideOf(11) - sideOf(23)) < 1.5,
+  `CON ${sideOf(11)} vs S1000 ${sideOf(23)}`);
+check('and bigger than a Super 750, where it used to sit',
+  sideOf(11) > sideOf(24), `CON ${sideOf(11)} vs S750 ${sideOf(24)}`);
+check('so the five Supers sit on five consecutive rungs, nothing wedged between',
+  [23, 24, 25, 26, 27].every((g, i, a) => i === 0 || rungs(g) === rungs(a[i - 1]) + 1),
+  [23, 24, 25, 26, 27].map(g => `${g}@${rungs(g)}`).join(' '));
+const supers = [23, 24, 25, 26, 27].filter(g => sideOf(g) != null);
+check('and every step down the painted Super ladder is the same step',
+  supers.every((g, i) => i === 0
+    || Math.abs(sideOf(supers[i - 1]) / sideOf(g) - Math.sqrt(PHI)) < 0.05),
+  supers.map(g => `${g}=${sideOf(g)}`).join(' '));
+
 check('so an Olympic square dwarfs a Super 500 one rather than nudging it',
   sideOf('OLY') > sideOf(25) * 2, `${sideOf('OLY')} vs ${sideOf(25)}`);
-check('and the whole ladder is a bit under nine to one, not seventy-six',
+check('and the whole ladder is about seven to one, not forty-seven',
   (() => {
-    const top = painted[0].side.h, bottom = painted[painted.length - 1].side.h;
-    return top / bottom > 5 && top / bottom < 12;
+    const hi = painted[0].side.h, lo = painted[painted.length - 1].side.h;
+    return hi / lo > 4 && hi / lo < 10;
   })(),
   `${painted[0].side.h} / ${painted[painted.length - 1].side.h}`);
 
@@ -887,7 +915,7 @@ const zoomAfter = (await b.ev('window.BST.honours.rows()'))
 check('the slider makes every row bigger', zoomAfter.every((h, i) => h > zoomBefore[i]),
   `${zoomBefore[0]} -> ${zoomAfter[0]}`);
 const zoomFeet = zoomAfter.map((h, i) =>
-  h / Math.pow(Math.sqrt(PHI), order.length - 1 - rungs(painted[i].group)));
+  h / Math.pow(Math.sqrt(PHI), bottom - rungs(painted[i].group)));
 check('and the ladder survives it — every row still shares one base',
   zoomFeet.every(v => Math.abs(v - zoomFeet[0]) < 0.35),
   zoomFeet.map(v => v.toFixed(2)).join(' '));

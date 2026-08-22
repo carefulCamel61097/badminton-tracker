@@ -22,7 +22,8 @@ import {
   drawLadder, BOX_H, LEVEL, LEVEL_ORDER,
   careerRows, gridSections, sectionCells, gridYears, gridGroupLabel, seasonLabels, GRID_ORDER,
   seasonResults, tournamentSeason,
-  HONOUR_STEPS, HONOUR_DEFAULT, honourStep, honourScale, careerHonours, honourSections,
+  HONOUR_STEPS, HONOUR_DEFAULT, honourStep, honourScale, honourRung,
+  careerHonours, honourSections,
 } from './model.js';
 
 const $ = id => document.getElementById(id);
@@ -962,10 +963,10 @@ const ZOOM = {
   },
   honours: {
     key: 'bst:honourzoom', prop: '--hbase', target: 'honBody',
-    // 7 is the largest default that fits the two longest careers in the data
-    // side by side without scrolling — measured at QF+, the *widest* bar, so
-    // that moving the bar never introduces a scrollbar. See honourHalfUnits.
-    min: 3, max: 14, step: 1, def: 7, label: 'square size',
+    // 8 is the largest default that fits the two longest careers in the data
+    // side by side on a 1440-wide screen — measured at QF+, the *widest* bar,
+    // so that moving the bar never introduces a scrollbar. See honourHalfUnits.
+    min: 3, max: 16, step: 1, def: 8, label: 'square size',
   },
 };
 
@@ -1500,6 +1501,7 @@ window.BST = {
     bar: k => (k == null ? grid.threshold
       : (grid.threshold = honourStep(k).key, renderGrid(), writeHash(), grid.threshold)),
     scale: honourScale,
+    rung: honourRung,
     /** Each career's honours, straight from the model. */
     of: () => careers().map(c => {
       const kind = gridKindFor(c.seasons);
