@@ -29,6 +29,11 @@ Within a row, one square per tournament in chronological order. Each is a gauge:
 from the bottom by how far the player got, ramping green (title) to red (first-round exit),
 and the label inside says the same thing in words so nothing is carried by colour alone.
 
+Where two tournaments in one season tidy to the same words — January 2021 ran the YONEX
+Thailand Open and the TOYOTA Thailand Open a week apart in the same Bangkok bubble — the
+sponsor is handed back, because that is what BWF is distinguishing them by. Only there;
+everywhere else the sponsor stays stripped.
+
 Seasons and tournament levels are both filtered with toggle buttons — a chip per season and
 a chip per level. The levels nobody filters by, which is mostly pre-2019 category ids this
 project has no name for, sit behind one "N more" menu of checkboxes so they do not crowd out

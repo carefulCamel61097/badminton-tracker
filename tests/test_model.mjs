@@ -17,7 +17,8 @@ import {
   parseSeason, seasonDisciplines, drawFor, drawForKind, dominantDraw,
   kindOf, seasonKinds, defaultKind, seasonLevels,
   positionInfo, fillFraction, boxSize, boxScale, levelLabel, isTeamEvent,
-  shortTmtName, surnameOf, levelAbbr, roundsInDraw, mainDrawSize, drawLadder,
+  shortTmtName, seasonLabels, tidyTmtName, surnameOf, levelAbbr, roundsInDraw,
+  mainDrawSize, drawLadder,
   canonicalDraw, isOlympics,
   gridGroup, seasonResults, careerRows, gridSections, sectionCells, gridYears,
   resultRank, tournamentSeason, GRID_ORDER,
@@ -505,6 +506,61 @@ check('but a cancellation is not — it changes what the square means',
   shortTmtName('Singapore Open 2021 (Cancelled)'));
 check('a long name is truncated, not dropped', shortTmtName(
   'Some Extremely Long Tournament Name Indeed 2026').length <= 24);
+
+/* ---- two events in a season that tidy to the same words ---- */
+
+/* January 2021 ran the YONEX Thailand Open and the TOYOTA Thailand Open a week
+   apart in the same Bangkok bubble, and BWF left the year off both because the
+   sponsor is what tells them apart. Tidied, they are two squares reading
+   "Thailand Open" in one row, which reads as a bug. */
+const thaiLabels = seasonLabels([
+  { name: 'YONEX Thailand Open', start: '2021-01-12' },
+  { name: 'TOYOTA Thailand Open', start: '2021-01-19' },
+]);
+eq('the sponsor comes back when it is the only difference',
+  thaiLabels.join(' / '), 'YONEX Thailand Open / TOYOTA Thailand Open');
+
+eq('and stays away when it is not needed',
+  seasonLabels([{ name: 'PETRONAS Malaysia Open 2026', start: '2026-01-06' }])[0],
+  'Malaysia Open');
+check('a whole season of distinct events is untouched by any of this',
+  seasonLabels(season).join('|') === season.map(t => shortTmtName(t.name)).join('|'),
+  seasonLabels(season).join(' · '));
+
+eq('the sponsor is reported alongside the tidied name',
+  tidyTmtName('PETRONAS Malaysia Open 2026').sponsor, 'PETRONAS');
+eq('and is empty when there was none',
+  tidyTmtName('Orleans Masters 2021').sponsor, '');
+
+// Same event, same sponsor, twice in a year: the month is all that is left.
+const twice = seasonLabels([
+  { name: 'Orleans Masters 2021', start: '2021-03-23' },
+  { name: 'Orleans Masters 2021', start: '2021-09-23' },
+]);
+eq('falling back to the month', twice.join(' / '), 'Orleans Masters (03) / Orleans Masters (09)');
+check('and the disambiguator is never the part that gets truncated',
+  seasonLabels([
+    { name: 'DANISA Denmark Open I 2020', start: '2020-10-13' },
+    { name: 'DANISA Denmark Open I 2020', start: '2020-11-20' },
+  ]).every(l => l.length <= 24 && /\(\d\d\)$/.test(l)),
+  seasonLabels([
+    { name: 'DANISA Denmark Open I 2020', start: '2020-10-13' },
+    { name: 'DANISA Denmark Open I 2020', start: '2020-11-20' },
+  ]).join(' / '));
+
+/* The clip itself can make two different names identical, which is a different
+   failure from two names that were always the same. Both halves of the 2017
+   Badminton Asia Junior Championships tidy to 40-odd characters that differ
+   only at the end, and both clip to "Pembangunan Jaya Raya A…". Neither has a
+   sponsor and both were played in July, so only the day separates them. */
+const juniorHalves = seasonLabels([
+  { name: 'Pembangunan Jaya Raya Badminton Asia Junior Championships 2017 ( Team Event )', start: '2017-07-22' },
+  { name: 'Pembangunan Jaya Raya Badminton Asia Junior Championships 2017 (Individual Event)', start: '2017-07-26' },
+]);
+check('two names the clip would flatten together are still told apart',
+  juniorHalves[0] !== juniorHalves[1], juniorHalves.join(' / '));
+check('and neither outgrows the square',
+  juniorHalves.every(l => l.length <= 24), juniorHalves.map(l => l.length).join('/'));
 
 eq('capitalised family name', surnameOf('Thom GICQUEL'), 'GICQUEL');
 eq('leading family name', surnameOf('SHI Yu Qi'), 'SHI');

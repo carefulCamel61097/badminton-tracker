@@ -489,6 +489,39 @@ check('with the reason spelled out on hover',
 
 console.log('\n=== the grid: a row per season, a block per level ===');
 
+/* ============================ two events, one name ============================
+
+   January 2021 ran the YONEX Thailand Open and the TOYOTA Thailand Open a week
+   apart in the same Bangkok bubble. Tidied, both squares read "Thailand Open",
+   which reads as the same tournament drawn twice.
+   ======================================================================== */
+
+console.log('\n=== two tournaments that tidy to the same name ===');
+
+check('AN Se Young loads', await open('#p=87442'));
+const y2021 = await squares(2021);
+const thai = y2021.filter(sq => /Thailand Open/.test(sq.name));
+eq('she played two Thailand Opens in 2021', thai.length, 2);
+check('and the squares do not read the same',
+  thai[0].name !== thai[1].name, thai.map(sq => sq.name).join(' / '));
+check('the sponsor is what tells them apart, which is what BWF uses',
+  thai.some(sq => /YONEX/.test(sq.name)) && thai.some(sq => /TOYOTA/.test(sq.name)),
+  thai.map(sq => sq.name).join(' / '));
+check('both still name the full tournament on hover',
+  thai.every(sq => /Thailand Open/.test(sq.title)));
+
+const perRow = await b.ev(`(() => {
+  const bad = [];
+  for (const row of document.querySelectorAll('.srow')) {
+    const names = [...row.querySelectorAll('.tn')].map(n => n.textContent);
+    const dupes = names.filter((n, i) => names.indexOf(n) !== i);
+    if (dupes.length) bad.push(row.dataset.year + ': ' + dupes.join(', '));
+  }
+  return bad;
+})()`);
+check('and no other row in her career repeats a label either',
+  perRow.length === 0, perRow.slice(0, 3).join(' | '));
+
 check('SHI Yu Qi loads', await open('#p=57945'));
 check('the grid is shut until it is asked for',
   await b.ev(`!document.getElementById('gridModal').hasAttribute('open')`));

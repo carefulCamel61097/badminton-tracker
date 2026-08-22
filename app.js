@@ -20,7 +20,7 @@ import {
   positionInfo, fillFraction, drawForKind, dominantDraw, seasonKinds,
   defaultKind, seasonLevels, levelLabel, levelAbbr, boxSize, isTeamEvent,
   drawLadder, BOX_H, LEVEL, LEVEL_ORDER,
-  careerRows, gridSections, sectionCells, gridYears, gridGroupLabel,
+  careerRows, gridSections, sectionCells, gridYears, gridGroupLabel, seasonLabels,
   seasonResults, tournamentSeason,
 } from './model.js';
 
@@ -105,7 +105,7 @@ function roundsFor(tmt, drawName) {
  * so a lighter event reads as more air around it — every tournament occupies an
  * equal share of the strip whatever it weighed.
  */
-function square(tmt, kind, preferred) {
+function square(tmt, kind, preferred, label) {
   // A team tie has no individual position, but the player was there and won
   // matches. Showing it as an empty square is right; showing it as *the same*
   // empty square as "did not enter this discipline" is not, so it keeps its own
@@ -128,7 +128,7 @@ function square(tmt, kind, preferred) {
     + (weight != null ? ` · weight ${weight.toFixed(2)}` : '')
     + `\n${entered}${ladder}`;
 
-  const inner = `<span class="tn">${esc(tmt.short)}</span>`
+  const inner = `<span class="tn">${esc(label != null ? label : tmt.short)}</span>`
     + `<span class="slot" style="height:${BOX_H}px">`
     + `<span class="box r-${draw ? info.tier : 'none'}"`
     + ` style="width:${box.w.toFixed(1)}px;height:${box.h.toFixed(1)}px;`
@@ -149,7 +149,11 @@ function renderSeasons() {
   const preferred = dominantDraw(allTournaments(), kind);
 
   $('seasons').innerHTML = shown.map(s => {
-    const squares = s.tournaments.map(t => square(t, kind, preferred)).join('');
+    // Labels are chosen for the row as a whole, not per square: two tournaments
+    // that tidy to the same words have to be told apart, and a square cannot
+    // know that on its own.
+    const labels = seasonLabels(s.tournaments);
+    const squares = s.tournaments.map((t, i) => square(t, kind, preferred, labels[i])).join('');
     return `<section class="srow" data-year="${s.year}">`
       + `<div class="yr">${s.year}<span class="cnt">${s.tournaments.length}</span></div>`
       + `<div class="season">${squares}</div></section>`;

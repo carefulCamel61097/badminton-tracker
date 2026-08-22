@@ -510,6 +510,36 @@ season's results qualified. An Olympics concludes nothing, and saying a player c
 the Olympics in 2020 would be false. So the rule is scoped to group 22, and it only ever
 moves a tournament backwards.
 
+⚠️ **Two Thailand Opens in January 2021 are not one event drawn twice, and must not be
+"fixed".** BWF ran the YONEX Thailand Open (12 Jan) and the TOYOTA Thailand Open (19 Jan) a
+week apart in the same Bangkok bio-bubble to restart the tour, both category 23. Checked 22
+Aug 2026 before touching anything, and all four signals agree they are separate 2021
+events:
+
+- Neither name carries a year at all — unlike *every other* Thailand Open in the data
+  ("TOYOTA Thailand Open 2018 / 2019 / 2022 / 2023 / 2026"). BWF dropped the year because
+  both were 2021 and the sponsor is what tells them apart.
+- Neither is marked "(New Dates)" or "(Postponed)". Eleven events in the recorded data are,
+  including the Finals — BWF does mark its reschedules.
+- 2020 had no Thailand Open to delay. Thailand's only 2020 event was the Princess
+  Sirivannavari Thailand **Masters**, category 26, played in January 2020.
+- Thailand has never otherwise hosted a category 23. Moving one to 2020 would put a Super
+  1000 result in a year that had no such tournament.
+
+A scan for the same event twice in one season, across every recorded career, returns
+exactly these two — plus the Finals, which is handled above, plus a junior championship's
+team and individual halves. What the two Thailand Opens *did* need was `seasonLabels`:
+tidied, both squares read "Thailand Open", so the sponsor is handed back where a label would
+otherwise repeat within a row.
+
+⚠️ **Judge that ambiguity after the 24-character clip, not before.** The clip is itself
+capable of making two different names identical: both halves of the 2017 Badminton Asia
+Junior Championships tidy to strings that differ only at the end and both clip to
+"Pembangunan Jaya Raya A…". Comparing the untidied or unclipped names calls those distinct
+and leaves two identical squares on screen. Found by the end-to-end check that no row in a
+career repeats a label — which is worth keeping for exactly that reason, because the model
+test that inspired it only covered the case somebody had already thought of.
+
 **Results sort best-first, by steps from the final.** Champion 0, runner-up 1, out to a
 round of 128 at 7, and then the placings with no rung on the ladder, in the order they
 deserve: out in the group stage, out in qualifying, a placing we do not recognise, no

@@ -426,7 +426,20 @@ const NOT_A_SPONSOR = new Set([
  */
 const GENERIC_EVENT = /^(Open|Masters|Championships?|Champs|International|Intl|Classic|Cup|Games|Series|Finals?|Tournament)$/i;
 
-export function shortTmtName(name) {
+const clip = (s, n = 24) => (s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s);
+
+/**
+ * The tidied name **and the sponsor run that was removed to get it**.
+ *
+ * The sponsor is normally noise, which is why `shortTmtName` throws it away.
+ * Once in a while it is the only thing telling two events apart: January 2021
+ * ran the YONEX Thailand Open and the TOYOTA Thailand Open a week apart in the
+ * same Bangkok bubble, and BWF left the year off *both* names because the
+ * sponsor is how it distinguishes them. Tidied, they are two squares reading
+ * "Thailand Open" in one season, which looks like the same tournament drawn
+ * twice. `seasonLabels` hands the sponsor back where that happens.
+ */
+export function tidyTmtName(name) {
   let s = String(name || '')
     // "Denmark Open 2022 presented by VICTOR" — a sponsor at the *end*, which
     // also pushes the year into the middle where the trailing strip misses it.
@@ -448,6 +461,7 @@ export function shortTmtName(name) {
   while (i < words.length - 1 && sponsorish(words[i])) i++;
   // Back off if the strip left nothing but a generic word.
   if (i > 0 && words.length - i === 1 && GENERIC_EVENT.test(words[i])) i--;
+  const sponsor = words.slice(0, i).join(' ');
   s = words.slice(i).join(' ');
 
   s = s
@@ -469,8 +483,68 @@ export function shortTmtName(name) {
     .replace(/\s+/g, ' ')
     .trim();
 
-  if (s.length > 24) s = s.slice(0, 23).trimEnd() + '…';
-  return s || String(name || '');
+  return { label: s || String(name || ''), sponsor };
+}
+
+export function shortTmtName(name) {
+  return clip(tidyTmtName(name).label);
+}
+
+/**
+ * Labels for one season's squares, with any that would read the same told
+ * apart.
+ *
+ * Two squares in a row carrying the same words are read as one tournament drawn
+ * twice — which is exactly what happened with the two Thailand Opens of January
+ * 2021, and it is a fair thing to mistrust. So where a label repeats within a
+ * season, the sponsor comes back, because that is what BWF itself is
+ * distinguishing them by. If the sponsors match too, the month settles it.
+ *
+ * Only where it is needed: giving every square its sponsor back would cost the
+ * legibility the tidying exists for.
+ */
+export function seasonLabels(tournaments) {
+  const list = tournaments || [];
+  const tidy = list.map(t => tidyTmtName(t.name));
+  const bases = tidy.map(t => t.label);
+  const suffixes = list.map(() => '');
+
+  // What the reader will actually see: the base, clipped, with room reserved
+  // for whatever suffix has been added, so a disambiguator is never the thing
+  // that gets truncated away.
+  const render = i => clip(bases[i], 24 - suffixes[i].length) + suffixes[i];
+
+  /* Ambiguity is judged **after clipping**, because the 24-character limit is
+     itself capable of making two different names identical — and does. Both
+     halves of the 2017 Badminton Asia Junior Championships, the team event and
+     the individual one, clip to "Pembangunan Jaya Raya A…". Comparing the full
+     names would have called those distinct and left two identical squares on
+     screen. Caught by the end-to-end check that no row repeats a label. */
+  const ambiguous = () => {
+    const seen = new Map();
+    const shown = list.map((_, i) => render(i));
+    for (const s of shown) seen.set(s, (seen.get(s) || 0) + 1);
+    return shown.map(s => seen.get(s) > 1);
+  };
+
+  // The sponsor first — it is what BWF itself distinguishes the two January
+  // 2021 Thailand Opens by, and it is the most informative thing available.
+  let bad = ambiguous();
+  list.forEach((_, i) => {
+    if (bad[i] && tidy[i].sponsor) bases[i] = `${tidy[i].sponsor} ${tidy[i].label}`;
+  });
+
+  // Then the date, at the coarsest resolution that still separates them.
+  for (const end of [7, 10]) {
+    bad = ambiguous();
+    list.forEach((_, i) => {
+      if (!bad[i]) return;
+      const when = String((list[i] || {}).start || '').slice(5, end);
+      if (when) suffixes[i] = ` (${when})`;
+    });
+  }
+
+  return list.map((_, i) => render(i));
 }
 
 /* ============================ season parsing ============================ */
