@@ -238,8 +238,10 @@ function renderLevels() {
 
 function renderHero() {
   const hero = $('hero');
-  if (!state.playerId) { hero.hidden = true; return; }
+  if (!state.playerId) { hero.hidden = true; $('pageNav').hidden = true; return; }
   hero.hidden = false;
+  // The nav is about a player, so it arrives with one and not before.
+  $('pageNav').hidden = false;
 
   const p = state.player;
   $('heroName').textContent = p ? p.name : `Player ${state.playerId}`;
@@ -897,12 +899,13 @@ function renderGrid() {
   if (honours) renderHonoursBody(list); else renderGridBody(list);
 }
 
-/** Which page the hero says you are on. */
+/** Which page the nav says you are on. */
 function renderViewPick() {
-  $('viewPick').querySelectorAll('[data-page]').forEach(b => {
+  $('pageNav').querySelectorAll('[data-page]').forEach(b => {
     const on = (b.dataset.page === 'compare') === grid.open;
     b.classList.toggle('on', on);
-    b.setAttribute('aria-pressed', String(on));
+    if (on) b.setAttribute('aria-current', 'page');
+    else b.removeAttribute('aria-current');
   });
 }
 
@@ -1051,7 +1054,7 @@ syncZoomControl();
    The strip stays the landing view. It is the only one of the three that always
    has something to say: at SF+ a world #22 is seven squares and eight empty
    rows, which is true and reads as a broken page. */
-$('viewPick').addEventListener('click', e => {
+$('pageNav').addEventListener('click', e => {
   const b = e.target.closest('[data-page]');
   if (b) showPage(b.dataset.page === 'compare');
 });

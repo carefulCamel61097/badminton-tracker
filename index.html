@@ -48,12 +48,22 @@
   <div class="heroctl">
     <span id="kindWrap" class="seasonsonly" role="group" aria-label="discipline"></span>
     <label class="toggle seasonsonly"><input type="checkbox" id="sized" checked> Size by weight</label>
-    <span id="viewPick" class="kindwrap" role="group" aria-label="page">
-      <button type="button" class="seg on" data-page="seasons" aria-pressed="true">Seasons</button>
-      <button type="button" class="seg" data-page="compare" aria-pressed="false">Compare</button>
-    </span>
   </div>
 </section>
+
+<!-- The two pages, said plainly. This was a segmented control in the corner of
+     the hero, which is where you put a setting, not where you put the other
+     half of an application. -->
+<nav id="pageNav" class="pagenav" aria-label="pages" hidden>
+  <button type="button" class="tab on" data-page="seasons" aria-current="page">
+    <span class="name">Seasons</span>
+    <span class="sub">every tournament, year by year</span>
+  </button>
+  <button type="button" class="tab" data-page="compare">
+    <span class="name">Compare</span>
+    <span class="sub">two careers side by side</span>
+  </button>
+</nav>
 
 <section id="seasonsPage">
 

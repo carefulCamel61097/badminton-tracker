@@ -167,7 +167,8 @@ career that looks like a view rather than an error.
 
 ### 1.1d Two pages: Seasons and Compare
 
-*Restructured 23 Aug 2026.* The app is two pages, switched from the hero:
+*Restructured 23 Aug 2026.* The app is two pages, switched from a **tab bar of their own**
+(`#pageNav`) sitting between the hero and the page body:
 
 - **Seasons** — the strip. The landing page, and the only one that always has something to
   say (see the warning in 1.1c).
@@ -180,6 +181,17 @@ a modal says *glance and dismiss*, and comparing two careers is a thing you come
 to do. It is a page now. `#seasonsPage` and `#comparePage` swap on `hidden`; the hero's
 `.seasonsonly` controls — "Size by weight", the discipline toggle — go with the strip,
 because they govern a square the compare page does not draw.
+
+⚠️ **The nav is not a segmented control.** It was one, in the top-right corner of the hero,
+for about an hour. At that size and in that position it reads as *a setting about the thing
+you are looking at*, not as *the other half of the application* — whatever the labels say.
+It is now a 16px tab bar with a subtitle under each name, an accent underline on the active
+tab, and it lives outside both page sections so it survives the switch (the suite asserts
+that containment). It appears with the hero, because it is about a player.
+
+The bar costs about 60px of vertical space, which pushes one season row below the fold on
+first paint — the suite's fixture count dropped from 292 to 256 because ladders load for
+rows in view. That is the mechanism working, not a regression.
 
 **The empty seat.** With one player loaded, the compare page draws a dashed
 `+ Compare with a second player` slot beside them — an empty grid card, or the right-hand
@@ -1072,6 +1084,11 @@ time, with two cards rendered in it.
 
 *(No longer live here — the modal became a page on 23 Aug 2026, see 1.1d — but keep the
 lesson: it applies to any `<dialog>`, `popover`, or anything else in the top layer.)*
+
+`node tools/shot.mjs --top "#p=…"` clips to the first 460px at 1.6× — the nav, hero and page
+header at a size you can actually read. A whole-page capture squeezes 1600px of document
+into one image and the chrome comes out too small to judge; that has twice sent me hunting
+for a bug in something that had rendered perfectly.
 
 Capture a top-layer element **without** `captureBeyondViewport` and clip to the viewport.
 `shot.mjs`

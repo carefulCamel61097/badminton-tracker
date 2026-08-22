@@ -527,13 +527,23 @@ check('the grid is shut until it is asked for',
   await b.ev(`document.getElementById('comparePage').hidden
     && !document.getElementById('seasonsPage').hidden`));
 
-/* Two pages, named in the hero. This used to be one button labelled
-   "Grid & compare", which named neither of the things behind it. */
-const picks = await b.ev(`[...document.querySelectorAll('#viewPick [data-page]')]
+/* Two pages, on a bar of their own. This was a segmented control in the corner
+   of the hero, which is where a setting goes. */
+const picks = await b.ev(`[...document.querySelectorAll('#pageNav [data-page]')]
   .map(b => b.dataset.page + (b.classList.contains('on') ? '*' : ''))`);
-eq('the hero offers two pages by name', picks.join(' '), 'seasons* compare');
+eq('the nav offers two pages by name', picks.join(' '), 'seasons* compare');
+eq('each one named at a size you can read',
+  await b.ev(`Math.round(parseFloat(getComputedStyle(
+    document.querySelector('#pageNav .tab .name')).fontSize))`), 16);
+check('the nav belongs to neither page, so it survives the switch',
+  await b.ev(`(() => {
+    const nav = document.getElementById('pageNav');
+    return !document.getElementById('seasonsPage').contains(nav)
+      && !document.getElementById('comparePage').contains(nav)
+      && !document.getElementById('hero').contains(nav);
+  })()`));
 
-await b.ev(`document.querySelector('#viewPick [data-page="compare"]').click()`);
+await b.ev(`document.querySelector('#pageNav [data-page="compare"]').click()`);
 check('the compare button opens the second page', await b.ev('window.BST.grid.isOpen()'));
 check('and the strip steps aside rather than sitting behind it',
   await b.ev(`document.getElementById('seasonsPage').hidden
@@ -736,7 +746,7 @@ eq('and it can be dropped again', (await b.ev('window.BST.grid.cards()')).length
 check('which takes it back out of the link',
   await b.ev(`!location.hash.includes('c=')`), await b.ev('location.hash'));
 
-await b.ev(`document.querySelector('#viewPick [data-page="seasons"]').click()`);
+await b.ev(`document.querySelector('#pageNav [data-page="seasons"]').click()`);
 check('the seasons button brings the strip back', await b.ev(`!window.BST.grid.isOpen()`));
 check('and it is untouched', (await squares(2026)).length > 0);
 
@@ -1034,20 +1044,20 @@ check('which takes the board out of the link',
 /* Left on the board, so coming back should land on the board — leaving a page
    is not the same as resetting it. */
 await b.ev(`window.BST.honours.view('honours')`);
-await b.ev(`document.querySelector('#viewPick [data-page="seasons"]').click()`);
+await b.ev(`document.querySelector('#pageNav [data-page="seasons"]').click()`);
 check('and the page can be left from either view', await b.ev(`!window.BST.grid.isOpen()`));
 check('which puts the hero back on the seasons',
-  await b.ev(`document.querySelector('#viewPick [data-page="seasons"]')
+  await b.ev(`document.querySelector('#pageNav [data-page="seasons"]')
     .classList.contains('on')`));
 check('and the strip is showing again',
   await b.ev(`!document.getElementById('seasonsPage').hidden`));
-await b.ev(`document.querySelector('#viewPick [data-page="compare"]').click()`);
+await b.ev(`document.querySelector('#pageNav [data-page="compare"]').click()`);
 check('going back to compare returns to the view you left it on',
   await b.ev(`window.BST.grid.isOpen() && window.BST.honours.view() === 'honours'`));
 check('with the slider still pointed at the board',
   await b.ev(`Number(document.getElementById('gridZoom').max) === 16`),
   await b.ev(`document.getElementById('gridZoom').max`));
-await b.ev(`document.querySelector('#viewPick [data-page="seasons"]').click()`);
+await b.ev(`document.querySelector('#pageNav [data-page="seasons"]').click()`);
 
 /* ============================ the disclaimer ============================ */
 

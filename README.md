@@ -61,8 +61,8 @@ lose them entirely. See `HANDOVER.md` Part 2.6.
 
 ## Two pages
 
-**Seasons** and **Compare**, switched from the hero. Seasons is the strip and is what you
-land on. Compare holds the grid and the honours board, either of them for one player or two,
+**Seasons** and **Compare**, on a tab bar under the player's name. Seasons is the strip and
+is what you land on. Compare holds the grid and the honours board, either of them for one player or two,
 and when there is only one it draws an empty dashed seat beside them — a page called Compare
 should look like one before anybody has been chosen.
 
@@ -184,6 +184,7 @@ endpoint literals. It is how Parts 3.2 and 3.5 of `HANDOVER.md` were found.
 `tests/shots/`, so a change to the strip can be looked at rather than only asserted. Its
 defaults cover a singles career, a doubles one, the grid and a two-player comparison; any
 `#hash` works, and one carrying `g=1` is captured at the width the compare page needs.
+`--top` clips to the chrome — nav, hero, page header — at a scale you can read.
 
 `probe-draws.mjs` reports the stage layout `tournaments/draws` returns for a knockout, a
 draw with qualifying, a group stage and a team event — the shapes the ladder has to handle.

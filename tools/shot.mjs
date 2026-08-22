@@ -2,6 +2,7 @@
  *
  *   node tools/shot.mjs                          the default pair
  *   node tools/shot.mjs "#p=87442&y=2026"        any hash
+ *   node tools/shot.mjs --top "#p=87442"         just the chrome, big enough to read
  *
  * Writes PNGs to tests/shots/ (gitignored). The API is replayed from fixtures,
  * so this is fast, offline and shows the same seasons every time — which is
@@ -31,6 +32,11 @@ const DEFAULTS = [
 /** The compare page is wide; the strip is not. */
 const wide = hash => /(^|&)g=1/.test(hash);
 
+/* `--top` clips to the first 460px: the chrome — nav, hero, page header — at a
+   readable scale. A whole-page capture is 1600px of document squeezed into one
+   image and the controls come out too small to judge, which has twice now sent
+   me looking for a bug in something that rendered perfectly. */
+const TOP_ONLY = process.argv.includes('--top');
 const args = process.argv.slice(2).filter(a => a.startsWith('#'));
 const shots = args.length ? args.map((h, i) => [`shot${i + 1}`, h]) : DEFAULTS;
 
@@ -65,10 +71,12 @@ for (const [name, hash] of shots) {
      captured without it. */
   const r = await b.send('Page.captureScreenshot', {
     format: 'png',
-    captureBeyondViewport: !wide(hash),
-    clip: wide(hash)
-      ? { x: 0, y: 0, width: 1660, height: 1080, scale: 1.5 }
-      : { x: 0, y: 0, width: 1000, height: 900, scale: 2 },
+    captureBeyondViewport: !TOP_ONLY && !wide(hash),
+    clip: TOP_ONLY
+      ? { x: 0, y: 0, width: 1620, height: 460, scale: 1.6 }
+      : wide(hash)
+        ? { x: 0, y: 0, width: 1660, height: 1080, scale: 1.5 }
+        : { x: 0, y: 0, width: 1000, height: 900, scale: 2 },
   }, b.sessionId);
 
   const file = path.join(SHOTS, name + '.png');
