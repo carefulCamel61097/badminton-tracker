@@ -1120,7 +1120,11 @@ export const HONOUR_STEPS = [
   { key: 'w',  label: 'W',   full: 'titles only',             rank: 0 },
 ];
 
-export const HONOUR_DEFAULT = 'qf';
+/* The semi-finals. High enough that the board is a list of achievements rather
+   than a list of appearances — a quarter-final at a Super 300 is a fortnight's
+   work, not an honour — and low enough that a good career still has a shape at
+   every level rather than three green squares and eight empty rows. */
+export const HONOUR_DEFAULT = 'sf';
 
 export function honourStep(key) {
   return HONOUR_STEPS.find(s => s.key === key)

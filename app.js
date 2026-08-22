@@ -963,7 +963,8 @@ const ZOOM = {
   honours: {
     key: 'bst:honourzoom', prop: '--hbase', target: 'honBody',
     // 7 is the largest default that fits the two longest careers in the data
-    // side by side without the board needing to scroll — see honourHalfUnits.
+    // side by side without scrolling — measured at QF+, the *widest* bar, so
+    // that moving the bar never introduces a scrollbar. See honourHalfUnits.
     min: 3, max: 14, step: 1, def: 7, label: 'square size',
   },
 };

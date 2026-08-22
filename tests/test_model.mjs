@@ -880,7 +880,9 @@ eq('a level the ladder does not know sits at the bottom rather than vanishing',
 
 /* ---- the bar ---- */
 
-eq('the default bar is the quarter-finals', honourStep(HONOUR_DEFAULT).rank, 3);
+eq('the default bar is the semi-finals', honourStep(HONOUR_DEFAULT).rank, 2);
+eq('and it is one of the four on offer, not a fifth nobody can get back to',
+  HONOUR_STEPS.filter(s => s.key === HONOUR_DEFAULT).length, 1);
 eq('a bar nobody set falls back to it, rather than showing everything',
   honourStep('nonsense').key, HONOUR_DEFAULT);
 eq('and so does no bar at all', honourStep(undefined).key, HONOUR_DEFAULT);
@@ -936,6 +938,17 @@ check('at titles only, nothing below a win is left anywhere',
 const shiF = careerHonours(shiRows, 1);
 eq('at F+ his Olympic row is empty', (shiF.by.get('OLY') || []).length, 0);
 eq('but the entry count still says he was there twice', shiF.entries.get('OLY'), 2);
+
+/* And it is empty at the default bar too, which is the first thing anyone
+   opening his board sees: two Games, two quarter-finals, no honour by this
+   reckoning. The ghost is what stops that reading as "never went". */
+const shiDefault = careerHonours(shiRows, honourStep(HONOUR_DEFAULT).rank);
+eq('his Olympic row is empty at the default bar as well',
+  (shiDefault.by.get('OLY') || []).length, 0);
+eq('with both entries still counted', shiDefault.entries.get('OLY'), 2);
+check('while AN Se Young keeps her Paris title there',
+  (careerHonours(anRows, honourStep(HONOUR_DEFAULT).rank).by.get('OLY') || [])
+    .some(c => c.info.label === 'W'));
 
 check('entries never undercount the honours, at any bar',
   HONOUR_STEPS.every(s => {

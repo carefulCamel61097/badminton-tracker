@@ -745,9 +745,28 @@ await b.ev(`window.BST.honours.bar('w')`);
 check('a link without the view goes back to the grid', await open('#p=57945&g=1')
   && await b.ev(`window.BST.honours.view() === 'grid'`));
 check('and without the bar, back to the default one',
-  await b.ev(`window.BST.grid.state.threshold === 'qf'`),
+  await b.ev(`window.BST.grid.state.threshold === 'sf'`),
   await b.ev('window.BST.grid.state.threshold'));
 check('the board comes back', await open('#p=57945&g=1&v=h'));
+
+/* ---- what the default bar shows ---- */
+
+eq('a board nobody has touched is set to the semi-finals',
+  await b.ev('window.BST.grid.state.threshold'), 'sf');
+check('and says so, with SF+ the one lit',
+  await b.ev(`document.querySelector('#honMin .seg.on').dataset.hmin === 'sf'`));
+
+/* SHI Yu Qi went to two Olympics and lost both quarter-finals, so the very
+   first row of the very first board a reader sees is empty. That is the right
+   answer and it has to be legible as one. */
+const defaultOly = (await b.ev('window.BST.honours.rows()')).find(r => r.group === 'OLY');
+eq('his Olympic row is empty at it', defaultOly.sides[0].length, 0);
+check('and the ghost says he went twice rather than never',
+  /2 entered, none at SF\+/.test(defaultOly.empty[0] || ''), defaultOly.empty[0]);
+
+/* The rest of this section is measured at QF+, which fills every row he has and
+   so exercises the ordering and the ladder across the whole board. */
+await b.ev(`window.BST.honours.bar('qf')`);
 check('and it really is open', await b.ev('window.BST.grid.isOpen()'));
 eq('showing the board and not the grid', await b.ev('window.BST.honours.view()'), 'honours');
 check('the grid is out of the way, not merely behind it',
@@ -851,9 +870,12 @@ board = await b.ev('window.BST.honours.rows()');
 check('at W, only titles are left', allCells(board).every(c => c.bg === RAMP[0]));
 check('and the bar travels in the link, because it is part of the argument',
   await b.ev(`location.hash.includes('th=w')`), await b.ev('location.hash'));
-await b.ev(`window.BST.honours.bar('qf')`);
+await b.ev(`window.BST.honours.bar('sf')`);
 check('the default bar stays out of the link, being the default',
   await b.ev(`!location.hash.includes('th=')`), await b.ev('location.hash'));
+check('and a non-default one goes back into it',
+  await b.ev(`window.BST.honours.bar('qf'), location.hash.includes('th=qf')`),
+  await b.ev('location.hash'));
 
 /* ---- zoom moves the whole ladder together ---- */
 

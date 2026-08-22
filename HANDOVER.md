@@ -127,8 +127,14 @@ season**. Shares the modal, the level chips, the discipline toggle and the compa
 the grid; switch between them with the Grid / Honours segmented control.
 
 - **Rows are levels**, hardest at the top, in the same order as the grid's blocks.
-- **Only results at or above a bar.** Default **QF+**, with SF+, F+ and W as the other
+- **Only results at or above a bar.** Default **SF+**, with QF+, F+ and W as the other
   settings. Everything below it is simply not drawn — no ground, no ghost, nothing.
+  The semi-final is the bar because a quarter-final at a Super 300 is a fortnight's work
+  rather than an honour, and because a good career still has a shape at every level at SF+
+  — at F+ most of the board is empty rows. Note what it does to the very first row a reader
+  sees: SHI Yu Qi lost both his Olympic quarter-finals, so his Olympic row opens **empty**,
+  which is the right answer and is exactly why the ghost square has to say `2 entered, none
+  at SF+` rather than nothing.
 - **Squares are sized by their row**, and the ladder is geometric: each row up has **φ times
   the area** of the row below. See 2.10 for why area and not side.
 - **One player: rows centred.** **Two players: mirrored about a centre line**, left player

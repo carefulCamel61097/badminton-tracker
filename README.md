@@ -102,7 +102,7 @@ tournament, did not survive contact with 2021.
 
 The same popup, switched to **Honours**. This one has no seasons in it at all: one row per
 level, hardest at the top, holding every result in the career that reached at least a
-**quarter-final** — the bar moves to SF+, F+ or W. Everything below it is simply not drawn.
+**semi-final** — the bar moves to QF+, F+ or W. Everything below it is simply not drawn.
 
 The rows are different sizes, and that is the whole idea. Each row up has **φ times the
 area** of the row below, so an Olympic square is about nine Super 100 squares and a career
@@ -115,8 +115,9 @@ entered, none at QF+`, or `never played at this level`.
 
 **Compare with…** mirrors the board about a centre line — left player reversed and
 right-aligned — so the best results of each meet in the middle and the two shapes face each
-other. Shi Yu Qi against An Se Young at QF+ is the case it was built for: his Super 1000 row
-runs out to yellow, hers is a wall of dark green.
+other. Shi Yu Qi against An Se Young is the case it was built for: his Super 1000 row runs
+out to yellow, hers is a wall of dark green — and at **W** his Olympic row is a ghost while
+hers holds Paris.
 
 The bar is in the link because it is part of what the board says. The zoom is not.
 
