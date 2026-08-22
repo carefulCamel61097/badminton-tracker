@@ -61,10 +61,12 @@ lose them entirely. See `HANDOVER.md` Part 2.6.
 
 ## Two pages
 
-**Seasons** and **Compare**, on a tab bar under the player's name. Seasons is the strip and
-is what you land on. Compare holds the grid and the honours board, either of them for one player or two,
-and when there is only one it draws an empty dashed seat beside them — a page called Compare
-should look like one before anybody has been chosen.
+**Seasons**, **Compare** and **Tournament**, on a tab bar under the player's name. Seasons is
+the strip and is what you land on. Compare holds the grid and the honours board, either of
+them for one player or two, and when there is only one it draws an empty dashed seat beside
+them — a page called Compare should look like one before anybody has been chosen.
+Tournament is the odd one out: it is about a tournament rather than a player, and works
+before you have searched for anybody.
 
 ## The grid
 
@@ -141,13 +143,35 @@ and it collapses for everyone else — a working professional at world #22 is se
 and eight empty rows, which is true and looks like a bug. The strip is the only view that
 always has something to say, so that is the one a player opens on.
 
+## The tournament
+
+Whatever is on, without picking it. One 1.8 KB call to BWF says which tournament has live
+scores, which one just finished and which is next; the page shows the right one and says
+which of the three it is.
+
+A day bar runs across the tournament's dates and opens on today — or on the last day if it
+is over, the first if it has not started. Below it, **one column per court**, and down each
+column that day's matches **in the order they are played**.
+
+Not in time order, and that is deliberate: BWF publishes a flat 50-minute estimate per match
+and on some courts they run backwards. What the cards show is BWF's own wording —
+*Starting at 1:00 PM* on the first match of a court, *Followed by* on everything after it.
+
+A finished match shows the winner in white with the scoreline read from their end, the loser
+below it, and the duration. A **walkover** or a **retirement** says so, because both happen
+and a walkover has no score to print.
+
+**Refresh** re-asks BWF rather than reading the five-minute cache, which is the point while
+a tournament is running. `#now=YYYY-MM-DD` pins what the page thinks today is — useful for
+seeing what finals day will look like without waiting for one.
+
 ## Where things are
 
 | File | What it is |
 |---|---|
 | `model.js` | Pure logic: levels, weights, positions, the ladder and fill, name tidying, season parsing. No browser globals, so the tests import it straight into Node |
 | `api.js` | The request layer: two-lane queue, 320ms pacing, TTL cache, one retry. Also player search, rankings, and the URLs for BWF's flags and photographs |
-| `app.js` | Both pages: the strip with its discipline toggle, level filters and year stepper, and the compare page that holds the grid, the honours board and the second player |
+| `app.js` | All three pages: the strip with its discipline toggle, level filters and year stepper; the compare page holding the grid, the honours board and the second player; and the tournament page's day bar and order of play |
 | `serve.mjs` | Static server for local development |
 | `HANDOVER.md` | The design and engineering brief. Read it before changing anything: the weighting, the doubles model and the API traps are all settled there, several of them by testing |
 
