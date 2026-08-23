@@ -927,7 +927,20 @@ function savedWinZoom() {
     : WIN_ZOOM.def;
 }
 
-const win = { raw: null, kind: 'MS', zoom: savedWinZoom(), loading: false, error: '' };
+/* The disciplines this page has data for. Doubles is deliberately absent: a
+   doubles title is won by a *pair*, so one square would have to hold two faces
+   and would stop meaning what every other square on the page means. */
+const WIN_KINDS = ['MS', 'WS'];
+
+/* ⚠️ Keyed by discipline, not a single `raw`. Switching used to be impossible,
+   and the first version that allowed it would have thrown away the file it
+   already had every time you switched back. */
+const win = {
+  files: {}, errors: {}, loading: {},
+  kind: 'MS', zoom: savedWinZoom(),
+};
+
+const winFile = () => win.files[win.kind] || null;
 
 /* ⚠️ Registered once, here, rather than in the render — `renderWinnersControls`
    runs on every redraw, and adding the listener there would stack a new one
@@ -941,13 +954,16 @@ $('winZoom').addEventListener('input', e => {
 });
 
 async function loadWinnersPage() {
-  if (win.raw || win.loading) return renderWinners();
-  win.loading = true;
-  win.error = '';
+  const kind = win.kind;
+  if (win.files[kind] || win.loading[kind]) return renderWinners();
+  win.loading[kind] = true;
+  delete win.errors[kind];
   renderWinners();
-  try { win.raw = await loadWinners(win.kind); }
-  catch (e) { win.error = e.message || String(e); }
-  win.loading = false;
+  try { win.files[kind] = await loadWinners(kind); }
+  catch (e) { win.errors[kind] = e.message || String(e); }
+  win.loading[kind] = false;
+  /* ⚠️ The reader may have switched away while this was in flight, so redraw
+     whatever is up *now* rather than assuming it is still this discipline. */
   renderWinners();
 }
 
@@ -968,18 +984,19 @@ function renderWinners() {
   const body = $('winBody');
   renderWinnersControls();
 
-  if (win.error) {
-    body.innerHTML = `<p class="empty">${esc(win.error)}</p>`;
+  const file = winFile();
+  if (win.errors[win.kind]) {
+    body.innerHTML = `<p class="empty">${esc(win.errors[win.kind])}</p>`;
     $('winSpan').textContent = '';
     return;
   }
-  if (!win.raw) {
+  if (!file) {
     body.innerHTML = '<p class="empty">Reading the harvested winners…</p>';
     return;
   }
 
-  const players = win.raw.players || {};
-  const years = Object.keys(win.raw.seasons || {}).map(Number)
+  const players = file.players || {};
+  const years = Object.keys(file.seasons || {}).map(Number)
     .filter(y => Number.isFinite(y)).sort((a, b) => a - b);
   if (!years.length) {
     body.innerHTML = '<p class="empty">Nothing harvested yet.</p>';
@@ -988,10 +1005,10 @@ function renderWinners() {
 
   const unit = win.zoom;
   $('winSpan').textContent = `${years[0]}–${years[years.length - 1]} · `
-    + `${years.reduce((n, y) => n + win.raw.seasons[y].length, 0)} titles`;
+    + `${years.reduce((n, y) => n + file.seasons[y].length, 0)} titles`;
 
   const columns = years.map(year => {
-    const rows = pyramidSeason(win.raw.seasons[year], players);
+    const rows = pyramidSeason(file.seasons[year], players);
     const bulges = pyramidBulges(rows);
     const widest = Math.max(...rows.map(pyramidRowWidth), 1);
 
@@ -1026,8 +1043,17 @@ function renderWinners() {
 }
 
 function renderWinnersControls() {
-  const here = (win.raw && win.raw.discipline) || win.kind;
-  $('winKind').innerHTML = `<button type="button" class="seg on" aria-pressed="true">${esc(here)}</button>`;
+  $('winKind').innerHTML = WIN_KINDS.map(k =>
+    `<button type="button" class="seg${k === win.kind ? ' on' : ''}" data-kind="${k}"
+      aria-pressed="${k === win.kind}">${k}</button>`).join('');
+  $('winKind').querySelectorAll('[data-kind]').forEach(btn => {
+    btn.onclick = () => {
+      if (btn.dataset.kind === win.kind) return;
+      win.kind = btn.dataset.kind;
+      writeHash();
+      loadWinnersPage();
+    };
+  });
   const z = $('winZoom');
   if (z && Number(z.value) !== win.zoom) z.value = String(win.zoom);
 }
@@ -2014,6 +2040,9 @@ function readHash() {
   if (h.has('d')) tmt.wantDay = h.get('d');
   if (h.has('dw')) tmt.hiddenDraws = new Set(h.get('dw').split('.').filter(Boolean));
   tmt.starredOnly = h.get('so') === '1';
+  /* Set unconditionally, like the grid's view and bar: a link without it is
+     claiming the default rather than saying nothing. */
+  win.kind = WIN_KINDS.includes(h.get('wk')) ? h.get('wk') : 'MS';
   // `g=1` is what the compare page was called when it was a modal, and links
   // carrying it are still out there.
   wantPage = h.get('pg') || (h.get('g') === '1' ? 'compare' : 'seasons');
@@ -2040,7 +2069,7 @@ function applyGridHash() {
   // Already on the tournament page: the hash may still have moved the day, or
   // the date the whole page is reasoned from.
   else if (page === 'tmt') loadTournament();
-  else if (page === 'winners') renderWinners();
+  else if (page === 'winners') loadWinnersPage();
 }
 
 function writeHash() {
@@ -2070,6 +2099,9 @@ function writeHash() {
   // tournament, so it stays in localStorage. Whether the page is filtered to
   // them is a view of it, and travels.
   if (page === 'tmt' && tmt.starredOnly) p.set('so', '1');
+  // Which discipline is what the page is *about*, so it travels. The tile size
+  // is a viewing preference and stays in localStorage.
+  if (page === 'winners' && win.kind !== 'MS') p.set('wk', win.kind);
   const next = '#' + p.toString();
   if (location.hash !== next) history.replaceState(null, '', next);
 }

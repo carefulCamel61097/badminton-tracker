@@ -1534,6 +1534,57 @@ check('every tile says which tournament it was and who won it',
   await b.ev(`[...document.querySelectorAll('.pyrtile')].every(t =>
     (t.getAttribute('title') || '').trim().length > 8)`));
 
+/* ---- the two singles disciplines ---- */
+
+const whoWon = () => b.ev(
+  `(document.querySelector('.pyrtile[title]') || {}).title || ''`);
+const msFirst = await whoWon();
+
+await b.ev(`[...document.querySelectorAll('#winKind .seg')].find(x => x.textContent === 'WS').click()`);
+check('switching to women’s singles redraws the board',
+  await b.until(`!!document.querySelector('.pyrseason')
+    && ((document.querySelector('.pyrtile[title]') || {}).title || '') !== ${JSON.stringify(msFirst)}`,
+    { timeout: 60000 }),
+  `was ${JSON.stringify(msFirst)}, now ${JSON.stringify(await whoWon())}`);
+eq('and the nav of the page says which one', await b.ev(
+  `document.querySelector('#winKind .seg.on').textContent`), 'WS');
+
+/* ⚠️ Which discipline is what the page is *about*, so a link has to carry it —
+   unlike the tile size, which is how you happen to be looking at it. */
+check('the discipline travels in the hash',
+  /(^|&|#)wk=WS/.test(await b.ev('location.hash')), await b.ev('location.hash'));
+
+const wsPyrs = JSON.parse(await b.ev(`JSON.stringify(
+  [...document.querySelectorAll('.pyrseason')].map(s => ({
+    year: s.querySelector('.pyryear').textContent.trim(),
+    rows: [...s.querySelectorAll('.pyrrow')].map(r => r.querySelectorAll('.pyrtile').length),
+  })))`));
+eq('women’s singles covers the same seasons', wsPyrs.length, pyrs.length);
+
+/* ⚠️ The two boards must hold *exactly* the same number of tiles in every row,
+   because they are the same tournaments: every Super 1000 that ran a men's
+   final ran a women's one on the same day. A row that differs does not mean the
+   sport differed — it means one of the two harvests missed a final. */
+check('and the very same titles, tier for tier and season for season',
+  wsPyrs.every((w, i) => w.year === pyrs[i].year
+    && w.rows.join(',') === pyrs[i].rows.join(',')),
+  wsPyrs.filter((w, i) => w.rows.join(',') !== pyrs[i].rows.join(','))
+    .map(w => w.year).join(' ') || 'all match');
+
+/* ⚠️ Going back must not refetch from scratch or lose the file already read. */
+await b.ev(`[...document.querySelectorAll('#winKind .seg')].find(x => x.textContent === 'MS').click()`);
+check('and switching back returns to the men’s board',
+  await b.until(`((document.querySelector('.pyrtile[title]') || {}).title || '') === ${JSON.stringify(msFirst)}`,
+    { timeout: 60000 }));
+check('with the default discipline dropping out of the hash again',
+  !/wk=/.test(await b.ev('location.hash')), await b.ev('location.hash'));
+
+/* A link that names a discipline opens on it. */
+await b.ev(`location.hash = '#pg=winners&wk=WS'`);
+check('a shared link opens on the discipline it names',
+  await b.until(`!!document.querySelector('#winKind .seg.on')
+    && document.querySelector('#winKind .seg.on').textContent === 'WS'`, { timeout: 60000 }));
+
 await b.ev(`document.querySelector('#pageNav [data-page="seasons"]').click()`);
 
 /* ============================ hygiene ============================ */

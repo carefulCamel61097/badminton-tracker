@@ -59,14 +59,17 @@ as the World Championships — and spells their draws and rounds out in full
 ("Men's Singles", "Quarterfinals") where the World Tour uses codes, which is a good way to
 lose them entirely. See `HANDOVER.md` Part 2.6.
 
-## Two pages
+## Four pages
 
-**Seasons**, **Compare** and **Tournament**, on a tab bar under the player's name. Seasons is
-the strip and is what you land on. Compare holds the grid and the honours board, either of
-them for one player or two, and when there is only one it draws an empty dashed seat beside
-them — a page called Compare should look like one before anybody has been chosen.
-Tournament is the odd one out: it is about a tournament rather than a player, and works
-before you have searched for anybody.
+**Seasons**, **Compare**, **Tournament** and **Winners**, on a tab bar under the player's
+name. Seasons is the strip and is what you land on. Compare holds the grid and the honours
+board, either of them for one player or two, and when there is only one it draws an empty
+dashed seat beside them — a page called Compare should look like one before anybody has been
+chosen.
+
+The last two are not about a player at all and work before you have searched for anybody:
+Tournament follows whatever BWF has on this week, and Winners is every season's biggest
+titles at once.
 
 ## The grid
 
@@ -177,6 +180,37 @@ it matters. **Refresh** asks now. Times are given at the venue and, where it dif
 you are. `#now=YYYY-MM-DD` pins what the page thinks today is, useful for seeing what finals
 day will look like without waiting for one.
 
+## Winners
+
+One column per season, oldest on the left, each a pyramid of the titles that mattered —
+every square the face of whoever won it, sized by the same ladder the honours board uses.
+Men's and women's singles, 2007 to now.
+
+**The Olympics and the World Championships share the top row.** Every season holds one or
+the other and never neither, so they are the same rung of the calendar even though they are
+not the same prize; the Olympic square is drawn larger. (2021 held both — Tokyo was
+postponed into the same year as the Huelva Worlds — so that row simply holds two.) Below
+them the World Tour Finals, then the Super 1000s, then the Super 750s.
+
+⚠️ **No team events, and no regional multi-sport games.** A team title would rank a player
+by the country they were born in. The Asian Games, the Commonwealth Games and the European
+Games are all in BWF's data and all left out for the same reason more quietly: each is
+closed to most of the world, so counting any one of them picks a region — the Asian Games
+alone would hand out tiles LEE Chong Wei could not win while deleting the Commonwealth
+golds he did.
+
+⚠️ **No doubles.** A doubles title is won by a pair, so one square would have to hold two
+faces and would stop meaning what every other square on the page means.
+
+Things that look wrong and are not:
+
+- **2007–2010 are flat slabs rather than pyramids.** There was no Superseries Premier tier
+  before 2011, so all twelve Superseries land on the Super 750 row and the Super 1000 row is
+  genuinely empty. The hole is drawn rather than closed up.
+- **2011 has two Tour Finals.** The 2010 edition was played in January 2011.
+- **2020 is nearly bare.** The calendar entries say "(Cancelled)", and a cancelled final has
+  no winner.
+
 ## Comparing across the eras
 
 LIN Dan and LEE Chong Wei played almost entirely before the World Tour existed, and BWF ships
@@ -227,6 +261,28 @@ silent wrong answer.
 
 `tests/run.mjs` sweeps stale Chrome profiles from `%TEMP%` before it starts. Do not remove
 that: on the predecessor 467 of them accumulated and took a 238 GB disk to zero bytes free.
+
+## The harvested files
+
+`data/winners-MS.json` and `data/winners-WS.json` are not fetched from BWF at page load.
+The app is player-centric — every endpoint it uses is keyed on a player id — and "who won
+this tournament" is the opposite question, so it takes a call per tournament per season.
+None of it changes once a final has been played, so it happens once, offline, and the result
+is committed.
+
+```
+node tools/harvest-winners.mjs                 men's singles, 2007..now
+node tools/harvest-winners.mjs --draw 2        women's singles
+node tools/harvest-winners.mjs --from 2015     a shorter run
+```
+
+It resumes from whatever is already on disk and writes one file per discipline.
+
+⚠️ **The obvious endpoint is the wrong one.** `vue-tournament-draw-data` returns the whole
+draw and looks like the answer, but it is 256–407 KB per tournament and **returns HTTP 500
+for some of them** — including the Paris 2024 Olympics. `tournaments/day-matches` asked for
+the tournament's *last day* is 7–14 KB, answers for those too, and carries the winner's
+photograph. Draw data is kept only as a fallback.
 
 ## Tools
 

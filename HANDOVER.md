@@ -1137,6 +1137,60 @@ alternatives, in rough order of promise: occupancy lanes (a fixed row per rank, 
 by who holds it — immune to crowding, but loses trajectory); the number-one band alone;
 or restricting to a chosen pair of careers rather than everybody at once.
 
+### 3.4d Winners, and how to find one *(built 24 Aug 2026)*
+
+The pyramid page needs the winner of a tournament. Nothing in the app answered that: every
+endpoint it uses is keyed on a player id.
+
+```
+GET /vue-grouped-year-tournaments?year=2016        a whole season, one call
+GET /tournaments/day-matches?tournamentCode={GUID}&date={last day}&order=2&court=0
+```
+
+⚠️⚠️ **`vue-tournament-draw-data` is the trap.** It returns the whole draw, looks like the
+right answer, and is 256–407 KB per tournament — but it **returns HTTP 500 for some
+tournaments**, including the Paris 2024 Olympics and the 2026 Indonesia Open. The day's
+order of play for the tournament's **last day** is 7–14 KB, answers for both, and carries
+the winner's avatar as well, so no second call per player. Draw data survives as a fallback
+only.
+
+⚠️ **The last day holds more than one final in that discipline.** At the Olympics it holds
+the bronze play-off too, and it comes *first*. Match on `roundName === 'Final'`, never on
+"the first MS row".
+
+⚠️ **`results["5-0"]` is `{match: {...}}`, not the match.** Reading it as the match finds no
+`roundName` anywhere, so every tournament comes back with no winner — which looks exactly
+like a tournament that was never played rather than like a bug.
+
+⚠️ **`winner` is 1 or 2, not a player id**, and 0 means nobody.
+
+**Classification: names before categories, again.** The calendar's `category` is a display
+string and it has changed twice. Three traps, each caught only because a count looked wrong:
+
+| what | filed under | why it matters |
+|---|---|---|
+| 2017 World Championships | `BWF Events` | not `Grade 1 – Individual Tournaments` |
+| Dubai Superseries Finals | `World Superseries Premier` | the category-8 ambiguity again |
+| 2008–09 season-ender | `World Superseries Premier` | named "World Super Series **Masters** Finals" |
+
+That last one is the instructive one: an exact phrase match on "Superseries Finals" misses
+"Super Series **Masters** Finals", it then falls through to its category, and the year's
+biggest World Tour title is quietly drawn as a Super 1000. The rule now matches the
+bracketing words with a bounded gap rather than listing names.
+
+⚠️ **Do not reject on a bare `\bcup\b`** when filtering team events. It was the first
+version and it would reject any World Tour event named a cup. The team cups are named
+(Thomas, Uber, Sudirman).
+
+⚠️ **The Asian Games is in the data** — as `Multi-Sport Games` (2023, 2026), `Other` (2018)
+and `BWF Events` (2014, 2010). Only the *name* is reliable. It is deliberately excluded
+along with every other regional games: each is closed to most of the world, so counting one
+picks a region.
+
+⚠️ **`pyramidSeason` must carry `tiers` on empty rows.** A season with no Tour Finals is
+drawn as the gap a Tour Finals square would have left, and without the tier there is no
+height — the whole page throws on the first such season.
+
 ### 3.5 Endpoints — the tournament pages *(discovered 21 Aug 2026, all verified 200)*
 
 Part 3.2 was found by pointing `discover.mjs` at the calendar, home and rankings
