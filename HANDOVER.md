@@ -1086,6 +1086,57 @@ independent checkpoints the walk can be validated against. It also states the th
 Honours board cannot: LIN Dan won far more than LEE Chong Wei and was number one for 14 weeks
 to his 310.
 
+### 3.4c An eras chart, built and shelved — *(23 Aug 2026, branch `eras-chart`)*
+
+A fourth page was built on top of 3.4b: one discipline's whole top, week by week,
+drawn as a line per player. **It was judged too messy to publish and is not on
+main.** Everything is on the branch — the page, the model, 39 new model checks, the
+end-to-end coverage, the harvester and 135 weeks of harvested archive. Nothing was
+pushed; the live site never had it.
+
+Worth keeping from it, whatever replaces it:
+
+**A dominance era is a reign, not a streak.** Enters on reaching the top N; survives
+dips out of ≤ 4 weeks; ends on a longer absence; counts only if it holds ≥ 26 weeks
+inside. ⚠️ "Consecutive weeks in the top N" is the rule that fails — BWF ranks on a
+rolling 52-week sum, so the order below first place jitters every week and one week at
+sixth would sever a decade. The tolerance is also what makes an injury read as two
+eras rather than one. `test_model` on the branch pins it from both sides: four weeks
+out survives, five splits.
+
+⚠️ **Do not colour lines by a hash of the player id.** Which ids collide has nothing
+to do with which lines share a chart; the first attempt put three blues and two greens
+side by side. Assign in order of arrival among the reigns actually drawn.
+
+⚠️ **`frozenRuns` needs a generous threshold.** Three unchanged weeks marked half a
+normal season — between tournaments the top ten genuinely stands still. Eight is the
+default, and it has **never yet been tested against 2020**, which is the freeze it
+exists to catch. Unproven.
+
+⚠️ **A hash that moves a setting *within* a page redraws nothing** unless the page is
+named in `applyGridHash` — it only re-renders on a change of page, with special cases
+per page. Any new page needs its own branch there. Caught by the end-to-end tests, not
+by looking.
+
+⚠️ **`MAX_SCAN` in the harvester was 90 and that is too small.** The walk stopped at id
+3500 and reported a floor that is not one — id 600 is LEE Chong Wei. An exhaustive scan
+found a real gap of more than ninety ids below 3500 with publications resuming by 3100.
+500 crosses what is known. ⚠️ A sweep in steps of 10 **aliases** against a stride of
+about 9 and reads as a near-empty id space; only an exhaustive scan settles a gap.
+
+⚠️ **Every date older than the most recent 60 weeks is counted, not read.** The
+harvester ends by checking itself against anchors it never used —
+`vue-player-ranking-highest` gives `{rank, date}` for every player ever seen at number
+one — because a drift across a gap would not make the file slightly wrong, it would
+make everything below the gap fiction. That check had not run at the point the page was
+shelved.
+
+**The unresolved question is legibility, not data.** The archive is reachable and the
+reign rule works; a line per player over many years was simply hard to read. Untried
+alternatives, in rough order of promise: occupancy lanes (a fixed row per rank, coloured
+by who holds it — immune to crowding, but loses trajectory); the number-one band alone;
+or restricting to a chosen pair of careers rather than everybody at once.
+
 ### 3.5 Endpoints — the tournament pages *(discovered 21 Aug 2026, all verified 200)*
 
 Part 3.2 was found by pointing `discover.mjs` at the calendar, home and rankings
