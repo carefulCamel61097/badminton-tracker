@@ -1390,14 +1390,42 @@ function side(team, seed) {
   };
 }
 
+/* ⚠️ Not every finished match has a score. `scoreStatus` is 0 Normal,
+   1 **Walkover**, 2 **Retired**: a walkover has no games at all and a
+   retirement has however many were played. Both were on court at the 2026
+   Worlds inside a single day, so this is ordinary rather than exotic — and
+   without a word for it a walkover draws as a finished match with a blank
+   scoreline, which reads as a bug in the app rather than a fact about the
+   match.
+
+   The mark belongs to the side it *happened to* — whoever retired, or did not
+   come out at all — which is the side that lost. */
+const SCORE_NOTE = {
+  1: { short: 'W/O', long: 'Walkover' },
+  2: { short: 'RET', long: 'Retired' },
+};
+
+/** "2026-08-19 13:00:00" -> "13:00". */
+function clockOf(when) {
+  const m = String(when || '').match(/\b(\d{2}:\d{2})/);
+  return m ? m[1] : '';
+}
+
 /**
  * A match, normalised.
  *
- * `winner` is 1, 2, or 0 for not yet. A finished match reports
- * `matchStatusValue: "Finished"`; one that has not started has an empty
- * `score`. Anything between the two is being played — read that way round
- * rather than by matching a "live" string, because this project has never seen
- * one and guessing its spelling would fail silently.
+ * ⚠️ Status comes from BWF's **single-letter `matchStatus`**, not from
+ * `matchStatusValue`. `F` is finished and `O` is "off court" — played out but
+ * not yet signed off, arriving with a winner and a full score, so reading it as
+ * unplayed puts "Scheduled" on a finished match. `L` and `P` are being played.
+ * The predecessor learned all four against a live tournament; the long-form
+ * value has only ever been seen here as `Finished` or `none`, so a guess at how
+ * it spells "live" would fail silently for exactly the week it mattered.
+ *
+ * Each side carries **its own games**, because that is how a scoreboard is
+ * read: a row of numbers beside the name with the winner's game picked out. One
+ * joined scoreline cannot say who won which game without the reader doing the
+ * arithmetic.
  */
 export function parseMatch(m) {
   const raw = m || {};
@@ -1405,15 +1433,36 @@ export function parseMatch(m) {
     .filter(g => g && (g.home != null || g.away != null))
     .map(g => ({ a: Number(g.home) || 0, b: Number(g.away) || 0 }));
   const winner = Number(raw.winner) || 0;
-  const finished = winner > 0 || raw.matchStatusValue === 'Finished';
-  /* ⚠️ Not every finished match has a score. `scoreStatusValue` is one of
-     Normal, **Walkover** or **Retired**: a walkover has no games at all and a
-     retirement has however many were played. Both were on court at the 2026
-     Worlds inside a single day, so this is ordinary, not exotic — and without
-     it a walkover draws as a finished match with a blank scoreline, which
-     reads as a bug in the app rather than a fact about the match. */
-  const note = raw.scoreStatusValue && raw.scoreStatusValue !== 'Normal'
-    ? String(raw.scoreStatusValue) : '';
+
+  const letter = String(raw.matchStatus || '').toUpperCase();
+  const done = letter === 'F' || letter === 'O' || winner > 0;
+  const playing = !done && (letter === 'L' || letter === 'P' || games.length > 0);
+
+  const known = SCORE_NOTE[Number(raw.scoreStatus)];
+  // BWF's own wording where it ships it, so the page agrees with the official
+  // result rather than paraphrasing it.
+  const note = known
+    ? { short: known.short, long: raw.scoreStatusValue || known.long }
+    : null;
+
+  const sides = SIDE_KEYS.map((k, i) => {
+    const which = i + 1;
+    return Object.assign(side(raw[k], raw['team' + which + 'seed']), {
+      games: games.map(g => {
+        const own = which === 1 ? g.a : g.b;
+        const opp = which === 1 ? g.b : g.a;
+        return { own, opp, won: own > opp };
+      }),
+      won: winner === which,
+      lost: winner > 0 && winner !== which,
+    });
+  });
+
+  // BWF's own words for when a match starts: "Starting at 1:00 PM" on the first
+  // of a court, "Followed by" on every one after it. Only the first has a real
+  // time — the rest are flat 50-minute estimates that on some courts run
+  // backwards (Part 4.7), so they are marked rather than stated as fact.
+  const oop = raw.oopText || '';
 
   return {
     id: raw.id != null ? String(raw.id) : '',
@@ -1421,13 +1470,17 @@ export function parseMatch(m) {
     round: raw.roundName || '',
     court: raw.courtName || '',
     courtCode: raw.courtCode != null ? String(raw.courtCode) : '',
-    // BWF's own words for when it starts: "Starting at 1:00 PM" on the first
-    // match of a court and "Followed by" on every one after it. Its per-match
-    // times are flat 50-minute estimates (Part 4.7) and are not shown.
-    oop: raw.oopText || '',
-    sides: SIDE_KEYS.map((k, i) => side(raw[k], raw[`team${i + 1}seed`])),
+    /** Position on court: 1 is first on, 2 follows it. The grid's y-axis. */
+    seq: Number(raw.oopRound) || null,
+    oop,
+    time: clockOf(raw.matchTime),
+    estimated: !!oop && !/^\s*starting/i.test(oop),
+    sides,
     winner,
-    status: finished ? 'finished' : games.length ? 'live' : 'upcoming',
+    status: done ? 'finished' : playing ? 'live' : 'upcoming',
+    statusWord: done ? (note ? note.long : 'Finished')
+      : playing ? 'Live'
+      : raw.matchTime ? 'Scheduled' : 'Not scheduled',
     games,
     note,
     duration: Number(raw.duration) || null,
@@ -1467,6 +1520,45 @@ export function orderOfPlay(matches) {
     .sort((a, b) => courtOrder(a.court) - courtOrder(b.court));
 }
 
+/**
+ * The day as a true grid: one column per court, one row per position on court.
+ *
+ * Row 3 means "third on this court" — which is both true and the way an order
+ * of play is read — and it means two matches on the same row really are at the
+ * same point in the day. Rows nothing occupies are skipped, so filtering to one
+ * draw gives a dense grid rather than sixteen mostly-empty ones.
+ *
+ * Returns **null** when a grid would be a lie or a waste: if any match is
+ * missing its court or its position then the order of play is not out yet, and
+ * with a single court a grid is a list with extra machinery. The caller falls
+ * back to a plain list.
+ *
+ * `cells` comes back in **row-major order** — down the day, then across — so a
+ * narrow screen that drops the grid and simply stacks the cards still reads in
+ * running order.
+ */
+export function courtGrid(matches) {
+  const all = matches || [];
+  const placed = all.filter(m => m.court && m.seq != null);
+  if (!placed.length || placed.length !== all.length) return null;
+
+  const courts = [...new Set(placed.map(m => m.court))]
+    .sort((a, b) => courtOrder(a) - courtOrder(b));
+  if (courts.length < 2) return null;
+
+  const rows = [...new Set(placed.map(m => m.seq))].sort((a, b) => a - b);
+  const col = new Map(courts.map((c, i) => [c, i + 1]));
+  const row = new Map(rows.map((q, i) => [q, i + 2]));   // row 1 is the court header
+
+  return {
+    courts,
+    rows,
+    cells: placed.slice()
+      .sort((a, b) => (a.seq - b.seq) || (col.get(a.court) - col.get(b.court)))
+      .map(m => ({ match: m, col: col.get(m.court), row: row.get(m.seq) })),
+  };
+}
+
 /** The draws present on a day, in the usual MS/WS/MD/WD/XD order. */
 const DRAW_ORDER = ['MS', 'WS', 'MD', 'WD', 'XD'];
 export function drawsPresent(matches) {
@@ -1476,11 +1568,3 @@ export function drawsPresent(matches) {
   return [...known, ...rest];
 }
 
-/** How a finished match reads: "21-14 14-21 21-19", winner's score first. */
-export function scoreLine(match) {
-  if (!match || !match.games.length) return '';
-  const flip = match.winner === 2;
-  return match.games
-    .map(g => (flip ? `${g.b}-${g.a}` : `${g.a}-${g.b}`))
-    .join(' ');
-}

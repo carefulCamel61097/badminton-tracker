@@ -25,7 +25,7 @@ import {
   HONOUR_STEPS, HONOUR_DEFAULT, honourStep, honourScale, honourRung,
   careerHonours, honourSections,
   pickTournament, tournamentDays, defaultDay, parseDayMatches, orderOfPlay,
-  drawsPresent, scoreLine, courtOrder, dayOf,
+  drawsPresent, courtGrid, courtOrder, dayOf,
   LEVEL, SLOT_W, BOX_H, MIN_LABEL_PX, LEVEL_ORDER,
 } from '../model.js';
 import { check, eq, near, report } from './check.mjs';
@@ -1150,31 +1150,43 @@ check('and games to show for it, unless it never got that far',
   finished.filter(m => m.games.length < 2)
     .map(m => `${m.draw} ${m.note || '(no note)'} ${m.games.length}g`).join(', '));
 
-const walkover = finished.find(m => m.note === 'Walkover');
+const walkover = finished.find(m => m.note && m.note.long === 'Walkover');
 check('a walkover is named as one', !!walkover);
+eq('with a short form for the card', walkover.note.short, 'W/O');
 eq('and has no score whatever', walkover.games.length, 0);
-eq('so its scoreline is empty rather than made up', scoreLine(walkover), '');
 check('a walkover still has a winner', walkover.winner === 1 || walkover.winner === 2);
+check('and neither side shows a game', walkover.sides.every(sd => !sd.games.length));
 
-const retired = finished.find(m => m.note === 'Retired');
+const retired = finished.find(m => m.note && m.note.long === 'Retired');
 check('a retirement is named too', !!retired);
+eq('with its own short form', retired.note.short, 'RET');
 check('and keeps the score it reached', retired.games.length >= 1,
-  scoreLine(retired));
+  retired.sides.map(sd => sd.games.map(g => g.own).join('-')).join(' vs '));
 check('an ordinary match carries no note at all',
   finished.some(m => !m.note && m.games.length >= 2));
 
-/* The score reads from the winner outwards, whichever side won — a scoreline
-   that starts with the loser's total is the kind of thing nobody notices until
-   they are reading it about a match they watched. */
+/* Each side carries its own games, which is how a scoreboard is read: a row of
+   numbers beside the name. `home`/`away` in the payload are team1/team2, so the
+   side that is *not* team1 has to see them the other way round — get that wrong
+   and every doubles pair on the right of a card reads their opponent's score. */
 const wonBy2 = finished.find(m => m.winner === 2 && m.games.length);
-check('a match won by the second side still reads winner-first',
-  (() => {
-    const first = wonBy2.games[0];
-    return scoreLine(wonBy2).startsWith(`${first.b}-${first.a}`);
-  })(), `${JSON.stringify(wonBy2.games[0])} -> ${scoreLine(wonBy2)}`);
+eq('side two sees its own games from its own end',
+  wonBy2.sides[1].games.map(g => g.own).join(','),
+  wonBy2.games.map(g => g.b).join(','));
+eq('and side one sees the same games from the other',
+  wonBy2.sides[0].games.map(g => g.own).join(','),
+  wonBy2.games.map(g => g.a).join(','));
+check('each side reads its opponent as the other one',
+  wonBy2.sides[0].games.every((g, i) => g.opp === wonBy2.sides[1].games[i].own));
+check('and the winner took more games than they lost',
+  wonBy2.sides[1].games.filter(g => g.won).length
+  > wonBy2.sides[0].games.filter(g => g.won).length,
+  wonBy2.sides.map(sd => sd.games.map(g => g.own).join('-')).join(' vs '));
+
 const wonBy1 = finished.find(m => m.winner === 1 && m.games.length);
-check('and one won by the first side reads the same way round',
-  scoreLine(wonBy1).startsWith(`${wonBy1.games[0].a}-${wonBy1.games[0].b}`));
+check('exactly one side of a finished match is the winner',
+  wonBy1.sides.filter(sd => sd.won).length === 1
+  && wonBy1.sides.filter(sd => sd.lost).length === 1);
 
 /* ---- the order of play ---- */
 
@@ -1213,9 +1225,53 @@ check('all of them finals', day23.every(m => m.round === 'Final'),
 eq('on one court', orderOfPlay(day23).length, 1);
 check('none of them played yet when this was recorded',
   day23.every(m => m.status === 'upcoming' && m.winner === 0 && !m.games.length));
-eq('so there is no scoreline to show', scoreLine(day23[0]), '');
+check('so neither side shows a game', day23.every(m => m.sides.every(sd => !sd.games.length)));
+check('and every one of them says it is scheduled',
+  day23.every(m => m.statusWord === 'Scheduled'),
+  [...new Set(day23.map(m => m.statusWord))].join(' | '));
 eq('the five draws, in the usual order',
   drawsPresent(day23).join(' '), 'MS WS MD WD XD');
+
+
+/* ---- the grid ---- */
+
+const grid = courtGrid(day19);
+check('a full day draws as a real grid', !!grid);
+eq('one column per court', grid.courts.length, 4);
+eq('every match placed', grid.cells.length, day19.length);
+
+/* Row 3 means "third on this court", so two cards on the same row are at the
+   same point in the day. That is the whole claim of the layout. */
+check('a row is one position on court, across every court',
+  grid.cells.every(c => {
+    const others = grid.cells.filter(o => o.row === c.row);
+    return others.every(o => o.match.seq === c.match.seq);
+  }));
+check('and a column is one court',
+  grid.cells.every(c => {
+    const others = grid.cells.filter(o => o.col === c.col);
+    return others.every(o => o.match.court === c.match.court);
+  }));
+check('no two matches land in the same cell',
+  new Set(grid.cells.map(c => c.col + ':' + c.row)).size === grid.cells.length);
+
+/* Row-major, so a narrow screen that drops the grid and stacks the cards still
+   reads down the day rather than down court one and then back to the top. */
+check('the cells come out row-major, which is running order',
+  grid.cells.every((c, i) => i === 0
+    || c.row > grid.cells[i - 1].row
+    || (c.row === grid.cells[i - 1].row && c.col > grid.cells[i - 1].col)));
+
+eq('the finals are one court, so no grid — a list would say the same thing',
+  courtGrid(day23), null);
+eq('and nothing at all is no grid either', courtGrid([]), null);
+
+/* An order of play BWF has not published yet has matches but no court, and a
+   grid of them would be an invention. */
+eq('a day with no courts yet is no grid',
+  courtGrid(day19.map(m => ({ ...m, court: '' }))), null);
+eq('and so is one where only some matches are placed',
+  courtGrid(day19.map((m, i) => (i ? m : { ...m, seq: null }))), null);
 
 /* ---- nothing at all ---- */
 
@@ -1223,6 +1279,6 @@ eq('no payload is no matches', parseDayMatches(null).length, 0);
 eq('an empty one likewise', parseDayMatches([]).length, 0);
 eq('and no matches is no courts', orderOfPlay([]).length, 0);
 eq('nor any draws', drawsPresent([]).length, 0);
-eq('a scoreline out of nothing is empty', scoreLine(null), '');
+eq('and no grid out of nothing', courtGrid([]), null);
 
 process.exit(report());

@@ -36,6 +36,8 @@
   --accent-text:   #ff5f64;   /* accent used AS text on dark */
 
   --bad:           #ff6b6b;
+  --live:          #12ffc4;   /* a match being played, and only that */
+  --warn:          #ffbc20;   /* scheduled, not yet under way */
 
   /* The result ramp, green for a title through to red for a first-round exit.
      Named here rather than inline because two views paint with it: the season
@@ -813,10 +815,17 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
 
 /* ========================== the tournament page ==========================
 
-   One column per court, matches down it in the order they are played. The
-   y-axis is the running order, never the clock: BWF publishes a flat 50-minute
-   estimate per match and on some courts they run backwards (Part 4.7), so its
-   own "Starting at" / "Followed by" is what a card shows.
+   The predecessor's order-of-play layout, which is the right one.
+
+   A **real grid**: one column per court, one row per position on that court, so
+   two cards on the same row are genuinely at the same point in the day. The
+   y-axis is the running order and never the clock — badminton matches follow one
+   another on a court, BWF says so itself with "Followed by", and the per-match
+   times it publishes are flat 50-minute estimates that on some courts run
+   backwards (Part 4.7).
+
+   Below the breakpoint the grid is dropped entirely and the cards stack in DOM
+   order, which is row-major — i.e. still down the day.
    ========================================================================== */
 
 .tmtwhen {
@@ -837,109 +846,159 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
 .badge.live { border-color: var(--accent); color: var(--accent-text); }
 .badge.upcoming { border-color: var(--border); color: var(--text-dim); }
 
-.chip.today { border-style: solid; border-color: var(--text-muted); }
-.chip.today.on { border-color: var(--accent); }
+/* ---- the day bar ---- */
 
-.oop {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  overflow-x: auto;
-  padding-bottom: 8px;
-  scrollbar-width: thin;
-}
-
-.court {
+.daybar { display: flex; gap: 6px; flex-wrap: wrap; }
+.day {
+  appearance: none;
   flex: none;
-  /* Wide enough for "Dechapol PUAVARANUKROH" on one line, which is the longest
-     name the tour reliably produces. */
-  width: 344px;
+  text-align: center;
   background: var(--surface);
+  color: var(--text-dim);
   border: 1px solid var(--border-soft);
-  border-radius: var(--radius-card);
-  padding: 9px 10px 11px;
+  border-radius: var(--radius-btn);
+  padding: 5px 13px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.25;
+  cursor: pointer;
 }
-.courtname {
-  margin: 0 0 8px;
-  font: 500 11px var(--mono);
+.day b { display: block; font-size: 14px; font-weight: 700; color: var(--text); }
+.day:hover { border-color: var(--accent); }
+.day.is-today { border-color: var(--text-muted); }
+.day.is-active { background: var(--accent); border-color: var(--accent); }
+.day.is-active, .day.is-active b { color: var(--accent-fg); }
+
+/* ---- the grid ---- */
+
+.oop-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr));
+  gap: 8px;
+  align-items: start;
+}
+.oop-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 5px 10px;
+  background: var(--surface-sunk);
+  border: 1px solid var(--border-soft);
+  border-bottom: 2px solid var(--accent);
+  border-radius: var(--radius-btn) var(--radius-btn) 0 0;
+  font: 700 11px var(--font);
+  letter-spacing: .06em;
   text-transform: uppercase;
-  letter-spacing: .09em;
-  color: var(--text-muted);
+  color: var(--text-dim);
 }
+.oop-list { display: grid; gap: 6px; max-width: 560px; }
+
+/* The column already names the court. */
+.oop-grid .match-head .court,
+.oop-grid .match-head .sep.court { display: none; }
+/* A finished match carries up to five game badges, and at a quarter of the
+   width they were squeezing the name onto a second line. Tighter here only. */
+.oop-grid .sets { gap: 2px; }
+.oop-grid .sets b { min-width: 18px; font-size: 12px; padding: 1px 2px; }
+
+@media (max-width: 1100px) {
+  .oop-grid { display: block; }
+  .oop-head { display: none; }
+  .oop-cell { margin-bottom: 6px; }
+  .oop-grid .match-head .court,
+  .oop-grid .match-head .sep.court { display: inline; }
+}
+
+/* ---- the card: BWF's reading order — flag, seed, name, per-game scores ---- */
 
 .match {
+  background: var(--surface);
   border: 1px solid var(--border-soft);
-  border-left: 3px solid var(--border);
-  border-radius: var(--radius-btn);
-  padding: 7px 9px 6px;
-  margin-bottom: 7px;
-  background: var(--bg);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-card);
+  overflow: hidden;
 }
-.match:last-child { margin-bottom: 0; }
-.match.live { border-left-color: var(--accent); }
-.match.finished { border-left-color: var(--res-sf); }
+.match.is-upcoming { border-left-color: var(--border); }
+.match.is-live { border-left-color: var(--live); }
 
-.mhead {
+.match-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 7px;
-  margin-bottom: 5px;
-  font: 500 10px var(--mono);
+  flex-wrap: wrap;
+  padding: 3px 10px;
+  background: var(--surface-sunk);
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 10.5px;
+  letter-spacing: .04em;
   text-transform: uppercase;
-  letter-spacing: .07em;
-}
-.mhead .draw { color: var(--text-dim); }
-.mhead .round { color: var(--text-muted); }
-
-.mside {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 2px 0;
-  font-size: 13px;
-  color: var(--text-dim);
-  min-width: 0;
-}
-.mside .flag { width: 15px; height: 15px; }
-.mside .who { flex: 1; min-width: 0; }
-.mside .pl { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mside .pl + .pl { margin-top: 1px; }
-.mside .seed {
-  flex: none;
-  font: 500 9.5px var(--mono);
   color: var(--text-muted);
-  border: 1px solid var(--border);
-  border-radius: 2px;
-  padding: 0 3px;
 }
-/* The winner is the one worth seeing first; the loser stays legible rather
-   than being greyed into the background. */
-.mside.won { color: var(--text); font-weight: 500; }
-.mside.lost { color: var(--text-muted); }
+.match-head .rnd { font-weight: 700; color: var(--accent-text); }
+.match-head .sep { opacity: .45; }
+.match-head .stat { margin-left: auto; font-weight: 700; }
+.stat.finished { color: var(--text-muted); }
+.stat.finished.is-note { color: var(--bad); }
+.stat.live { color: var(--live); }
+.stat.upcoming { color: var(--warn); }
 
-.mfoot {
+.side {
+  display: grid;
+  grid-template-columns: 19px 22px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+}
+.side + .side { border-top: 1px solid var(--border-soft); }
+.side.is-loser .nm, .side.is-loser .sets { opacity: .55; }
+.side.is-winner .nm { font-weight: 700; }
+.side .flag { width: 19px; height: 19px; border-radius: 50%; object-fit: cover; }
+.side .seed {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+}
+/* Deliberately allowed to wrap. In a four-column grid a doubles pair is wider
+   than the column, and a second line costs a few pixels where an ellipsis hides
+   half the pair. `anywhere` because some single names are themselves wider than
+   the column with no space to break at. */
+.nm { min-width: 0; font-size: 13px; line-height: 1.25; overflow-wrap: anywhere; }
+.nm .sub { font-size: 10.5px; color: var(--text-muted); margin-left: 5px; }
+.nm .muted { color: var(--text-muted); }
+
+.sets { display: flex; gap: 3px; }
+.sets b {
+  min-width: 23px;
+  text-align: center;
+  font: 700 13px var(--mono);
+  padding: 1px 3px;
+  border-radius: 2px;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.sets b.won { background: var(--accent); color: var(--accent-fg); }
+/* Not styled as a score: it is an outcome, not a number, and on a walkover it
+   is the only thing in the row. Outlined so it never competes with a game. */
+.sets b.mk {
+  background: none;
+  border: 1px solid var(--bad);
+  color: var(--bad);
+  font-size: 10px;
+  letter-spacing: .05em;
+  min-width: 0;
+  padding: 0 5px;
+}
+
+.match-foot {
   display: flex;
-  align-items: baseline;
-  gap: 9px;
-  margin-top: 5px;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 3px 10px;
+  border-top: 1px solid var(--border-soft);
   font: 400 11px var(--mono);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
-.mfoot .sc { color: var(--text-dim); letter-spacing: .02em; }
-/* A walkover has no score and a retirement has half of one; without a word for
-   it, both read as a finished match the app failed to fill in. */
-.mfoot .mnote {
-  color: var(--text-muted);
-  border: 1px solid var(--border);
-  border-radius: 2px;
-  padding: 0 4px;
-  font-size: 10px;
-}
-.mfoot .livenow {
-  color: var(--accent-text);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: .08em;
-  font-size: 10px;
-}
+.match-foot .oopt { opacity: .8; }

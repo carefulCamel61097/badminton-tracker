@@ -183,7 +183,7 @@
   </header>
 
   <div class="chiprow"><span class="lbl">Day</span>
-    <div id="tmtDays" class="chips" role="group" aria-label="days"></div>
+    <div id="tmtDays" class="daybar" role="group" aria-label="days"></div>
   </div>
   <div class="chiprow"><span class="lbl">Draws</span>
     <div id="tmtDraws" class="chips" role="group" aria-label="draws shown"></div>
@@ -193,10 +193,11 @@
 
   <p class="legend note" id="tmtNote">
     One column per court, and down each one the matches in the order they are
-    played — not by the clock. BWF publishes a flat 50-minute estimate per match
-    and on some courts they run backwards, so what is shown is its own wording:
-    <strong>Starting at</strong> for the first on a court and
-    <strong>Followed by</strong> for everything after it.
+    played — so two cards on the same row are at the same point in the day. The
+    y-axis is the running order, not the clock: BWF publishes a flat 50-minute
+    estimate per match and on some courts they run backwards, so only the first
+    match on a court has a real time. The rest are marked <strong>&asymp;</strong>
+    and carry BWF's own <strong>Followed by</strong>.
   </p>
 </section>
 

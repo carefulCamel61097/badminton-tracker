@@ -77,12 +77,39 @@ const find = (list, re) => list.find(s => re.test(s.name));
 await b.send('Page.navigate', { url: `http://localhost:${PORT}/` }, b.sessionId);
 await b.until('!!window.BST');
 
+/* ---- a cold open lands on somebody ----
+
+   An empty strip is a worse first impression than anybody's, so with no player
+   in the link the app opens on the world number one in men's singles. Looked up
+   rather than hardcoded: the claim is that it is whoever is number one *now*,
+   and a constant would quietly become a different claim the week they lost it. */
+
+console.log('=== opening on nobody in particular ===');
+check('with no link at all, somebody is loaded anyway',
+  await b.until('!!(window.BST && window.BST.state.playerId)', { timeout: 90000 }),
+  await b.ev('window.BST.state.playerId'));
+const numberOne = await b.ev('window.BST.state.playerId');
+const topMs = await b.ev(`(async () => {
+  const rows = await window.BST.loadTop(6);
+  return rows && rows[0] && rows[0].players[0] ? String(rows[0].players[0].id) : null;
+})()`);
+eq('and it is the top of the men\'s singles ranking', numberOne, topMs);
+check('the link says so too, so a reload is the same page',
+  await b.ev(`location.hash.includes('p=' + window.BST.state.playerId)`),
+  await b.ev('location.hash'));
+/* Let it settle before anything else is asked of the app. A career is one
+   request per season and they are already in the queue; a search typed on top
+   of them waits behind the lot, which is a real thing a reader can do but not
+   what the next section is trying to measure. */
+check('and the career it opened on finishes loading',
+  await b.until('window.BST.ready', { timeout: 180000 }));
+
 /* ============================ the player search ============================ */
 
 console.log('=== a player is found by name, not by id ===');
 check('the page opens on a search box, with no id anywhere',
   await b.ev(`document.getElementById('q').type === 'search'`));
-check('and focuses it, because it is the only thing to do first',
+check('and focuses it, because typing a name is the first thing to do',
   await b.ev(`document.activeElement === document.getElementById('q')`));
 
 await b.ev(`(() => {
@@ -1105,56 +1132,108 @@ eq('the badge says so',
 /* ---- the day bar ---- */
 
 const dayChips = await b.ev(`[...document.querySelectorAll('#tmtDays [data-day]')].map(c =>
-  c.dataset.day + (c.classList.contains('on') ? '*' : '') + (c.classList.contains('today') ? 'T' : ''))`);
+  c.dataset.day + (c.classList.contains('is-active') ? '*' : '')
+  + (c.classList.contains('is-today') ? 'T' : ''))`);
 eq('seven days, with today both marked and chosen',
   dayChips.join(' '),
   '2026-08-17 2026-08-18 2026-08-19 2026-08-20 2026-08-21 2026-08-22 2026-08-23*T');
+eq('each one carries its weekday, not just a number',
+  await b.ev(`document.querySelector('#tmtDays [data-day="2026-08-17"]').textContent`),
+  '17Mon');
 
-/* ---- the order of play ---- */
+/* ---- finals day: one court, so a list rather than a grid ---- */
 
-const finalsDay = await b.ev('window.BST.tmt.courts()');
-eq('finals day is one court', finalsDay.length, 1);
-eq('with five matches on it', finalsDay[0].matches.length, 5);
+const finalsCards = await b.ev('window.BST.tmt.cards()');
+eq('the five finals', finalsCards.length, 5);
 check('every one of them a final',
-  finalsDay[0].matches.every(m => m.round === 'Final'),
-  finalsDay[0].matches.map(m => `${m.draw} ${m.round}`).join(', '));
-
-/* BWF's own words, and the reason the y-axis is the running order rather than
-   the clock — its per-match times are flat estimates (Part 4.7). */
+  finalsCards.every(m => m.round === 'Final'), finalsCards.map(m => m.round).join(' '));
+eq('one court means no grid — a list says the same thing with less machinery',
+  await b.ev('window.BST.tmt.grid()'), null);
+check('none of them played yet, so each says it is scheduled',
+  finalsCards.every(m => m.status === 'upcoming' && m.stat === 'Scheduled'
+    && m.sides.every(sd => !sd.won && !sd.lost && !sd.sets.length)),
+  finalsCards.map(m => m.stat).join(' | '));
 check('the first says when it starts and the rest say they follow',
-  /Starting at/.test(finalsDay[0].matches[0].foot)
-  && finalsDay[0].matches.slice(1).every(m => /Followed by/.test(m.foot)),
-  finalsDay[0].matches.map(m => m.foot.trim()).join(' | '));
-check('nothing is marked as played yet',
-  finalsDay[0].matches.every(m => m.status === 'upcoming'
-    && m.sides.every(s => !s.won && !s.lost)));
+  /Starting at/.test(finalsCards[0].foot)
+  && finalsCards.slice(1).every(m => /Followed by/.test(m.foot)),
+  finalsCards.map(m => m.foot.trim()).join(' | '));
+/* Only the first match on a court has a real time; the rest are flat estimates
+   that on some courts run backwards, so they are marked rather than stated. */
+check('and only the first is given as fact, the rest marked approximate',
+  !/≈/.test(finalsCards[0].foot) && finalsCards.slice(1).every(m => /≈/.test(m.foot)),
+  finalsCards.map(m => m.foot.trim()).join(' | '));
 
-/* ---- a day that has been played ---- */
+/* ---- a played day: the real grid ---- */
 
 await b.ev(`window.BST.tmt.day('2026-08-19')`);
 check('an earlier day loads', await b.until('window.BST.tmt.ready()', { timeout: 120000 }));
 
-const mid = await b.ev('window.BST.tmt.courts()');
-check('a full day runs on several courts at once', mid.length >= 3,
-  mid.map(c => c.name).join(', '));
-check('the courts are in order', mid.every((c, i) => i === 0
-  || Number(c.name.replace(/\D+/g, '')) > Number(mid[i - 1].name.replace(/\D+/g, ''))),
-  mid.map(c => c.name).join(' '));
+const grid = await b.ev('window.BST.tmt.grid()');
+check('a full day draws as a grid', !!grid);
+eq('four courts, four columns', grid.cols, 4);
+eq('each with a heading', grid.heads.join(' '), 'Court 1 Court 2 Court 3 Court 4');
 
-const played = mid.flatMap(c => c.matches).filter(m => m.status === 'finished');
-check('most of it has been played', played.length > 40, `${played.length} finished`);
+/* The whole claim of the layout: a row is one position on court, so two cards
+   level with each other are at the same point in the day. Checked against the
+   painted geometry, not the style attribute — a stylesheet that ignored the
+   grid would still pass a check on what JS asked for. */
+const byRow = {};
+for (const c of grid.cells) (byRow[c.row] = byRow[c.row] || []).push(c);
+check('every card in a row is at the same position on its court',
+  Object.values(byRow).every(cs => new Set(cs.map(c => c.seq)).size === 1),
+  Object.entries(byRow).slice(0, 3).map(([r, cs]) =>
+    r + ':' + cs.map(c => c.seq).join(',')).join(' | '));
+check('and the browser actually lays them out level',
+  Object.values(byRow).every(cs => new Set(cs.map(c => c.y)).size === 1),
+  Object.entries(byRow).slice(0, 3).map(([r, cs]) =>
+    r + ':' + cs.map(c => c.y).join(',')).join(' | '));
+check('a column is one court, and they run left to right in order',
+  grid.cells.every(c => c.col === grid.heads.indexOf(c.court) + 1),
+  grid.heads.join(' '));
+check('columns are laid out in that order too',
+  (() => {
+    const x = {};
+    for (const c of grid.cells) x[c.col] = Math.min(x[c.col] ?? 1e9, c.x);
+    return Object.keys(x).sort((a, b) => a - b).every((k, i, ks) =>
+      i === 0 || x[k] > x[ks[i - 1]]);
+  })());
+
+const tCards = await b.ev('window.BST.tmt.cards()');
+check('the cards come out in running order, down the day',
+  tCards.every((c, i) => i === 0 || c.seq >= tCards[i - 1].seq),
+  tCards.slice(0, 8).map(c => `${c.court}#${c.seq}`).join(' '));
+
+const played = tCards.filter(m => m.status === 'finished');
+check('most of the day has been played', played.length > 40, `${played.length} finished`);
 check('and each finished match marks exactly one winner',
-  played.every(m => m.sides.filter(s => s.won).length === 1
-    && m.sides.filter(s => s.lost).length === 1));
-check('with a scoreline to go with it',
-  played.filter(m => !/Walkover/.test(m.foot))
-    .every(m => /\d+-\d+/.test(m.foot)),
-  (played.find(m => !/\d+-\d+/.test(m.foot)) || {}).foot);
-/* A walkover has no score at all. Without the word it draws as a finished match
-   the app forgot to fill in. */
-const wo = mid.flatMap(c => c.matches).find(m => /Walkover/.test(m.foot));
-check('a walkover says so rather than showing an empty scoreline',
-  !!wo && !/\d+-\d+/.test(wo.foot), wo && wo.foot.trim());
+  played.every(m => m.sides.filter(sd => sd.won).length === 1
+    && m.sides.filter(sd => sd.lost).length === 1));
+
+/* A scoreboard is a row of numbers beside each name, with the games that side
+   won picked out — not one joined line the reader has to unpick. */
+const normal = played.find(m => m.stat === 'Finished');
+check('each side shows its own games',
+  normal.sides.every(sd => sd.sets.length >= 2),
+  JSON.stringify(normal.sides.map(sd => sd.sets)));
+check('and the winner won more of them than the loser',
+  normal.sides.find(sd => sd.won).sets.filter(x => x.endsWith('*')).length
+  > normal.sides.find(sd => sd.lost).sets.filter(x => x.endsWith('*')).length,
+  JSON.stringify(normal.sides.map(sd => sd.sets)));
+
+/* A walkover has no score at all, and a retirement half of one. Both were on
+   court this day. The mark belongs to the side it happened to — the one that
+   lost — and without it either draws as a match the app failed to fill in. */
+const wo = tCards.find(m => m.stat === 'Walkover');
+check('a walkover says so in the header', !!wo, wo && wo.stat);
+check('and marks the side it happened to, with no games anywhere',
+  wo.sides.find(sd => sd.lost).sets.some(x => x.endsWith('!'))
+  && wo.sides.every(sd => sd.sets.every(x => x.endsWith('!'))),
+  JSON.stringify(wo.sides.map(sd => sd.sets)));
+
+const ret = tCards.find(m => m.stat === 'Retired');
+check('a retirement says so too', !!ret, ret && ret.stat);
+check('and keeps the games that were played', ret.sides.every(sd => sd.sets.length >= 1),
+  JSON.stringify(ret.sides.map(sd => sd.sets)));
 
 /* ---- the draw filter ---- */
 
@@ -1162,18 +1241,25 @@ const drawChips = await b.ev(`[...document.querySelectorAll('#tmtDraws [data-dra
   .map(c => c.dataset.draw)`);
 eq('a chip per draw, in the usual order', drawChips.join(' '), 'MS WS MD WD XD');
 
-const beforeHide = (await b.ev('window.BST.tmt.courts()')).flatMap(c => c.matches).length;
+const beforeHide = (await b.ev('window.BST.tmt.cards()')).length;
 await b.ev(`document.querySelector('#tmtDraws [data-draw="XD"]').click()`);
-const afterHide = (await b.ev('window.BST.tmt.courts()')).flatMap(c => c.matches).length;
+const after = await b.ev('window.BST.tmt.cards()');
 check('switching a draw off removes its matches and nothing else',
-  afterHide < beforeHide
-  && (await b.ev('window.BST.tmt.courts()')).flatMap(c => c.matches).every(m => m.draw !== 'XD'),
-  `${beforeHide} -> ${afterHide}`);
+  after.length < beforeHide && after.every(m => m.draw !== 'XD'),
+  `${beforeHide} -> ${after.length}`);
+/* Rows nothing occupies are skipped, so filtering gives a dense grid rather
+   than one full of holes. */
+const tGrid = await b.ev('window.BST.tmt.grid()');
+check('and the grid closes up rather than leaving empty rows',
+  tGrid && new Set(tGrid.cells.map(c => c.row)).size
+    === Math.max(...tGrid.cells.map(c => c.row)) - 1,
+  tGrid && `rows used ${new Set(tGrid.cells.map(c => c.row)).size}`
+    + ` of ${Math.max(...tGrid.cells.map(c => c.row)) - 1}`);
 check('and it travels in the link',
   await b.ev(`location.hash.includes('dw=XD')`), await b.ev('location.hash'));
 await b.ev(`document.querySelector('#tmtDraws [data-draw="XD"]').click()`);
 eq('switching it back restores them',
-  (await b.ev('window.BST.tmt.courts()')).flatMap(c => c.matches).length, beforeHide);
+  (await b.ev('window.BST.tmt.cards()')).length, beforeHide);
 
 check('the day is in the link too, so a day can be shared',
   await b.ev(`location.hash.includes('d=2026-08-19')`), await b.ev('location.hash'));

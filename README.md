@@ -150,20 +150,29 @@ scores, which one just finished and which is next; the page shows the right one 
 which of the three it is.
 
 A day bar runs across the tournament's dates and opens on today — or on the last day if it
-is over, the first if it has not started. Below it, **one column per court**, and down each
-column that day's matches **in the order they are played**.
+is over, the first if it has not started. Below it the order of play, laid out as a grid:
+**one column per court, one row per position on that court**. Two cards level with each other
+are at the same point in the day; row three means third on. When there is only one court, or
+the order of play is not out yet, it falls back to a plain list.
 
-Not in time order, and that is deliberate: BWF publishes a flat 50-minute estimate per match
-and on some courts they run backwards. What the cards show is BWF's own wording —
-*Starting at 1:00 PM* on the first match of a court, *Followed by* on everything after it.
+The y-axis is the running order, never the clock. BWF publishes a flat 50-minute estimate per
+match and on some courts they run backwards, so only the first match on a court is given a
+time as fact. The rest are marked **≈** and carry its own wording — *Followed by*.
 
-A finished match shows the winner in white with the scoreline read from their end, the loser
-below it, and the duration. A **walkover** or a **retirement** says so, because both happen
-and a walkover has no score to print.
+Each card is a scoreboard: flag, seed, name, and **that side's own games** as badges with the
+ones they won picked out. The winner's name is bold, the loser's dimmed. A **walkover** or a
+**retirement** is marked on the side it happened to — the one that lost — because both happen
+and a walkover has no score at all to print.
 
 **Refresh** re-asks BWF rather than reading the five-minute cache, which is the point while
 a tournament is running. `#now=YYYY-MM-DD` pins what the page thinks today is — useful for
 seeing what finals day will look like without waiting for one.
+
+## Who you start on
+
+With nobody in the link, the app opens on the **world number one in men's singles** — looked
+up, not hardcoded, so it is whoever holds it today. An empty strip is a worse first
+impression than anybody's.
 
 ## Where things are
 

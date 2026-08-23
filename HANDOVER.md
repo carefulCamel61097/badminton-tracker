@@ -212,6 +212,19 @@ Right-aligning a single career against a spine to make room for nobody wastes ha
 and looks like a bug rather than an invitation — the seat beside the profile says the same
 thing at a fraction of the cost.
 
+### 1.5 Opening on somebody — added 23 Aug 2026
+
+With no player in the link, the app loads the **world number one in men's singles** rather
+than an empty strip. One call to the ranking table, which is already the top-ranked
+shortcut's first request and comes out of the 12-hour cache, so a second visit costs nothing.
+
+**Looked up, never hardcoded.** The claim is that it is whoever is number one *now*; an id
+written into the source would quietly become a different claim the week they lost the
+ranking. It is also guarded on `!state.playerId`, so a reader who searches during the lookup
+does not have it snatched back.
+
+---
+
 ### 1.2 Tournament view (auto-following) — built 23 Aug 2026
 
 The third page. Shows whatever tournament is current, switching by itself, and nobody
@@ -222,12 +235,30 @@ picks anything for it to be right.
   turns those into *live* / *upcoming* / *finished* by comparing dates.
 - **A day bar** across the tournament's dates, opening on today when it is on, its last day
   when it has finished, its first when it has not started.
-- **One column per court**, and down each one that day's matches **in the order they are
-  played**. Not by the clock — see 4.7, and the wording below.
+- **A real grid**, ported from the predecessor: one column per court, one row per position
+  on that court, so two cards level with each other are genuinely at the same point in the
+  day. Row 3 means "third on this court". Rows nothing occupies are skipped, so filtering to
+  one draw gives a dense grid rather than one full of holes.
+  `courtGrid` returns **null** — and the view falls back to a plain list — when a grid would
+  be a lie or a waste: any match missing its court or position means the order of play is not
+  out, and with one court a grid is a list with extra machinery. Finals day is the second
+  case.
+  Below 1100px the grid is dropped and the cards stack; `cells` comes back **row-major** so
+  that stack still reads down the day rather than down court one and back to the top.
+- **The card is a scoreboard**: flag, seed, name, then **that side's own games** as badges
+  with the ones they won picked out. Not a joined "21-14 14-21" line — a row of numbers
+  beside a name says who won which game without the reader doing arithmetic.
 - **Draw chips** (MS/WS/MD/WD/XD) to filter, and a **Refresh** that passes `fresh` so a live
   score is not read out of the five-minute cache.
-- Finished matches show the scoreline **winner-first**, the duration, and a word when there
-  is one — see 3.7.
+- Finished matches show the duration and, when there is one, a word for it — see 3.7.
+- **Only the first match on a court has a real time.** Everything after it is BWF's
+  "Followed by" against a flat 50-minute estimate, so those are prefixed **≈** and carry a
+  tooltip saying why, rather than being presented as fact or hidden altogether.
+
+⚠️ **`loadCareer` does not write the hash** — only the search picker does. Anything that
+selects a player programmatically has to call `writeHash` itself, or it produces a page that
+cannot be shared, bookmarked or reloaded. Found because the default player (1.5) left the
+address bar empty.
 
 ⚠️ **This page has no player**, which makes it the only one that works on a cold open and
 the reason the nav is visible before anybody has searched. Two things follow: `writeHash`
@@ -973,10 +1004,18 @@ day** of the 2026 Worlds, so this is ordinary rather than exotic. Without a word
 walkover draws as a finished match with a blank scoreline, which reads as a bug in the app
 rather than a fact about the match — `parseMatch` carries it as `note` and the card shows it.
 
-`matchStatusValue` was `Finished` or `none` in everything recorded; a live match has never
-been observed by this project. `parseMatch` therefore reads *finished* from `winner` or
-`Finished`, *upcoming* from an empty score, and treats everything between as being played,
-rather than matching a "live" string whose spelling is a guess.
+⚠️ **Status comes from the single-letter `matchStatus`, not from `matchStatusValue`.** The
+predecessor learned the four values against a live tournament and they are worth having:
+
+| letter | meaning |
+|---|---|
+| `F` | finished |
+| `O` | **off court** — played out, result not yet signed off. Arrives *with* a winner and a full score, so reading it as unplayed puts "Scheduled" on a finished match |
+| `L`, `P` | being played |
+| `N` | not started |
+
+`matchStatusValue` has only ever been seen here as `Finished` or `none`, so a guess at how it
+spells "live" would fail silently for exactly the week it mattered.
 
 `tournaments/day-matches/courts` and `/players` exist (3.5) but the view needs neither: the
 courts come out of the matches, which is also what keeps an unused court off the screen.

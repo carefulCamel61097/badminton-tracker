@@ -25,7 +25,7 @@ import {
   HONOUR_STEPS, HONOUR_DEFAULT, honourStep, honourScale, honourRung,
   careerHonours, honourSections,
   pickTournament, tournamentDays, defaultDay, parseDayMatches, orderOfPlay,
-  drawsPresent, scoreLine, dayOf,
+  courtGrid, drawsPresent, dayOf,
 } from './model.js';
 
 const $ = id => document.getElementById(id);
@@ -1492,37 +1492,58 @@ async function pickDay(day) {
 
 /* ---------- drawing it ---------- */
 
-function sideHtml(s, match, index) {
-  const won = match.winner === index + 1;
-  const lost = match.winner > 0 && !won;
-  // A pair goes on two lines rather than "A / B" on one. Doubles names are long
-  // — "FENG Yan Zhe / HUANG Dong Ping" — and joined they were being cut off at
-  // the surname of the second player, which is the half that identifies them.
-  const names = s.players.length
-    ? s.players.map(p => `<span class="pl">${esc(p.name)}</span>`).join('')
-    : '<span class="pl">—</span>';
-  return `<div class="mside${won ? ' won' : ''}${lost ? ' lost' : ''}">`
-    + (s.flag ? `<img class="flag" src="${esc(s.flag)}" alt="${esc(s.country)}">` : '<span class="flag"></span>')
-    + `<span class="who">${names}</span>`
-    + (s.seed ? `<span class="seed">${esc(s.seed)}</span>` : '')
-    + '</div>';
+/* BWF's own reading order for a match: flag, seed, name, then that side's game
+   scores as badges. The predecessor's layout, and it is the right one — a row
+   of numbers beside a name says who won which game without the reader doing
+   any arithmetic on a joined "21-14 14-21" line. */
+function sideHtml(sd, note) {
+  const cls = ['side', sd.won ? 'is-winner' : '', sd.lost ? 'is-loser' : '']
+    .filter(Boolean).join(' ');
+  const names = sd.players.length
+    ? sd.players.map(pl => esc(pl.name)).join(' / ')
+    : '<span class="muted">TBD</span>';
+  const sets = sd.games.map(g =>
+    `<b class="${g.won ? 'won' : ''}">${g.own}</b>`).join('');
+  // The mark belongs to whoever it happened to, which is the side that lost.
+  const mark = note && sd.lost ? `<b class="mk">${esc(note.short)}</b>` : '';
+
+  return `<div class="${cls}">`
+    + (sd.flag ? `<img class="flag" src="${esc(sd.flag)}" alt="${esc(sd.country)}">`
+      : '<span class="flag"></span>')
+    + `<span class="seed">${esc(sd.seed || '')}</span>`
+    + `<span class="nm">${names}<small class="sub">${esc(sd.country)}</small></span>`
+    + `<span class="sets">${sets}${mark}</span></div>`;
 }
 
 function matchHtml(m) {
-  const note = m.note ? `<span class="mnote">${esc(m.note)}</span>` : '';
-  const foot = m.status === 'finished'
-    ? `<span class="sc">${esc(scoreLine(m))}</span>${note}`
-      + (m.duration ? `<span class="dur">${m.duration} min</span>` : '')
-    : m.status === 'live'
-      ? `<span class="livenow">Playing</span><span class="sc">${esc(scoreLine(m))}</span>`
-      : `<span class="oop">${esc(m.oop || 'To be played')}</span>`;
+  const statCls = m.note ? 'finished is-note' : m.status;
+  const head = `<span class="rnd">${esc(m.round)}</span>`
+    + '<span class="sep">&middot;</span>'
+    + `<span class="ev">${esc(m.draw)}</span>`
+    + `<span class="sep court">&middot;</span><span class="court">${esc(m.court)}</span>`
+    + `<span class="stat ${statCls}">${esc(m.statusWord)}</span>`;
 
-  return `<article class="match ${m.status}" data-draw="${esc(m.draw)}" data-id="${esc(m.id)}">`
-    + `<header class="mhead"><span class="draw">${esc(m.draw)}</span>`
-    + `<span class="round">${esc(m.round)}</span></header>`
-    + m.sides.map((s, i) => sideHtml(s, m, i)).join('')
-    + `<footer class="mfoot">${foot}</footer></article>`;
+  /* Only the first match on a court has a real time. Everything after it is
+     "Followed by" against a flat 50-minute estimate that on some courts runs
+     backwards, so it is marked approximate rather than presented as fact. */
+  const tip = m.estimated
+    ? ' title="Estimated — this match follows the one before it on court"' : '';
+  const approx = m.estimated ? '&asymp;' : '';
+  const foot = [
+    m.time ? `<span${tip}>${approx}${esc(m.time)}</span>` : '<span>Time to be confirmed</span>',
+    m.oop ? `<span class="oopt"${tip}>${esc(m.oop)}</span>` : '',
+    m.duration ? `<span>${m.duration} min</span>` : '',
+  ].filter(Boolean).join('');
+
+  return `<article class="match is-${m.status}" data-draw="${esc(m.draw)}"`
+    + ` data-id="${esc(m.id)}" data-seq="${m.seq == null ? '' : m.seq}"`
+    + ` data-court="${esc(m.court)}">`
+    + `<div class="match-head">${head}</div>`
+    + `<div class="match-body">${m.sides.map(sd => sideHtml(sd, m.note)).join('')}</div>`
+    + `<div class="match-foot">${foot}</div></article>`;
 }
+
+const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 function renderTmtDays() {
   const days = tournamentDays(tmt.pick && tmt.pick.tmt);
@@ -1530,10 +1551,11 @@ function renderTmtDays() {
   $('tmtDays').innerHTML = days.map(d => {
     const on = d === tmt.day;
     const isToday = d === today;
-    return `<button type="button" class="chip${on ? ' on' : ''}${isToday ? ' today' : ''}"`
-      + ` data-day="${d}" aria-pressed="${on}"`
+    const dow = WEEKDAY[new Date(d + 'T00:00:00Z').getUTCDay()];
+    return `<button type="button" class="day${on ? ' is-active' : ''}`
+      + `${isToday ? ' is-today' : ''}" data-day="${d}" aria-pressed="${on}"`
       + ` title="${esc(d + (isToday ? ' — today' : ''))}">`
-      + `${Number(d.slice(8, 10))}<span class="n">${d.slice(5, 7)}</span></button>`;
+      + `<b>${Number(d.slice(8, 10))}</b>${esc(dow)}</button>`;
   }).join('');
 }
 
@@ -1547,14 +1569,35 @@ function renderTmtDraws() {
   }).join('');
 }
 
+/**
+ * The order of play.
+ *
+ * A real grid where there is one to draw — one column per court, one row per
+ * position on it, so two cards on the same row are at the same point in the day
+ * — and a plain stack when there is not: one court, or a day whose order of
+ * play BWF has not published.
+ */
+function oopHtml(shown) {
+  const grid = courtGrid(shown);
+  if (!grid) {
+    return `<div class="oop-list">${orderOfPlay(shown)
+      .map(c => c.matches.map(matchHtml).join('')).join('')}</div>`;
+  }
+  const heads = grid.courts.map((c, i) =>
+    `<div class="oop-head" style="grid-column:${i + 1};grid-row:1">${esc(c)}</div>`).join('');
+  const cells = grid.cells.map(cell =>
+    `<div class="oop-cell" style="grid-column:${cell.col};grid-row:${cell.row}">`
+    + matchHtml(cell.match) + '</div>').join('');
+  return `<div class="oop-grid" style="--cols:${grid.courts.length}">${heads}${cells}</div>`;
+}
+
 function renderTmt() {
   if (page !== 'tmt') return;
   const pick = tmt.pick;
   const t = pick && pick.tmt;
 
   $('tmtTitle').textContent = t ? t.name : 'Tournament';
-  $('tmtWhen').textContent = t
-    ? `${dayOf(t.start_date)} → ${dayOf(t.end_date)}` : '';
+  $('tmtWhen').textContent = t ? `${dayOf(t.start_date)} → ${dayOf(t.end_date)}` : '';
   const badge = $('tmtState');
   badge.textContent = pick ? STATE_WORD[pick.state] : '';
   badge.className = 'badge' + (pick ? ' ' + pick.state : '');
@@ -1570,7 +1613,9 @@ function renderTmt() {
   if (tmt.error) { body.innerHTML = `<p class="gnote error">${esc(tmt.error)}</p>`; return; }
   if (!t && tmt.loading) { body.innerHTML = '<p class="gnote">Asking BWF what is on…</p>'; return; }
   if (!t) { body.innerHTML = '<p class="gnote">BWF is not naming a tournament just now.</p>'; return; }
-  if (tmt.loading && !shown.length) { body.innerHTML = '<p class="gnote">Loading the order of play…</p>'; return; }
+  if (tmt.loading && !shown.length) {
+    body.innerHTML = '<p class="gnote">Loading the order of play…</p>'; return;
+  }
 
   if (!shown.length) {
     body.innerHTML = tmt.matches.length
@@ -1580,14 +1625,9 @@ function renderTmt() {
     return;
   }
 
-  body.innerHTML = orderOfPlay(shown).map(col =>
-    `<section class="court"><h3 class="courtname">${esc(col.court)}</h3>`
-    + col.matches.map(matchHtml).join('') + '</section>').join('');
+  body.innerHTML = oopHtml(shown);
 }
 
-/* Live scores go stale inside the five-minute cache, and the page is at its
-   most useful precisely when they are changing. `fresh` skips the read and
-   still writes, so a refresh costs two requests and nothing else. */
 $('tmtRefresh').addEventListener('click', () => loadTournament({ fresh: true }));
 
 $('tmtDays').addEventListener('click', e => {
@@ -1739,6 +1779,7 @@ window.BST = {
   positionInfo, fillFraction,
   top: () => topCache.get(topCat) || null,
   showTop,
+  loadTop: catId => loadTopRanked(catId, { count: 1 }),
 
   /* The grid, read back the same way: its own state, and what the browser
      actually laid out rather than what the model said it should. */
@@ -1802,22 +1843,43 @@ window.BST = {
     matches: () => tmt.matches,
     ready: () => !tmt.loading && queueDepth() === 0,
     reload: () => loadTournament({ fresh: true }),
-    /** The order of play as laid out: one entry per court, in running order. */
-    courts: () => [...document.querySelectorAll('#tmtPage .court')].map(c => ({
-      name: (c.querySelector('.courtname') || {}).textContent || '',
-      matches: [...c.querySelectorAll('.match')].map(m => ({
-        draw: m.dataset.draw,
-        id: m.dataset.id,
-        status: (m.className.match(/match (\w+)/) || [])[1],
-        round: (m.querySelector('.round') || {}).textContent || '',
-        sides: [...m.querySelectorAll('.mside')].map(sd => ({
-          who: (sd.querySelector('.who') || {}).textContent || '',
-          seed: (sd.querySelector('.seed') || {}).textContent || '',
-          won: sd.classList.contains('won'),
-          lost: sd.classList.contains('lost'),
+    /** Is the day drawn as a real grid, and what shape? */
+    grid: () => {
+      const g = document.querySelector('#tmtPage .oop-grid');
+      if (!g) return null;
+      return {
+        cols: Number(getComputedStyle(g).getPropertyValue('--cols')),
+        heads: [...g.querySelectorAll('.oop-head')].map(h => h.textContent),
+        /** Every card with the cell it was placed in, read off the layout. */
+        cells: [...g.querySelectorAll('.oop-cell')].map(c => ({
+          col: Number(c.style.gridColumn),
+          row: Number(c.style.gridRow),
+          court: (c.querySelector('.match') || {}).dataset.court,
+          seq: Number((c.querySelector('.match') || { dataset: {} }).dataset.seq),
+          x: Math.round(c.getBoundingClientRect().left),
+          y: Math.round(c.getBoundingClientRect().top),
         })),
-        foot: (m.querySelector('.mfoot') || {}).textContent || '',
+      };
+    },
+    /** Every match on screen, in DOM order — which is running order. */
+    cards: () => [...document.querySelectorAll('#tmtPage .match')].map(m => ({
+      draw: m.dataset.draw,
+      id: m.dataset.id,
+      court: m.dataset.court,
+      seq: Number(m.dataset.seq),
+      status: (m.className.match(/is-(\w+)/) || [])[1],
+      round: (m.querySelector('.rnd') || {}).textContent || '',
+      stat: (m.querySelector('.stat') || {}).textContent || '',
+      sides: [...m.querySelectorAll('.side')].map(sd => ({
+        who: (sd.querySelector('.nm') || {}).textContent || '',
+        seed: (sd.querySelector('.seed') || {}).textContent || '',
+        sets: [...sd.querySelectorAll('.sets b')].map(b => b.textContent
+          + (b.classList.contains('won') ? '*' : '')
+          + (b.classList.contains('mk') ? '!' : '')),
+        won: sd.classList.contains('is-winner'),
+        lost: sd.classList.contains('is-loser'),
       })),
+      foot: (m.querySelector('.match-foot') || {}).textContent || '',
     })),
   },
 
@@ -1887,7 +1949,37 @@ window.BST = {
   },
 };
 
+/**
+ * Nobody named in the link, so open on the **world number one in men's
+ * singles**.
+ *
+ * An empty strip is a worse first impression than somebody's, and it is one
+ * request to find out who: the ranking table is already the top-ranked
+ * shortcut's first call and comes out of the 12-hour cache, so on any second
+ * visit this costs nothing.
+ *
+ * Deliberately not a hardcoded id. The point is that it is whoever is number
+ * one *now*, and a constant would quietly become a different claim the week
+ * they lost the ranking.
+ */
+async function openOnNumberOne() {
+  const ms = RANKING_CATEGORIES.find(c => c.code === 'MS');
+  try {
+    const top = await loadTopRanked(ms.id, { count: 1 });
+    const who = top && top[0] && top[0].players && top[0].players[0];
+    // Only if nobody has chosen in the meantime — the lookup takes a moment and
+    // a reader who searched during it should not have it snatched back.
+    if (who && !state.playerId) {
+      loadCareer(who.id);
+      // `loadCareer` does not touch the hash — only the search picker does —
+      // and a default that leaves the link empty is a page you cannot share or
+      // come back to. The id is set synchronously, so this catches it.
+      writeHash();
+    }
+  } catch { /* the search box is still right there */ }
+}
+
 const initial = readHash();
 if (initial) loadCareer(initial);
-else $('q').focus();
+else { $('q').focus(); openOnNumberOne(); }
 applyGridHash();
