@@ -1508,6 +1508,28 @@ check('the Worlds outranks the Tour Finals', px['20'] > px['22'], JSON.stringify
 check('the Tour Finals outranks a Super 1000', px['22'] > px['23'], JSON.stringify(pyrSizes));
 check('and a Super 1000 outranks a Super 750', px['23'] > px['24'], JSON.stringify(pyrSizes));
 
+/* ⚠️ The slider was in the markup and wired to nothing for a whole commit: the
+   photographs were fixed at a size where a Super 750 face was unreadable and
+   dragging it did precisely nothing. Nothing failed, because nothing looked. */
+const smallest = () => b.ev(
+  `Math.round(document.querySelector('.pyrtile.t-24').getBoundingClientRect().width)`);
+const before750 = await smallest();
+await b.ev(`(() => { const z = document.getElementById('winZoom');
+  z.value = z.max; z.dispatchEvent(new Event('input')); })()`);
+const after750 = await smallest();
+check('dragging the zoom actually grows the photographs',
+  after750 > before750, `${before750}px -> ${after750}px`);
+check('and a Super 750 face gets big enough to recognise', after750 >= 48, after750 + 'px');
+
+/* It is a viewing preference, so it survives leaving the page and coming back
+   — and it must not have leaked into the hash on the way. */
+await b.ev(`document.querySelector('#pageNav [data-page="seasons"]').click()`);
+await b.ev(`document.querySelector('#pageNav [data-page="winners"]').click()`);
+await b.until('!!document.querySelector(".pyrtile.t-24")', { timeout: 30000 });
+eq('the size is remembered', await smallest(), after750);
+check('and stayed out of the hash', !/winz|wz=/.test(await b.ev('location.hash')),
+  await b.ev('location.hash'));
+
 check('every tile says which tournament it was and who won it',
   await b.ev(`[...document.querySelectorAll('.pyrtile')].every(t =>
     (t.getAttribute('title') || '').trim().length > 8)`));

@@ -911,7 +911,34 @@ function renderGrid() {
    Super 750s along the bottom, the single greatest title at the top.
    ==================================================================== */
 
-const win = { raw: null, kind: 'MS', zoom: 10, loading: false, error: '' };
+/* The tile size is a viewing preference, not part of what the page argues, so
+   it lives in localStorage and stays out of the hash — the same split the grid
+   and the honours board already make. A Super 750 is the smallest square here,
+   so the range is set by what makes *that* face readable rather than by what
+   makes the summit fit. */
+const WIN_ZOOM = { key: 'bst:winzoom', min: 8, max: 26, def: 14 };
+
+function savedWinZoom() {
+  let saved = null;
+  try { saved = localStorage.getItem(WIN_ZOOM.key); } catch { /* private mode */ }
+  const n = Number(saved);
+  return Number.isFinite(n) && n > 0
+    ? Math.max(WIN_ZOOM.min, Math.min(WIN_ZOOM.max, n))
+    : WIN_ZOOM.def;
+}
+
+const win = { raw: null, kind: 'MS', zoom: savedWinZoom(), loading: false, error: '' };
+
+/* ⚠️ Registered once, here, rather than in the render — `renderWinnersControls`
+   runs on every redraw, and adding the listener there would stack a new one
+   each time. */
+$('winZoom').addEventListener('input', e => {
+  const n = Math.max(WIN_ZOOM.min, Math.min(WIN_ZOOM.max, Number(e.target.value) || WIN_ZOOM.def));
+  if (n === win.zoom) return;
+  win.zoom = n;
+  try { localStorage.setItem(WIN_ZOOM.key, String(n)); } catch { /* private mode */ }
+  renderWinners();
+});
 
 async function loadWinnersPage() {
   if (win.raw || win.loading) return renderWinners();
