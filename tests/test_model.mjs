@@ -223,12 +223,24 @@ eq('every mapped level has a chip position', LEVEL_ORDER.length, Object.keys(LEV
 // see the honours ladder below, and HANDOVER 2.2 for why it is a major.
 eq('the levels of this season, in that order',
   seasonLevels(season).join(' '), '20 11 23 24 25 21');
+/* 99 rather than 8: the Superseries-era ids all have names and chip positions
+   now, so an id nobody has ever seen is what tests the fallback. */
 eq('a category with no chip position is listed anyway, not dropped',
-  seasonLevels([{ cat: 23 }, { cat: 8 }, { cat: 3 }, { cat: 25 }]).join(' '), '23 25 3 8');
-eq('and it gets a name rather than a blank chip', levelLabel(8), 'Level 8');
-eq('abbreviated under the square', levelAbbr(8), 'Lv 8');
+  seasonLevels([{ cat: 23 }, { cat: 99 }, { cat: 3 }, { cat: 25 }]).join(' '), '23 25 3 99');
+eq('and it gets a name rather than a blank chip', levelLabel(99), 'Level 99');
+eq('abbreviated under the square', levelAbbr(99), 'Lv 99');
 eq('an unmapped level keeps full size — a guess would shrink it wrongly',
-  boxSize(8).h, BOX_H);
+  boxSize(99).h, BOX_H);
+
+/* ---- the Superseries era ---- */
+
+eq('a Superseries Premier is named, not numbered', levelLabel(8), 'Superseries Premier');
+eq('and fits under a square', levelAbbr(8), 'SS Prem');
+eq('Superseries', levelLabel(2), 'Superseries');
+eq('Grand Prix Gold', levelLabel(3), 'Grand Prix Gold');
+eq('Grand Prix', levelLabel(4), 'Grand Prix');
+eq('every old tier has a chip position like any other',
+  LEVEL_ORDER.filter(c => [8, 2, 3, 4].includes(c)).length, 4);
 
 /* ============================ fill ============================ */
 
@@ -636,8 +648,12 @@ eq('and the age band on a draw gives one away even when the name does not',
   gridGroup({ cat: 3, name: 'Some Asia Cup 2014', draws: [{ name: 'MS', raw: 'BS U19' }] }), null);
 eq('a Challenge is below the grid',
   gridGroup({ cat: 5, name: 'Welsh International 2022', draws: [{ name: 'MS' }] }), null);
-eq('an unmapped senior id lands in OTHER, not in the bin',
-  gridGroup(findTmt(shi, /^Korea Grand Prix Gold$/)), 'OTHER');
+/* A Grand Prix Gold is drawn where a Super 300 is drawn, so careers either
+   side of 2018 can be laid against each other at all. */
+eq('a Grand Prix Gold is drawn as a Super 300',
+  gridGroup(findTmt(shi, /^Korea Grand Prix Gold$/)), 26);
+eq('a senior id with no mapping at all still lands in OTHER',
+  gridGroup({ cat: 99, name: 'Some Invented Open 2015', draws: [{ name: 'MS' }] }), 'OTHER');
 
 /* The 2014 Youth Olympic Games is category 33 with the World Junior
    Championships. It used to be promoted to the Olympics by name alone. */
@@ -755,7 +771,10 @@ eq('the sections run hardest-first, exactly as GRID_ORDER says',
 eq('the leftmost section is the Olympics', shiSections[0].group, 'OLY');
 eq('the unmapped era is last', shiSections[shiSections.length - 1].group, 'OTHER');
 
-eq('four Super 1000 slots, which is what the calendar holds', sec(23).n, 4);
+/* Five, not four. 2017 ran five Superseries Premier events and they are drawn
+   where the Super 1000s are, so the block is as wide as the widest season
+   anybody here played — which is the rule, not an exception to it. */
+eq('five Super 1000 slots once the Premier era is counted', sec(23).n, 5);
 eq('six Super 750 slots', sec(24).n, 6);
 eq('one Olympics, one Worlds, one Continental, one Finals',
   `${sec('OLY').n}${sec(20).n}${sec(11).n}${sec(22).n}`, '1111');
@@ -800,7 +819,7 @@ check('and it names the tournament, so a cell with no text can still be read',
   /Asia Championships 2026/.test(inSection(11)[0].tmt.name));
 
 const s1000cells = inSection(23);
-eq('the Super 1000 block is four cells', s1000cells.length, 4);
+eq('the Super 1000 block is five cells', s1000cells.length, 5);
 check('filled left to right, best first',
   s1000cells.every((c, i) => i === 0 || c.rank >= s1000cells[i - 1].rank),
   s1000cells.map(c => c.tier).join(' '));
@@ -1024,13 +1043,17 @@ check('the rows run hardest first, in the grid\'s own order',
     return want.join(',') === groups(shiBoard).join(',');
   })(), groups(shiBoard).join(' '));
 
-check('SHI Yu Qi has never entered a Super 100, so he has no such row',
-  !groups(shiBoard).includes(27));
-check('but comparing him with somebody who has gives them both one',
-  groups(bothBoard).includes(27));
-eq('and his half of it is empty', (shiH.by.get(27) || []).length, 0);
-eq('with nothing entered either — which is the other kind of empty',
-  shiH.entries.get(27) || 0, 0);
+/* He has one now: a Grand Prix is drawn where a Super 100 is drawn. Before the
+   era mapping his whole junior-and-Grand-Prix past sat in Unmapped, which is
+   what made a career like LIN Dan's incomparable. */
+check('SHI Yu Qi has a Super 100 row, by way of the Grand Prix he played',
+  groups(shiBoard).includes(27));
+check('and every result in it came from before the World Tour',
+  (shiH.entries.get(27) || 0) > 0
+  && (careerRows(shi, 'singles', null)
+    .flatMap(r => [...(r.by.get(27) || [])]).every(c => c.from)),
+  careerRows(shi, 'singles', null)
+    .flatMap(r => [...(r.by.get(27) || [])]).map(c => c.from).join(', '));
 
 check('every row either player has appears exactly once',
   new Set(groups(bothBoard)).size === groups(bothBoard).length);
@@ -1096,8 +1119,14 @@ eq('and it is still the tournament being pointed at', before.tmt.code, WORLDS);
 
 const after = on('2026-08-28');
 eq('once it is over, the next one is up', after.state, 'upcoming');
-eq('which is the one after, not the one just finished',
-  after.tmt.name, schedule.nextTmt.name);
+/* Which of the two upcoming slots wins is not worth pinning: they can start on
+   the same day, and the schedule fixture moves every time it is re-recorded.
+   What matters is that it is ahead of the reader, not behind them. */
+check('and it is one that has not been played yet',
+  dayOf(after.tmt.start_date) > '2026-08-28', dayOf(after.tmt.start_date));
+check('picked from what the payload actually offers',
+  [schedule.nextLive, schedule.nextTmt, schedule.previousTmt]
+    .some(t => t && t.code === after.tmt.code));
 
 /* The far future: nothing in this payload has started, nothing is ahead, so the
    only honest answer left is the one that finished. */
@@ -1110,7 +1139,12 @@ eq('and neither is no payload at all', pickTournament(null, '2026-08-23'), null)
 
 /* ---- which day ---- */
 
-const worlds = schedule.nextLive;
+/* ⚠️ Found by name, not by slot. `vue-tmt-schedule` answers "what is on *now*",
+   so which of its three slots holds the Worlds moves every time the fixture is
+   re-recorded — they were `nextLive` when this was written and `previousTmt`
+   within the hour. */
+const worlds = [schedule.nextLive, schedule.previousTmt, schedule.nextTmt]
+  .find(t => t && t.code === WORLDS);
 const days = tournamentDays(worlds);
 eq('the Worlds run seven days', days.length, 7);
 eq('first', days[0], '2026-08-17');
@@ -1223,12 +1257,35 @@ eq('the last day is the five finals', day23.length, 5);
 check('all of them finals', day23.every(m => m.round === 'Final'),
   day23.map(m => m.round).join(' '));
 eq('on one court', orderOfPlay(day23).length, 1);
-check('none of them played yet when this was recorded',
-  day23.every(m => m.status === 'upcoming' && m.winner === 0 && !m.games.length));
-check('so neither side shows a game', day23.every(m => m.sides.every(sd => !sd.games.length)));
-check('and every one of them says it is scheduled',
-  day23.every(m => m.statusWord === 'Scheduled'),
-  [...new Set(day23.map(m => m.statusWord))].join(' | '));
+/* Recorded while the finals were being played, so this one day holds all three
+   states at once — which is better coverage than a day that had not started.
+   Asserted as invariants rather than as counts, because re-recording moves it. */
+eq('every match is in exactly one of the three states',
+  day23.filter(m => ['finished', 'live', 'upcoming'].includes(m.status)).length, day23.length);
+
+const done23 = day23.filter(m => m.status === 'finished');
+const live23 = day23.filter(m => m.status === 'live');
+const soon23 = day23.filter(m => m.status === 'upcoming');
+check('with at least one already played', done23.length > 0,
+  day23.map(m => `${m.draw}:${m.status}`).join(' '));
+check('a finished one has a winner and the games to show for it',
+  done23.every(m => (m.winner === 1 || m.winner === 2) && m.games.length >= 2));
+check('one not started has neither', soon23.every(m => !m.winner && !m.games.length));
+
+/* ⚠️ BWF spells a live match **"In Progress"**, not "Live" — caught here on the
+   day. This is why `parseMatch` reads the single letter `P` rather than the
+   long-form value: a guess at that string would have been wrong. */
+check('one being played has a score but no winner yet',
+  live23.every(m => m.winner === 0 && m.games.length >= 1),
+  live23.map(m => `${m.draw} ${m.games.map(g => g.a + '-' + g.b).join(',')}`).join(' | '));
+check('and is called Live whatever BWF calls it',
+  live23.every(m => m.statusWord === 'Live'),
+  live23.map(m => m.statusWord).join(' | '));
+check('a match not started shows no games on either side',
+  soon23.every(m => m.sides.every(sd => !sd.games.length)));
+check('and says it is scheduled',
+  soon23.every(m => m.statusWord === 'Scheduled'),
+  [...new Set(soon23.map(m => m.statusWord))].join(' | '));
 eq('the five draws, in the usual order',
   drawsPresent(day23).join(' '), 'MS WS MD WD XD');
 
@@ -1272,6 +1329,77 @@ eq('a day with no courts yet is no grid',
   courtGrid(day19.map(m => ({ ...m, court: '' }))), null);
 eq('and so is one where only some matches are placed',
   courtGrid(day19.map((m, i) => (i ? m : { ...m, seq: null }))), null);
+
+/* ============================ the Superseries era ============================
+
+   The whole point of the mapping: LIN Dan and LEE Chong Wei played almost
+   entirely before the World Tour existed, and until their categories were
+   placed on the modern ladder their careers had nothing to compare against.
+   ==================================================================== */
+
+console.log('\n=== careers from before the World Tour ===');
+
+const lin = career(50906);          // LIN Dan
+const lcw = career(50152);          // LEE Chong Wei
+check('LIN Dan has a career recorded', lin.length > 8, `${lin.length} seasons`);
+check('and LEE Chong Wei', lcw.length > 8, `${lcw.length} seasons`);
+
+const linRows = careerRows(lin, 'singles', null);
+const lcwRows = careerRows(lcw, 'singles', null);
+const cellsOf = rows => rows.flatMap(r => [...r.by.values()].flat());
+const linCells = cellsOf(linRows);
+
+check('most of it is from before 2018 and had to be translated',
+  linCells.filter(c => c.from).length > 60,
+  `${linCells.filter(c => c.from).length} of ${linCells.length} mapped`);
+
+/* Before this, everything he did sat in one Unmapped block. */
+const linGroups = new Set(linRows.flatMap(r => [...r.by.keys()]));
+check('he now has Super 1000 results', linGroups.has(23));
+check('and Super 750', linGroups.has(24));
+check('and Super 300', linGroups.has(26));
+check('rather than one undifferentiated heap',
+  !linGroups.has('OTHER') || linCells.filter(c => c.group === 'OTHER').length < 10,
+  `${linCells.filter(c => c.group === 'OTHER').length} still unmapped`);
+
+/* Each translated cell says what it actually was, which is what the notch and
+   the tooltip in the view are drawn from. */
+const froms = new Set(linCells.filter(c => c.from).map(c => c.from));
+check('and each one remembers the tier it really was',
+  [...froms].every(f => /Superseries|Grand Prix/.test(f)), [...froms].join(', '));
+
+check('a Superseries Premier lands on the Super 1000 row',
+  linCells.some(c => c.from === 'Superseries Premier' && c.group === 23));
+check('a Superseries on the Super 750 row',
+  linCells.some(c => c.from === 'Superseries' && c.group === 24));
+check('a Grand Prix Gold on the Super 300 row',
+  linCells.some(c => c.from === 'Grand Prix Gold' && c.group === 26));
+
+/* ⚠️ Nothing maps to Super 500: four old tiers, five new ones. */
+check('nothing of his lands on Super 500 by way of the mapping',
+  !linCells.some(c => c.from && c.group === 25),
+  linCells.filter(c => c.from && c.group === 25).map(c => c.from).join(', '));
+
+/* A modern result is never marked — the notch has to mean something. */
+const shiCells = cellsOf(careerRows(shi, 'singles', null));
+check('a World Tour result carries no mark at all',
+  shiCells.filter(c => c.tmt && Number(c.tmt.cat) >= 22 && Number(c.tmt.cat) <= 27)
+    .every(c => !c.from));
+
+/* And the two eras can finally be laid against each other. */
+const bothSections = gridSections([linRows, careerRows(shi, 'singles', null)].map(r => r.map(x => x.by)));
+check('LIN Dan and SHI Yu Qi share a set of blocks',
+  bothSections.some(x => x.group === 23) && bothSections.some(x => x.group === 26),
+  bothSections.map(x => x.code).join(' '));
+
+const linH = careerHonours(linRows, honourStep('w').rank);
+check('and his titles land on rows that mean something',
+  (linH.by.get(23) || []).length + (linH.by.get(24) || []).length > 5,
+  `S1000 ${(linH.by.get(23) || []).length}, S750 ${(linH.by.get(24) || []).length}`);
+const lcwH = careerHonours(lcwRows, honourStep('w').rank);
+check('and so do LEE Chong Wei titles',
+  (lcwH.by.get(23) || []).length + (lcwH.by.get(24) || []).length > 5,
+  `S1000 ${(lcwH.by.get(23) || []).length}, S750 ${(lcwH.by.get(24) || []).length}`);
 
 /* ---- what counts as having moved ---- */
 

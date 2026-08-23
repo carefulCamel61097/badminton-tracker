@@ -598,7 +598,10 @@ eq('a cell per slot per row', cards[0].cells.length, gYears.length * width);
 /* The counts the whole redesign was for: a level is as wide as the busiest
    season, not one column per tournament that has ever carried a different name. */
 const secN = g => (sections.find(s => String(s.group) === String(g)) || {}).n;
-eq('four Super 1000 slots', secN(23), 4);
+/* Five, not four: 2017 ran five Superseries Premier events, which are drawn
+   where the Super 1000s are. The block is as wide as the busiest season anyone
+   here played, which is the rule rather than an exception to it. */
+eq('five Super 1000 slots, once the Premier era is counted', secN(23), 5);
 eq('six Super 750 slots', secN(24), 6);
 eq('one Olympics slot', secN('OLY'), 1);
 eq('one Worlds slot', secN(20), 1);
@@ -618,6 +621,16 @@ check('no cell carries any text',
 check('and none of them is a partial fill',
   await b.ev(`[...document.querySelectorAll('.gcard .cell')]
     .every(c => !getComputedStyle(c).backgroundImage.includes('gradient'))`));
+/* A result from before the World Tour is marked by having a corner cut off,
+   which is why it must not be a gradient: the check above is what stops a cell
+   ever reading as a gauge. */
+check('a mapped cell is notched rather than shaded',
+  await b.ev(`[...document.querySelectorAll('.gcard .cell.mapped')]
+    .every(c => getComputedStyle(c).clipPath !== 'none')`),
+  await b.ev(`document.querySelectorAll('.gcard .cell.mapped').length + ' mapped cells'`));
+check('and an ordinary one is not notched',
+  await b.ev(`[...document.querySelectorAll('.gcard .cell:not(.mapped)')]
+    .every(c => getComputedStyle(c).clipPath === 'none')`));
 
 /* Pixels, not tiles: adjacent cells share an edge. */
 const firstRow = cards[0].cells.filter(c => c.year === cards[0].years[0])
@@ -648,9 +661,9 @@ const block = (year, group) => cards[0].cells
 /* 2025, read off the raw payload by hand: Malaysia 1st, All England 1st,
    Indonesia 3rd, China 1st — three Super 1000 titles and a semi-final. */
 const s1000 = block(2025, 23);
-eq('four cells in the Super 1000 block', s1000.length, 4);
-eq('three titles then the semi, in that order',
-  s1000.map(c => c.tier).join(' '), 'w w w sf');
+eq('five cells in the Super 1000 block', s1000.length, 5);
+eq('three titles then the semi, then the slot he did not fill',
+  s1000.map(c => c.tier).join(' '), 'w w w sf off');
 check('which is not the order they were played in',
   /Malaysia/.test(s1000[0].title) === false || /China/.test(s1000[2].title),
   s1000.map(c => c.title.split('\n')[0]).join(' | '));
@@ -1058,8 +1071,12 @@ check('both halves are the same width, so the line stays in the middle',
 const s100 = hTwo.find(r => r.group === '27');
 check('a level only one of them has ever played is still a row for both',
   !!s100 && s100.sides[0].length === 0 && s100.sides[1].length > 0);
-check('and his empty half says he never entered one, not that he never placed',
-  /never played at this level/.test(s100.empty[0] || ''), s100.empty[0]);
+/* An empty half is never just empty: it says which kind of empty. He entered
+   two — both Grand Prix events, mapped here — and placed in neither, which is a
+   different claim from never having turned up. */
+check('and his empty half says which kind of empty it is',
+  /\d+ entered, none at|never played at this level/.test(s100.empty[0] || ''),
+  s100.empty[0]);
 
 check('the board is in the link, comparison and all',
   await b.ev(`location.hash.includes('v=h') && location.hash.includes('c=87442')`),
@@ -1149,9 +1166,26 @@ check('every one of them a final',
   finalsCards.every(m => m.round === 'Final'), finalsCards.map(m => m.round).join(' '));
 eq('one court means no grid — a list says the same thing with less machinery',
   await b.ev('window.BST.tmt.grid()'), null);
-check('none of them played yet, so each says it is scheduled',
-  finalsCards.every(m => m.status === 'upcoming' && m.stat === 'Scheduled'
-    && m.sides.every(sd => !sd.won && !sd.lost && !sd.sets.length)),
+/* Recorded while the finals were being played, so this one day holds all three
+   states. Asserted as invariants rather than counts, because re-recording moves
+   it — and BWF spells a live match "In Progress", not "Live", which is why the
+   card reads the single-letter status instead. */
+check('every card is in one of the three states',
+  finalsCards.every(m => ['finished', 'live', 'upcoming'].includes(m.status)),
+  finalsCards.map(m => `${m.draw}:${m.status}`).join(' '));
+check('a finished one names a winner and shows both sides their games',
+  finalsCards.filter(m => m.status === 'finished')
+    .every(m => m.sides.filter(sd => sd.won).length === 1
+      && m.sides.every(sd => sd.sets.length >= 2)),
+  finalsCards.map(m => m.stat).join(' | '));
+check('one being played says Live and has a score but no winner',
+  finalsCards.filter(m => m.status === 'live')
+    .every(m => m.stat === 'Live' && m.sides.every(sd => sd.sets.length >= 1)
+      && !m.sides.some(sd => sd.won)),
+  finalsCards.filter(m => m.status === 'live').map(m => m.stat).join(' | '));
+check('one not started says Scheduled and shows nothing',
+  finalsCards.filter(m => m.status === 'upcoming')
+    .every(m => m.stat === 'Scheduled' && m.sides.every(sd => !sd.sets.length)),
   finalsCards.map(m => m.stat).join(' | '));
 check('the first says when it starts and the rest say they follow',
   /Starting at/.test(finalsCards[0].foot)

@@ -32,6 +32,10 @@ const DEFAULT_PLAYERS = [
   68544,   // Thom GICQUEL     XD, first-named
   81599,   // LIU Sheng Shu    WD
   59880,   // TAN Ning         WD
+  // Careers played almost entirely before the World Tour, which is what the
+  // Superseries-era mapping exists for and the only way to test it.
+  50906,   // LIN Dan          MS, 2005–2020
+  50152,   // LEE Chong Wei    MS, 2005–2019
 ];
 
 const args = process.argv.slice(2);

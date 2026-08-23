@@ -543,6 +543,24 @@ a.seg { text-decoration: none; }
 .cell.r-na  { background: var(--res-na); }
 .cell.r-off { background: var(--res-off); }
 
+/* A result from before the World Tour, drawn on the tier it maps to.
+   A notch cut out of the top-right corner rather than a mark laid on top: it
+   costs no colour, survives every tier in the ramp, and works at 8px as well as
+   at 60. Placed after the `.cell.r-*` rules on purpose — those set `background`
+   as a shorthand, which resets `background-image`, so this longhand has to come
+   later to survive. */
+.cell.mapped {
+  /* `clip-path`, not a gradient. The grid has a standing rule that a cell is
+     never partially filled — how full it is has to mean nothing, or the eye
+     starts reading it as a gauge the way the strip's squares are — and the
+     suite enforces that by checking no cell carries a gradient. So the corner is
+     genuinely cut away rather than painted over. */
+  clip-path: polygon(0 0, calc(100% - var(--notch, 3px)) 0,
+                     100% var(--notch, 3px), 100% 100%, 0 100%);
+}
+.honours .cell.mapped { --notch: max(2px, calc(var(--hs) * .17)); }
+.key .cell.mapped { --notch: 4px; }
+
 .gnote { margin: 8px 0 0; color: var(--text-muted); font-size: 12.5px; }
 .gnote.error { color: var(--bad); }
 

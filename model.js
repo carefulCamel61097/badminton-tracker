@@ -37,14 +37,68 @@ export const LEVEL = {
   25: { label: 'Super 500',   weight: 0.80 },
   26: { label: 'Super 300',   weight: 0.60 },
   27: { label: 'Super 100',   weight: 0.40 },
+
+  /* ---- the Superseries era, 2007–2017 ----
+
+     BWF still returns these ids and still ships no name for them, so before
+     this they rendered as "Level 8" and sat in the grid's Unmapped block — which
+     meant LIN Dan and LEE Chong Wei had no comparable career at all.
+
+     `mapsTo` is what the grid and the honours board place them on. It is *not*
+     what the strip calls them: a 2011 Superseries Premier was a Superseries
+     Premier, and the strip says so. Only the comparison views translate, and
+     they mark that they did. See `mappedTier`. */
+  8: { label: 'Superseries Premier', abbr: 'SS Prem', weight: 1.00, mapsTo: 23 },
+  2: { label: 'Superseries',         abbr: 'SSeries', weight: 1.00, mapsTo: 24 },
+  3: { label: 'Grand Prix Gold',     abbr: 'GP Gold', weight: 0.60, mapsTo: 26 },
+  4: { label: 'Grand Prix',          abbr: 'GP',      weight: 0.40, mapsTo: 27 },
 };
+
+/**
+ * Which modern tier a pre-2018 category is drawn as, or null for one that is
+ * already modern.
+ *
+ * ⚠️ **Derived from `tournament_series_id`, which survives an edition.** The
+ * tournament id does not — that is why the grid's blocks are not keyed on one
+ * (1.1b) — but the *series* id does, and 1396 of 1404 recorded rows carry one.
+ * Following a series across the 2018 boundary says what each old tier actually
+ * turned into, using the same tournaments rather than a guess:
+ *
+ * | was | became | evidence |
+ * |---|---|---|
+ * | 8 Superseries Premier | Super 1000 | S1000 in 5 of 6 series that span the change |
+ * | 2 Superseries         | Super 750  | the centre of 14 spanning series, which run S1000 to S300 |
+ * | 3 Grand Prix Gold     | Super 300  | S300 in 8, more than every other answer together |
+ * | 4 Grand Prix          | Super 100  | thin, but it sat below Grand Prix Gold and nothing else is left |
+ *
+ * ⚠️ **Prize money cannot do this job.** Each old tier's median sits at roughly
+ * two thirds of the modern tier it became — Premier $600k against Super 750's
+ * $850k — because the World Tour raised the minimums. Read as dollars it drags
+ * every historical result down a rung. It is good evidence of the ordering
+ * *within* an era and none at all across the boundary.
+ *
+ * ⚠️ **Four old tiers, five new ones.** Nothing maps to Super 500. That is the
+ * honest shape of it rather than a gap to be filled: the Superseries era had
+ * Premier, Superseries, Grand Prix Gold and Grand Prix beneath the majors, and
+ * inventing a fifth to make the rows line up would be making it up.
+ *
+ * ⚠️ **Before 2011 there was no Premier tier** — all twelve Superseries events
+ * were category 2, so a 2008 All England is drawn a rung below a 2013 one. It
+ * is the coarsest edge of this and the reason every translated square is
+ * marked.
+ */
+export function mappedTier(catId) {
+  const l = LEVEL[catId];
+  return l && l.mapsTo != null ? l.mapsTo : null;
+}
 
 /**
  * Chip order for the level filters: the majors, then the World Tour ladder,
  * then everything below it, then the team events last because they are off by
  * default. Not the numeric order of the ids, which is arbitrary.
  */
-export const LEVEL_ORDER = ['OLY', 20, 22, 11, 23, 24, 25, 26, 27, 5, 6, 7, 21, 17];
+export const LEVEL_ORDER =
+  ['OLY', 20, 22, 11, 23, 8, 24, 2, 25, 26, 3, 27, 4, 5, 6, 7, 21, 17];
 
 /**
  * True for a tournament that is an Olympic Games rather than a World
@@ -854,7 +908,17 @@ export function gridGroup(tmt) {
   if (GRID_ORDER.includes(g)) return g;
 
   const name = String(tmt.name || '');
+  /* ⚠️ The name rescues run **before** the era mapping, because an old category
+     id is not always one tier. Category 8 is Superseries Premier *and* the
+     Dubai World Superseries Finals; category 3 is Grand Prix Gold *and* some
+     Continental Championships. Mapping first put the 2017 season-ending Finals
+     in the Super 1000 block — the id was right and the tournament was not. */
   for (const [re, group] of MAJOR_BY_NAME) if (re.test(name)) return group;
+
+  // A Superseries Premier is drawn where a Super 1000 is drawn. The strip still
+  // calls it what it was; only the comparison views translate.
+  const mapped = mappedTier(g);
+  if (mapped != null) return mapped;
 
   if (BELOW_GRID.has(g)) return null;
   return 'OTHER';
@@ -958,7 +1022,11 @@ export function seasonResults(season, kind, preferred) {
     const draw = drawForKind(tmt, kind, preferred);
     if (!draw) continue;
     const info = positionInfo(draw.position, draw);
-    const cell = { group, tmt, draw, info, tier: info.tier, rank: resultRank(info) };
+    // `from` is the tier this actually was, on the results that had to be
+    // translated to get here. Null on everything already on the World Tour.
+    const from = mappedTier(tmt.cat) != null ? levelLabel(tmt.cat) : null;
+    const cell = { group, tmt, draw, info, tier: info.tier, from,
+      rank: resultRank(info) };
     const list = by.get(group);
     if (list) list.push(cell); else by.set(group, [cell]);
   }
@@ -1335,9 +1403,19 @@ export function pickTournament(schedule, today) {
     if (d && within(today, d.from, d.to)) return { tmt: t, state: 'live' };
   }
 
-  const soonest = [s.nextLive, s.nextTmt]
+  /* All three slots, not just the two named "next". `previousTmt` is normally
+     in the past, but nothing in the payload promises that — and a fixture
+     replayed at an earlier pinned date puts a future tournament there, which
+     the first version silently skipped. Comparing three is no more work than
+     comparing two and makes the function total over any payload. */
+  const soonest = [s.nextLive, s.nextTmt, s.previousTmt]
     .filter(t => t && dayOf(t.start_date) && dayOf(t.start_date) > today)
-    .sort((a, b) => (dayOf(a.start_date) < dayOf(b.start_date) ? -1 : 1))[0];
+    .sort((a, b) => {
+      const x = dayOf(a.start_date), y = dayOf(b.start_date);
+      // 0 for equal, so two events starting the same day keep the payload's own
+      // order — which puts the one with live scores first.
+      return x < y ? -1 : x > y ? 1 : 0;
+    })[0];
   if (soonest) return { tmt: soonest, state: 'upcoming' };
 
   if (s.previousTmt) return { tmt: s.previousTmt, state: 'finished' };
@@ -1418,9 +1496,12 @@ function clockOf(when) {
  * `matchStatusValue`. `F` is finished and `O` is "off court" — played out but
  * not yet signed off, arriving with a winner and a full score, so reading it as
  * unplayed puts "Scheduled" on a finished match. `L` and `P` are being played.
- * The predecessor learned all four against a live tournament; the long-form
- * value has only ever been seen here as `Finished` or `none`, so a guess at how
- * it spells "live" would fail silently for exactly the week it mattered.
+ *
+ * Confirmed against a live match on 23 August 2026 — the World Championships
+ * women's singles final, caught at 8–7 in the first game: `matchStatus: "P"`
+ * with `matchStatusValue: "In Progress"`. **Not "Live".** A guess at the
+ * long-form spelling would have been wrong for exactly the week it mattered,
+ * which is the whole reason the letter is what gets read.
  *
  * Each side carries **its own games**, because that is how a scoreboard is
  * read: a row of numbers beside the name with the winner's game picked out. One

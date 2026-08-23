@@ -177,6 +177,23 @@ it matters. **Refresh** asks now. Times are given at the venue and, where it dif
 you are. `#now=YYYY-MM-DD` pins what the page thinks today is, useful for seeing what finals
 day will look like without waiting for one.
 
+## Comparing across the eras
+
+LIN Dan and LEE Chong Wei played almost entirely before the World Tour existed, and BWF ships
+no name for its pre-2018 tournament categories — so their careers used to arrive as one
+undifferentiated "Unmapped" heap with nothing to compare against.
+
+The four old senior tiers are now placed on the modern ladder: **Superseries Premier** as
+Super 1000, **Superseries** as Super 750, **Grand Prix Gold** as Super 300 and **Grand Prix**
+as Super 100. That is not a guess — `tournament_series_id` survives an edition, so a series
+can be followed across the 2018 boundary to see what each old tier actually turned into.
+
+Mapped squares carry a **notch cut out of one corner**, and hovering one says what it really
+was. The Seasons page never translates: there a Superseries Premier is called a Superseries
+Premier. Two honest edges, both noted under the board — nothing maps to Super 500, because
+there were four old tiers and there are five new ones; and before 2011 there was no Premier
+tier at all, so a 2008 All England sits a rung below a 2013 one.
+
 ## Who you start on
 
 With nobody in the link, the app opens on the **world number one in men's singles** — looked

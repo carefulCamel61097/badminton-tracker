@@ -597,8 +597,9 @@ function cellHtml(cell, year) {
       + ` title="${esc(`${year} — no ${cell.section.label} result here`)}"></i>`;
   }
   const wl = cell.draw.win != null ? ` · ${cell.draw.win}-${cell.draw.lose}` : '';
-  return `<i class="${cls}"${attrs}`
-    + ` title="${esc(`${cell.tmt.name}\n${cell.info.full}${wl}`)}"></i>`;
+  return `<i class="${cls}${cell.from ? ' mapped' : ''}"${attrs}`
+    + ` title="${esc(`${cell.tmt.name}\n${cell.info.full}${wl}`
+      + (cell.from ? `\n${cell.from}, drawn as ${gridGroupLabel(cell.group)}` : ''))}"></i>`;
 }
 
 /** Who the grid belongs to: the same identity block as the page's heading. */
@@ -696,9 +697,11 @@ function renderGridKinds() {
 /** One honour. Sized by the row it is in, so it carries no geometry itself. */
 function honourCellHtml(cell) {
   const wl = cell.draw && cell.draw.win != null ? ` · ${cell.draw.win}-${cell.draw.lose}` : '';
-  return `<i class="cell r-${cell.tier}" data-group="${esc(String(cell.group))}"`
-    + ` data-year="${cell.year}"`
-    + ` title="${esc(`${cell.year} — ${cell.tmt.name}\n${cell.info.full}${wl}`)}"></i>`;
+  return `<i class="cell r-${cell.tier}${cell.from ? ' mapped' : ''}"`
+    + ` data-group="${esc(String(cell.group))}" data-year="${cell.year}"`
+    + ` data-from="${esc(cell.from || '')}"`
+    + ` title="${esc(`${cell.year} — ${cell.tmt.name}\n${cell.info.full}${wl}`
+      + (cell.from ? `\n${cell.from}, drawn as ${gridGroupLabel(cell.group)}` : ''))}"></i>`;
 }
 
 /**
@@ -2029,6 +2032,7 @@ window.BST = {
           year: Number(c.closest('.grow').dataset.year),
           group: c.dataset.group,
           slot: Number(c.dataset.slot),
+          mapped: c.classList.contains('mapped'),
           tier: (c.className.match(/r-([\w]+)/) || [])[1],
           w: Math.round(r.width * 10) / 10,
           h: Math.round(r.height * 10) / 10,
@@ -2134,6 +2138,8 @@ window.BST = {
         const r = c.getBoundingClientRect();
         return {
           tier: (c.className.match(/r-([\w]+)/) || [])[1],
+          mapped: c.classList.contains('mapped'),
+          from: c.dataset.from || '',
           year: Number(c.dataset.year),
           w: Math.round(r.width * 10) / 10,
           h: Math.round(r.height * 10) / 10,

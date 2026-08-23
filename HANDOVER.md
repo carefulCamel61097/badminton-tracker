@@ -212,6 +212,58 @@ Right-aligning a single career against a spine to make room for nobody wastes ha
 and looks like a bug rather than an invitation — the seat beside the profile says the same
 thing at a fraction of the cost.
 
+### 1.6 The Superseries era, mapped — added 23 Aug 2026
+
+LIN Dan and LEE Chong Wei played almost entirely before the World Tour, and until this their
+whole careers sat in the grid's **Unmapped** block: nothing to compare, and a strip that
+said "Level 8" all the way down. The four senior pre-2018 categories are now placed on the
+modern ladder.
+
+| id | what it was | drawn as | why |
+|---|---|---|---|
+| 8 | Superseries Premier | Super 1000 | S1000 in 5 of the 6 series that span 2018 |
+| 2 | Superseries | Super 750 | the centre of 14 spanning series, which run S1000 to S300 |
+| 3 | Grand Prix Gold | Super 300 | S300 in 8, more than every other answer together |
+| 4 | Grand Prix | Super 100 | thin evidence, but it sat below Grand Prix Gold |
+
+⚠️ **`tournament_series_id` survives an edition.** Part 1.1b says no id does, and for
+`tournament_model.id` that is true — but the *series* id is stable, and 1396 of 1404 recorded
+rows carry one. Following a series across the 2018 boundary is what produced the table above:
+the same tournaments, not a guess. It is also the identity key the grid's first design needed
+and never found. Worth revisiting if column identity ever matters again.
+
+⚠️ **Prize money cannot do this job.** Each old tier's median is about two thirds of the
+modern tier it became — Premier $600k against Super 750's $850k — because the World Tour
+raised the minimums. Read as dollars it drags every historical result down a rung. Good
+evidence of ordering *within* an era, none at all across the boundary.
+
+⚠️ **The name rescues must run before the mapping.** An old id is not always one tier:
+category 8 is Superseries Premier **and** the Dubai World Superseries Finals; category 3 is
+Grand Prix Gold **and** some Continental Championships. Mapping first put the 2017
+season-ending Finals in the Super 1000 block — the id was right and the tournament was not.
+Two existing tests caught it immediately.
+
+⚠️ **Four old tiers, five new ones — nothing maps to Super 500.** A pre-2018 career therefore
+shows an empty Super 500 row, and its ghost says "never played at this level", which is
+literally true and slightly misleading: the tier did not exist. The note under the board says
+so. Inventing a fifth old tier to make the rows line up would be making it up.
+
+⚠️ **Before 2011 there was no Premier tier** — all twelve Superseries events were category 2,
+so a 2008 All England is drawn a rung below a 2013 one. The coarsest edge of this, and part
+of why every translated square is marked.
+
+**The strip never translates.** `LEVEL` gives the old ids their real names — Superseries
+Premier, Grand Prix Gold — and only `gridGroup` follows `mapsTo`. On the Seasons page a
+Superseries Premier is called a Superseries Premier; the comparison views place it on the
+ladder and mark that they did, with a corner cut out of the square and the original tier on
+the tooltip.
+
+⚠️ The mark is a **`clip-path`, not a gradient**. The grid has a standing rule that a cell is
+never partially filled, enforced by a check that no cell carries a gradient — so the corner is
+genuinely cut away rather than shaded, or that check would have had to be weakened.
+
+---
+
 ### 1.5 Opening on somebody — added 23 Aug 2026
 
 With no player in the link, the app loads the **world number one in men's singles** rather
@@ -1022,6 +1074,25 @@ championship site 404 — the results page *is* the tournament view, and it load
 `nextLive` was the Worlds labelled *"Live Scores!"*, `previousTmt` the Korea Masters
 *"View Results"*, `nextTmt` the Pontianak Indonesia Masters *"View Draws"*. It does
 what 3.2 says it does.
+
+### 3.6b The schedule fixture is a photograph — *(learned 23 Aug 2026)*
+
+⚠️ **`vue-tmt-schedule` answers "what is on *now*", so re-recording moves it.** Recording two
+players mid-session re-ran the tournament pass, and between the morning and the afternoon of
+23 August the World Championships finished: `nextLive` went from the Worlds to the Pontianak
+Indonesia Masters and the Worlds dropped to `previousTmt`. Four tests that had pinned *which
+slot* held the Worlds broke at once.
+
+Pin the **date** with `now=` — that part works — but never assume which slot anything is in.
+Find a tournament by its code. The same applies to `day-matches`: the finals-day fixture was
+re-recorded *during* the finals, so it now holds three finished matches, one in progress and
+one not started. That is better coverage than it had before, and the tests assert invariants
+per state rather than counts, because the next re-record will move it again.
+
+**The one thing it settled:** a live match reports `matchStatus: "P"` with
+`matchStatusValue: "In Progress"` — **not "Live"**. Caught at 8–7 in the first game of the
+women's singles final. Reading the letter rather than the word (3.7) was the right call and
+this is the proof.
 
 ### 3.7 A match is not always played — *(read 23 Aug 2026)*
 
