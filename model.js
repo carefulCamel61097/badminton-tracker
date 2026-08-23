@@ -1678,6 +1678,159 @@ export function courtGrid(matches) {
   };
 }
 
+/* ============================ the winners' pyramid ============================
+
+   One season's most important titles, stacked: the base is the widest tier and
+   the summit is the single greatest one. Sizes come from `honourScale`, so a
+   Super 1000 square is the same size here as on the honours board.
+
+   ⚠️ **The Olympics and the World Championships share a row.** Every season has
+   one or the other and never neither, so they are the same rung of the calendar
+   even though they are not the same prize — the Olympic square is drawn larger.
+   (2021 held both: Tokyo was postponed into the same year as the Huelva Worlds.
+   The row simply holds two that year, which is why it is a row and not a slot.)
+
+   ⚠️ **No team events, and no regional multi-sport games.** Team events would
+   rank a player by the country they were born in. The Asian Games, the
+   Commonwealth Games and the European Games would each do the same thing more
+   quietly: every one of them is closed to most of the world, so including any
+   one of them picks a region. They are in the data and deliberately left out.
+   ==================================================================== */
+
+export const PYRAMID_ROWS = [
+  { key: 'major',  label: 'Olympics · Worlds', tiers: ['OLY', 20] },
+  { key: 'finals', label: 'Tour Finals',       tiers: [22] },
+  { key: 's1000',  label: 'Super 1000',        tiers: [23] },
+  { key: 's750',   label: 'Super 750',         tiers: [24] },
+];
+
+/** Which pyramid row a tier belongs to, or null if it is not on the pyramid. */
+export function pyramidRow(tier) {
+  const row = PYRAMID_ROWS.find(r => r.tiers.some(t => String(t) === String(tier)));
+  return row ? row.key : null;
+}
+
+/* Anything junior, para, masters, student or invitational. These are real
+   tournaments with real winners and they are not what this chart is about;
+   without the reject list "BWF World Junior Championships" reads as the World
+   Championships and "Youth Olympic Games" as the Olympics. */
+const NOT_SENIOR = /junior|para[- ]|youth|university|student|masters cup|u1[13579]\b|senior championships|invitation/i;
+
+/* A team event under any of its names. `category` says so in the modern era and
+   does not in 2014, where the Asian Games team competition is called
+   "17th Asian Games Incheon 2014" and the individual one "17th Asian Games
+   2014" — the same event, one word apart. */
+/* ⚠️ Not a bare `cup`: that was the first version, and it would reject any
+   World Tour event that happens to be named one. The team cups are named. */
+const TEAM = /\bteam\b|thomas|uber|sudirman/i;
+
+/* ⚠️ Names before categories, for the same reason `gridGroup` does it: the
+   category string is not a tier. "World Superseries Premier" holds both the
+   Superseries Premier events *and* the Dubai Superseries Finals, and the 2017
+   World Championships is filed under "BWF Events" with the continental
+   championships and the club championships. */
+const PYRAMID_BY_NAME = [
+  /* ⚠️ The season-ending final has been called five things. "Dubai World
+     Superseries Finals", "HSBC BWF World Tour Finals" — and, in 2008 and 2009,
+     "World Super Series **Masters** Finals", which an exact phrase misses. It
+     then falls through to the category, which says Superseries Premier, and the
+     year's biggest title is quietly drawn as a Super 1000. Match the bracketing
+     words with a bounded gap instead of listing the names. */
+  [/(super\s*series|world\s*tour).{0,24}\bfinals\b/i, 22],
+  [/olympic games/i, 'OLY'],
+  [/\bworld championships?\b/i, 20],
+];
+
+/* The calendar's `category` is a display string, and it changed when the World
+   Tour replaced the Superseries. Both eras land on the same rungs — the same
+   mapping the grid already uses. */
+const PYRAMID_BY_CATEGORY = [
+  [/world tour finals/i, 22],
+  [/super 1000/i, 23],
+  [/super 750/i, 24],
+  [/world superseries premier/i, 23],
+  [/world superseries$/i, 24],
+];
+
+/**
+ * Which rung of the pyramid a calendar entry sits on, or null.
+ *
+ * @param {{name: string, category: string}} entry  one `vue-grouped-year-tournaments` row
+ */
+export function pyramidTier(entry) {
+  const name = String((entry && entry.name) || '');
+  const cat = String((entry && entry.category) || '');
+  if (!name) return null;
+  if (NOT_SENIOR.test(name) || NOT_SENIOR.test(cat)) return null;
+  if (TEAM.test(name) || /team/i.test(cat)) return null;
+
+  for (const [re, tier] of PYRAMID_BY_NAME) if (re.test(name)) return tier;
+  for (const [re, tier] of PYRAMID_BY_CATEGORY) if (re.test(cat)) return tier;
+  return null;
+}
+
+/**
+ * One season as rows, summit first.
+ *
+ * @param {Array<{tier, name, date, w}>} won  that season's titles
+ * @param {object} players  id -> {n, c, a}
+ * @returns {Array<{key, label, tiles}>} every row, including empty ones — a
+ *   season that did not hold a Tour Finals should show a hole where it goes
+ *   rather than closing the gap and pretending the pyramid is a shape it is not.
+ */
+export function pyramidSeason(won, players) {
+  const all = won || [];
+  return PYRAMID_ROWS.map(row => ({
+    key: row.key,
+    label: row.label,
+    /* Carried even when the row is empty: a season that held no Tour Finals
+       still has to be drawn the height a Tour Finals square would have been,
+       and the only way to know that is to know the tier. */
+    tiers: row.tiers,
+    tiles: all
+      .filter(t => pyramidRow(t.tier) === row.key)
+      .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+      .map(t => ({
+        tier: t.tier,
+        name: t.name,
+        date: t.date,
+        scale: honourScale(t.tier),
+        who: (players || {})[String(t.w)] || null,
+        id: t.w,
+      })),
+  }));
+}
+
+/** How wide a row is, in the same units the squares are sized in. */
+export function pyramidRowWidth(row) {
+  return (row.tiles || []).reduce((n, t) => n + t.scale, 0);
+}
+
+/**
+ * Where a season's pyramid stops tapering.
+ *
+ * The calendar does not guarantee a pyramid: 2027 holds five Super 1000s and
+ * five Super 750s, so the tier above the base is the wider of the two. That is
+ * worth showing rather than hiding — it says the elite tier grew — but it is
+ * also worth being able to point at.
+ */
+export function pyramidBulges(rows) {
+  const out = [];
+  for (let i = 0; i < rows.length - 1; i++) {
+    /* ⚠️ Only rows holding more than one title are compared. A row with a single
+       square is *always* wider than the single square below it — the Olympics
+       outranks the Worlds, the Worlds outranks the Tour Finals — so comparing
+       them flags almost every season and says nothing. The interesting bulge is
+       the one the calendar causes: a tier with more events than the tier under
+       it. */
+    if (rows[i].tiles.length < 2 || rows[i + 1].tiles.length < 2) continue;
+    const above = pyramidRowWidth(rows[i]);
+    const below = pyramidRowWidth(rows[i + 1]);
+    if (above > below) out.push({ above: rows[i].key, below: rows[i + 1].key });
+  }
+  return out;
+}
+
 /** The draws present on a day, in the usual MS/WS/MD/WD/XD order. */
 const DRAW_ORDER = ['MS', 'WS', 'MD', 'WD', 'XD'];
 export function drawsPresent(matches) {

@@ -14,7 +14,7 @@
 import {
   loadSeason, loadPlayer, loadDraws, searchPlayers, loadTopRanked,
   loadWorldRank, loadRaceRank, loadLastMatch, rankingFor,
-  RANKING_CATEGORIES, queueDepth, loadSchedule, loadDayMatches,
+  RANKING_CATEGORIES, queueDepth, loadSchedule, loadDayMatches, loadWinners,
 } from './api.js';
 import {
   positionInfo, fillFraction, drawForKind, dominantDraw, seasonKinds,
@@ -26,6 +26,7 @@ import {
   careerHonours, honourSections,
   pickTournament, tournamentDays, defaultDay, parseDayMatches, orderOfPlay,
   courtGrid, drawsPresent, dayOf, matchSignature, prettyDay,
+  pyramidSeason, pyramidBulges, pyramidRowWidth,
 } from './model.js';
 
 const $ = id => document.getElementById(id);
@@ -904,6 +905,106 @@ function renderGrid() {
   if (honours) renderHonoursBody(list); else renderGridBody(list);
 }
 
+/* ============================ the winners' pyramid ============================
+
+   One column per season, oldest on the left. Each column is a pyramid: the
+   Super 750s along the bottom, the single greatest title at the top.
+   ==================================================================== */
+
+const win = { raw: null, kind: 'MS', zoom: 10, loading: false, error: '' };
+
+async function loadWinnersPage() {
+  if (win.raw || win.loading) return renderWinners();
+  win.loading = true;
+  win.error = '';
+  renderWinners();
+  try { win.raw = await loadWinners(win.kind); }
+  catch (e) { win.error = e.message || String(e); }
+  win.loading = false;
+  renderWinners();
+}
+
+/** A face, or the initials of somebody BWF has no photograph of. */
+function winnerFace(who, side) {
+  const name = esc((who && who.n) || 'Unknown');
+  const initials = String((who && who.n) || '?')
+    .replace(/[^A-Za-z ]/g, ' ').trim().split(/\s+/)
+    .map(w => w[0]).slice(0, 2).join('').toUpperCase();
+  if (who && who.a) {
+    return `<img class="face" src="${esc(who.a)}" alt="${name}" loading="lazy"
+      width="${Math.round(side)}" height="${Math.round(side)}">`;
+  }
+  return `<span class="face noface" aria-label="${name}">${esc(initials)}</span>`;
+}
+
+function renderWinners() {
+  const body = $('winBody');
+  renderWinnersControls();
+
+  if (win.error) {
+    body.innerHTML = `<p class="empty">${esc(win.error)}</p>`;
+    $('winSpan').textContent = '';
+    return;
+  }
+  if (!win.raw) {
+    body.innerHTML = '<p class="empty">Reading the harvested winners…</p>';
+    return;
+  }
+
+  const players = win.raw.players || {};
+  const years = Object.keys(win.raw.seasons || {}).map(Number)
+    .filter(y => Number.isFinite(y)).sort((a, b) => a - b);
+  if (!years.length) {
+    body.innerHTML = '<p class="empty">Nothing harvested yet.</p>';
+    return;
+  }
+
+  const unit = win.zoom;
+  $('winSpan').textContent = `${years[0]}–${years[years.length - 1]} · `
+    + `${years.reduce((n, y) => n + win.raw.seasons[y].length, 0)} titles`;
+
+  const columns = years.map(year => {
+    const rows = pyramidSeason(win.raw.seasons[year], players);
+    const bulges = pyramidBulges(rows);
+    const widest = Math.max(...rows.map(pyramidRowWidth), 1);
+
+    const html = rows.map(row => {
+      if (!row.tiles.length) {
+        /* ⚠️ An empty row is drawn as a gap, not closed up. A season with no
+           Tour Finals — every season before 2008 — should show the hole where
+           it goes rather than quietly becoming a different shape. */
+        const h = Math.round(honourScale(row.tiers[row.tiers.length - 1]) * unit);
+        return `<div class="pyrrow is-empty" style="height:${h}px"
+          title="no ${esc(row.label)} this season"></div>`;
+      }
+      return `<div class="pyrrow">` + row.tiles.map(t => {
+        const side = Math.round(t.scale * unit);
+        const when = String(t.date).slice(0, 10);
+        return `<span class="pyrtile t-${esc(String(t.tier))}"
+          style="width:${side}px;height:${side}px"
+          title="${esc(t.name)}\n${esc((t.who && t.who.n) || 'unknown')}${
+            t.who && t.who.c ? ' · ' + esc(t.who.c) : ''}\n${when}">${
+          winnerFace(t.who, side)}</span>`;
+      }).join('') + `</div>`;
+    }).join('');
+
+    return `<div class="pyrseason${bulges.length ? ' is-bulging' : ''}"
+      style="min-width:${Math.round(widest * unit) + 12}px">
+      <div class="pyrstack">${html}</div>
+      <div class="pyryear">${year}</div>
+    </div>`;
+  }).join('');
+
+  body.innerHTML = `<div class="pyrscroll">${columns}</div>`;
+}
+
+function renderWinnersControls() {
+  const here = (win.raw && win.raw.discipline) || win.kind;
+  $('winKind').innerHTML = `<button type="button" class="seg on" aria-pressed="true">${esc(here)}</button>`;
+  const z = $('winZoom');
+  if (z && Number(z.value) !== win.zoom) z.value = String(win.zoom);
+}
+
 /** Which page the nav says you are on. */
 function renderViewPick() {
   $('pageNav').querySelectorAll('[data-page]').forEach(b => {
@@ -916,7 +1017,7 @@ function renderViewPick() {
 
 /* The pages, one at a time. `grid.open` stays as the compare page's own flag —
    a great deal of the grid keys off it — but which page is up lives here. */
-const PAGES = ['seasons', 'compare', 'tmt'];
+const PAGES = ['seasons', 'compare', 'tmt', 'winners'];
 let page = 'seasons';
 
 function showPage(name) {
@@ -925,10 +1026,12 @@ function showPage(name) {
   $('seasonsPage').hidden = page !== 'seasons';
   $('comparePage').hidden = page !== 'compare';
   $('tmtPage').hidden = page !== 'tmt';
+  $('winPage').hidden = page !== 'winners';
   // Read by the stylesheet to put away the controls that only govern the strip.
   document.body.dataset.page = page;
   if (page === 'compare') renderGrid();
   if (page === 'tmt') { renderTmt(); loadTournament(); startLive(); }
+  if (page === 'winners') loadWinnersPage();
   renderViewPick();
   writeHash();
 }
@@ -1910,6 +2013,7 @@ function applyGridHash() {
   // Already on the tournament page: the hash may still have moved the day, or
   // the date the whole page is reasoned from.
   else if (page === 'tmt') loadTournament();
+  else if (page === 'winners') renderWinners();
 }
 
 function writeHash() {

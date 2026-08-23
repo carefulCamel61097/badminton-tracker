@@ -33,7 +33,7 @@ const DEFAULTS = [
 /** The compare and tournament pages are wide; the strip is not. */
 /* `[#&]`, not `(^|&)`: the hash arrives with its `#` attached, so `pg=tmt` at
    the front of it is preceded by neither the start of the string nor an `&`. */
-const wide = hash => /[#&](g=1|pg=(compare|tmt))/.test(hash);
+const wide = hash => /[#&](g=1|pg=(compare|tmt|winners))/.test(hash);
 
 /* `--top` clips to the first 460px: the chrome — nav, hero, page header — at a
    readable scale. A whole-page capture is 1600px of document squeezed into one
@@ -60,10 +60,13 @@ await b.until('!!window.BST', { timeout: 40000 });
    the tournament page has none. Waiting on it there is a four-minute timeout
    per shot, not a failure, which is a slow way to learn this. */
 const tmtOnly = hash => /[#&]pg=tmt/.test(hash) && !/[#&]p=\d/.test(hash);
+const winOnly = hash => /[#&]pg=winners/.test(hash) && !/[#&]p=\d/.test(hash);
 
 for (const [name, hash] of shots) {
   await b.ev(`location.hash = ${JSON.stringify(hash)}`);
-  if (tmtOnly(hash)) {
+  if (winOnly(hash)) {
+    await b.until('!!document.querySelector(".pyrseason")', { timeout: 60000 });
+  } else if (tmtOnly(hash)) {
     await b.until('!!window.BST && window.BST.tmt.ready() && window.BST.tmt.pick() !== null',
       { timeout: 120000 });
     await b.wait(600);

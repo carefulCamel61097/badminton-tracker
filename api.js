@@ -452,6 +452,32 @@ export async function searchPlayers(query, opts = {}) {
   return players.sort((a, b) => score(a) - score(b) || a.name.length - b.name.length);
 }
 
+/* ============================ the winners' file ============================
+
+   ⚠️ **Not a BWF call.** `data/winners-MS.json` is harvested by
+   `tools/harvest-winners.mjs` and committed. Finding the winner of a tournament
+   means asking for a day's order of play per tournament per season — a few
+   hundred calls — and none of it ever changes once a final has been played. So
+   it happens once, offline, and arrives here as one static file from this
+   origin: no queue, no etiquette, no rate limit.
+   ==================================================================== */
+
+const winnerFiles = new Map();
+
+/** The harvested winners for one discipline. Fetched once per page load. */
+export function loadWinners(code = 'MS') {
+  const key = String(code).toUpperCase();
+  if (!winnerFiles.has(key)) {
+    winnerFiles.set(key, fetch(`data/winners-${key}.json`, { cache: 'no-cache' })
+      .then(r => {
+        if (!r.ok) throw new Error(`no harvested winners for ${key} on this server`);
+        return r.json();
+      })
+      .catch(e => { winnerFiles.delete(key); throw e; }));
+  }
+  return winnerFiles.get(key);
+}
+
 /* ============================ the tournament now ============================
 
    `vue-tmt-schedule` is 1.8 KB and answers the whole question of which

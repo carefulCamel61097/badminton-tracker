@@ -14,6 +14,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import {
+  pyramidTier, pyramidSeason, pyramidBulges, pyramidRow, PYRAMID_ROWS,
   parseSeason, seasonDisciplines, drawFor, drawForKind, dominantDraw,
   kindOf, seasonKinds, defaultKind, seasonLevels,
   positionInfo, fillFraction, boxSize, boxScale, levelLabel, isTeamEvent,
@@ -1437,5 +1438,128 @@ eq('an empty one likewise', parseDayMatches([]).length, 0);
 eq('and no matches is no courts', orderOfPlay([]).length, 0);
 eq('nor any draws', drawsPresent([]).length, 0);
 eq('and no grid out of nothing', courtGrid([]), null);
+
+/* ============================ the winners' pyramid ============================ */
+
+/* ⚠️ The calendar's `category` is a display string and it has changed twice.
+   Every one of these is a real row from `vue-grouped-year-tournaments`. */
+const tierOf = (name, category) => pyramidTier({ name, category });
+
+eq('a modern World Championships',
+  tierOf('BWF World Championships 2026', 'Grade 1 – Individual Tournaments'), 20);
+eq('the Olympics, which shares its category with the Worlds',
+  tierOf('Paris 2024 Olympic Games Badminton Competition', 'Grade 1 – Individual Tournaments'), 'OLY');
+eq('a Super 1000', tierOf('PETRONAS Malaysia Open 2026', 'HSBC BWF World Tour Super 1000'), 23);
+eq('a Super 750', tierOf('DAIHATSU Japan Open 2026', 'HSBC BWF World Tour Super 750'), 24);
+eq('the Tour Finals', tierOf('HSBC BWF World Tour Finals 2026', 'HSBC BWF World Tour Finals'), 22);
+
+/* ⚠️ The two traps, both real. The 2017 World Championships is filed under
+   "BWF Events" with the club championships; the Dubai Superseries Finals is
+   filed under "World Superseries Premier" with the Superseries Premier events
+   — the same category-8 ambiguity `gridGroup` already has to survive. This is
+   why names are matched before categories. */
+eq('the 2017 Worlds, filed under BWF Events',
+  tierOf('TOTAL BWF World Championships 2017', 'BWF Events'), 20);
+eq('the Superseries Finals, filed as a Superseries Premier',
+  tierOf('Dubai World Superseries Finals 2017', 'World Superseries Premier'), 22);
+
+/* The season-ending final has been called five things across twenty years, and
+   in 2008 and 2009 it was the "World Super Series **Masters** Finals" — which
+   an exact phrase misses. It then fell through to its category, which says
+   Superseries Premier, and the year's biggest World Tour title was drawn as a
+   Super 1000. Matching the bracketing words with a bounded gap catches all of
+   them without catching the team cups. */
+eq('the 2008 Masters Finals',
+  tierOf('World Super Series Masters Finals 2008', 'World Superseries Premier'), 22);
+eq('and 2009, shouting',
+  tierOf('YONEX-SUNRISE BWF WORLD SUPER SERIES MASTERS FINALS 2009', 'World Superseries Premier'), 22);
+eq('the 2010 edition, which was played in January 2011',
+  tierOf('VICTOR- BWF Superseries Finals 2010', 'World Superseries Premier'), 22);
+eq('while an actual Superseries Premier is drawn where a Super 1000 is',
+  tierOf('YONEX All England 2017', 'World Superseries Premier'), 23);
+eq('and a Superseries where a Super 750 is',
+  tierOf('DAIHATSU YONEX Japan Open 2017', 'World Superseries'), 24);
+
+/* Team events are out — they would rank a player by the country they were born
+   in, which is the one thing this chart must not do. */
+eq('Thomas & Uber Cup', tierOf('BWF Thomas & Uber Cup Finals 2026', 'Grade 1 – Team Tournaments'), null);
+eq('Sudirman Cup', tierOf('TotalEnergies BWF Sudirman Cup Finals 2023', 'Grade 1 – Team Tournaments'), null);
+eq('an Asian Games team event', tierOf('Asian Games 2018 (Team Event)', 'Other'), null);
+/* ⚠️ But not by the word "cup" alone: a World Tour event may be named one. */
+eq('a Super 750 that happens to be called a cup',
+  tierOf('YONEX German Cup 2026', 'HSBC BWF World Tour Super 750'), 24);
+
+/* Regional multi-sport games are out too, and deliberately. Each is closed to
+   most of the world, so including any one of them picks a region — the Asian
+   Games would hand a tile to players LEE Chong Wei could not beat and delete
+   the Commonwealth Games golds he did win. */
+eq('the Asian Games', tierOf('20th Asian Games Aichi-Nagoya 2026 (Individual)', 'Multi-Sport Games'), null);
+eq('the Commonwealth Games', tierOf('2018 Commonwealth Games', 'Other'), null);
+eq('the European Games', tierOf('2023 European Games', 'Continental Individual Championships'), null);
+eq('a continental championship', tierOf('2026 European Championships', 'Continental Individual Championships'), null);
+
+/* Junior, para and student events share names with the real ones. */
+eq('the junior Worlds', tierOf('BWF World Junior Championships 2010', 'BWF Events'), null);
+eq('the para Worlds', tierOf('BWF Para-Badminton World Championships 2017', 'Para-Badminton'), null);
+eq('the Youth Olympics',
+  tierOf('Youth Olympic Games Dakar 2026', 'Grade 1 – Individual Junior Tournaments'), null);
+eq('the university games',
+  tierOf('13th World University Badminton Championship-Individual Event', 'BWF Events'), null);
+
+/* ---- a season, laid out ---- */
+
+const pyWho = { 1: { n: 'A ONE' }, 2: { n: 'B TWO' }, 3: { n: 'C THREE' } };
+const pySeason = [
+  { tier: 24, name: 'Japan Open', date: '2026-08-20', w: 2 },
+  { tier: 20, name: 'Worlds', date: '2026-08-25', w: 1 },
+  { tier: 23, name: 'Malaysia Open', date: '2026-01-06', w: 1 },
+  { tier: 24, name: 'India Open', date: '2026-01-16', w: 3 },
+  { tier: 22, name: 'Tour Finals', date: '2026-12-11', w: 1 },
+];
+const pyRows = pyramidSeason(pySeason, pyWho);
+eq('four rows, summit first', pyRows.map(r => r.key).join(' '), 'major finals s1000 s750');
+eq('the summit holds the Worlds', pyRows[0].tiles.length, 1);
+eq('and knows who won it', pyRows[0].tiles[0].who.n, 'A ONE');
+eq('the base holds both Super 750s', pyRows[3].tiles.length, 2);
+eq('in the order they were played',
+  pyRows[3].tiles.map(t => t.name).join(' '), 'India Open Japan Open');
+
+/* Sizes come from the honours ladder, so a Super 1000 square is the same size
+   here as it is there — and the Olympic square is larger than the Worlds one
+   even though they share a row. */
+near('a Super 750 tile', pyRows[3].tiles[0].scale, honourScale(24));
+check('the Olympics outranks the Worlds on the same row',
+  pyramidSeason([{ tier: 'OLY', name: 'Games', date: '2028-07-01', w: 1 }], pyWho)[0].tiles[0].scale
+  > pyRows[0].tiles[0].scale);
+
+/* ⚠️ An empty row is kept. A season with no Tour Finals should show a hole
+   where it goes, not close the gap and pretend the shape is different. */
+const pyThin = pyramidSeason([{ tier: 23, name: 'One', date: '2026-01-01', w: 1 }], pyWho);
+eq('every row is present even when nothing filled it', pyThin.length, 4);
+eq('the empty ones are simply empty', pyThin[0].tiles.length, 0);
+/* ⚠️ And an empty row still has to know its tier: the gap it leaves is drawn
+   the height the missing square would have been, and without this the whole
+   page throws on the first season that never held a Tour Finals. */
+check('an empty row still carries its tier',
+  pyThin.every(r => Array.isArray(r.tiers) && r.tiers.length > 0),
+  JSON.stringify(pyThin.map(r => r.tiers)));
+
+/* ⚠️ The calendar does not guarantee a pyramid. 2027 holds five Super 1000s and
+   five Super 750s, so the tier above the base is the wider of the two. Worth
+   showing rather than hiding — it says the elite tier grew. */
+const pyFlat = pyramidSeason([
+  ...Array.from({ length: 5 }, (_, i) => ({ tier: 23, name: 'K' + i, date: '2027-0' + (i + 1) + '-01', w: 1 })),
+  ...Array.from({ length: 5 }, (_, i) => ({ tier: 24, name: 'S' + i, date: '2027-0' + (i + 1) + '-08', w: 2 })),
+], pyWho);
+check('a season where the tier above the base is wider is reported',
+  pyramidBulges(pyFlat).some(b => b.above === 's1000' && b.below === 's750'),
+  JSON.stringify(pyramidBulges(pyFlat)));
+check('and a properly tapering season is not', pyramidBulges(pyramidSeason([
+  ...Array.from({ length: 4 }, (_, i) => ({ tier: 23, name: 'K' + i, date: '2026-0' + (i + 1) + '-01', w: 1 })),
+  ...Array.from({ length: 6 }, (_, i) => ({ tier: 24, name: 'S' + i, date: '2026-0' + (i + 1) + '-08', w: 2 })),
+], pyWho)).length === 0);
+
+eq('nothing at all is four empty rows', pyramidSeason([], {}).length, 4);
+
 
 process.exit(report());

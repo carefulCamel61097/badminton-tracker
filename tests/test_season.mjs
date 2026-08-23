@@ -554,11 +554,11 @@ check('the grid is shut until it is asked for',
   await b.ev(`document.getElementById('comparePage').hidden
     && !document.getElementById('seasonsPage').hidden`));
 
-/* Two pages, on a bar of their own. This was a segmented control in the corner
+/* Four pages, on a bar of their own. This was a segmented control in the corner
    of the hero, which is where a setting goes. */
 const picks = await b.ev(`[...document.querySelectorAll('#pageNav [data-page]')]
   .map(b => b.dataset.page + (b.classList.contains('on') ? '*' : ''))`);
-eq('the nav offers every page by name', picks.join(' '), 'seasons* compare tmt');
+eq('the nav offers every page by name', picks.join(' '), 'seasons* compare tmt winners');
 eq('each one named at a size you can read',
   await b.ev(`Math.round(parseFloat(getComputedStyle(
     document.querySelector('#pageNav .tab .name')).fontSize))`), 16);
@@ -1134,10 +1134,11 @@ check('finals day at the Worlds loads', await openTmt('#pg=tmt&now=2026-08-23'))
 
 const navNow = await b.ev(`[...document.querySelectorAll('#pageNav [data-page]')]
   .map(b => b.dataset.page + (b.classList.contains('on') ? '*' : ''))`);
-eq('three pages now, and the nav says which', navNow.join(' '), 'seasons compare tmt*');
-check('the other two pages step aside',
+eq('the nav says which page you are on', navNow.join(' '), 'seasons compare tmt* winners');
+check('the other three pages step aside',
   await b.ev(`document.getElementById('seasonsPage').hidden
     && document.getElementById('comparePage').hidden
+    && document.getElementById('winPage').hidden
     && !document.getElementById('tmtPage').hidden`));
 
 const pick = await b.ev('window.BST.tmt.pick()');
@@ -1450,6 +1451,68 @@ check('no label is white on a box the fill does not reach',
     .map(l => `${l.tier}@${l.pct}%`).join(' '));
 
 await b.send('Emulation.setEmulatedMedia', { features: [] }, b.sessionId);
+
+/* ============================ the winners' pyramid ============================
+
+   The other page with no player. Its data is `data/winners-MS.json`, served
+   from this origin rather than replayed from a fixture — it is not a BWF call,
+   and a fixture of it would only be a copy of a committed file.
+   ======================================================================== */
+
+console.log('\n=== the winners page: one pyramid per season ===');
+
+await b.ev(`location.hash = '#pg=winners'`);
+check('the winners page loads with no player at all',
+  await b.until('!!document.querySelector(".pyrseason")', { timeout: 60000 }));
+eq('and the nav says so',
+  await b.ev(`[...document.querySelectorAll('#pageNav [data-page]')]
+    .map(b => b.dataset.page + (b.classList.contains('on') ? '*' : '')).join(' ')`),
+  'seasons compare tmt winners*');
+
+const pyrs = JSON.parse(await b.ev(`JSON.stringify(
+  [...document.querySelectorAll('.pyrseason')].map(s => ({
+    year: s.querySelector('.pyryear').textContent.trim(),
+    rows: [...s.querySelectorAll('.pyrrow')].map(r => r.querySelectorAll('.pyrtile').length),
+  })))`));
+check('every season drew a column', pyrs.length > 10, String(pyrs.length));
+eq('oldest on the left', pyrs[0].year, '2007');
+check('newest on the right', Number(pyrs[pyrs.length - 1].year) >= 2026,
+  pyrs[pyrs.length - 1].year);
+check('the years run in order without a gap',
+  pyrs.every((p, i) => i === 0 || Number(p.year) === Number(pyrs[i - 1].year) + 1),
+  pyrs.map(p => p.year).join(' '));
+
+/* ⚠️ Four rows always, even the empty ones. A season that held no Tour Finals
+   has to show the hole where it goes rather than quietly becoming a different
+   shape — and an empty row still has to know its tier to be drawn at all. */
+check('every season has all four rows', pyrs.every(p => p.rows.length === 4),
+  pyrs.filter(p => p.rows.length !== 4).map(p => `${p.year}:${p.rows.length}`).join(' '));
+
+/* Before 2011 there was no Superseries Premier tier, so the Super 1000 row is
+   genuinely empty — a real hole, not a harvest that missed something. */
+const y2009 = pyrs.find(p => p.year === '2009');
+eq('2009 has no Super 1000s, because the tier did not exist', y2009.rows[2], 0);
+check('but it did have a summit and a season-ending final',
+  y2009.rows[0] === 1 && y2009.rows[1] === 1, JSON.stringify(y2009.rows));
+
+/* ⚠️ Sizes come from the honours ladder, so the summit must actually be the
+   biggest square on the page and a Super 750 the smallest. */
+const pyrSizes = JSON.parse(await b.ev(`JSON.stringify(
+  ['OLY','20','22','23','24'].map(t => {
+    const el = document.querySelector('.pyrtile.t-' + t);
+    return [t, el ? Math.round(el.getBoundingClientRect().width) : 0];
+  }))`));
+const px = Object.fromEntries(pyrSizes);
+check('the Olympics is the largest square', px.OLY > px['20'], JSON.stringify(pyrSizes));
+check('the Worlds outranks the Tour Finals', px['20'] > px['22'], JSON.stringify(pyrSizes));
+check('the Tour Finals outranks a Super 1000', px['22'] > px['23'], JSON.stringify(pyrSizes));
+check('and a Super 1000 outranks a Super 750', px['23'] > px['24'], JSON.stringify(pyrSizes));
+
+check('every tile says which tournament it was and who won it',
+  await b.ev(`[...document.querySelectorAll('.pyrtile')].every(t =>
+    (t.getAttribute('title') || '').trim().length > 8)`));
+
+await b.ev(`document.querySelector('#pageNav [data-page="seasons"]').click()`);
 
 /* ============================ hygiene ============================ */
 

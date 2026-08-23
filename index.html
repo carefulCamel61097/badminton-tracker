@@ -67,6 +67,10 @@
     <span class="name">Tournament</span>
     <span class="sub">what's on, day by day</span>
   </button>
+  <button type="button" class="tab" data-page="winners">
+    <span class="name">Winners</span>
+    <span class="sub">who took the big titles</span>
+  </button>
 </nav>
 
 <section id="seasonsPage">
@@ -189,6 +193,43 @@
      names the live one, the one before it and the one after; the day bar walks
      its dates; `day-matches` gives that day's order of play, laid out by court
      because that is how an order of play is read. -->
+<!-- One season, one pyramid: the base is the widest tier and the summit is the
+     single greatest title. Like the tournament page, this is about the sport
+     rather than about a player you chose, so it has no search box. -->
+<section id="winPage" class="page" hidden>
+  <header class="pagehead">
+    <h2 id="winTitle">Winners</h2>
+    <span id="winKind" class="kindwrap" role="group" aria-label="discipline"></span>
+    <span id="winSpan" class="tmtwhen"></span>
+    <label class="zoom" for="winZoom">Zoom
+      <input type="range" id="winZoom" min="7" max="18" step="1" value="10"
+             aria-label="tile size">
+    </label>
+  </header>
+
+  <div id="winBody" class="pyr"></div>
+
+  <p class="legend note" id="winNote">
+    Each square is a title, sized by what it was worth — the same ladder the
+    honours board uses, so a Super 1000 here is a Super 1000 there.
+    <b>The Olympics and the World Championships share the top row</b>, because
+    every season holds one or the other; the Olympic square is the larger of the
+    two. Below them the World Tour Finals, then the Super 1000s, then the Super
+    750s.
+    <br>
+    ⚠️ <b>No team events and no regional games.</b> A team title would rank a
+    player by the country they were born in. The Asian Games, the Commonwealth
+    Games and the European Games are in the data and left out for the same
+    reason more quietly: each is closed to most of the world, so counting any one
+    of them picks a region.
+    <br>
+    ⚠️ Seasons before 2018 are drawn on the modern ladder — a Superseries
+    Premier where a Super 1000 goes, a Superseries where a Super 750 goes.
+    <b>Before 2011 there was no Premier tier at all</b>, so those seasons have an
+    empty Super 1000 row rather than a missing one.
+  </p>
+</section>
+
 <section id="tmtPage" class="page" hidden>
   <header class="pagehead">
     <h2 id="tmtTitle">Tournament</h2>
