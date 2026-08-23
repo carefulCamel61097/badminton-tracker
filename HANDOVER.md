@@ -1019,6 +1019,73 @@ GET /h2h/statistics?t1p1={id}&t2p1={id}[&t1p2=&t2p2=]
 Ranking category ids — world: MS 6, WS 7, MD 8, WD 9, XD 10; race: 57/58/59/60/61.
 Draw ids: MS 1, WS 2, MD 3, WD 4, XD 5.
 
+### 3.4b The ranking archive — *(investigated 23 Aug 2026, `tools/probe-rank.mjs`)*
+
+**The whole weekly ranking archive is reachable, and undated.** `publicationId` on
+`vue-rankingtable` is a time machine — the app pins it to 0, which means "this week", and
+nobody had tried anything else.
+
+```
+GET /vue-rankingtable?rankId=2&catId=6&page=1&publicationId={n}&...  -> that week's table
+GET /vue-rankingweek?rankId=2      -> the most recent 60 publications, as (id, date)
+GET /vue-rankingdata?rankId=2      -> the current publication, named and dated
+```
+
+| id | MS number one |
+|---|---|
+| 4435 | SHI Yu Qi *(2026-08-18, the current week)* |
+| 3842 | Kunlavut VITIDSARN *(2025-07-01)* |
+| 590-592 | LIN Dan |
+| 593-603 | LEE Chong Wei |
+
+⚠️ **One publication id covers all five categories.** A row carries
+`ranking_publication_id` *and* `ranking_category_id`, so once an id is known, MS, WS, MD, WD
+and XD are one call each — the expensive part is finding the id, and it is paid once.
+
+⚠️ **`vue-rankingweek` returns 60 rows and ignores everything you add to it** — `year`,
+`page`, `count`, `limit`, `startDate`/`endDate` and `tmtYear` all return the same 60. So the
+archive is addressable but not *listable*: ids below the last 60 weeks have no date attached
+anywhere in the API, and the table rows do not date themselves.
+
+⚠️ **BWF's own site never asks for an old week.** The rankings page calls
+`vue-rankingweek?rankId=2`, `vue-rankingdata?rankId=2` and `vue-rankingtable...publicationId=0`
+and nothing else; the *player* page asks for no ranking endpoint at all. There is no ranking
+history graph anywhere on the site to copy, and no dating endpoint to find.
+
+⚠️ **The id space is ragged and its stride grows with time.** Around id 600 every consecutive
+id is a world-ranking publication — one per week. By 1000 the stride is 4, and across the
+last 60 weeks it averages 10 with jumps of 46 and 50. Other ranking types (race, para,
+junior) take the ids in between, so *stride is not a constant and must never be interpolated*:
+multiples of 200 hit at 200/400/600 and missed at every one of 800...4400.
+
+**Dating works by walking, and the walk is verified.** From a dated anchor, scan downwards
+for the next id that answers for `rankId=2`; that is the previous week. `probe-rank-walk.mjs`
+ran this from 4435 for 59 steps and reproduced **all 60 dated ids exactly**, including both
+of the ~50-wide jumps. 597 requests for 60 weeks — about 10 per week now, and far fewer in
+the older, denser part of the id space.
+
+⚠️ **Retry once on an empty answer while walking.** An empty body is how this API refuses a
+burst (Part 3.1). Without the retry a refusal reads as "no publication at this id" and the
+walk silently loses a week — and since every later date is counted backwards from the one
+before it, a single lost week shifts *everything older by seven days*.
+
+⚠️ **The floor is between id 80 and id 120.** 1...80 answer with nothing, 120 has LEE Chong
+Wei on top. Not yet pinned, and worth pinning before promising any particular start year.
+
+**`vue-player-ranking-highest` says more than it looks.**
+
+```
+{"results":{"rank":1,"date":"2012-09-20","total":14}}      LIN Dan
+{"results":{"rank":1,"date":"2017-06-01","total":310}}     LEE Chong Wei
+{"results":{"rank":1,"date":"2026-08-18","total":102}}     SHI Yu Qi
+```
+
+`total` is **weeks spent at that rank** and `date` is a real date. One call per player gives a
+dated anchor and a dominance figure without touching the archive at all — and the dates are
+independent checkpoints the walk can be validated against. It also states the thing the
+Honours board cannot: LIN Dan won far more than LEE Chong Wei and was number one for 14 weeks
+to his 310.
+
 ### 3.5 Endpoints — the tournament pages *(discovered 21 Aug 2026, all verified 200)*
 
 Part 3.2 was found by pointing `discover.mjs` at the calendar, home and rankings
