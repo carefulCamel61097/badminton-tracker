@@ -25,7 +25,7 @@ import {
   HONOUR_STEPS, HONOUR_DEFAULT, honourStep, honourScale, honourRung,
   careerHonours, honourSections,
   pickTournament, tournamentDays, defaultDay, parseDayMatches, orderOfPlay,
-  courtGrid, drawsPresent, dayOf,
+  courtGrid, drawsPresent, dayOf, matchSignature, prettyDay,
 } from './model.js';
 
 const $ = id => document.getElementById(id);
@@ -925,7 +925,7 @@ function showPage(name) {
   // Read by the stylesheet to put away the controls that only govern the strip.
   document.body.dataset.page = page;
   if (page === 'compare') renderGrid();
-  if (page === 'tmt') { renderTmt(); loadTournament(); }
+  if (page === 'tmt') { renderTmt(); loadTournament(); startLive(); }
   renderViewPick();
   writeHash();
 }
@@ -1398,8 +1398,57 @@ const tmt = {
   error: null,
   wantDay: null,          // a day from the hash, before the schedule has landed
   pickedFor: null,        // the date the current pick was made against
+  byDay: new Map(),       // day -> that day's matches, so "All" is one merge
+  starred: new Set(),     // match ids the reader picked out
+  starredOnly: false,
+  fresh: new Map(),       // match id -> when it last moved under us
+  checked: null,          // when the scores were last asked for
+  moved: 0,               // how many moved on that check
 };
 let tmtToken = 0;
+let liveTimer = null;
+
+/* ---------- stars ----------
+
+   The point of the page, and the reason the predecessor called it Follow
+   Matches: the whole day is on screen, so the default has to recede far enough
+   that a handful of picked-out cards read at a glance from across the room.
+
+   Keyed by match id, which is unique across a tournament — the `code` is only
+   unique within one draw, so MS and WD would collide. Kept in localStorage
+   because a star is a decision, and losing it on a refresh mid-session is the
+   one thing that would stop anybody using it. */
+
+const STAR_KEY = 'bst:starred';
+
+function readStars() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STAR_KEY) || '[]');
+    return new Set(Array.isArray(raw) ? raw.map(String) : []);
+  } catch { return new Set(); }
+}
+
+function writeStars() {
+  try { localStorage.setItem(STAR_KEY, JSON.stringify([...tmt.starred])); }
+  catch { /* private mode — the stars still work for this session */ }
+}
+
+const isStarred = m => tmt.starred.has(String(m.id));
+
+function toggleStar(id) {
+  const k = String(id);
+  if (tmt.starred.has(k)) tmt.starred.delete(k); else tmt.starred.add(k);
+  writeStars();
+  renderTmt();
+}
+
+function clearStars() {
+  tmt.starred.clear();
+  writeStars();
+  renderTmt();
+}
+
+tmt.starred = readStars();
 
 /* Today, as a string, and overridable from the hash.
  *
@@ -1450,12 +1499,7 @@ async function loadTournament(opts = {}) {
       if (days.includes(tmt.wantDay)) tmt.day = tmt.wantDay;
       tmt.wantDay = null;
     }
-    if (tmt.pick && tmt.day) {
-      const raw = await loadDayMatches(tmt.pick.tmt.code, tmt.day, { fresh: !!opts.fresh });
-      if (token !== tmtToken) return;
-      if (token !== tmtToken) return;
-      tmt.matches = parseDayMatches(raw);
-    }
+    if (tmt.pick && tmt.day) await loadDay(tmt.day, token, opts);
   } catch (e) {
     if (token !== tmtToken) return;
     tmt.error = 'Could not load from BWF: ' + e.message;
@@ -1463,8 +1507,48 @@ async function loadTournament(opts = {}) {
 
   if (token !== tmtToken) return;
   tmt.loading = false;
+  if (opts.fresh) tmt.checked = new Date();
   renderTmt();
   writeHash();
+}
+
+/**
+ * One day, or all of them.
+ *
+ * "All" is a real request per day, which the predecessor did not need because
+ * it held the whole draw. Seven of them at the queue's 320ms pacing is a couple
+ * of seconds, they land in the cache, and the page redraws as each arrives
+ * rather than sitting blank until the last one — a day you can already read is
+ * worth more than a complete page you are waiting for.
+ */
+async function loadDay(day, token, opts = {}) {
+  const days = day === 'all' ? tournamentDays(tmt.pick && tmt.pick.tmt) : [day];
+  const seen = new Map();
+
+  for (const d of days) {
+    const raw = await loadDayMatches(tmt.pick.tmt.code, d, { fresh: !!opts.fresh });
+    if (token !== tmtToken) return;
+    const list = parseDayMatches(raw, d);
+
+    // Only on a refresh: on a first load *everything* is new, which is not news.
+    if (opts.fresh) {
+      const before = new Map((tmt.byDay.get(d) || []).map(m => [m.id, matchSignature(m)]));
+      for (const m of list) {
+        const was = before.get(m.id);
+        if (was != null && was !== matchSignature(m)) {
+          tmt.fresh.set(m.id, Date.now());
+          tmt.moved++;
+        }
+      }
+    }
+
+    tmt.byDay.set(d, list);
+    seen.set(d, list);
+    // Show what has arrived so far, in day order.
+    tmt.matches = [...seen.keys()].sort().flatMap(k => seen.get(k));
+    if (days.length > 1) renderTmt();
+  }
+  tmt.matches = days.flatMap(d => tmt.byDay.get(d) || []);
 }
 
 /** Switch day without re-asking for the schedule. */
@@ -1478,9 +1562,7 @@ async function pickDay(day) {
   renderTmt();
   writeHash();
   try {
-    const raw = await loadDayMatches(tmt.pick.tmt.code, day);
-    if (token !== tmtToken) return;
-    tmt.matches = parseDayMatches(raw);
+    await loadDay(day, token);
   } catch (e) {
     if (token !== tmtToken) return;
     tmt.error = 'Could not load from BWF: ' + e.message;
@@ -1488,6 +1570,48 @@ async function pickDay(day) {
   if (token !== tmtToken) return;
   tmt.loading = false;
   renderTmt();
+}
+
+/* ---------- checking for changes ----------
+
+   Only while something is actually being played, and only while the page is in
+   front of somebody. A tournament that finished last week does not change, and
+   polling a background tab for scores nobody is reading is exactly the sort of
+   thing that gets a client blocked. */
+
+const LIVE_MS = 60000;
+const FRESH_MS = 3 * 60 * 1000;   // how long a card stays marked as having moved
+
+function liveWanted() {
+  return page === 'tmt' && tmt.pick && tmt.pick.state === 'live'
+    && document.visibilityState === 'visible';
+}
+
+async function checkScores() {
+  if (!liveWanted() || tmt.loading) return;
+  await loadTournament({ fresh: true });
+}
+
+function paintLive() {
+  const btn = $('tmtRefresh');
+  if (!btn) return;
+  const when = tmt.checked
+    ? tmt.checked.toTimeString().slice(0, 5) : null;
+  btn.title = (when ? `Scores last checked at ${when}. ` : '')
+    + (liveWanted() ? `Checking every ${LIVE_MS / 1000} seconds. ` : '')
+    + 'Click to check now.';
+  btn.classList.toggle('is-live', !!liveWanted());
+}
+
+function startLive() {
+  if (liveTimer) return;
+  liveTimer = setInterval(checkScores, LIVE_MS);
+  /* The high-value moment is coming back to a tab left open through a session.
+     Waiting out the rest of the interval would show a stale page at exactly the
+     moment somebody looked at it. */
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') checkScores();
+  });
 }
 
 /* ---------- drawing it ---------- */
@@ -1515,6 +1639,15 @@ function sideHtml(sd, note) {
     + `<span class="sets">${sets}${mark}</span></div>`;
 }
 
+/** The venue clock, and the reader's own where it differs. Always 24-hour. */
+function localClock(m) {
+  if (!m.utc) return '';
+  const at = new Date(m.utc.replace(' ', 'T') + 'Z');
+  if (Number.isNaN(at.getTime())) return '';
+  const here = at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  return here === m.time ? '' : here;
+}
+
 function matchHtml(m) {
   const statCls = m.note ? 'finished is-note' : m.status;
   const head = `<span class="rnd">${esc(m.round)}</span>`
@@ -1529,16 +1662,37 @@ function matchHtml(m) {
   const tip = m.estimated
     ? ' title="Estimated — this match follows the one before it on court"' : '';
   const approx = m.estimated ? '&asymp;' : '';
+  const here = localClock(m);
   const foot = [
     m.time ? `<span${tip}>${approx}${esc(m.time)}</span>` : '<span>Time to be confirmed</span>',
+    // Only when it is a different clock. Beside an identical number it would be
+    // two readings of the same thing taking up a line.
+    here ? `<span class="local"${tip}>${approx}${esc(here)} yours</span>` : '',
     m.oop ? `<span class="oopt"${tip}>${esc(m.oop)}</span>` : '',
     m.duration ? `<span>${m.duration} min</span>` : '',
   ].filter(Boolean).join('');
 
-  return `<article class="match is-${m.status}" data-draw="${esc(m.draw)}"`
+  const star = isStarred(m);
+  const moved = tmt.fresh.get(m.id);
+  /* ⚠️ Dimmed only once something is starred — a deliberate departure from the
+     predecessor, which dimmed the day unconditionally. It could afford to:
+     following matches was one of two views there, and the other one was for
+     reading. Here this is the only view of a day, so dimming it by default
+     charges every reader for a feature most of them have not used yet, and a
+     uniformly grey page reads as a rendering fault rather than as a state. The
+     effect that matters — a handful of lit cards against a receding day —
+     appears the moment there is a handful to light. */
+  const dimming = tmt.starred.size > 0;
+  const cls = ['match', 'is-' + m.status,
+    star ? 'is-starred' : dimming ? 'is-dim' : '',
+    moved && Date.now() - moved < FRESH_MS ? 'is-fresh' : ''].filter(Boolean).join(' ');
+
+  return `<article class="${cls}" data-draw="${esc(m.draw)}"`
     + ` data-id="${esc(m.id)}" data-seq="${m.seq == null ? '' : m.seq}"`
-    + ` data-court="${esc(m.court)}">`
-    + `<div class="match-head">${head}</div>`
+    + ` data-court="${esc(m.court)}" data-starred="${star}"`
+    + ` title="${star ? 'Starred — click to remove' : 'Click to star this match'}">`
+    + `<div class="match-head"><span class="star" aria-hidden="true">`
+    + `${star ? '&#9733;' : '&#9734;'}</span>${head}</div>`
     + `<div class="match-body">${m.sides.map(sd => sideHtml(sd, m.note)).join('')}</div>`
     + `<div class="match-foot">${foot}</div></article>`;
 }
@@ -1548,7 +1702,11 @@ const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 function renderTmtDays() {
   const days = tournamentDays(tmt.pick && tmt.pick.tmt);
   const today = todayStr();
-  $('tmtDays').innerHTML = days.map(d => {
+  const all = `<button type="button" class="day${tmt.day === 'all' ? ' is-active' : ''}"`
+    + ` data-day="all" aria-pressed="${tmt.day === 'all'}"`
+    + ' title="Every day of the tournament at once">'
+    + '<b>All</b>days</button>';
+  $('tmtDays').innerHTML = all + days.map(d => {
     const on = d === tmt.day;
     const isToday = d === today;
     const dow = WEEKDAY[new Date(d + 'T00:00:00Z').getUTCDay()];
@@ -1557,6 +1715,16 @@ function renderTmtDays() {
       + ` title="${esc(d + (isToday ? ' — today' : ''))}">`
       + `<b>${Number(d.slice(8, 10))}</b>${esc(dow)}</button>`;
   }).join('');
+}
+
+function renderStarBar() {
+  const n = tmt.starred.size;
+  const shown = tmt.matches.filter(m => isStarred(m)).length;
+  $('starCount').textContent = n === 0 ? 'Nothing starred yet'
+    : `${n} starred${shown !== n ? ` · ${shown} here` : ''}`;
+  $('clearStars').disabled = n === 0;
+  const only = $('starredOnly');
+  if (only.checked !== tmt.starredOnly) only.checked = tmt.starredOnly;
 }
 
 function renderTmtDraws() {
@@ -1591,6 +1759,16 @@ function oopHtml(shown) {
   return `<div class="oop-grid" style="--cols:${grid.courts.length}">${heads}${cells}</div>`;
 }
 
+/** One day's heading when several are on screen at once. */
+function dayGroupHtml(day, list) {
+  const starred = list.filter(m => isStarred(m)).length;
+  const n = `${list.length} match${list.length === 1 ? '' : 'es'}`;
+  return '<section class="daygroup"><header class="daygroup-head">'
+    + `<h3>${esc(prettyDay(day))}</h3>`
+    + `<span>${n}${starred ? ` &middot; <b>${starred}</b> starred` : ''}</span>`
+    + `</header>${oopHtml(list)}</section>`;
+}
+
 function renderTmt() {
   if (page !== 'tmt') return;
   const pick = tmt.pick;
@@ -1606,8 +1784,11 @@ function renderTmt() {
 
   renderTmtDays();
   renderTmtDraws();
+  renderStarBar();
+  paintLive();
 
-  const shown = tmt.matches.filter(m => !tmt.hiddenDraws.has(m.draw));
+  let shown = tmt.matches.filter(m => !tmt.hiddenDraws.has(m.draw));
+  if (tmt.starredOnly) shown = shown.filter(isStarred);
   const body = $('tmtBody');
 
   if (tmt.error) { body.innerHTML = `<p class="gnote error">${esc(tmt.error)}</p>`; return; }
@@ -1618,14 +1799,24 @@ function renderTmt() {
   }
 
   if (!shown.length) {
-    body.innerHTML = tmt.matches.length
-      ? '<p class="gnote">Every draw is switched off.</p>'
-      : `<p class="gnote">Nothing scheduled on ${esc(tmt.day || 'this day')}`
-        + (pick.state === 'upcoming' ? ' — the draws are not out yet.' : '.') + '</p>';
+    body.innerHTML = tmt.starredOnly && tmt.matches.length
+      ? '<p class="gnote">Nothing starred here. Turn off <em>Starred only</em>'
+        + ' and click the matches you want to watch.</p>'
+      : tmt.matches.length
+        ? '<p class="gnote">Every draw is switched off.</p>'
+        : `<p class="gnote">Nothing scheduled on ${esc(tmt.day === 'all' ? 'any day yet'
+          : tmt.day || 'this day')}`
+          + (pick.state === 'upcoming' ? ' — the draws are not out yet.' : '.') + '</p>';
     return;
   }
 
-  body.innerHTML = oopHtml(shown);
+  if (tmt.day === 'all') {
+    const days = [...new Set(shown.map(m => m.day))].sort();
+    body.innerHTML = days.map(d =>
+      dayGroupHtml(d, shown.filter(m => m.day === d))).join('');
+  } else {
+    body.innerHTML = oopHtml(shown);
+  }
 }
 
 $('tmtRefresh').addEventListener('click', () => loadTournament({ fresh: true }));
@@ -1634,6 +1825,21 @@ $('tmtDays').addEventListener('click', e => {
   const b = e.target.closest('[data-day]');
   if (b) pickDay(b.dataset.day);
 });
+
+/* The card itself is the target — starring is the point of the page, and a
+   small star to aim at would make the common action the fiddly one. */
+$('tmtBody').addEventListener('click', e => {
+  const card = e.target.closest('.match');
+  if (card && card.dataset.id) toggleStar(card.dataset.id);
+});
+
+$('starredOnly').addEventListener('change', e => {
+  tmt.starredOnly = !!e.target.checked;
+  renderTmt();
+  writeHash();
+});
+
+$('clearStars').addEventListener('click', clearStars);
 
 $('tmtDraws').addEventListener('click', e => {
   const b = e.target.closest('[data-draw]');
@@ -1674,6 +1880,7 @@ function readHash() {
   pinnedToday = /^\d{4}-\d{2}-\d{2}$/.test(h.get('now') || '') ? h.get('now') : null;
   if (h.has('d')) tmt.wantDay = h.get('d');
   if (h.has('dw')) tmt.hiddenDraws = new Set(h.get('dw').split('.').filter(Boolean));
+  tmt.starredOnly = h.get('so') === '1';
   // `g=1` is what the compare page was called when it was a modal, and links
   // carrying it are still out there.
   wantPage = h.get('pg') || (h.get('g') === '1' ? 'compare' : 'seasons');
@@ -1725,6 +1932,10 @@ function writeHash() {
   if (pinnedToday) p.set('now', pinnedToday);
   if (page === 'tmt' && tmt.day) p.set('d', tmt.day);
   if (page === 'tmt' && tmt.hiddenDraws.size) p.set('dw', [...tmt.hiddenDraws].join('.'));
+  // Which matches are starred is a decision about *this reader*, not about the
+  // tournament, so it stays in localStorage. Whether the page is filtered to
+  // them is a view of it, and travels.
+  if (page === 'tmt' && tmt.starredOnly) p.set('so', '1');
   const next = '#' + p.toString();
   if (location.hash !== next) history.replaceState(null, '', next);
 }
@@ -1843,6 +2054,18 @@ window.BST = {
     matches: () => tmt.matches,
     ready: () => !tmt.loading && queueDepth() === 0,
     reload: () => loadTournament({ fresh: true }),
+    stars: () => [...tmt.starred],
+    star: id => (toggleStar(id), [...tmt.starred]),
+    clearStars,
+    only: v => (v == null ? tmt.starredOnly
+      : (tmt.starredOnly = !!v, renderTmt(), writeHash(), tmt.starredOnly)),
+    moved: () => tmt.moved,
+    /** Day headings, when every day is on screen at once. */
+    groups: () => [...document.querySelectorAll('#tmtPage .daygroup')].map(g => ({
+      head: (g.querySelector('h3') || {}).textContent || '',
+      note: (g.querySelector('.daygroup-head span') || {}).textContent || '',
+      matches: g.querySelectorAll('.match').length,
+    })),
     /** Is the day drawn as a real grid, and what shape? */
     grid: () => {
       const g = document.querySelector('#tmtPage .oop-grid');
@@ -1867,7 +2090,10 @@ window.BST = {
       id: m.dataset.id,
       court: m.dataset.court,
       seq: Number(m.dataset.seq),
-      status: (m.className.match(/is-(\w+)/) || [])[1],
+      status: (m.className.match(/is-(finished|live|upcoming)/) || [])[1],
+      starred: m.dataset.starred === 'true',
+      dim: m.classList.contains('is-dim'),
+      fresh: m.classList.contains('is-fresh'),
       round: (m.querySelector('.rnd') || {}).textContent || '',
       stat: (m.querySelector('.stat') || {}).textContent || '',
       sides: [...m.querySelectorAll('.side')].map(sd => ({

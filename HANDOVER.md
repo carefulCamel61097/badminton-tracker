@@ -255,6 +255,40 @@ picks anything for it to be right.
   "Followed by" against a flat 50-minute estimate, so those are prefixed **≈** and carry a
   tooltip saying why, rather than being presented as fact or hidden altogether.
 
+**Following matches.** Click a card to star it. Starred cards stay lit and everything else
+recedes, which is what makes a handful of them readable across a whole day. Stars live in
+`localStorage` under `bst:starred`, keyed on the **match id** — the `code` is only unique
+within one draw, so MS and WD would collide. A "Starred only" filter, a count and a Clear sit
+on the day bar; the filter travels in the hash (`so=1`), the stars themselves do not, because
+which matches you picked is a fact about you rather than about the tournament.
+
+⚠️ **Dimmed only once something is starred** — a deliberate departure from the predecessor,
+which dimmed the day unconditionally. It could afford to: following matches was one of two
+views there and the other one was for reading. Here this is the only view of a day, so
+dimming by default charges every reader for a feature most have not used, and a uniformly
+grey page reads as a rendering fault rather than as a state.
+
+**All days.** The day bar opens with an `All` button that loads every day and groups the
+result under one heading each. That is a real request per day, which the predecessor did not
+need because it held the whole draw — seven at the queue's 320ms pacing is a couple of
+seconds, they land in the cache, and the page redraws as each arrives rather than sitting
+blank until the last.
+
+**Live checking.** While the picked tournament is `live` *and* the tab is visible, the scores
+are re-asked every 60 seconds, and anything whose `matchSignature` changed is marked for
+three minutes. The signature is deliberately narrow — winner, status, score — because BWF
+rewrites the estimated times all day and including those would light up half the grid every
+minute. A `visibilitychange` handler checks immediately on returning to the tab, which is the
+moment that actually matters.
+
+**Both clocks.** The venue time is what BWF prints on the order of play; the reader's own is
+shown beside it *only when it differs*, from `matchTimeUtc`. Both 24-hour, so they read as
+two readings of one thing rather than two formats.
+
+⚠️ **Not ported: head-to-head.** The predecessor put an H2H button on every card, opening
+`h2h/statistics?t1p1=&t2p1=` in a panel. It is a different endpoint and its own view, and it
+is the one piece of Follow Matches this page does not have.
+
 ⚠️ **`loadCareer` does not write the hash** — only the search picker does. Anything that
 selects a player programmatically has to call `writeHash` itself, or it produces a page that
 cannot be shared, bookmarked or reloaded. Found because the default player (1.5) left the

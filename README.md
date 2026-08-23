@@ -164,9 +164,18 @@ ones they won picked out. The winner's name is bold, the loser's dimmed. A **wal
 **retirement** is marked on the side it happened to — the one that lost — because both happen
 and a walkover has no score at all to print.
 
-**Refresh** re-asks BWF rather than reading the five-minute cache, which is the point while
-a tournament is running. `#now=YYYY-MM-DD` pins what the page thinks today is — useful for
-seeing what finals day will look like without waiting for one.
+**Click a match to star it.** Starred matches stay lit and the rest recede, so a handful of
+them read at a glance across a whole day. There is a *Starred only* filter, a count and a
+Clear, and the stars are remembered between visits. Nothing is dimmed until you have starred
+something — a uniformly grey page looks broken rather than filtered.
+
+**All** on the day bar loads every day of the tournament at once, one heading per day.
+
+While a tournament is on, the scores are re-checked every minute and anything that moved is
+marked for a few minutes after — and immediately when you come back to the tab, which is when
+it matters. **Refresh** asks now. Times are given at the venue and, where it differs, where
+you are. `#now=YYYY-MM-DD` pins what the page thinks today is, useful for seeing what finals
+day will look like without waiting for one.
 
 ## Who you start on
 

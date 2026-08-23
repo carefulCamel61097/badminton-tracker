@@ -182,8 +182,13 @@
     <a id="tmtLink" class="seg" href="#" target="_blank" rel="noopener" hidden>On BWF ↗</a>
   </header>
 
-  <div class="chiprow"><span class="lbl">Day</span>
+  <div class="chiprow tmtbar"><span class="lbl">Day</span>
     <div id="tmtDays" class="daybar" role="group" aria-label="days"></div>
+    <span class="stars">
+      <span id="starCount" class="starcount"></span>
+      <label class="toggle"><input type="checkbox" id="starredOnly"> Starred only</label>
+      <button type="button" id="clearStars" class="seg">Clear</button>
+    </span>
   </div>
   <div class="chiprow"><span class="lbl">Draws</span>
     <div id="tmtDraws" class="chips" role="group" aria-label="draws shown"></div>
@@ -198,6 +203,10 @@
     estimate per match and on some courts they run backwards, so only the first
     match on a court has a real time. The rest are marked <strong>&asymp;</strong>
     and carry BWF's own <strong>Followed by</strong>.
+    <strong>Click a match to star it</strong> — starred matches stay lit and the
+    rest stay dimmed, so a handful of them read at a glance across a whole day.
+    While a tournament is on, the scores are checked every minute and anything
+    that moved is marked for a few minutes after.
   </p>
 </section>
 

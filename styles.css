@@ -1002,3 +1002,61 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
   font-variant-numeric: tabular-nums;
 }
 .match-foot .oopt { opacity: .8; }
+
+/* ---- Follow Matches: dim the day, light up what you starred ----
+
+   The whole day is on screen at once, so the default state has to recede far
+   enough that a handful of picked-out cards read at a glance from across the
+   room. Dimming everything is what makes a star worth anything. */
+
+.tmtbar { align-items: center; }
+.tmtbar .stars {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+.starcount { font: 400 11.5px var(--mono); color: var(--text-muted); }
+.seg:disabled { opacity: .4; cursor: default; }
+
+.match { cursor: pointer; }
+.match.is-dim { opacity: .45; border-left-color: var(--border); }
+.match.is-dim:hover { opacity: .85; border-left-color: var(--accent); }
+.match.is-starred { box-shadow: 0 0 0 1px var(--accent); }
+.match.is-starred .match-head { background: var(--accent); color: var(--accent-fg); }
+.match.is-starred .match-head .rnd,
+.match.is-starred .match-head .stat,
+.match.is-starred .star { color: var(--accent-fg); }
+.match.is-starred .match-head .sep { opacity: .6; }
+
+.star { font-size: 12px; color: var(--text-muted); line-height: 1; }
+.match.is-dim:hover .star { color: var(--accent-text); }
+
+/* Marked when the score moved under you on a check, so coming back to the tab
+   shows what changed rather than just a differently-filled page. */
+.match.is-fresh { border-color: var(--live); }
+.match.is-fresh .match-head::after {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--live);
+  margin-left: 4px;
+}
+
+.match-foot .local { color: var(--accent-text); }
+.seg.is-live { border-color: var(--live); color: var(--live); }
+
+/* ---- one heading per day, when every day is on screen ---- */
+
+.daygroup { margin-bottom: 18px; }
+.daygroup-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.daygroup-head h3 { margin: 0; font-size: 14px; font-weight: 500; color: var(--text); }
+.daygroup-head span { font: 400 11.5px var(--mono); color: var(--text-muted); }
+.daygroup-head b { color: var(--accent-text); }

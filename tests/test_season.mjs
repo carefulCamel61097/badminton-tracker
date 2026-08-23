@@ -1134,9 +1134,9 @@ eq('the badge says so',
 const dayChips = await b.ev(`[...document.querySelectorAll('#tmtDays [data-day]')].map(c =>
   c.dataset.day + (c.classList.contains('is-active') ? '*' : '')
   + (c.classList.contains('is-today') ? 'T' : ''))`);
-eq('seven days, with today both marked and chosen',
+eq('an All button and then the seven days, with today marked and chosen',
   dayChips.join(' '),
-  '2026-08-17 2026-08-18 2026-08-19 2026-08-20 2026-08-21 2026-08-22 2026-08-23*T');
+  'all 2026-08-17 2026-08-18 2026-08-19 2026-08-20 2026-08-21 2026-08-22 2026-08-23*T');
 eq('each one carries its weekday, not just a number',
   await b.ev(`document.querySelector('#tmtDays [data-day="2026-08-17"]').textContent`),
   '17Mon');
@@ -1264,6 +1264,87 @@ eq('switching it back restores them',
 check('the day is in the link too, so a day can be shared',
   await b.ev(`location.hash.includes('d=2026-08-19')`), await b.ev('location.hash'));
 check('and so is the page', await b.ev(`location.hash.includes('pg=tmt')`));
+
+/* ---- starring: the thing the page is named after ---- */
+
+console.log('\n=== following matches ===');
+
+const stFirst = (await b.ev('window.BST.tmt.cards()'))[0];
+check('nothing is starred to begin with',
+  (await b.ev('window.BST.tmt.stars()')).length === 0);
+/* ⚠️ Dimmed only once something *is* starred. The predecessor dimmed the day
+   unconditionally, but it had a second view for reading; this is the only view
+   of a day, and a uniformly grey page reads as a fault rather than a state. */
+check('and nothing is dimmed either, so the day reads normally',
+  (await b.ev('window.BST.tmt.cards()')).every(c => !c.dim));
+
+await b.ev(`window.BST.tmt.star(${JSON.stringify(stFirst.id)})`);
+const stAfter = await b.ev('window.BST.tmt.cards()');
+const stLit = stAfter.find(c => c.id === stFirst.id);
+check('starring a match lights it', stLit.starred && !stLit.dim);
+check('and dims everything else, which is the whole point',
+  stAfter.filter(c => c.id !== stFirst.id).every(c => c.dim && !c.starred));
+eq('the count says so', (await b.ev(`document.getElementById('starCount').textContent`)),
+  '1 starred');
+check('and Clear becomes available',
+  await b.ev(`!document.getElementById('clearStars').disabled`));
+
+/* A star is a decision, and losing it on a refresh mid-session is the one thing
+   that would stop anybody using this. */
+check('it is written down, not just held in the page',
+  (await b.ev(`JSON.parse(localStorage.getItem('bst:starred') || '[]')`))
+    .includes(stFirst.id));
+
+/* ---- starred only ---- */
+
+await b.ev('window.BST.tmt.only(true)');
+const stOnly = await b.ev('window.BST.tmt.cards()');
+eq('filtering to starred leaves exactly the starred one', stOnly.length, 1);
+eq('and it is that one', stOnly[0].id, stFirst.id);
+check('which travels in the link, being a view of the day',
+  await b.ev(`location.hash.includes('so=1')`), await b.ev('location.hash'));
+
+await b.ev('window.BST.tmt.only(false)');
+check('turning it off brings the day back',
+  (await b.ev('window.BST.tmt.cards()')).length > 1);
+
+/* ---- every day at once ---- */
+
+await b.ev(`window.BST.tmt.day('all')`);
+check('All loads every day of the tournament',
+  await b.until('window.BST.tmt.ready()', { timeout: 240000 }));
+
+const stGroups = await b.ev('window.BST.tmt.groups()');
+check('which comes out one heading per day', stGroups.length >= 5,
+  stGroups.map(g => g.head).join(' | '));
+check('each named as a day, not as a number',
+  /^[A-Z][a-z]+day \d+ [A-Z][a-z]+$/.test(stGroups[0].head), stGroups[0].head);
+check('and counting its own matches',
+  stGroups.every(g => /\d+ matches?/.test(g.note)),
+  stGroups.map(g => g.note.trim()).slice(0, 3).join(' | '));
+check('the starred one is counted in the day it belongs to',
+  stGroups.some(g => /starred/.test(g.note)),
+  stGroups.map(g => g.note.trim()).find(t => /starred/.test(t)));
+check('a whole tournament is a lot more than one day of it',
+  (await b.ev('window.BST.tmt.cards()')).length > 200,
+  await b.ev('window.BST.tmt.cards().length'));
+
+await b.ev(`window.BST.tmt.day('2026-08-19')`);
+check('and one day comes back', await b.until('window.BST.tmt.ready()', { timeout: 120000 }));
+
+/* ---- the clocks ---- */
+
+const stCard = (await b.ev('window.BST.tmt.cards()'))[0];
+check('a card gives the venue time',
+  /\d{2}:\d{2}/.test(stCard.foot), stCard.foot.trim());
+check('and the reader\'s own where it is a different one',
+  /yours/.test(stCard.foot) || !/\d{2}:\d{2}.*\d{2}:\d{2}/.test(stCard.foot),
+  stCard.foot.trim());
+
+await b.ev('window.BST.tmt.clearStars()');
+eq('clearing puts them all back', (await b.ev('window.BST.tmt.stars()')).length, 0);
+check('and undims the day',
+  (await b.ev('window.BST.tmt.cards()')).every(c => !c.dim && !c.starred));
 
 /* ---- and back ---- */
 

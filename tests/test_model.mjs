@@ -25,7 +25,7 @@ import {
   HONOUR_STEPS, HONOUR_DEFAULT, honourStep, honourScale, honourRung,
   careerHonours, honourSections,
   pickTournament, tournamentDays, defaultDay, parseDayMatches, orderOfPlay,
-  drawsPresent, courtGrid, courtOrder, dayOf,
+  drawsPresent, courtGrid, courtOrder, dayOf, matchSignature, prettyDay,
   LEVEL, SLOT_W, BOX_H, MIN_LABEL_PX, LEVEL_ORDER,
 } from '../model.js';
 import { check, eq, near, report } from './check.mjs';
@@ -1131,7 +1131,7 @@ eq('and one with no dates at all is no days', tournamentDays({}).length, 0);
 
 /* ---- a day that has been played ---- */
 
-const day19 = parseDayMatches(dayMatches(WORLDS, '2026-08-19'));
+const day19 = parseDayMatches(dayMatches(WORLDS, '2026-08-19'), '2026-08-19');
 check('a full day of the Worlds is a lot of matches', day19.length > 40, `${day19.length} matches`);
 check('every one of them names its draw and round',
   day19.every(m => m.draw && m.round), day19.filter(m => !m.draw || !m.round).length + ' without');
@@ -1218,7 +1218,7 @@ check('and the ones after it say they follow',
 
 /* ---- a day that has not been played ---- */
 
-const day23 = parseDayMatches(dayMatches(WORLDS, '2026-08-23'));
+const day23 = parseDayMatches(dayMatches(WORLDS, '2026-08-23'), '2026-08-23');
 eq('the last day is the five finals', day23.length, 5);
 check('all of them finals', day23.every(m => m.round === 'Final'),
   day23.map(m => m.round).join(' '));
@@ -1272,6 +1272,35 @@ eq('a day with no courts yet is no grid',
   courtGrid(day19.map(m => ({ ...m, court: '' }))), null);
 eq('and so is one where only some matches are placed',
   courtGrid(day19.map((m, i) => (i ? m : { ...m, seq: null }))), null);
+
+/* ---- what counts as having moved ---- */
+
+/* Compared across a refresh to mark what changed while the reader was looking
+   elsewhere. Deliberately narrow: BWF rewrites the estimated times through a
+   day, and including those would light up half the grid every minute. */
+const sample = day19[0];
+eq('the same match twice is not news', matchSignature(sample), matchSignature(sample));
+check('a changed score is',
+  matchSignature(sample) !== matchSignature({ ...sample, games: [{ a: 21, b: 3 }] }));
+check('and so is a winner arriving',
+  matchSignature(sample) !== matchSignature({ ...sample, winner: 0 }));
+check('and a match going from scheduled to being played',
+  matchSignature(sample) !== matchSignature({ ...sample, status: 'live' }));
+check('but a re-estimated time is not',
+  matchSignature(sample) === matchSignature({ ...sample, time: '23:59', oop: 'Followed by' }));
+check('nor a court change, which BWF makes all day',
+  matchSignature(sample) === matchSignature({ ...sample, court: 'Court 9' }));
+eq('nothing has no signature', matchSignature(null), '');
+
+eq('a day reads as a day', prettyDay('2026-08-19'), 'Wednesday 19 August');
+eq('and something that is not one is left alone', prettyDay('all'), 'all');
+
+/* ---- which day a match belongs to ---- */
+
+check('every match is tagged with the day it was asked for',
+  day19.every(m => m.day === '2026-08-19'), day19[0] && day19[0].day);
+check('and the venue clock is carried with a UTC stamp to read it against',
+  day19.every(m => !m.time || m.utc), day19[0] && `${day19[0].time} / ${day19[0].utc}`);
 
 /* ---- nothing at all ---- */
 

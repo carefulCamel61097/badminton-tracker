@@ -1474,6 +1474,11 @@ export function parseMatch(m) {
     seq: Number(raw.oopRound) || null,
     oop,
     time: clockOf(raw.matchTime),
+    /* The venue clock is what BWF prints on the order of play, and it is the
+       one that matters at the arena. `utc` is what lets the page also say what
+       that is where the reader is sitting, which is the whole question when the
+       tournament is eight time zones away. */
+    utc: raw.matchTimeUtc || '',
     estimated: !!oop && !/^\s*starting/i.test(oop),
     sides,
     winner,
@@ -1487,12 +1492,45 @@ export function parseMatch(m) {
   };
 }
 
-/** `day-matches` is a plain array, already in the order of play. */
-export function parseDayMatches(payload) {
+/**
+ * `day-matches` is a plain array, already in the order of play.
+ *
+ * `day` is tagged on rather than read back out of `matchTime`, because a match
+ * whose time is not published yet still belongs to the day it was asked for —
+ * and once several days are on screen at once, which day a card belongs to is
+ * the thing grouping them.
+ */
+export function parseDayMatches(payload, day) {
   const rows = Array.isArray(payload) ? payload
     : (payload && Array.isArray(payload.results)) ? payload.results
     : (payload && typeof payload === 'object') ? Object.values(payload) : [];
-  return rows.filter(r => r && typeof r === 'object' && r.team1).map(parseMatch);
+  return rows.filter(r => r && typeof r === 'object' && r.team1)
+    .map(r => Object.assign(parseMatch(r), day ? { day } : {}));
+}
+
+/**
+ * What counts as a match having *moved*.
+ *
+ * Compared across a refresh so the page can mark what changed while you were
+ * looking elsewhere. Deliberately only the things that make it news — the
+ * score, the winner, whether it is under way. Not the court or the estimated
+ * time, which BWF rewrites constantly through a day and which would light up
+ * half the grid every minute for no reason.
+ */
+export function matchSignature(m) {
+  if (!m) return '';
+  return [m.winner, m.status, m.games.map(g => g.a + '-' + g.b).join(',')].join('|');
+}
+
+/** "2026-08-19" → "Wednesday 19 August". */
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'];
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+export function prettyDay(day) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(day || ''))) return String(day || '');
+  const d = new Date(day + 'T00:00:00Z');
+  return `${DAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
 }
 
 /** "Court 10" after "Court 2", not before it. */
