@@ -211,6 +211,21 @@ Things that look wrong and are not:
 - **2020 is nearly bare.** The calendar entries say "(Cancelled)", and a cancelled final has
   no winner.
 
+### Reading a win
+
+A title is marked **#1** in black, in the grid and on the honours board alike.
+
+⚠️ The result ramp runs from `#1a7f37` for a win to `#3fa34d` for a lost final — one step
+apart on the same green, and side by side they are genuinely hard to tell apart. For a
+reader with red-green colour vision deficiency the ramp carries almost nothing. The mark is
+redundant coding: the same fact said twice, once in colour and once in text, so the board
+still reads with the colour ignored entirely.
+
+The mark appears only where the square is at least 16px, because below that two glyphs stop
+being a word and start looking like dirt on the square. Every honours row has its own size,
+so at a low zoom the Olympics row keeps its mark while the Super 300 row does not — the zoom
+slider is the way up.
+
 ## Comparing across the eras
 
 LIN Dan and LEE Chong Wei played almost entirely before the World Tour existed, and BWF ships

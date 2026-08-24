@@ -825,6 +825,62 @@ check('and without the bar, back to the default one',
   await b.ev('window.BST.grid.state.threshold'));
 check('the board comes back', await open('#p=57945&g=1&v=h'));
 
+/* ---- a win says so in words, not only in green ---- */
+
+/* ⚠️ --res-w and --res-f are one step apart on the same ramp, so a title and a
+   lost final are two shades of the same green. Anyone with red-green colour
+   vision deficiency reads almost nothing from that ramp, so the mark is
+   redundant coding — the fact said twice, in colour and in text. */
+const markOf = sel => b.ev(
+  `(() => { const el = document.querySelector(${JSON.stringify(sel)});
+     if (!el) return 'NO SUCH CELL';
+     const a = getComputedStyle(el, '::after');
+     return JSON.stringify([a.content, a.color]); })()`);
+
+const wonMark = JSON.parse(await markOf('.honours .cell.r-w'));
+eq('a won square is marked', wonMark[0], '"#1"');
+eq('in black, so it reads on the darkest green of the ramp', wonMark[1], 'rgb(0, 0, 0)');
+eq('a lost final carries no mark at all',
+  JSON.parse(await markOf('.honours .cell.r-f'))[0], 'none');
+eq('nor does a semi', JSON.parse(await markOf('.honours .cell.r-sf'))[0], 'none');
+
+/* ⚠️ Gated on the square being readable. An honours row sets its own size, so
+   the small rows genuinely cannot hold two glyphs — below the threshold the
+   mark would be a smudge that reads as dirt rather than as a result. */
+const markBigRow = await b.ev(
+  `Math.round(document.querySelector('.hrow[data-group="23"] .cell').getBoundingClientRect().width)`);
+const markSmallRow = await b.ev(
+  `Math.round(document.querySelector('.hrow[data-group="26"] .cell').getBoundingClientRect().width)`);
+check('the Super 1000 row is bigger than the Super 300 row', markBigRow > markSmallRow,
+  `${markBigRow}px vs ${markSmallRow}px`);
+check('and the mark appears on the row that has room for it', markBigRow >= 16,
+  markBigRow + 'px');
+
+/* Turning the zoom down has to take the mark away rather than shrink it into
+   noise, and turning it back up has to bring it back.
+   ⚠️ Asked of one *named* row, not of "the first won square on the board". The
+   first version asked the latter and failed: every row has its own size, so at
+   the smallest zoom the Olympics row is still 21px and still marked while the
+   Super 750 row is 8px and cannot be. That is the behaviour, not a bug. */
+const s750won = '.hrow[data-group="24"] .cell.r-w';
+await b.ev(`window.BST.honours.zoom(3)`);
+eq('shrunk right down, a Super 750 win loses its mark',
+  JSON.parse(await markOf(s750won))[0], 'none');
+eq('while the biggest row is still large enough to keep one',
+  JSON.parse(await markOf('.hrow[data-group="20"] .cell.r-w'))[0], '"#1"');
+await b.ev(`window.BST.honours.zoom(8)`);
+eq('and it returns with the size', JSON.parse(await markOf(s750won))[0], '"#1"');
+
+/* The grid draws its cells from a different function; both had to get it. */
+await b.ev(`window.BST.honours.view('grid')`);
+await b.until(`!!document.querySelector('#gridBody .cell.r-w')`, { timeout: 30000 });
+eq('the grid marks a win too',
+  JSON.parse(await markOf('#gridBody .cell.r-w'))[0], '"#1"');
+eq('and leaves a final alone',
+  JSON.parse(await markOf('#gridBody .cell.r-f'))[0], 'none');
+await b.ev(`window.BST.honours.view('honours')`);
+await b.until(`!!document.querySelector('.honours .cell.r-w')`, { timeout: 30000 });
+
 /* ---- what the default bar shows ---- */
 
 eq('a board nobody has touched is set to the semi-finals',

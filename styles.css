@@ -543,6 +543,39 @@ a.seg { text-decoration: none; }
 .cell.r-na  { background: var(--res-na); }
 .cell.r-off { background: var(--res-off); }
 
+/* A win says so, and not only in green.
+   ⚠️ --res-w (#1a7f37) and --res-f (#3fa34d) are one step apart on the ramp,
+   and a won square next to a lost final is two shades of the same colour. For
+   a reader with red-green colour vision deficiency the ramp carries almost no
+   information at all. The mark is redundant coding — the same fact said twice,
+   once in colour and once in text — so the board still reads with the colour
+   ignored entirely. */
+.cell {
+  /* Whichever number is this view's square size. The grid sets --cell on the
+     body; an honours row sets --hs per row, because every row has its own. */
+  --sq: var(--cell, 20px);
+  container-type: inline-size;
+}
+.honours .cell { --sq: var(--hs); }
+
+/* ⚠️ Gated on the square being big enough to read. Below this the glyphs stop
+   being a word and become a smudge, which reads as dirt on the square rather
+   than as a result — worse than the colour alone. The zoom slider is the way
+   up, and the honours board's small rows are exactly where it is needed. */
+@container (min-width: 16px) {
+  .cell.r-w::after {
+    content: "#1";
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    font: 700 calc(var(--sq) * .44)/1 var(--mono);
+    letter-spacing: -.04em;
+    color: #000;
+  }
+}
+
 /* A result from before the World Tour, drawn on the tier it maps to.
    A notch cut out of the top-right corner rather than a mark laid on top: it
    costs no colour, survives every tier in the ramp, and works at 8px as well as
