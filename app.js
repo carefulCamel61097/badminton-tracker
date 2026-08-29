@@ -1173,7 +1173,14 @@ const ZOOM = {
     // 8 is the largest default that fits the two longest careers in the data
     // side by side on a 1440-wide screen — measured at QF+, the *widest* bar,
     // so that moving the bar never introduces a scrollbar. See honourHalfUnits.
-    min: 3, max: 16, step: 1, def: 8, label: 'square size',
+    //
+    // ⚠️ The floor is 7 because of the #1 mark, not because of layout. Every
+    // row is sized `--hbase * --k`, and a Super 750 is k=2.618, so 7 puts it at
+    // 18.3px — just clear of the 16px gate the mark is drawn behind. At 6 it is
+    // 15.7px and every Super 750 title silently goes back to being nothing but
+    // a darker green. The floor used to be 3, which is how a saved zoom could
+    // leave a reader wondering where the marks went.
+    min: 7, max: 16, step: 1, def: 8, label: 'square size',
   },
 };
 

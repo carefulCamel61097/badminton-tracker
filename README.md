@@ -1,5 +1,16 @@
 # Badminton Season Tracker
 
+### → [carefulcamel61097.github.io/badminton-tracker](https://carefulcamel61097.github.io/badminton-tracker/)
+
+It runs there. Nothing to install.
+
+| | |
+|---|---|
+| [Seasons](https://carefulcamel61097.github.io/badminton-tracker/#p=57945) | a career, one row per season |
+| [Compare](https://carefulcamel61097.github.io/badminton-tracker/#p=57945&pg=compare&v=h&c=87442) | two honours boards facing each other |
+| [Tournament](https://carefulcamel61097.github.io/badminton-tracker/#pg=tmt) | whatever BWF has on this week |
+| [Winners](https://carefulcamel61097.github.io/badminton-tracker/#pg=winners) | every season's biggest titles, as faces |
+
 An unofficial fan tool for looking at a badminton player's whole career: one row per
 season with the most recent at the top, one square per tournament within it, each a gauge
 showing how far they got and sized by how much the tournament weighs.
@@ -223,8 +234,11 @@ still reads with the colour ignored entirely.
 
 The mark appears only where the square is at least 16px, because below that two glyphs stop
 being a word and start looking like dirt on the square. Every honours row has its own size,
-so at a low zoom the Olympics row keeps its mark while the Super 300 row does not — the zoom
-slider is the way up.
+so the Super 300 row and below never carry one — the zoom slider is the way up.
+
+The honours board's zoom will not go below 7 for exactly this reason: a Super 750 square is
+`7 × 2.618 = 18.3px`, just clear of the gate. At 6 it is 15.7px and every Super 750 title
+silently drops back to being nothing but a darker green.
 
 ## Comparing across the eras
 

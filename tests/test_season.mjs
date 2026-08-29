@@ -863,13 +863,29 @@ check('and the mark appears on the row that has room for it', markBigRow >= 16,
    the smallest zoom the Olympics row is still 21px and still marked while the
    Super 750 row is 8px and cannot be. That is the behaviour, not a bug. */
 const s750won = '.hrow[data-group="24"] .cell.r-w';
-await b.ev(`window.BST.honours.zoom(3)`);
-eq('shrunk right down, a Super 750 win loses its mark',
-  JSON.parse(await markOf(s750won))[0], 'none');
-eq('while the biggest row is still large enough to keep one',
-  JSON.parse(await markOf('.hrow[data-group="20"] .cell.r-w'))[0], '"#1"');
+/* ⚠️ The floor of the honours zoom exists for this: at 6 a Super 750 square is
+   15.7px, just under the gate, and every Super 750 title quietly goes back to
+   being nothing but a darker green. Wound all the way down, the mark has to
+   survive. */
+await b.ev(`window.BST.honours.zoom(1)`);
+eq('the zoom will not go below the floor',
+  await b.ev(`window.BST.honours.zoom()`), 7);
+eq('and wound all the way down a Super 750 win keeps its mark',
+  JSON.parse(await markOf(s750won))[0], '"#1"');
+const s750min = await b.ev(
+  `Math.round(document.querySelector('.hrow[data-group="24"] .cell').getBoundingClientRect().width * 10) / 10`);
+check('because the floor keeps it clear of the 16px gate', s750min >= 16, s750min + 'px');
+
+/* The gate itself still has to work, or the mark would be a smudge on the rows
+   that genuinely cannot hold two glyphs.
+   ⚠️ Asserted on the geometry, not on a won square: whether this particular
+   career holds a Super 300 title is not the point being made, and a test that
+   depends on it breaks when the fixtures are re-recorded. */
+const s300min = await b.ev(
+  `Math.round(document.querySelector('.hrow[data-group="26"] .cell').getBoundingClientRect().width * 10) / 10`);
+check('while a Super 300 square is still below the gate', s300min < 16, s300min + 'px');
 await b.ev(`window.BST.honours.zoom(8)`);
-eq('and it returns with the size', JSON.parse(await markOf(s750won))[0], '"#1"');
+eq('and the default keeps it', JSON.parse(await markOf(s750won))[0], '"#1"');
 
 /* The grid draws its cells from a different function; both had to get it. */
 await b.ev(`window.BST.honours.view('grid')`);
