@@ -42,7 +42,17 @@ function esc(s) {
    year it has nothing for, and real data reaches back to about 2007, so the
    walk stops after a run of empty seasons rather than grinding through two
    decades of nothing for a player who turned professional last year. */
-const YEAR_FLOOR = 2006;
+/* ⚠️ **2006 is the floor because it is the last season BWF actually has.**
+   Checked live, 30 Aug 2026, with `tools/probe-early.mjs`: 2006 comes back
+   complete — every result carries a position — 2005 is about half empty, and
+   before that BWF returns the tournaments with **no position on any of them**.
+   LEE Chong Wei's 2000-2004 is 40 rows and not one result; LIN Dan's 2004 All
+   England is in there with nothing beside it. A floor lower than this buys rows
+   that can only say "Played".
+
+   It costs a modern career no requests at all: the empty-season run below stops
+   those walks years above the floor. */
+const YEAR_FLOOR = 2005;
 const EMPTY_RUN = 2;
 
 const state = {

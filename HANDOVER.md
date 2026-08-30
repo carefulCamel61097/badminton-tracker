@@ -1261,6 +1261,102 @@ reads as the chips forgetting themselves.
 The era travels in the hash as `er=ss` and is read unconditionally, like `v` and `th`: a link
 without it is claiming World Tour rather than saying nothing.
 
+### 3.4f How far back BWF actually goes *(measured 30 Aug 2026)*
+
+`YEAR_FLOOR` was 2006 on the belief that "real data reaches back to about 2007". That belief
+had never been tested against a career that *started* earlier, and the two this project most
+wants to compare both did. `tools/probe-early.mjs` asks BWF directly, one request per
+player-year:
+
+| | tournaments | results carrying a position | titles |
+|---|---|---|---|
+| 2000–2004 | LCW 40, LD 35 | **essentially none** — only the Athens rows | 0, 0 |
+| 2005 | 9 each | about half | LCW 1, LD 1 |
+| 2006 | LCW 12, LD 10 | **all of them** | LCW 2, LD 6 |
+
+So 2000–2004 is a hole in BWF's records, not in ours: the tournaments are listed and every
+`position` is blank, LIN Dan's 2004 All England included. **The floor is now 2005** — the loop
+is `year > YEAR_FLOOR`, so 2006 is fetched and 2005 is not. Going lower buys rows that can
+only say "Played".
+
+It costs a modern career nothing: `EMPTY_RUN` stops those walks two empty seasons after the
+last real one, years above the floor. No test fixture reaches 2006 either, for the same reason.
+
+⚠️⚠️ **Before 2007, `tournament_category_id` carries no tier information whatsoever.** In 2006
+the **World Championships**, the **All England** and an International Series are all category
+**6**, and the Asian Games has no category. Lowering the floor alone therefore *gained almost
+nothing* — 7 of LIN Dan's 10 2006 tournaments were dropped as "below Super 100" — which is why
+`gridGroup` now reads nothing off an id before `IDS_MEAN_SOMETHING` (2007) and sends whatever
+the name rescues have not placed to Unmapped.
+
+⚠️ **And the sub-World-Tour ids are not believed until 2008** (`BELOW_BELIEVED`). 2007 is the
+first Superseries season and ids 2/8/3/4 all mean what they say, so they are still read — but
+BWF was still filing Grand Prix events as category 6 that year, and believing it dropped
+exactly one title from each career: LIN Dan's German Open, LEE Chong Wei's Philippines Open.
+Two constants rather than one, because the evidence genuinely says two different things about
+two different years.
+
+⚠️ **A tournament with no `start` is treated as modern.** The rescue is for seasons known to be
+old; a missing date is not evidence of age, and the alternative would quietly wave every
+malformed row into the grid.
+
+### 3.4g The regional games, which no id can find *(built 30 Aug 2026)*
+
+The Asian, Commonwealth, European, Pan American and African Games have a section, `'GAMES'`,
+sharing the Continental rung. They are individual titles — LIN Dan has two Asian Games golds
+and LEE Chong Wei none, which is a real difference between the two careers and was previously
+buried in "Unmapped".
+
+⚠️⚠️ **Matched by name, before the id.** One tournament, the Asian Games, has arrived as:
+
+| edition | category |
+|---|---|
+| 2006 | *none at all* |
+| 2010, 2014 | 1 |
+| 2018 | 16 |
+| 2022 (played 2023) | 74 |
+
+and the European Games as **28** (2019) and **11** (2023) — the Continental Championships' own
+id. There is no rule over those ids. An id-first order draws the 2023 European Games as a
+Continental and the 2019 one as Unmapped.
+
+⚠️ **The team check has to run first, and does.** BWF ships the two editions as separate
+tournaments under near-identical names, *both category 16* in 2018, and only the draws tell
+them apart — a tie names its draws bare ("Singles"), so `isTeamTournament` catches it. Match
+the name before that and every team event lands on the board.
+
+⚠️ **"Olympic Games" contains "Games".** The continents are named one at a time rather than
+matching the word; matching it would cost the Olympics their own row.
+
+⚠️ **Sub-regional games are excluded and must be tested first**, because "East Asian Games"
+contains "Asian Games". They stay in Unmapped, except the ones BWF also sends with no category
+at all — those have nothing to place them by and are not drawn.
+
+**Not an inconsistency with the Winners pyramid**, which still excludes all of them (3.4d). The
+pyramid ranks a season across the whole sport, where counting a regional games picks a region;
+a career says what one player won.
+
+⚠️ `'GAMES'` is deliberately **not** added to `LEVEL`. `LEVEL` is the strip's table, keyed on
+the `cat` a tournament actually arrives with, and a test pins that every key in it has a chip
+position in `LEVEL_ORDER`. Nothing ever arrives as `'GAMES'`. Its label lives in
+`SECTION_LABEL` beside `'OTHER'`, which is the same kind of thing. (`'OLY'` *is* in `LEVEL`,
+because `parseSeason` really does set it as a `cat`.)
+
+### 3.4h Draw names BWF used once *(fixed 30 Aug 2026)*
+
+⚠️ **An unrecognised draw name is read as a team tie**, which removes the result from every
+singles view without erroring — the failure mode is a silently shorter career.
+
+`canonicalDraw` required the plural: `/SINGLES/`. BWF has shipped **"Men's Single"**, singular,
+exactly once — LIN Dan's 2007 German Open, a title. The final `s` is now optional.
+
+It also required a gender word or a `[BGMW]` prefix, so the junior mixed draws **"XD U19"** and
+**"XD-U19"** — five rows — fell through the whole function. `^XD\b` now catches them.
+
+A sweep of every distinct draw name in the fixtures is the way to find these; there are 28 of
+them, and after this the only ones that come back null are the bare "Singles"/"Doubles" of a
+team tie, which is correct.
+
 ### 3.5 Endpoints — the tournament pages *(discovered 21 Aug 2026, all verified 200)*
 
 Part 3.2 was found by pointing `discover.mjs` at the calendar, home and rankings

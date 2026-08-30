@@ -95,8 +95,8 @@ partial fills. The difficulty is in *which block* a cell is in and how far left 
 cells butt together so runs of the same result merge into one shape. A zoom slider sets the
 size; it is a viewing preference and stays out of the link.
 
-Blocks run hardest-first — Olympics, Worlds, Tour Finals, Continental, Super 1000,
-Super 750, Super 500, Super 300, Super 100 — then the pre-2018 category ids this project
+Blocks run hardest-first — Olympics, Worlds, Tour Finals, Continental, Regional Games,
+Super 1000, Super 750, Super 500, Super 300, Super 100 — then the category ids this project
 has no name for, grouped as "Unmapped" on the end. A chip per level switches it in or out.
 Below Super 100, the junior circuit and the team events are not in the grid at all.
 
@@ -295,6 +295,52 @@ to not be.
 
 The era travels in the link (`er=ss`), because a board sent in Superseries names is not the
 same board in World Tour names.
+
+## What BWF's records can and cannot say
+
+Two things shape every count in this tool, and both are BWF's rather than ours.
+
+**The tool starts in 2006, because that is where BWF's results start.** Their player endpoint
+happily returns 2000–2004 — 94 tournaments for Lee Chong Wei, 79 for Lin Dan — with **no
+result on a single one of them**. The 2004 All England is in there with nothing beside it.
+2005 is about half filled in; 2006 is complete. So comparing two careers against a third-party
+site will not tally: measured against BWF's own data, Lee Chong Wei has 62 individual titles
+and Lin Dan 52, where sites with a fuller source say 69 each. The missing ones are all in that
+2000–2004 blank, and they are not evenly split — which is most of why Lee Chong Wei looks so
+far ahead here on Superseries titles and level overall elsewhere.
+
+⚠️ **Before 2007 the category id carries no tier information at all.** In 2006 the World
+Championships, the All England and an International Series are all category **6**. Reading
+those ids as tiers threw away seven of Lin Dan's ten 2006 tournaments, an All England title
+among them, so nothing is read off an id before 2007: the majors are rescued by name as they
+always were, and everything else goes to Unmapped. The ids *below* the World Tour are not
+believed until 2008 either, because BWF was still filing Grand Prix events as category 6
+through 2007 — which cost exactly one title each, Lin Dan's German Open and Lee Chong Wei's
+Philippines Open.
+
+## The regional games
+
+The Asian, Commonwealth, European, Pan American and African Games get a block of their own,
+sized with the Continentals. They are individual titles and they belong on a career.
+
+They have to be recognised **by name**, because their id is worthless in every direction: the
+Asian Games has arrived as category 1, 16, 74 and with no category at all, and the 2023
+European Games under 11 — the Continental Championships' own id. An id-first rule draws one
+European Games as a Continental and the next as Unmapped.
+
+The **team** editions stay out, as every team event does. BWF ships them as separate
+tournaments under near-identical names — "Asian Games 2018 (Team Event)" beside "Asian Games
+2018 ( Individual Event)", *both category 16* — and they are told apart by their draws, which
+a tie names bare because the tie is the competitor.
+
+Sub-regional games — East Asian, Mediterranean, SEA — are not in this block. Each is a slice
+of one continent, and a row holding both an East Asian Games title and an Asian Games title
+says neither.
+
+⚠️ The **Winners pyramid** still excludes all of them, and that is not an inconsistency. The
+pyramid asks which titles mattered most in a season across the whole sport, and counting any
+regional games there picks a region. A career asks what this player won, and Lin Dan really
+did win two Asian Games.
 
 ## Who you start on
 

@@ -643,7 +643,13 @@ check('the tier band names the blocks left to right',
   cards[0].tiers.length >= 5 && cards[0].tiers[0] === 'OLY',
   cards[0].tiers.join(' | '));
 eq('the leftmost block is the Olympics', sections[0].group, 'OLY');
-eq('the rightmost is the unmapped era', sections[sections.length - 1].group, 'OTHER');
+const gridOrderNow = await b.ev('window.BST.honours.order()');
+/* Not 'OTHER' any more: his one unmapped result was the 2018 Asian Games, which
+   now has a block that names it. Whatever the last block is, it is the last one
+   GRID_ORDER lists that he actually has. */
+eq('the rightmost is the last block he has, in the model order',
+  sections[sections.length - 1].group,
+  gridOrderNow.filter(g => sections.some(x => String(x.group) === String(g))).pop());
 
 /* ---- best-first, which is the whole point ---- */
 
@@ -726,15 +732,19 @@ check('every level present has a toggle', gChips.length >= 6, gChips.map(c => c.
 check('and they all start on', gChips.every(c => c.on));
 check('the Olympics are one of them', gChips.some(c => c.group === 'OLY'));
 
-await b.ev(`document.querySelector('#gridGroups .chip[data-group="OTHER"]').click()`);
+/* ⚠️ Driven on a block this career actually has. It used to click 'OTHER',
+   which he no longer has — and `querySelector(...).click()` on nothing throws
+   inside the page, so the counts simply came back equal and the failure read as
+   "switching a level off does nothing" rather than as a stale selector. */
+await b.ev(`document.querySelector('#gridGroups .chip[data-group="GAMES"]').click()`);
 const trimmed = await b.ev('window.BST.grid.cards()');
-check('switching the unmapped era off narrows every row',
+check('switching the regional games off narrows every row',
   trimmed[0].cells.length < cards[0].cells.length,
   `${trimmed[0].cells.length} vs ${cards[0].cells.length}`);
 eq('the rows are still all there', trimmed[0].years.length, cards[0].years.length);
 check('and the tier band loses that segment',
-  !trimmed[0].tiers.includes('OTH'), trimmed[0].tiers.join(' | '));
-await b.ev(`document.querySelector('#gridGroups .chip[data-group="OTHER"]').click()`);
+  !trimmed[0].tiers.includes('GMS'), trimmed[0].tiers.join(' | '));
+await b.ev(`document.querySelector('#gridGroups .chip[data-group="GAMES"]').click()`);
 
 /* ---- two players side by side ---- */
 
@@ -936,8 +946,11 @@ const wtRows = await eraRows();
 check('the rows are named in World Tour words',
   wtRows.some(r => r.label === 'Super 1000') && wtRows.some(r => r.label === 'Tour Finals'),
   wtRows.map(r => r.label).join(' | '));
-check('none of which needs shortening', wtRows.every(r => r.label === r.full),
-  wtRows.map(r => r.label).join(' | '));
+/* Every tier's name fits the gutter as it is; only the regional games needs a
+   short form, which is why the era switch is where this first bit. */
+check('and only the regional games needs shortening',
+  wtRows.filter(r => r.label !== r.full).every(r => r.g === 'GAMES'),
+  wtRows.filter(r => r.label !== r.full).map(r => `${r.label}/${r.full}`).join(' | ') || 'none');
 check('and the marked squares are the ones from before the World Tour',
   froms(wtRows).length > 0 && froms(wtRows).every(f => /Superseries|Grand Prix/.test(f)),
   [...new Set(froms(wtRows))].join(', ') || 'nothing marked');
@@ -1150,8 +1163,11 @@ check('and run as consecutive rows down the board',
   board.slice(firstSup, firstSup + supRows.length).map(r => r.group).join(',')
   === supRows.join(','),
   board.map(r => r.group).join(' '));
-check('with the Continental row directly above the first of them',
-  board[firstSup - 1] && board[firstSup - 1].group === '11',
+/* Two levels share the Super 1000's rung now — the Continentals and the
+   regional multi-sport games — and both are listed above it, so the row
+   immediately above the Super run is one of them. */
+check('with a row that shares their rung directly above the first of them',
+  board[firstSup - 1] && ['11', 'GAMES'].includes(board[firstSup - 1].group),
   board.map(r => r.group).join(' '));
 const supers = [23, 24, 25, 26, 27].filter(g => sideOf(g) != null);
 check('and every step down the painted Super ladder is the same step',

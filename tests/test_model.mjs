@@ -678,6 +678,138 @@ eq('so does a European Championships under an unmapped id',
 eq('an Open whose name ends in "Championships" is not a continental',
   gridGroup(findTmt(shi, /All England Open Badminton Championships 2026/)), 23);
 
+/* ---- the multi-sport games, which no id can find ----
+
+   BWF has filed one tournament, the Asian Games, under four different category
+   ids and under none at all, and the 2023 European Games under the Continental
+   Championships' own id. Every case below is a real row out of the recorded
+   payloads, not an invented one. */
+
+console.log('\n--- the regional games ---');
+
+const games = (name, cat, draw = 'MS', start = '2018-08-23') =>
+  gridGroup({ cat, name, start, draws: [{ name: draw, raw: draw }] });
+
+eq('the Asian Games as category 1 (2010)',
+  games('Guangzhou 2010 Asian Games', 1, 'MS', '2010-11-13'), 'GAMES');
+eq('as category 1 again but a different name (2014)',
+  games('17th Asian Games 2014', 1, 'MS', '2014-09-24'), 'GAMES');
+eq('as category 16 (2018)',
+  games('Asian Games 2018 ( Individual Event)', 16, 'WS', '2018-08-23'), 'GAMES');
+eq('as category 74 (2022, played 2023)',
+  games('ASIAN Games 2022 (Individual Event)', 74, 'MS', '2023-10-02'), 'GAMES');
+eq('and with no category at all (2006)',
+  games('Doha 2006 Asian Games', null, 'MS', '2006-11-30'), 'GAMES');
+eq('the Commonwealth Games', games('2018 Commonwealth Games', 16), 'GAMES');
+eq('the European Games as category 28', games('European Games 2019', 28, 'XD'), 'GAMES');
+/* ⚠️ The name has to be tried before the id, not after it. BWF filed this one
+   under 11 — the Continental Championships — so an id-first rule would draw the
+   2023 European Games as a Continental and the 2019 one as Unmapped. */
+eq('and as category 11, which is the Continentals own id',
+  games('2023 European Games', 11, 'MS', '2023-06-26'), 'GAMES');
+
+/* ⚠️ The team editions are separate tournaments under near-identical names, and
+   they stay out. They are caught by their *draws* — a tie names them bare — so
+   this holds whatever id they carry, which is just as well: the 2018 team and
+   individual editions are both category 16. */
+eq('the Asian Games team event is still not on the board',
+  games('Asian Games 2018 (Team Event)', 16, 'Singles'), null);
+eq('nor the Commonwealth Games team event',
+  games('Glasgow 2014 Commonwealth Games - Mixed Team Event', 1, 'Singles'), null);
+eq('nor the non-ranking one', games('ASIAN Games 2022 (Team Event) - Non World Ranking', 29, 'Singles'), null);
+
+/* ⚠️ "Olympic Games" contains "Games". The continents are named one by one
+   rather than matching the word, or the Olympics would lose their own row. */
+eq('the Olympics are not a regional games',
+  gridGroup({ cat: 'OLY', name: 'Paris 2024 Olympic Games', start: '2024-07-27',
+    draws: [{ name: 'MS' }] }), 'OLY');
+eq('and the Youth Olympics are still junior',
+  games('2014 Youth Olympic Games', 33), null);
+
+/* Sub-regional games are a slice of one continent and stay where they were. An
+   East Asian Games title and an Asian Games title are not the same claim.
+   ⚠️ "East Asian Games" contains "Asian Games", so this is only true because
+   the sub-regional names are tested first. */
+/* This one BWF sends with no category *and* a name nothing recognises, which
+   leaves literally nothing to place it by, so it is not drawn at all. Unchanged
+   behaviour, pinned here because it is the one sub-regional games that differs
+   from the one below and the difference is the missing id, not the name. */
+eq('the East Asian Games, which arrive with no category either, are not drawn',
+  games('Hong Kong 2009 East Asian Games', null, 'MS', '2009-12-11'), null);
+eq('and the Mediterranean Games',
+  games('Tarragona 2018 Mediterranean Games', 16, 'WD', '2018-06-23'), 'OTHER');
+
+eq('a regional games is drawn the size of a Continental',
+  honourScale('GAMES'), honourScale(11));
+eq('and is named rather than left as an id', gridGroupLabel('GAMES'), 'Regional Games');
+eq('with a short form for the gutter, like the long era names',
+  gridGroupShort('GAMES'), 'Games');
+
+/* ---- before the Superseries, the id means nothing ----
+
+   Verified live on 30 Aug 2026 (tools/probe-early.mjs): in 2006 the World
+   Championships, the All England and an International Series are all category
+   6. Reading that id as a tier dropped seven of LIN Dan's ten 2006 tournaments,
+   an All England title among them. */
+
+console.log('\n--- BWF categories before 2007 ---');
+
+const old2006 = (name, cat = 6) =>
+  gridGroup({ cat, name, start: '2006-03-08', draws: [{ name: 'MS' }] });
+
+eq('the 2006 World Championships, filed as an International Series',
+  old2006('BWF World Championships 2006'), 20);
+eq('the 2006 All England, filed the same way, is unmapped rather than gone',
+  old2006('YONEX ALL ENGLAND OPEN 2006'), 'OTHER');
+eq('and so is a 2006 Open under a different useless id',
+  old2006('Yonex Japan Open 2006', 1), 'OTHER');
+eq('a 2006 Continental is still rescued by its name',
+  old2006('Badminton Asia Championships 2006'), 11);
+
+/* ⚠️ 2007 is the first Superseries season and its ids are mostly right, so they
+   are still read. Only the feeder-circuit ids are not believed yet: BWF was
+   still filing Grand Prix events as category 6 that year, which dropped a title
+   from each of the two careers this all exists for. */
+const in2007 = (name, cat) =>
+  gridGroup({ cat, name, start: '2007-10-12', draws: [{ name: 'MS' }] });
+
+eq('a 2007 Superseries is read from its id, which is right',
+  in2007('HONG KONG SUPER SERIES 2007', 2), 24);
+eq('a 2007 Superseries Premier likewise', in2007('YONEX All England 2007', 8), 23);
+eq('but a 2007 event filed below the World Tour is unmapped, not dropped',
+  in2007('YONEX German Open 2007', 6), 'OTHER');
+eq('and the same for the other career it cost a title',
+  in2007('Philippines Open  2007', 6), 'OTHER');
+/* From 2008 the feeder ids are believed again, which is what keeps the grid to
+   Super 100 and above. */
+eq('a 2008 International Series is below the grid and out',
+  gridGroup({ cat: 6, name: 'Some International Series 2008', start: '2008-05-01',
+    draws: [{ name: 'MS' }] }), null);
+/* ⚠️ And a tournament with no date at all is treated as modern rather than as
+   pre-2007 — the rescue is for seasons known to be old, not for missing data. */
+eq('a tournament with no date is not given the benefit of the doubt',
+  gridGroup({ cat: 6, name: 'Welsh International 2022', draws: [{ name: 'MS' }] }), null);
+
+/* ---- draw names BWF only used once ---- */
+
+console.log('\n--- draw names ---');
+
+/* ⚠️ An unrecognised draw name is read as a *team tie*, which removes the
+   result from every singles view without erroring. BWF shipped "Men's Single",
+   singular, exactly once — LIN Dan's 2007 German Open, a title. */
+eq('the singular is still a singles draw', canonicalDraw("Men's Single"), 'MS');
+eq('shouting, as BWF also sends it', canonicalDraw("MEN'S SINGLE"), 'MS');
+eq('and the plural still works', canonicalDraw("Men's Singles"), 'MS');
+eq('a singular doubles too', canonicalDraw("Men's Double"), 'MD');
+/* The junior mixed draws carry no gender word and no "doubles", so they fell
+   through the whole function. */
+eq('a junior mixed draw with a space', canonicalDraw('XD U19'), 'XD');
+eq('and with a hyphen', canonicalDraw('XD-U19'), 'XD');
+/* ⚠️ Still a team tie, which is the whole reason the fallback exists: a tie
+   names its draws with no gender because the *tie* is the competitor. */
+eq('a bare Singles is still a team tie', canonicalDraw('Singles'), null);
+eq('and a bare Doubles', canonicalDraw('Doubles'), null);
+
 /* ---- best-first ordering inside a section ---- */
 
 console.log('\n--- results sort best-first ---');
@@ -772,7 +904,12 @@ eq('the sections run hardest-first, exactly as GRID_ORDER says',
   shiSections.map(s => s.group).join(','),
   GRID_ORDER.filter(g => shiSections.some(s => s.group === g)).join(','));
 eq('the leftmost section is the Olympics', shiSections[0].group, 'OLY');
-eq('the unmapped era is last', shiSections[shiSections.length - 1].group, 'OTHER');
+/* He no longer *has* an Unmapped block: his one unmapped result was the 2018
+   Asian Games, which now has a section that says so. When there is one it is
+   last, which the GRID_ORDER check above already pins. */
+check('his Asian Games is a section that names it, not the Unmapped heap',
+  shiSections.some(x => x.group === 'GAMES') && !shiSections.some(x => x.group === 'OTHER'),
+  shiSections.map(x => x.code).join(' '));
 
 /* Five, not four. 2017 ran five Superseries Premier events and they are drawn
    where the Super 1000s are, so the block is as wide as the widest season
@@ -921,8 +1058,12 @@ check('and get it from the Super 1000 itself, not from whatever is listed above'
 eq('and therefore the same size', honourScale(11), honourScale(23));
 check('which is above the Super 750, where they used to sit',
   honourScale(11) > honourScale(24));
-check('and are listed directly above them',
-  GRID_ORDER.indexOf(11) === GRID_ORDER.indexOf(23) - 1, GRID_ORDER.join(' '));
+/* Two levels share that rung now — the Continentals and the regional
+   multi-sport games — and both are listed immediately above it, so the run of
+   five Super rows below is still unbroken. */
+check('and are listed directly above them, contiguously',
+  GRID_ORDER.slice(GRID_ORDER.indexOf(11), GRID_ORDER.indexOf(23)).join(' ') === '11 GAMES',
+  GRID_ORDER.join(' '));
 /* Listed above rather than below so that the five Super levels are an unbroken
    run of *rows* as well as an unbroken run of sizes. Nothing at all comes
    between Super 1000 and Super 100 now. */
@@ -950,7 +1091,8 @@ check('and no other level doubles up — sharing is the exception, not the rule'
       seen.set(r, [...(seen.get(r) || []), g]);
     }
     const shared = [...seen.values()].filter(l => l.length > 1);
-    return shared.length === 1 && shared[0].length === 2;
+    // One rung, shared by three: Super 1000, Continental, Regional Games.
+    return shared.length === 1 && shared[0].length === 3;
   })());
 
 /* ---- the bar ---- */
@@ -1422,7 +1564,7 @@ eq('there are two of them', ERAS.length, 2);
 /* ---- the two ladders ---- */
 
 eq('the era ladder is derived, not written out',
-  ERA_GRID_ORDER.join(' '), 'OLY 20 22 11 8 2 3 4 OTHER');
+  ERA_GRID_ORDER.join(' '), 'OLY 20 22 11 GAMES 8 2 3 4 OTHER');
 eq('and gridOrder hands back the right one',
   gridOrder('wt').join(' '), GRID_ORDER.join(' '));
 
@@ -1455,19 +1597,25 @@ eq('which is not what the other era calls them',
   gridGroupLabel(22, 'wt'), 'Tour Finals');
 eq('every era row fits the three characters over a column',
   ERA_GRID_ORDER.map(g => gridGroupCode(g, 'ss')).join(' '),
-  'OLY WCH SSF CON SSP SS GPG GP OTH');
+  'OLY WCH SSF CON GMS SSP SS GPG GP OTH');
 check('and no era row falls back to its bare id',
   ERA_GRID_ORDER.every(g => !/^\d+$/.test(gridGroupCode(g, 'ss'))));
 
-/* The label gutter is fourteen characters of 10px mono. Every World Tour name
-   fits it; three era names do not, and the first version put "Superseries Pr"
-   on screen, which reads as a bug rather than as an abbreviation. */
+/* ⚠️ **Twelve**, not the fourteen the arithmetic gives: the row's count sits in
+   the gutter beside the label. Set at 14 first, and "Regional Games" went out
+   with its last letter shaved off — caught by a screenshot, which is twice now
+   that this number has been wrong in the same direction. */
+const GUTTER = 12;
 check('every level fits the honours gutter in either era',
   [...GRID_ORDER, ...ERA_GRID_ORDER].every(g =>
-    gridGroupShort(g, 'wt').length <= 14 && gridGroupShort(g, 'ss').length <= 14),
-  ERA_GRID_ORDER.map(g => gridGroupShort(g, 'ss')).join(' | '));
-check('and nothing is shortened that did not need to be',
-  GRID_ORDER.every(g => gridGroupShort(g, 'wt') === gridGroupLabel(g, 'wt')));
+    gridGroupShort(g, 'wt').length <= GUTTER && gridGroupShort(g, 'ss').length <= GUTTER),
+  [...GRID_ORDER, ...ERA_GRID_ORDER].map(g => gridGroupShort(g, 'ss'))
+    .filter(t => t.length > GUTTER).join(' | ') || 'all fit');
+/* The regional games is the only World Tour section whose name does not fit;
+   every tier's does, which is why the era switch is where this mattered. */
+eq('and nothing else is shortened that did not need to be',
+  GRID_ORDER.filter(g => gridGroupShort(g, 'wt') !== gridGroupLabel(g, 'wt')).join(' '),
+  'GAMES');
 eq('the tooltip still carries the whole name',
   gridGroupLabel(8, 'ss'), 'Superseries Premier');
 eq('while the gutter carries a form of it that fits',

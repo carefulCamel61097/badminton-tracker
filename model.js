@@ -696,10 +696,18 @@ export function canonicalDraw(name) {
   const n = String(name || '').trim().toUpperCase();
   if (!n) return null;
   if (/^(MS|WS|MD|WD|XD)$/.test(n)) return n;
-  if (/MIXED/.test(n)) return 'XD';
+  /* A prefix, where the line above wants the whole string: the junior mixed
+     draws arrive as "XD U19" and "XD-U19", which carry no gender word and no
+     "DOUBLES", so without this they fall through the whole function and are
+     read as team ties. The word boundary covers the hyphen and the space. */
+  if (/MIXED/.test(n) || /^XD\b/.test(n)) return 'XD';
 
-  const doubles = /DOUBLES/.test(n) || /^[BGMW]D\b/.test(n);
-  const singles = /SINGLES/.test(n) || /^[BGMW]S\b/.test(n);
+  /* ⚠️ The final S is optional. BWF has shipped "Men's Single", singular,
+     exactly once — LIN Dan's 2007 German Open — and an unrecognised draw name
+     is read as a *team tie* by the rule below, which removes the result from
+     every singles view rather than erroring. One title, silently. */
+  const doubles = /DOUBLES?/.test(n) || /^[BGMW]D\b/.test(n);
+  const singles = /SINGLES?/.test(n) || /^[BGMW]S\b/.test(n);
   if (!doubles && !singles) return null;
 
   // Boys and girls are the junior circuit's men and women.
@@ -818,7 +826,7 @@ export function drawForKind(tmt, kind, preferred) {
  * Sections, left to right: hardest to win on the left, Super 100 on the right.
  * The same judgement as LEVEL_ORDER, minus everything the grid does not show.
  */
-export const GRID_ORDER = ['OLY', 20, 22, 11, 23, 24, 25, 26, 27, 'OTHER'];
+export const GRID_ORDER = ['OLY', 20, 22, 11, 'GAMES', 23, 24, 25, 26, 27, 'OTHER'];
 
 /* ============================== the two eras ==============================
 
@@ -967,6 +975,68 @@ function isJunior(tmt) {
  * strip keeps weighting by the id it was given, which is the honest thing for a
  * size to do.
  */
+/**
+ * The continental multi-sport games, which have to be recognised by name
+ * because BWF's id for them is worthless in every direction.
+ *
+ * In the recorded data one tournament — the Asian Games — has arrived as
+ * category **1** (2010, 2014), **16** (2018), **74** (2022), and with **no
+ * category at all** (2006). The 2019 European Games is **28** and the 2023 one
+ * is **11**, the Continental Championships' own id. No rule over those ids can
+ * be written; the name is the only thing that holds still.
+ *
+ * ⚠️ **The team editions are separate tournaments and must stay excluded.** BWF
+ * ships "Asian Games 2018 (Team Event)" and "Asian Games 2018 ( Individual
+ * Event)" as two rows, and the team one is caught by `isTeamTournament` before
+ * this is reached — its draws are the bare "Singles"/"Doubles" of a tie. That
+ * ordering is load-bearing: matched first, this would pull every team event on
+ * to the board.
+ *
+ * ⚠️ **"Olympic Games" must not match**, which is why the continents are named
+ * rather than matching "games". The Youth Olympics are already gone, as junior.
+ */
+const REGIONAL_GAMES =
+  /\b(asian|commonwealth|european|pan[\s-]?american|african|all[\s-]?africa)\s+games\b/i;
+
+/* Sub-regional games — a slice of one continent, not a continent. Left in
+   Unmapped, where they already were: an East Asian Games title and an Asian
+   Games title are not the same claim, and a row that holds both says neither.
+   Tested first because "East Asian Games" contains "Asian Games". */
+const SUB_REGIONAL_GAMES =
+  /\b(east\s+asian|south[\s-]?east\s+asian|sea|mediterranean|islamic\s+solidarity|bolivarian|south\s+american|central\s+american|west\s+asian)\s+games\b/i;
+
+function isRegionalGames(name) {
+  const n = String(name || '');
+  return !SUB_REGIONAL_GAMES.test(n) && REGIONAL_GAMES.test(n);
+}
+
+/**
+ * The season a category id can first be believed in.
+ *
+ * ⚠️ **Before the Superseries began, `tournament_category_id` carries no tier
+ * information at all.** Verified against BWF live, 30 Aug 2026: in 2006 the
+ * **World Championships**, the **All England** and an International Series are
+ * all category **6**, and the Asian Games has no category. Reading those ids
+ * as tiers is what dropped seven of LIN Dan's ten 2006 tournaments — including
+ * an All England title — as "below Super 100".
+ */
+const IDS_MEAN_SOMETHING = 2007;
+
+/**
+ * And the ids *below* the World Tour are only believed a season later still.
+ *
+ * ⚠️ 2007 is the first Superseries season and its ids are mostly right — 2, 8,
+ * 3 and 4 all appear and all mean what they say — but BWF was still filing
+ * Grand Prix events as category 6. That cost exactly two titles, one each:
+ * LIN Dan's 2007 German Open and LEE Chong Wei's 2007 Philippines Open. So a
+ * feeder-circuit id before 2008 is treated as no information rather than as a
+ * reason to drop the result.
+ */
+const BELOW_BELIEVED = 2008;
+
+/** The calendar year a tournament started in, or null. */
+const startYear = tmt => Number(String((tmt && tmt.start) || '').slice(0, 4)) || null;
+
 const MAJOR_BY_NAME = [
   [/\bworld\s+championships?\b/i, 20],
   [/\b(world\s+tour|world\s+super\s?series|super\s?series)\s+finals\b/i, 22],
@@ -996,14 +1066,27 @@ const MAJOR_BY_NAME = [
  * section with one toggle, says plainly that their placing is a guess.
  */
 export function gridGroup(tmt) {
-  const cat = tmt && tmt.cat;
-  if (cat == null || cat === '') return null;
+  /* ⚠️ First, and before the category is even looked at. A team edition and a
+     junior event are recognised from their *draws*, which is a fact in the
+     payload, and both have arrived carrying ids that would otherwise wave them
+     straight through — "Asian Games 2018 (Team Event)" is category 16, the same
+     id as the individual edition beside it. */
   if (isTeamTournament(tmt) || isJunior(tmt)) return null;
 
-  const g = cat === 'OLY' ? 'OLY' : Number(cat);
-  if (GRID_ORDER.includes(g)) return g;
+  const cat = tmt && tmt.cat;
+  const name = String((tmt && tmt.name) || '');
+  const year = startYear(tmt);
 
-  const name = String(tmt.name || '');
+  /* ⚠️ Second, and before the id, because for these the id is not merely
+     unreliable but actively wrong: BWF has filed the Asian Games under four
+     different categories and under none at all, and the 2023 European Games
+     under the Continental Championships' own. Left to the id, one games would
+     be a Continental and the next would be Unmapped. */
+  if (isRegionalGames(name)) return 'GAMES';
+
+  const g = cat === 'OLY' ? 'OLY' : Number(cat);
+  if (cat != null && cat !== '' && GRID_ORDER.includes(g)) return g;
+
   /* ⚠️ The name rescues run **before** the era mapping, because an old category
      id is not always one tier. Category 8 is Superseries Premier *and* the
      Dubai World Superseries Finals; category 3 is Grand Prix Gold *and* some
@@ -1011,12 +1094,25 @@ export function gridGroup(tmt) {
      in the Super 1000 block — the id was right and the tournament was not. */
   for (const [re, group] of MAJOR_BY_NAME) if (re.test(name)) return group;
 
+  /* Before the Superseries, the id is not evidence of anything, so nothing is
+     read off it: whatever the rescues above have not placed goes to Unmapped,
+     which is exactly what Unmapped is for. Dropping these instead is what hid
+     LIN Dan's 2006 All England, Macau and Chinese Taipei titles. */
+  if (year && year < IDS_MEAN_SOMETHING) return 'OTHER';
+
+  // Nothing left to go on, and no name was enough.
+  if (cat == null || cat === '') return null;
+
   // A Superseries Premier is drawn where a Super 1000 is drawn. The strip still
   // calls it what it was; only the comparison views translate.
   const mapped = mappedTier(g);
   if (mapped != null) return mapped;
 
-  if (BELOW_GRID.has(g)) return null;
+  /* Below Super 100, and out — but only once an id below the World Tour can be
+     believed. In 2007 BWF was still calling Grand Prix events category 6, and
+     believing it dropped one title from each of the two careers this project
+     most wants to compare. */
+  if (BELOW_GRID.has(g)) return year && year < BELOW_BELIEVED ? 'OTHER' : null;
   return 'OTHER';
 }
 
@@ -1027,13 +1123,14 @@ export function gridGroup(tmt) {
 const ERA_LABEL = new Map([['22', 'Superseries Finals']]);
 const ERA_CODE = new Map([['22', 'SSF']]);
 
-/* ⚠️ The honours board's label gutter is 84px of 10px mono — fourteen
-   characters. Every World Tour name fits it ("Continental" and "Tour Finals"
-   are the longest at eleven); the era names do not, and "Superseries Premier"
-   arrived on screen as "Superseries Pr", which reads as a bug rather than as an
-   abbreviation. Only the three that overflow are shortened, and the full name
-   stays on the row's tooltip. */
-const SHORT = new Map([['8', 'SS Premier'], ['3', 'GP Gold']]);
+/* ⚠️ The honours board's label gutter is 84px of 10px mono, and what actually
+   fits is **twelve** characters, not the fourteen the arithmetic suggests — the
+   count sits beside it. "Continental" and "Tour Finals" are the longest World
+   Tour names at eleven and clear it; "Superseries Premier" went out as
+   "Superseries Pr" and "Regional Games" lost its last letter, both of which read
+   as a bug rather than as an abbreviation. Only the names that overflow are
+   shortened, and the full one stays on the row's tooltip. */
+const SHORT = new Map([['8', 'SS Premier'], ['3', 'GP Gold'], ['GAMES', 'Games']]);
 
 /* The Tour Finals is the one that only overflows once it has been *renamed*:
    'Tour Finals' fits and 'Superseries Finals' does not, so unlike the two above
@@ -1055,9 +1152,16 @@ export function gridGroupShort(group, era) {
   return gridGroupLabel(group, era);
 }
 
+/* The two sections that are not one of BWF's category ids and so have no entry
+   in `LEVEL`. Deliberately not added to it: `LEVEL` is the strip's table, keyed
+   on the `cat` a tournament actually arrives with, and every key in it has to
+   have a chip position. Nothing ever arrives as 'GAMES' or 'OTHER'. */
+const SECTION_LABEL = new Map([['OTHER', 'Unmapped'], ['GAMES', 'Regional Games']]);
+
 export function gridGroupLabel(group, era) {
   if (era === 'ss' && ERA_LABEL.has(String(group))) return ERA_LABEL.get(String(group));
-  return group === 'OTHER' ? 'Unmapped' : levelLabel(group);
+  const own = SECTION_LABEL.get(String(group));
+  return own != null ? own : levelLabel(group);
 }
 
 /**
@@ -1071,6 +1175,7 @@ export function gridGroupLabel(group, era) {
  */
 const GRID_CODE = {
   OLY: 'OLY', 20: 'WCH', 22: 'WTF', 11: 'CON',
+  GAMES: 'GMS',
   23: 'S1000', 24: 'S750', 25: 'S500', 26: 'S300', 27: 'S100',
   // The Superseries-era ladder, under its own ids.
   8: 'SSP', 2: 'SS', 3: 'GPG', 4: 'GP',
@@ -1379,7 +1484,9 @@ const HONOUR_SIDE_RATIO = Math.sqrt(PHI);
    all. It also leaves the Super 500's rung simply unused in Superseries mode,
    so the extra size step between Superseries and Grand Prix Gold is drawn
    rather than closed up — which is honest, because that gap was real. */
-const SHARES_RUNG = new Map([[11, 23], [8, 23], [2, 24], [3, 26], [4, 27]]);
+const SHARES_RUNG = new Map([
+  [11, 23], ['GAMES', 23], [8, 23], [2, 24], [3, 26], [4, 27],
+]);
 
 /* Derived from GRID_ORDER and the map above, never written out. A level added
    to the order gets its own rung automatically, and the two cannot drift.
