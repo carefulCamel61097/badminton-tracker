@@ -820,6 +820,102 @@ export function drawForKind(tmt, kind, preferred) {
  */
 export const GRID_ORDER = ['OLY', 20, 22, 11, 23, 24, 25, 26, 27, 'OTHER'];
 
+/* ============================== the two eras ==============================
+
+   The World Tour replaced the Superseries in 2018, and until now the grid and
+   the board have spoken only the newer language: `mappedTier` places a
+   Superseries Premier where a Super 1000 goes and marks the square. That is the
+   right default and the wrong one for the comparison people actually come here
+   to make — LIN Dan against LEE Chong Wei, where the modern names are the
+   foreign ones and every square on both boards is a translation.
+
+   So the ladder can be read in either vocabulary. `era` is 'wt' or 'ss', it is
+   a property of the *view* rather than of a result, and it changes two things
+   and nothing else: which names the rows carry, and which squares are marked as
+   translated.
+
+   ⚠️⚠️ **Backwards is not the same map forwards.** Running the same evidence
+   the other way — `tournament_series_id` followed across the 2018 boundary —
+   the Super 1000 is unanimously the old Premier (4 of 4 spanning series) and
+   the Super 300 is the Grand Prix Gold (8 of 9), but the **Super 500 splits 4–3
+   between Grand Prix Gold and Superseries**. That is not missing evidence, it
+   is evidence of a split: 2018 was not a renaming, and one Grand Prix Gold
+   became both a Super 500 and a Super 300. There is no fifth old tier for the
+   Super 500 to be.
+
+   It is folded **upward into the Superseries** (decided 30 Aug 2026). That is
+   the one real cost of reading the board this way, it is a cost paid by the
+   comparison this exists for — ten of LIN Dan's results are Super 500s, against
+   one of LEE Chong Wei's — and it is not hidden: those squares carry the same
+   notch the Superseries-era ones carry in World Tour mode, and hovering one
+   says "Super 500, drawn as Superseries".
+   ==================================================================== */
+
+export const ERAS = [
+  { key: 'wt', label: 'World Tour',  full: 'World Tour names, 2018 onwards' },
+  { key: 'ss', label: 'Superseries', full: 'Superseries-era names, 2007–2017' },
+];
+
+export const ERA_DEFAULT = 'wt';
+
+export function eraKey(key) {
+  return ERAS.some(e => e.key === key) ? key : ERA_DEFAULT;
+}
+
+/* Modern tier → the Superseries-era tier it is drawn on. The values are BWF's
+   own pre-2018 category ids, so `LEVEL` already holds their names and
+   abbreviations and there is no second table of labels to drift out of step.
+
+   Keyed as strings for the reason `honourRung` gives: a group makes a round
+   trip through `data-group` in the DOM, and a lookup that silently missed would
+   leave a Super 750 sitting in its own unlabelled row. */
+const TO_ERA = new Map([['23', 8], ['24', 2], ['25', 2], ['26', 3], ['27', 4]]);
+
+/**
+ * The row a tier is drawn on in the chosen era.
+ *
+ * Identity in World Tour mode, and identity in either mode for everything off
+ * the Super ladder: the majors, the Tour Finals and the Continentals are the
+ * same events under both sets of names, and only the Finals is even called
+ * something different.
+ */
+export function eraGroup(group, era) {
+  if (era !== 'ss') return group;
+  const to = TO_ERA.get(String(group));
+  return to == null ? group : to;
+}
+
+/* Derived, never written out, so a tier added to GRID_ORDER cannot go missing
+   from the era ladder. The Set is what collapses the Super 750 and the Super
+   500 into the one Superseries row they share. */
+export const ERA_GRID_ORDER = [...new Set(GRID_ORDER.map(g => eraGroup(g, 'ss')))];
+
+export function gridOrder(era) {
+  return era === 'ss' ? ERA_GRID_ORDER : GRID_ORDER;
+}
+
+/* The tiers that exist only after 2018. Reading the board in Superseries names
+   makes *these* the translated ones, which is why the notch is defined by the
+   era rather than by the category: it always marks the squares the other era
+   had to be converted into this one, and never the ones already speaking the
+   view's own vocabulary. */
+const MODERN_TIERS = new Set(['23', '24', '25', '26', '27']);
+
+/**
+ * What a result actually was, when the chosen era's ladder is not where its own
+ * category would have put it — null when the square needs no translating.
+ *
+ * ⚠️ Deliberately **not** "the category differs from the row". A major rescued
+ * by name is filed correctly despite a useless id — the 2017 World
+ * Championships is category 1, the 2012 Asian Championships category 3 — and
+ * that rule would put a notch on half the majors and call an Asian
+ * Championships a Grand Prix Gold.
+ */
+export function translatedFrom(cat, era) {
+  if (era === 'ss') return MODERN_TIERS.has(String(cat)) ? levelLabel(cat) : null;
+  return mappedTier(cat) != null ? levelLabel(cat) : null;
+}
+
 /** Below Super 100: the feeder circuit. */
 const BELOW_GRID = new Set([5, 6, 7]);
 
@@ -924,7 +1020,43 @@ export function gridGroup(tmt) {
   return 'OTHER';
 }
 
-export function gridGroupLabel(group) {
+/* The one row whose era name is not simply its category's label. The Tour
+   Finals is the same rung and the same event under both structures and was
+   called something else; everything else on the era ladder *is* a pre-2018
+   category id, and `LEVEL` already names it. */
+const ERA_LABEL = new Map([['22', 'Superseries Finals']]);
+const ERA_CODE = new Map([['22', 'SSF']]);
+
+/* ⚠️ The honours board's label gutter is 84px of 10px mono — fourteen
+   characters. Every World Tour name fits it ("Continental" and "Tour Finals"
+   are the longest at eleven); the era names do not, and "Superseries Premier"
+   arrived on screen as "Superseries Pr", which reads as a bug rather than as an
+   abbreviation. Only the three that overflow are shortened, and the full name
+   stays on the row's tooltip. */
+const SHORT = new Map([['8', 'SS Premier'], ['3', 'GP Gold']]);
+
+/* The Tour Finals is the one that only overflows once it has been *renamed*:
+   'Tour Finals' fits and 'Superseries Finals' does not, so unlike the two above
+   this one is conditional on the era. */
+const ERA_SHORT = new Map([['22', 'SS Finals']]);
+
+/**
+ * The level as it fits in the honours board's gutter: the full name wherever it
+ * does fit, which is everywhere in World Tour names.
+ *
+ * ⚠️ Total for every group in either era, not only for the combinations that
+ * arise — 8 and 3 are era ids and are shortened whichever era is asked for,
+ * because a function that is right only where it happens to be called is a trap
+ * for the next reader.
+ */
+export function gridGroupShort(group, era) {
+  if (era === 'ss' && ERA_SHORT.has(String(group))) return ERA_SHORT.get(String(group));
+  if (SHORT.has(String(group))) return SHORT.get(String(group));
+  return gridGroupLabel(group, era);
+}
+
+export function gridGroupLabel(group, era) {
+  if (era === 'ss' && ERA_LABEL.has(String(group))) return ERA_LABEL.get(String(group));
   return group === 'OTHER' ? 'Unmapped' : levelLabel(group);
 }
 
@@ -940,10 +1072,13 @@ export function gridGroupLabel(group) {
 const GRID_CODE = {
   OLY: 'OLY', 20: 'WCH', 22: 'WTF', 11: 'CON',
   23: 'S1000', 24: 'S750', 25: 'S500', 26: 'S300', 27: 'S100',
+  // The Superseries-era ladder, under its own ids.
+  8: 'SSP', 2: 'SS', 3: 'GPG', 4: 'GP',
   OTHER: 'OTH',
 };
 
-export function gridGroupCode(group) {
+export function gridGroupCode(group, era) {
+  if (era === 'ss' && ERA_CODE.has(String(group))) return ERA_CODE.get(String(group));
   return GRID_CODE[group] || String(group == null ? '' : group);
 }
 
@@ -1013,18 +1148,20 @@ export function tournamentSeason(tmt) {
  * Ties are broken by date, oldest first, so a row is stable from render to
  * render rather than reshuffling itself when nothing has changed.
  */
-export function seasonResults(season, kind, preferred) {
+export function seasonResults(season, kind, preferred, era) {
   const by = new Map();
 
   for (const tmt of (season && season.tournaments) || []) {
-    const group = gridGroup(tmt);
-    if (group == null) continue;
+    const modern = gridGroup(tmt);
+    if (modern == null) continue;
+    const group = eraGroup(modern, era);
     const draw = drawForKind(tmt, kind, preferred);
     if (!draw) continue;
     const info = positionInfo(draw.position, draw);
-    // `from` is the tier this actually was, on the results that had to be
-    // translated to get here. Null on everything already on the World Tour.
-    const from = mappedTier(tmt.cat) != null ? levelLabel(tmt.cat) : null;
+    // `from` is the tier this actually was, on the results the chosen era had to
+    // translate to get here. Null on everything already in its own vocabulary —
+    // which is the pre-2018 half of a career in Superseries mode.
+    const from = translatedFrom(tmt.cat, era);
     const cell = { group, tmt, draw, info, tier: info.tier, from,
       rank: resultRank(info) };
     const list = by.get(group);
@@ -1057,7 +1194,7 @@ export function seasonResults(season, kind, preferred) {
  * Takes every career that will be drawn, because two grids side by side are only
  * comparable if their sections are the same width.
  */
-export function gridSections(rowsPerCareer) {
+export function gridSections(rowsPerCareer, era) {
   const width = new Map();
   for (const rows of rowsPerCareer || []) {
     for (const by of rows || []) {
@@ -1066,8 +1203,9 @@ export function gridSections(rowsPerCareer) {
       }
     }
   }
-  return GRID_ORDER.filter(g => width.has(g))
-    .map(g => ({ group: g, n: width.get(g), label: gridGroupLabel(g), code: gridGroupCode(g) }));
+  return gridOrder(era).filter(g => width.has(g))
+    .map(g => ({ group: g, n: width.get(g),
+      label: gridGroupLabel(g, era), code: gridGroupCode(g, era) }));
 }
 
 /**
@@ -1103,7 +1241,7 @@ export function sectionCells(by, sections) {
  * because a tournament can move between rows and one of those rows may not
  * exist yet — or at all.
  */
-export function careerRows(seasons, kind, preferred) {
+export function careerRows(seasons, kind, preferred, era) {
   const byYear = new Map();
   for (const s of seasons || []) {
     for (const t of s.tournaments || []) {
@@ -1113,7 +1251,7 @@ export function careerRows(seasons, kind, preferred) {
     }
   }
   return [...byYear.keys()].sort((a, b) => b - a).map(year =>
-    ({ year, by: seasonResults({ year, tournaments: byYear.get(year) }, kind, preferred) }));
+    ({ year, by: seasonResults({ year, tournaments: byYear.get(year) }, kind, preferred, era) }));
 }
 
 /**
@@ -1234,7 +1372,14 @@ const HONOUR_SIDE_RATIO = Math.sqrt(PHI);
  * it *above* the Super 1000 would be asserting something about Europe that is
  * not true.
  */
-const SHARES_RUNG = new Map([[11, 23]]);
+/* ⚠️ The Superseries-era tiers share the rung of the modern tier they are drawn
+   over, rather than being handed a ladder of their own. That is what keeps the
+   *sizes* identical in both eras: switching vocabulary must not resize an
+   Olympic square, or the two readings could not be held against each other at
+   all. It also leaves the Super 500's rung simply unused in Superseries mode,
+   so the extra size step between Superseries and Grand Prix Gold is drawn
+   rather than closed up — which is honest, because that gap was real. */
+const SHARES_RUNG = new Map([[11, 23], [8, 23], [2, 24], [3, 26], [4, 27]]);
 
 /* Derived from GRID_ORDER and the map above, never written out. A level added
    to the order gets its own rung automatically, and the two cannot drift.
@@ -1336,7 +1481,7 @@ export function careerHonours(rows, maxRank) {
  * eloquent ones. Levels nobody has ever played are left out entirely, because
  * that is a fact about the calendar instead.
  */
-export function honourSections(perCareer) {
+export function honourSections(perCareer, era) {
   const present = new Set();
   const most = new Map();
   for (const h of perCareer || []) {
@@ -1347,10 +1492,13 @@ export function honourSections(perCareer) {
       most.set(group, Math.max(most.get(group) || 0, list.length));
     }
   }
-  return GRID_ORDER.filter(g => present.has(g)).map(g => ({
+  return gridOrder(era).filter(g => present.has(g)).map(g => ({
     group: g,
-    label: gridGroupLabel(g),
-    code: gridGroupCode(g),
+    label: gridGroupLabel(g, era),
+    // What the gutter shows; `label` is what the tooltip says. The same in
+    // World Tour names, where every level's name already fits.
+    short: gridGroupShort(g, era),
+    code: gridGroupCode(g, era),
     n: most.get(g) || 0,
     scale: honourScale(g),
   }));

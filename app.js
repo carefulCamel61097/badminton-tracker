@@ -21,6 +21,7 @@ import {
   defaultKind, seasonLevels, levelLabel, levelAbbr, boxSize, isTeamEvent,
   drawLadder, BOX_H, LEVEL, LEVEL_ORDER,
   careerRows, gridSections, sectionCells, gridYears, gridGroupLabel, seasonLabels, GRID_ORDER,
+  ERAS, ERA_DEFAULT, eraKey, gridOrder,
   seasonResults, tournamentSeason,
   HONOUR_STEPS, HONOUR_DEFAULT, honourStep, honourScale, honourRung,
   careerHonours, honourSections,
@@ -533,6 +534,10 @@ const grid = {
   kind: null,                    // null = follow the main view's discipline
   hiddenGroups: new Set(),       // column groups switched off
   threshold: HONOUR_DEFAULT,     // the honours board's bar
+  /* Which vocabulary the rows are named in. A property of the view, not of a
+     result: it renames rows and moves which squares are marked as translated,
+     and it changes no career. See "the two eras" in the model. */
+  era: ERA_DEFAULT,
   pending: null,                 // a compare id from the hash, waiting to load
 };
 
@@ -600,7 +605,7 @@ function cellHtml(cell, year) {
   const wl = cell.draw.win != null ? ` · ${cell.draw.win}-${cell.draw.lose}` : '';
   return `<i class="${cls}${cell.from ? ' mapped' : ''}"${attrs}`
     + ` title="${esc(`${cell.tmt.name}\n${cell.info.full}${wl}`
-      + (cell.from ? `\n${cell.from}, drawn as ${gridGroupLabel(cell.group)}` : ''))}"></i>`;
+      + (cell.from ? `\n${cell.from}, drawn as ${gridGroupLabel(cell.group, grid.era)}` : ''))}"></i>`;
 }
 
 /** Who the grid belongs to: the same identity block as the page's heading. */
@@ -702,7 +707,7 @@ function honourCellHtml(cell) {
     + ` data-group="${esc(String(cell.group))}" data-year="${cell.year}"`
     + ` data-from="${esc(cell.from || '')}"`
     + ` title="${esc(`${cell.year} — ${cell.tmt.name}\n${cell.info.full}${wl}`
-      + (cell.from ? `\n${cell.from}, drawn as ${gridGroupLabel(cell.group)}` : ''))}"></i>`;
+      + (cell.from ? `\n${cell.from}, drawn as ${gridGroupLabel(cell.group, grid.era)}` : ''))}"></i>`;
 }
 
 /**
@@ -741,7 +746,8 @@ function honourSide(career, section, bar, mirror) {
 }
 
 function honourRow(section, list, bar) {
-  const label = `<span class="hlvl" title="${esc(section.label)}">${esc(section.label)}</span>`;
+  const label = `<span class="hlvl" title="${esc(section.label)}">`
+    + `${esc(section.short || section.label)}</span>`;
   const sides = list.map((c, i) => honourSide(c, section, bar, list.length > 1 && i === 0));
   const inner = list.length > 1 ? sides[0] + label + sides[1] : label + sides[0];
   return `<div class="hrow" data-group="${esc(String(section.group))}"`
@@ -825,7 +831,7 @@ function renderHonoursBody(list) {
   // Measured across both careers, like the grid's widths, so a level one of
   // them never entered still gets a row if the other did — an absence is only
   // legible next to the thing it is an absence of.
-  const sections = honourSections(list.map(c => c.honours));
+  const sections = honourSections(list.map(c => c.honours), grid.era);
   const shown = sections.filter(s => !grid.hiddenGroups.has(String(s.group)));
 
   renderGridGroups(sections, true);
@@ -844,6 +850,21 @@ function renderHonoursBody(list) {
     : '<p class="gnote">Nothing here reaches Super 100, which is where the board starts.</p>';
 }
 
+/**
+ * Which vocabulary the rows are named in.
+ *
+ * Always drawn, unlike the discipline switch beside it, which hides itself when
+ * a career only has one: both eras are always available to read a career in,
+ * including a wholly modern one, where switching is the quickest way to see
+ * that nothing here needed translating at all.
+ */
+function renderEraSwitch() {
+  $('gridEra').innerHTML = ERAS.map(e =>
+    `<button type="button" class="seg${e.key === grid.era ? ' on' : ''}"`
+    + ` data-era="${e.key}" aria-pressed="${e.key === grid.era}"`
+    + ` title="${esc(e.full)}">${esc(e.label)}</button>`).join('');
+}
+
 function renderViewSwitch() {
   $('gridView').querySelectorAll('[data-view]').forEach(b => {
     const on = b.dataset.view === grid.view;
@@ -855,7 +876,7 @@ function renderViewSwitch() {
 function renderGridBody(list) {
   // Widths are measured across *both* careers and then filtered, so the two
   // grids line up and the chip counts do not move when one section is hidden.
-  const sections = gridSections(list.map(c => c.rows.map(r => r.by)));
+  const sections = gridSections(list.map(c => c.rows.map(r => r.by)), grid.era);
   const shown = sections.filter(s => !grid.hiddenGroups.has(String(s.group)));
   const years = gridYears(list.map(c => c.rows));
 
@@ -886,10 +907,11 @@ function renderGrid() {
   for (const c of list) {
     const kind = gridKindFor(c.seasons);
     const preferred = dominantDraw(c.seasons.flatMap(s => s.tournaments), kind);
-    c.rows = careerRows(c.seasons, kind, preferred);
+    c.rows = careerRows(c.seasons, kind, preferred, grid.era);
   }
 
   renderGridKinds();
+  renderEraSwitch();
   renderViewSwitch();
 
   const honours = grid.view === 'honours';
@@ -899,6 +921,14 @@ function renderGrid() {
   $('gridNote').hidden = honours;
   $('honLegend').hidden = !honours;
   $('honNote').hidden = !honours;
+  /* Which half of a career is being translated is exactly what the era switch
+     changes, so the note explaining the notch is swapped with it. Both readings
+     show one of the two; neither view hides both. */
+  const ss = grid.era === 'ss';
+  $('mapNote').hidden = ss;
+  $('mapNoteSS').hidden = !ss;
+  $('honLadderWT').hidden = ss;
+  $('honLadderSS').hidden = !ss;
   $('honMin').hidden = !honours;
   $('gridTitle').textContent = honours ? 'Honours' : 'Career grid';
 
@@ -1249,6 +1279,26 @@ $('gridKind').addEventListener('click', e => {
   grid.kind = b.dataset.gkind;
   renderGrid();
   writeHash();
+});
+
+function setGridEra(key) {
+  const era = eraKey(key);
+  if (era === grid.era) return;
+  grid.era = era;
+  /* ⚠️ The level chips are keyed on the group, and the two eras do not share
+     their keys — a hidden Super 750 is `24` and a hidden Superseries is `2`.
+     Left alone, switching era silently un-hides everything and then re-hides it
+     on the way back, which reads as the chips forgetting themselves. Clearing
+     is the honest version of that: the chips are about the ladder on screen,
+     and the ladder has just been replaced. */
+  grid.hiddenGroups.clear();
+  renderGrid();
+  writeHash();
+}
+
+$('gridEra').addEventListener('click', e => {
+  const b = e.target.closest('[data-era]');
+  if (b) setGridEra(b.dataset.era);
 });
 
 function setGridView(view) {
@@ -2041,6 +2091,10 @@ function readHash() {
      deliberately sticky, because they have no default to return to; these do. */
   grid.view = h.get('v') === 'h' ? 'honours' : 'grid';
   grid.threshold = h.has('th') ? honourStep(h.get('th')).key : HONOUR_DEFAULT;
+  // Set unconditionally for the same reason as the two above: 'World Tour' is a
+  // real default, so a link without `er` is claiming it rather than saying
+  // nothing about it.
+  grid.era = eraKey(h.get('er'));
   // `now=` pins what the tournament page believes today is. A debugging aid and
   // the only way a suite replaying an August fixture can be deterministic.
   pinnedToday = /^\d{4}-\d{2}-\d{2}$/.test(h.get('now') || '') ? h.get('now') : null;
@@ -2098,6 +2152,10 @@ function writeHash() {
   // viewing preference and stays in localStorage. A shared link should open on
   // the reader's own zoom and on the sender's argument.
   if (grid.threshold !== HONOUR_DEFAULT) p.set('th', grid.threshold);
+  // Which names the ladder carries is part of the argument a shared board makes
+  // — a Lin Dan / Lee Chong Wei link that opens in World Tour names is not the
+  // board that was sent — so it travels, like the bar and the view.
+  if (grid.era !== ERA_DEFAULT) p.set('er', grid.era);
   if (cmp.playerId) p.set('c', cmp.playerId);
   if (pinnedToday) p.set('now', pinnedToday);
   if (page === 'tmt' && tmt.day) p.set('d', tmt.day);
@@ -2170,6 +2228,9 @@ window.BST = {
   grid: {
     state: grid,
     compare: cmp,
+    /* The era switch, driven the way a reader drives it, so a test can assert
+       on both readings of one career without reloading the page. */
+    era: k => (k == null ? grid.era : (setGridEra(k), grid.era)),
     open: openGrid,
     close: closeGrid,
     isOpen: () => grid.open && !$('comparePage').hidden && $('seasonsPage').hidden,
@@ -2177,9 +2238,10 @@ window.BST = {
     rows: () => careers().map(c => {
       const kind = gridKindFor(c.seasons);
       return careerRows(c.seasons, kind,
-        dominantDraw(c.seasons.flatMap(s => s.tournaments), kind));
+        dominantDraw(c.seasons.flatMap(s => s.tournaments), kind), grid.era);
     }),
-    sections: () => gridSections(window.BST.grid.rows().map(rows => rows.map(r => r.by))),
+    sections: () => gridSections(
+      window.BST.grid.rows().map(rows => rows.map(r => r.by)), grid.era),
     years: () => gridYears(window.BST.grid.rows()),
     seasonOf: name => tournamentSeason(
       careers().flatMap(c => c.seasons).flatMap(s => s.tournaments)
@@ -2296,10 +2358,10 @@ window.BST = {
     of: () => careers().map(c => {
       const kind = gridKindFor(c.seasons);
       const rows = careerRows(c.seasons, kind,
-        dominantDraw(c.seasons.flatMap(s => s.tournaments), kind));
+        dominantDraw(c.seasons.flatMap(s => s.tournaments), kind), grid.era);
       return careerHonours(rows, honourStep(grid.threshold).rank);
     }),
-    sections: () => honourSections(window.BST.honours.of()),
+    sections: () => honourSections(window.BST.honours.of(), grid.era),
     zoom: px => (px == null ? Number($('gridZoom').value)
       : (setZoom(px), Number($('gridZoom').value))),
     /** Every row on screen, with both players' halves and the real geometry. */
@@ -2342,7 +2404,7 @@ window.BST = {
       const r = board.getBoundingClientRect();
       return Math.round((r.left + r.width / 2) * 10) / 10;
     },
-    order: () => GRID_ORDER,
+    order: () => gridOrder(grid.era),
     heads: () => [...document.querySelectorAll('#honBody .hhead:not(.empty)')].map(h => ({
       player: h.dataset.player,
       name: (h.querySelector('.who') || {}).textContent || '',

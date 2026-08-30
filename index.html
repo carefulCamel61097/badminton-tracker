@@ -113,6 +113,10 @@
     </span>
 
     <span id="gridKind" class="kindwrap" role="group" aria-label="discipline"></span>
+    <!-- Which vocabulary the rows are named in. Sits beside the discipline
+         because it is the same kind of switch: neither changes a result, both
+         change what the same results are called and grouped by. -->
+    <span id="gridEra" class="kindwrap" role="group" aria-label="tournament names"></span>
     <span id="honMin" class="kindwrap" role="group" aria-label="minimum round" hidden></span>
 
     <label class="zoom" for="gridZoom">Zoom
@@ -161,7 +165,9 @@
     <span class="key"><i class="hnone"></i> nothing that good</span>
   </p>
   <!-- Shown on both readings, because both translate. Not toggled with the
-       view-specific notes above it. -->
+       view-specific notes above it - but it is toggled by the era, because
+       which half of a career is being translated is exactly what the era
+       switch changes. -->
   <p class="legend note" id="mapNote">
     <strong>*</strong> BWF ships no name for its pre-2018 categories, so results
     from the Superseries era are placed on the tier they became, traced through
@@ -174,15 +180,39 @@
     Superseries Premier. Four old tiers become five new ones, so nothing lands on
     Super&nbsp;500; and before 2011 there was no Premier tier at all, which makes
     a 2008 All&nbsp;England a rung lower than a 2013 one.
+    Switch to <strong>Superseries</strong> above to read the ladder the other way.
+  </p>
+
+  <!-- The mirror image, and not a paraphrase of it: in this direction the
+       Super 500 has nowhere to land, and saying so is most of the note. -->
+  <p class="legend note" id="mapNoteSS" hidden>
+    <strong>*</strong> Read in Superseries names, the <em>modern</em> results are
+    the translated ones: <strong>Super&nbsp;1000</strong> as Superseries Premier,
+    <strong>Super&nbsp;750</strong> as Superseries, <strong>Super&nbsp;300</strong>
+    as Grand&nbsp;Prix Gold and <strong>Super&nbsp;100</strong> as Grand&nbsp;Prix,
+    traced through the tournaments themselves. Those squares carry the notch now,
+    and everything from before 2018 is simply called what it was.
+    &#9888; <strong>The Super&nbsp;500 has no rung here.</strong> Followed
+    backwards across 2018 it splits four to three between Grand&nbsp;Prix Gold and
+    Superseries, because one Grand&nbsp;Prix Gold became <em>both</em> a
+    Super&nbsp;500 and a Super&nbsp;300 &mdash; 2018 was a split, not a renaming.
+    A Super&nbsp;500 is folded up into the <strong>Superseries</strong> and is
+    therefore drawn one rung higher than it was. That is the one thing this
+    reading gets wrong, and it is why those squares are notched too. The gap
+    between Superseries and Grand&nbsp;Prix Gold is the Super&nbsp;500 rung left
+    standing empty rather than closed up.
   </p>
 
   <p class="legend note" id="honNote" hidden>
     Every result that reached the chosen round, whatever season it was in — one
     row per level, hardest at the top. Each row has
     <strong>&#966; times the area</strong> of the row below, so an Olympic square
-    covers about thirty Super&nbsp;100 ones. The Continentals sit just above
-    the Super&nbsp;1000s and share their size — an Asian Championships is a major —
-    which leaves the five Supers an unbroken run, stepping evenly all the way down. An empty row is a claim too:
+    covers about thirty Super&nbsp;100 ones. The Continentals are listed above the
+    tier below them and share its size — an Asian Championships is a major —
+    <span id="honLadderWT">which leaves the five Supers an unbroken run, stepping
+    evenly all the way down.</span><span id="honLadderSS" hidden>which leaves the
+    era ladder one visible double step, between Superseries and Grand&nbsp;Prix
+    Gold, where the Super&nbsp;500 rung stands empty.</span> An empty row is a claim too:
     hover it to see whether they never got that far or never entered. Comparing two
     players mirrors the board about the centre line, so the best results of each
     meet in the middle.

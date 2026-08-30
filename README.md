@@ -257,6 +257,45 @@ Premier. Two honest edges, both noted under the board — nothing maps to Super 
 there were four old tiers and there are five new ones; and before 2011 there was no Premier
 tier at all, so a 2008 All England sits a rung below a 2013 one.
 
+### Reading it the other way round
+
+That is the right default and the wrong one for the comparison people actually come here to
+make. In World Tour names, *every* square on a LIN Dan / LEE Chong Wei board is a translation
+into a structure neither of them ever played in — 116 of Lee Chong Wei's 140 results are
+notched.
+
+So the **World Tour / Superseries** switch on the compare page names the ladder in either
+vocabulary, on both the grid and the honours board. Nothing about a result changes: rows keep
+their sizes, so the two readings are two readings of one board. Only the row names change,
+and which squares are the translated ones — in Superseries names the notch moves to the
+modern results, and Lee Chong Wei's board drops from 116 marked squares to 4.
+
+| rung | World Tour | Superseries era |
+|---|---|---|
+| Olympics · Worlds · Continental | unchanged | unchanged |
+| Tour Finals | Tour Finals | **Superseries Finals** |
+| ▸ | Super 1000 | Superseries Premier |
+| ▸ | Super 750 | Superseries |
+| ▸ | Super 500 | *— folded up into Superseries —* |
+| ▸ | Super 300 | Grand Prix Gold |
+| ▸ | Super 100 | Grand Prix |
+
+⚠️ **Backwards is not the same map forwards.** Following the same series across 2018 in the
+other direction, the Super 1000 is unanimously the old Premier (4 of 4) and the Super 300 is
+the Grand Prix Gold (8 of 9) — but the **Super 500 splits 4–3** between Grand Prix Gold and
+Superseries. That is not missing evidence, it is evidence of a split: 2018 was not a
+renaming, and one Grand Prix Gold became *both* a Super 500 and a Super 300.
+
+A Super 500 is therefore folded **upward into the Superseries** and drawn one rung higher
+than it was. It is the one thing this reading gets wrong, it is not a corner case — ten of
+Lin Dan's results are Super 500s — and it is not hidden: those squares carry the notch like
+any other translation, and the Super 500's rung is left standing empty rather than closed up,
+so the double size step between Superseries and Grand Prix Gold is the gap where a tier used
+to not be.
+
+The era travels in the link (`er=ss`), because a board sent in Superseries names is not the
+same board in World Tour names.
+
 ## Who you start on
 
 With nobody in the link, the app opens on the **world number one in men's singles** — looked

@@ -897,6 +897,153 @@ eq('and leaves a final alone',
 await b.ev(`window.BST.honours.view('honours')`);
 await b.until(`!!document.querySelector('.honours .cell.r-w')`, { timeout: 30000 });
 
+/* ---- the same board in the other vocabulary ---- */
+
+/* The switch renames the ladder and moves which squares count as translations.
+   What it must never do is resize anything: two readings of one board only
+   compare if a square means the same amount in both.
+
+   SHI Yu Qi is the right career to drive it on rather than a purely modern one.
+   He straddles 2018 — Superseries and Grand Prix Gold results on one side of
+   it, Super 750s and Super 500s on the other — so both directions of the notch
+   are on the same board at once and the inversion is visible in one place. */
+
+console.log('\n=== the era switch ===');
+
+const eraRows = () => b.ev(`(() => JSON.stringify(
+  [...document.querySelectorAll('#honBody .hrow')].map(r => ({
+    g: r.dataset.group,
+    label: (r.querySelector('.hlvl') || {}).textContent || '',
+    full: r.querySelector('.hlvl') ? r.querySelector('.hlvl').title : '',
+    w: Math.round(r.querySelector('.cell')
+      ? r.querySelector('.cell').getBoundingClientRect().width * 100 : 0) / 100,
+    from: [...r.querySelectorAll('.cell.mapped')].map(c => c.dataset.from),
+    cells: [...r.querySelectorAll('.cell')].length,
+  }))))()`).then(JSON.parse);
+
+const eraButtons = () => b.ev(`(() => JSON.stringify(
+  [...document.querySelectorAll('#gridEra [data-era]')]
+    .map(x => x.textContent + (x.classList.contains('on') ? '*' : ''))))()`).then(JSON.parse);
+
+const froms = rows => rows.flatMap(r => r.from);
+const cells = rows => rows.reduce((n, r) => n + r.cells, 0);
+
+eq('the switch offers both readings, World Tour pressed',
+  (await eraButtons()).join(' '), 'World Tour* Superseries');
+eq('and that is what the state says', await b.ev('window.BST.grid.state.era'), 'wt');
+
+const wtRows = await eraRows();
+check('the rows are named in World Tour words',
+  wtRows.some(r => r.label === 'Super 1000') && wtRows.some(r => r.label === 'Tour Finals'),
+  wtRows.map(r => r.label).join(' | '));
+check('none of which needs shortening', wtRows.every(r => r.label === r.full),
+  wtRows.map(r => r.label).join(' | '));
+check('and the marked squares are the ones from before the World Tour',
+  froms(wtRows).length > 0 && froms(wtRows).every(f => /Superseries|Grand Prix/.test(f)),
+  [...new Set(froms(wtRows))].join(', ') || 'nothing marked');
+
+await b.ev(`window.BST.grid.era('ss')`);
+await b.until(`!!document.querySelector('#honBody .hrow')`, { timeout: 30000 });
+const ssRows = await eraRows();
+
+eq('switching presses the other button',
+  (await eraButtons()).join(' '), 'World Tour Superseries*');
+check('the rows are renamed',
+  ssRows.some(r => r.full === 'Superseries Premier')
+  && ssRows.some(r => r.full === 'Superseries Finals'),
+  ssRows.map(r => r.full).join(' | '));
+/* The gutter is fourteen characters of 10px mono, so the long era names are
+   shortened to fit and the whole name lives on the tooltip.
+   Caught by a screenshot, not by this suite: the first version asserted the
+   full name was on screen, and it was not — the board showed "Superseries Pr",
+   which reads as a bug rather than as an abbreviation. */
+check('shortened where they have to be, whole name on the tooltip',
+  ssRows.every(r => r.label.length <= 14)
+  && ssRows.some(r => r.label === 'SS Premier' && r.full === 'Superseries Premier'),
+  ssRows.map(r => r.label).join(' | '));
+check('and nothing on the board is still called Super anything',
+  !ssRows.some(r => /^Super \d/.test(r.label)), ssRows.map(r => r.label).join(' | '));
+
+/* The whole claim of the switch, on one career: the notch turns over. */
+check('now it is the modern results that are marked instead',
+  froms(ssRows).length > 0 && froms(ssRows).every(f => /^Super \d+$/.test(f)),
+  [...new Set(froms(ssRows))].join(', ') || 'nothing marked');
+eq('and nothing is lost or gained by switching', cells(ssRows), cells(wtRows));
+check('the tooltip says what each marked square actually was',
+  await b.ev(`(document.querySelector('#honBody .cell.mapped') || {})
+    .getAttribute('title').includes('drawn as')`),
+  await b.ev(`(document.querySelector('#honBody .cell.mapped') || {}).getAttribute('title')`));
+
+let sized = 0;
+/* ⚠️ The load-bearing check. The era rows share the rung of the tier they are
+   drawn over precisely so that this holds; give them a ladder of their own and
+   every square on the board changes size when you switch, and the two readings
+   stop being two readings of one board. */
+for (const [wt, ss, name] of [['OLY', 'OLY', 'the Olympics'], ['20', '20', 'the Worlds'],
+  ['22', '22', 'the season-ending Finals'], ['23', '8', 'the top tier'],
+  ['24', '2', 'the tier below it'], ['26', '3', 'the Grand Prix Gold rung']]) {
+  const before = wtRows.find(r => r.g === wt);
+  const after = ssRows.find(r => r.g === ss);
+  /* ⚠️ `!before.w` as well as the two lookups. A row this career never reached
+     at the current bar has no cell to measure, and 0 === 0 would pass without
+     asserting anything at all — which is how the Olympics row was quietly not
+     being checked. */
+  if (!before || !after || !before.w) continue;
+  sized++;
+  check(`${name} is exactly the same size in both readings`,
+    Math.abs(before.w - after.w) < 0.01, `${before.w}px as ${wt}, ${after.w}px as ${ss}`);
+}
+check('and enough rows had a square to measure for that to mean something',
+  sized >= 4, sized + ' rows compared');
+
+/* The note under the board is what explains the notch, so it swaps with it. */
+check('the note that explains the notch swaps with the era',
+  await b.ev(`document.getElementById('mapNote').hidden
+    && !document.getElementById('mapNoteSS').hidden`));
+check('and the sentence about the ladder with it',
+  await b.ev(`document.getElementById('honLadderWT').hidden
+    && !document.getElementById('honLadderSS').hidden`));
+
+/* ---- and it is part of the link ---- */
+
+check('the era travels in the hash', await b.ev(`location.hash.includes('er=ss')`),
+  await b.ev('location.hash'));
+await b.ev(`window.BST.grid.era('wt')`);
+check('and the default is claimed by leaving it out',
+  await b.ev(`!location.hash.includes('er=')`), await b.ev('location.hash'));
+
+check('a link in Superseries names opens in them',
+  await open('#p=57945&pg=compare&v=h&er=ss'));
+await b.until(`!!document.querySelector('#honBody .hrow')`, { timeout: 60000 });
+eq('really opens in them', await b.ev('window.BST.grid.state.era'), 'ss');
+/* ⚠️ Read unconditionally, like the view and the bar. A reader who switches to
+   Superseries and then follows a link that says nothing about the era has to
+   land back in World Tour names, not keep the last thing they looked at. */
+check('and a link that says nothing about it goes back to World Tour',
+  await open('#p=57945&pg=compare&v=h'));
+eq('really goes back', await b.ev('window.BST.grid.state.era'), 'wt');
+
+/* ---- the grid is drawn by a different function and had to get it too ---- */
+
+await b.ev(`window.BST.honours.view('grid')`);
+await b.until(`!!document.querySelector('#gridBody .gtiers .gt')`, { timeout: 30000 });
+const bandOf = () => b.ev(`[...document.querySelectorAll('#gridBody .gtiers .gt')]
+  .map(x => x.textContent).join(' ')`);
+const wtBand = await bandOf();
+await b.ev(`window.BST.grid.era('ss')`);
+await b.until(`!!document.querySelector('#gridBody .gtiers .gt')`, { timeout: 30000 });
+const ssBand = await bandOf();
+check('the grid band is renamed as well', ssBand.includes('SSP') && !ssBand.includes('S1000'),
+  `${wtBand}   ->   ${ssBand}`);
+/* The one place the merge is visible as a shape rather than as a word: the
+   Super 750 and the Super 500 arrive as a single Superseries block. */
+check('and it is one block shorter, because two tiers now share a row',
+  ssBand.split(' ').length === wtBand.split(' ').length - 1,
+  `${wtBand.split(' ').length} blocks -> ${ssBand.split(' ').length}`);
+await b.ev(`window.BST.grid.era('wt')`);
+await b.ev(`window.BST.honours.view('honours')`);
+await b.until(`!!document.querySelector('.honours .cell.r-w')`, { timeout: 30000 });
+
 /* ---- what the default bar shows ---- */
 
 eq('a board nobody has touched is set to the semi-finals',

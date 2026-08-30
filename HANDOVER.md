@@ -1191,6 +1191,76 @@ picks a region.
 drawn as the gap a Tour Finals square would have left, and without the tier there is no
 height — the whole page throws on the first such season.
 
+### 3.4e The era switch, and why backwards is a different map *(built 30 Aug 2026)*
+
+The compare page can name its ladder in either vocabulary. `era` is `'wt'` or `'ss'`, it is a
+property of the **view** and never of a result, and it changes exactly two things: which
+names the rows carry, and which squares are marked as translated.
+
+**Why it was needed.** The forward map (3.4 / Part 7) is right and is the wrong default for
+the comparison the tool exists for. Measured off the fixtures:
+
+| | Superseries-era results | World Tour results |
+|---|---|---|
+| LEE Chong Wei | 116 | 5 |
+| LIN Dan | 86 | 41 |
+
+In World Tour names, 116 of Lee Chong Wei's 140 grid cells are notched translations. In
+Superseries names, 4 are.
+
+⚠️⚠️ **The reverse map is not the forward map inverted.** Same evidence, same method —
+`tournament_series_id` followed across the 2018 boundary — asked the other way:
+
+| modern tier | was | spanning series |
+|---|---|---|
+| Super 1000 | Superseries Premier ×4 | 4, unanimous |
+| Super 750 | Superseries ×4, Premier ×1, GP Gold ×1 | 6 |
+| **Super 500** | **GP Gold ×4, Superseries ×3** | **7, split** |
+| Super 300 | GP Gold ×8, Grand Prix ×1 | 9 |
+| Super 100 | none | — |
+
+The Super 500 does not lack evidence, it has contradictory evidence, and the contradiction is
+the finding: **2018 was a split, not a renaming.** One Grand Prix Gold became both a Super
+500 and a Super 300, which is also why the forward map has four old tiers and five new ones.
+
+**Decision (30 Aug 2026):** the Super 500 folds **upward into the Superseries**. Chosen by
+the owner over relabel-only, with the cost stated: ten of Lin Dan's results move up a rung
+against one of Lee Chong Wei's, so the switch does move the comparison and not only its
+vocabulary. It is disclosed rather than hidden — those squares carry the ordinary notch and
+hovering one says "Super 500, drawn as Superseries", and `mapNoteSS` says it in full under
+the board.
+
+⚠️ **The era groups share the rung of the modern tier they are drawn over** (`SHARES_RUNG`),
+they are not given a ladder of their own. If they were, the Superseries ladder would be one
+rung shorter and *every square on the board would resize when you switched* — the two
+readings would stop being two readings of one board. The visible consequence is that the
+Super 500's rung stands empty in `ss`, so there is one double size step, between Superseries
+and Grand Prix Gold. That is drawn rather than closed up, because the gap is real.
+
+⚠️ **The era ladder is derived, never written out.** `ERA_GRID_ORDER` is `GRID_ORDER` mapped
+through `eraGroup` into a `Set`, so a tier added to the order cannot go missing from the era
+ladder, and the `Set` is what collapses Super 750 and Super 500 into one row.
+
+⚠️ **The era group ids are BWF's own pre-2018 category ids** (8, 2, 3, 4), so `LEVEL` already
+holds their names and abbreviations. There is no second table of labels to drift out of step.
+Only the Tour Finals needs an override (`ERA_LABEL` / `ERA_CODE`), because it is the same rung
+and the same event under a different name.
+
+⚠️ **The notch is defined by the era, not by the category.** `translatedFrom(cat, era)` marks
+the pre-2018 categories in `wt` and the modern ones in `ss` — never "the category differs from
+the row it is drawn in", which was the first version and would put a notch on half the majors:
+the 2017 World Championships is category 1 and the 2012 Asian Championships category 3, and
+that rule calls an Asian Championships a Grand Prix Gold. A test pins the invariant: no square
+is a translation in both readings.
+
+⚠️ **Switching era clears `grid.hiddenGroups`.** The level chips are keyed on the group and
+the two eras do not share their keys — a hidden Super 750 is `24` and a hidden Superseries is
+`2`. Left alone, switching silently un-hides everything and re-hides it on the way back, which
+reads as the chips forgetting themselves.
+
+The era travels in the hash as `er=ss` and is read unconditionally, like `v` and `th`: a link
+without it is claiming World Tour rather than saying nothing.
+
 ### 3.5 Endpoints — the tournament pages *(discovered 21 Aug 2026, all verified 200)*
 
 Part 3.2 was found by pointing `discover.mjs` at the calendar, home and rankings

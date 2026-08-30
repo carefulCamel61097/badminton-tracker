@@ -23,6 +23,8 @@ import {
   canonicalDraw, isOlympics,
   gridGroup, seasonResults, careerRows, gridSections, sectionCells, gridYears,
   resultRank, tournamentSeason, GRID_ORDER,
+  ERAS, ERA_DEFAULT, ERA_GRID_ORDER, eraKey, eraGroup, gridOrder,
+  gridGroupLabel, gridGroupCode, gridGroupShort,
   HONOUR_STEPS, HONOUR_DEFAULT, honourStep, honourScale, honourRung,
   careerHonours, honourSections,
   pickTournament, tournamentDays, defaultDay, parseDayMatches, orderOfPlay,
@@ -1401,6 +1403,172 @@ const lcwH = careerHonours(lcwRows, honourStep('w').rank);
 check('and so do LEE Chong Wei titles',
   (lcwH.by.get(23) || []).length + (lcwH.by.get(24) || []).length > 5,
   `S1000 ${(lcwH.by.get(23) || []).length}, S750 ${(lcwH.by.get(24) || []).length}`);
+
+/* ======================= and read the other way round =======================
+
+   The same two careers in Superseries names. LIN Dan against LEE Chong Wei is
+   the comparison this exists for, and in World Tour names every square on both
+   boards is a translation into a structure neither of them ever played in.
+   ==================================================================== */
+
+console.log('\n=== the era switch ===');
+
+eq('World Tour is the default', ERA_DEFAULT, 'wt');
+eq('and junk falls back to it', eraKey('1987'), 'wt');
+eq('as does nothing at all', eraKey(null), 'wt');
+eq('but a real era is kept', eraKey('ss'), 'ss');
+eq('there are two of them', ERAS.length, 2);
+
+/* ---- the two ladders ---- */
+
+eq('the era ladder is derived, not written out',
+  ERA_GRID_ORDER.join(' '), 'OLY 20 22 11 8 2 3 4 OTHER');
+eq('and gridOrder hands back the right one',
+  gridOrder('wt').join(' '), GRID_ORDER.join(' '));
+
+check('every World Tour tier has somewhere to land in the other era',
+  GRID_ORDER.every(g => ERA_GRID_ORDER.includes(eraGroup(g, 'ss'))),
+  GRID_ORDER.map(g => g + '->' + eraGroup(g, 'ss')).join(' '));
+
+eq('the Super 750 and the Super 500 share the Superseries row',
+  eraGroup(24, 'ss') + ' ' + eraGroup(25, 'ss'), '2 2');
+eq('which is the one row the two ladders do not agree about',
+  GRID_ORDER.length - ERA_GRID_ORDER.length, 1);
+
+check('nothing moves at all in World Tour mode',
+  GRID_ORDER.every(g => eraGroup(g, 'wt') === g));
+check('and the majors move in neither',
+  ['OLY', 20, 22, 11, 'OTHER'].every(g => eraGroup(g, 'ss') === g));
+
+/* ---- names ---- */
+
+eq('a Super 1000 row is a Superseries Premier row',
+  gridGroupLabel(eraGroup(23, 'ss'), 'ss'), 'Superseries Premier');
+eq('a Super 750 row is a Superseries row',
+  gridGroupLabel(eraGroup(24, 'ss'), 'ss'), 'Superseries');
+eq('a Super 300 row is a Grand Prix Gold row',
+  gridGroupLabel(eraGroup(26, 'ss'), 'ss'), 'Grand Prix Gold');
+/* The one row that keeps its rung and changes its name. */
+eq('and the Tour Finals were the Superseries Finals',
+  gridGroupLabel(22, 'ss'), 'Superseries Finals');
+eq('which is not what the other era calls them',
+  gridGroupLabel(22, 'wt'), 'Tour Finals');
+eq('every era row fits the three characters over a column',
+  ERA_GRID_ORDER.map(g => gridGroupCode(g, 'ss')).join(' '),
+  'OLY WCH SSF CON SSP SS GPG GP OTH');
+check('and no era row falls back to its bare id',
+  ERA_GRID_ORDER.every(g => !/^\d+$/.test(gridGroupCode(g, 'ss'))));
+
+/* The label gutter is fourteen characters of 10px mono. Every World Tour name
+   fits it; three era names do not, and the first version put "Superseries Pr"
+   on screen, which reads as a bug rather than as an abbreviation. */
+check('every level fits the honours gutter in either era',
+  [...GRID_ORDER, ...ERA_GRID_ORDER].every(g =>
+    gridGroupShort(g, 'wt').length <= 14 && gridGroupShort(g, 'ss').length <= 14),
+  ERA_GRID_ORDER.map(g => gridGroupShort(g, 'ss')).join(' | '));
+check('and nothing is shortened that did not need to be',
+  GRID_ORDER.every(g => gridGroupShort(g, 'wt') === gridGroupLabel(g, 'wt')));
+eq('the tooltip still carries the whole name',
+  gridGroupLabel(8, 'ss'), 'Superseries Premier');
+eq('while the gutter carries a form of it that fits',
+  gridGroupShort(8, 'ss'), 'SS Premier');
+
+/* ---- sizes ----
+
+   The load-bearing check. Switching vocabulary must not resize an Olympic
+   square: if it did, the two readings would not be two readings of one board,
+   and nothing could be held against anything. */
+
+check('an era row is exactly the size of the modern row it is drawn over',
+  [[23, 8], [24, 2], [26, 3], [27, 4]].every(pair =>
+    honourScale(pair[0]) === honourScale(pair[1])),
+  [[23, 8], [24, 2], [26, 3], [27, 4]]
+    .map(pair => pair[0] + ':' + honourScale(pair[0]).toFixed(3)
+      + ' ' + pair[1] + ':' + honourScale(pair[1]).toFixed(3)).join('  '));
+check('and the majors are the same size in both',
+  ['OLY', 20, 22, 11].every(g => honourScale(g) === honourScale(eraGroup(g, 'ss'))));
+
+/* The Super 500's rung is not reassigned, it is left standing empty — so the
+   step from Superseries down to Grand Prix Gold is twice every other step,
+   which is the shape of a tier having split rather than been renamed. */
+near('the empty Super 500 rung leaves a double step',
+  honourScale(2) / honourScale(3), honourScale(23) / honourScale(25), 1e-9);
+near('while every other step on the era ladder is a single one',
+  honourScale(8) / honourScale(2), honourScale(23) / honourScale(24), 1e-9);
+
+/* ---- the careers ---- */
+
+const linSS = careerRows(lin, 'singles', null, 'ss');
+const lcwSS = careerRows(lcw, 'singles', null, 'ss');
+const linSSCells = cellsOf(linSS);
+const lcwSSCells = cellsOf(lcwSS);
+const lcwCells = cellsOf(lcwRows);
+
+eq('switching era loses no result of LIN Dan', linSSCells.length, linCells.length);
+eq('nor gains LEE Chong Wei one', lcwSSCells.length, lcwCells.length);
+
+const ssGroups = new Set(linSS.flatMap(r => [...r.by.keys()]));
+check('his Superseries Premiers are on a Superseries Premier row', ssGroups.has(8));
+check('his Superseries on a Superseries row', ssGroups.has(2));
+check('his Grand Prix Golds on a Grand Prix Gold row', ssGroups.has(3));
+check('and no row on the board is called Super anything',
+  ![23, 24, 25, 26, 27].some(g => ssGroups.has(g)), [...ssGroups].join(' '));
+
+/* ---- the notch, which has to keep meaning one thing ---- */
+
+check('now it is the modern results that are marked',
+  linSSCells.filter(c => c.from).every(c => /^Super \d+$/.test(c.from)),
+  [...new Set(linSSCells.filter(c => c.from).map(c => c.from))].join(', '));
+check('and a Superseries Premier is simply a Superseries Premier',
+  linSSCells.filter(c => c.tmt && String(c.tmt.cat) === '8').every(c => !c.from),
+  linSSCells.filter(c => c.tmt && String(c.tmt.cat) === '8').length + ' of them');
+
+/* Symmetric, and that is the whole claim: a square is a translation in exactly
+   one of the two readings, never in both. The two lists are built from the same
+   career in the same order, so they line up index for index. */
+check('no result is a translation in both readings at once',
+  linCells.every((c, i) => !(c.from && linSSCells[i] && linSSCells[i].from)),
+  linCells.filter((c, i) => c.from && linSSCells[i] && linSSCells[i].from).length
+  + ' marked twice');
+check('and a result on the tier ladder is a translation in one of them',
+  linCells.filter((c, i) => c.tmt
+    && [2, 3, 4, 8, 23, 24, 25, 26, 27].includes(Number(c.tmt.cat)))
+    .length > 100);
+
+/* ---- the Super 500, which is the cost of reading it this way ---- */
+
+const wt500 = linCells.filter(c => c.group === 25);
+check('LIN Dan really does have Super 500 results', wt500.length >= 8, wt500.length + '');
+const ss500 = linSSCells.filter(c => c.from === 'Super 500');
+eq('and in Superseries names every one of them is marked', ss500.length, wt500.length);
+check('each folded up into the Superseries row rather than left loose',
+  ss500.every(c => c.group === 2), [...new Set(ss500.map(c => c.group))].join(' '));
+check('so it is drawn a rung higher than it was, which the notch admits to',
+  honourScale(2) > honourScale(25));
+
+/* LEE Chong Wei retired before the World Tour was two seasons old, which is the
+   case the switch exists for: read this way his board stops being a translation
+   almost entirely. */
+check('LEE Chong Wei has barely anything left to translate',
+  lcwSSCells.filter(c => c.from).length < lcwCells.filter(c => c.from).length / 10,
+  lcwSSCells.filter(c => c.from).length + ' marked, against '
+  + lcwCells.filter(c => c.from).length + ' in World Tour names');
+
+/* ---- and the blocks a comparison is drawn on ---- */
+
+const ssSections = gridSections([linSS, lcwSS].map(r => r.map(x => x.by)), 'ss');
+eq('the two of them share one era ladder, hardest first',
+  ssSections.map(x => x.code).join(' '),
+  ERA_GRID_ORDER.filter(g => ssSections.some(x => x.group === g))
+    .map(g => gridGroupCode(g, 'ss')).join(' '));
+check('with a Superseries Premier block on it',
+  ssSections.some(x => x.code === 'SSP'), ssSections.map(x => x.code).join(' '));
+
+const ssH = honourSections([careerHonours(linSS, honourStep('w').rank),
+  careerHonours(lcwSS, honourStep('w').rank)], 'ss');
+check('and an honours board that names its rows the same way',
+  ssH.length > 0 && ssH.every(r => r.label === gridGroupLabel(r.group, 'ss')),
+  ssH.map(r => r.label).join(' | '));
 
 /* ---- what counts as having moved ---- */
 
