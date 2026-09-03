@@ -2001,6 +2001,257 @@ export function parseDayMatches(payload, day) {
     .map(r => Object.assign(parseMatch(r), day ? { day } : {}));
 }
 
+/* ======================== the draws, and the bracket ========================
+
+   `vue-tournament-draw-data` returns the literal bracket: `results` is a grid
+   keyed `"col-row"` — `"0-0"`, `"0-1"`, … — with the flat `matches` array
+   carrying the same fixtures again in a richer form. They join on `code`.
+
+   ⚠️ **Only `matches[]` carries `id`.** The grid cells have `code`, which is
+   unique within a draw but not across one — MS and WD both have a match `1`.
+   Everything that identifies a match across the tournament (a star, most of
+   all) needs the id, so the richer object is substituted into the grid and the
+   cells are parsed by the same `parseMatch` the order of play uses.
+   ==================================================================== */
+
+/* `DRAW_ORDER` — BWF's own order for the five disciplines — is declared with
+   `drawsPresent` further down and shared with it: the bracket picker and the
+   order-of-play chips must not drift into two different orders. It is only ever
+   read inside a function, so the later declaration is not a TDZ problem. */
+
+/**
+ * The disciplines at a tournament, with the **drawId each one actually has**.
+ *
+ * Qualifying draws are dropped. They are real and they are played, but a
+ * qualifying draw is a single column of eight unrelated matches — `drawendcol`
+ * is set and every cell says "Qual. R16" — and one column is a list, not a
+ * bracket. The order of play already shows those matches on the day.
+ */
+export function parseDrawList(payload) {
+  const rows = Array.isArray(payload) ? payload
+    : (payload && Array.isArray(payload.results)) ? payload.results : [];
+  const out = [];
+  for (const r of rows) {
+    if (!r || Number(r.qualification)) continue;
+    const code = canonicalDraw(r.text) || canonicalDraw(r.slug);
+    if (!code || !DRAW_ORDER.includes(code)) continue;
+    out.push({
+      id: String(r.value),
+      code,
+      label: String(r.text || code),
+      /* ⚠️ BWF's two size fields disagree by a factor of two on purpose: the
+         list says `size: 32` meaning the *field*, and the draw payload says
+         `drawsize: 16` meaning the number of first-round *matches*. Field size
+         is the one a reader recognises, so it is the one kept. */
+      size: Number(r.size) || null,
+      doubles: !!r.doubles,
+    });
+  }
+  return out.sort((a, b) => DRAW_ORDER.indexOf(a.code) - DRAW_ORDER.indexOf(b.code));
+}
+
+/**
+ * One draw, as a grid of parsed matches.
+ *
+ * ⚠️ **Byes are not a doubles curiosity.** The predecessor recorded them as
+ * something that happens when 48 pairs enter a 64 draw, and noted that its
+ * singles fields were full. That was true of a World Championships and is not
+ * true generally: the men's singles at the Pontianak Indonesia Masters is a 64
+ * draw with **16 byes** in round one. A bye is a cell with one side filled and
+ * the other empty — it is not a fixture, it is a player already through, and
+ * drawing it as "v TBD" invents sixteen matches nobody will ever play.
+ */
+export function parseDraw(payload) {
+  const grid = (payload && payload.results) || {};
+  const flat = (payload && payload.matches) || [];
+  const byCode = new Map(flat.filter(m => m && m.code != null)
+    .map(m => [String(m.code), m]));
+
+  const cells = new Map();
+  let maxCol = 0;
+  for (const [k, cell] of Object.entries(grid)) {
+    const bits = String(k).split('-');
+    if (bits.length !== 2) continue;
+    const col = Number(bits[0]), row = Number(bits[1]);
+    if (!Number.isFinite(col) || !Number.isFinite(row)) continue;
+    const gm = cell && cell.match;
+    if (!gm) continue;
+    const m = parseMatch(byCode.get(String(gm.code)) || gm);
+    const filled = m.sides.filter(sd => sd.players.length).length;
+    cells.set(col + '-' + row, Object.assign(m, {
+      col, row,
+      code: gm.code == null ? '' : String(gm.code),
+      /* One side named and the other empty, in the first round only: through
+         without playing. In any later column the same shape is simply a fixture
+         whose feeder has not been decided yet. */
+      bye: col === 0 && filled === 1,
+    }));
+    if (col > maxCol) maxCol = col;
+  }
+  return { cells, maxCol, size: Number(payload && payload.drawsize) || 0 };
+}
+
+const cellAt = (draw, c, r) => (draw && draw.cells.get(c + '-' + r)) || null;
+
+/** How many cells a column holds. */
+export function colCount(draw, col) {
+  if (!draw) return 0;
+  let n = 0;
+  while (draw.cells.has(col + '-' + n)) n++;
+  return n;
+}
+
+/** The rounds of a draw, outermost first, as `{ col, round }`. */
+export function bracketRounds(draw) {
+  if (!draw) return [];
+  const out = [];
+  for (let c = 0; c <= draw.maxCol; c++) {
+    const m = cellAt(draw, c, 0);
+    if (m) out.push({ col: c, round: m.round || 'Round ' + (c + 1) });
+  }
+  return out;
+}
+
+/* ---- folding away rounds that are over ----
+
+   Inherited whole from the predecessor, where it was measured: by the
+   quarter-finals a full bracket is mostly empty space. The spacing law is
+
+       centre(c, r) = (r + 0.5) * 2^c * SLOT
+
+   so **every round doubles the gap between its cards** — the four QF cards sit
+   sixteen slots apart because they still have to line up with thirty-two
+   first-round matches nobody is looking at any more.
+
+   ⚠️ Hiding the early columns does not help, and that is the part worth
+   remembering: the gaps come from the geometry, not from the columns being
+   drawn. So the tree is *re-laid out* from the chosen round, which becomes the
+   new column zero and puts its cards one slot apart again. It stays a real
+   bracket, connectors and all, just a smaller one. */
+
+/** The earliest round that still has a match to play. */
+export function autoFromCol(draw) {
+  if (!draw) return 0;
+  for (let c = 0; c <= draw.maxCol; c++) {
+    const n = colCount(draw, c);
+    for (let r = 0; r < n; r++) {
+      const m = cellAt(draw, c, r);
+      if (!m) continue;
+      // An unplayed bye is not a fixture, and must not hold the view back on a
+      // round that is otherwise finished.
+      if (m.bye) continue;
+      if (!m.winner) return c;
+    }
+  }
+  /* Everything is played. Stop short of the final: however finished a draw is,
+     one card is not a bracket. */
+  return Math.max(0, draw.maxCol - 2);
+}
+
+/**
+ * Which column the tree should be drawn from.
+ *
+ * `pick` is a round name, `'all'`, or null for "follow the tournament".
+ */
+export function fromCol(draw, pick) {
+  if (!draw) return 0;
+  if (pick === 'all') return 0;
+  let c;
+  if (pick) {
+    const found = bracketRounds(draw).find(r => r.round === pick);
+    c = found ? found.col : -1;
+  } else {
+    c = autoFromCol(draw);
+  }
+  if (c < 0) return 0;
+  /* Never fold past the semi-finals: two columns is the least that still has a
+     shape rather than being a list. */
+  return Math.max(0, Math.min(c, draw.maxCol - 1));
+}
+
+/** The round `fromCol` settled on, so the chip for it can be lit. */
+export function resolvedRound(draw, pick) {
+  if (!draw) return 'all';
+  const c = fromCol(draw, pick);
+  if (c === 0) return 'all';
+  const m = cellAt(draw, c, 0);
+  return (m && m.round) || 'all';
+}
+
+/* ---- geometry ----
+
+   Positions are computed rather than derived by walking the tree. A match at
+   (col c, row r) is fed by (c-1, 2r) and (c-1, 2r+1), so its vertical centre is
+   the midpoint of its feeders, which closes to the law above: every column is
+   simply a doubling of the one before it. */
+
+/* ⚠️ **230, found by looking at it.** At 190 the cards fitted the arithmetic
+   and cut the names: "Kunlavut VIT…", "Kodai NARA…", "Anders ANTON…" — a
+   bracket whose competitors cannot be read. A doubles pair is shortened to
+   surnames, but a singles player is one name and there is nothing to shorten,
+   so the card has to be wide enough for the longest of them. It costs nothing
+   where it matters: folded to the quarter-finals the canvas is 774px in a
+   viewport several times that. */
+export const BR = { CARD_W: 230, CARD_H: 50, GAP_Y: 8, CONN_W: 28, PAD: 14, LABEL_H: 22 };
+export const SLOT = BR.CARD_H + BR.GAP_Y;
+
+export const brCentre = (c, r) => (r + 0.5) * Math.pow(2, c) * SLOT;
+export const brLeft = c => c * (BR.CARD_W + BR.CONN_W);
+
+/**
+ * Everything needed to draw the bracket, and nothing about how it is drawn:
+ * card boxes, elbow connector segments, column headings, canvas size.
+ *
+ * Kept a pure function of the draw so the geometry can be checked without a
+ * browser — it is the part that is arithmetic rather than judgement.
+ */
+export function bracketLayout(draw, pick) {
+  const empty = { width: 0, height: 0, cards: [], lines: [], labels: [], from: 0 };
+  if (!draw || !draw.cells.size) return empty;
+
+  const f = fromCol(draw, pick);
+  const cols = draw.maxCol + 1;
+  const x = c => BR.PAD + brLeft(c - f);
+  const y = (c, r) => BR.PAD + BR.LABEL_H + brCentre(c - f, r);
+
+  const cards = [];
+  const lines = [];
+  const labels = [];
+
+  for (let c = f; c < cols; c++) {
+    const head = cellAt(draw, c, 0);
+    labels.push({ x: x(c), y: BR.PAD, w: BR.CARD_W, text: (head && head.round) || '' });
+
+    const n = colCount(draw, c);
+    for (let r = 0; r < n; r++) {
+      const m = cellAt(draw, c, r);
+      if (m) {
+        cards.push({
+          match: m, x: x(c), y: y(c, r) - BR.CARD_H / 2,
+          w: BR.CARD_W, h: BR.CARD_H,
+        });
+      }
+
+      // The elbow from this cell's two feeders, drawn as four hairlines.
+      if (c === f) continue;
+      const y1 = y(c - 1, 2 * r), y2 = y(c - 1, 2 * r + 1), yc = y(c, r);
+      const x0 = x(c - 1) + BR.CARD_W;
+      const xm = x0 + BR.CONN_W / 2;
+      lines.push({ x: x0, y: y1, w: BR.CONN_W / 2, h: 1 });
+      lines.push({ x: x0, y: y2, w: BR.CONN_W / 2, h: 1 });
+      lines.push({ x: xm, y: y1, w: 1, h: Math.max(1, y2 - y1) });
+      lines.push({ x: xm, y: yc, w: BR.CONN_W / 2, h: 1 });
+    }
+  }
+
+  return {
+    from: f,
+    cards, lines, labels,
+    width: x(cols - 1) + BR.CARD_W + BR.PAD,
+    height: BR.PAD * 2 + BR.LABEL_H + colCount(draw, f) * SLOT,
+  };
+}
+
 /**
  * What counts as a match having *moved*.
  *

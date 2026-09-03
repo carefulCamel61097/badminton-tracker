@@ -15,6 +15,7 @@ import {
   loadSeason, loadPlayer, loadDraws, searchPlayers, loadTopRanked, loadRoster,
   loadWorldRank, loadRaceRank, loadLastMatch, rankingFor,
   RANKING_CATEGORIES, queueDepth, loadSchedule, loadDayMatches, loadWinners,
+  loadDrawList, loadDrawData,
 } from './api.js';
 import {
   positionInfo, fillFraction, drawForKind, dominantDraw, seasonKinds,
@@ -27,6 +28,7 @@ import {
   careerHonours, honourSections,
   pickTournament, tournamentDays, defaultDay, parseDayMatches, orderOfPlay,
   courtGrid, drawsPresent, dayOf, matchSignature, prettyDay, tidyTmtName,
+  parseDrawList, parseDraw, bracketLayout, bracketRounds, resolvedRound, surnameOf,
   rosterMatches, mergeSuggestions,
   pyramidSeason, pyramidBulges, pyramidRowWidth,
 } from './model.js';
@@ -1750,8 +1752,21 @@ const tmt = {
   fresh: new Map(),       // match id -> when it last moved under us
   checked: null,          // when the scores were last asked for
   moved: 0,               // how many moved on that check
+
+  /* The bracket. A second reading of the same tournament, so it shares the
+     pick, the stars and the freshness marks and keeps only what is its own. */
+  view: 'oop',            // 'oop' | 'draw'
+  drawList: [],           // the disciplines, with the drawId each one has
+  drawFor: null,          // the tmtId drawList belongs to, so a switch clears it
+  drawCode: null,         // the discipline showing
+  wantDraw: null,         // one asked for by the hash, before the list has landed
+  draws: new Map(),       // drawId -> parsed bracket
+  round: null,            // the round to lay out from; null follows the tournament
+  drawLoading: false,
+  drawError: null,
 };
 let tmtToken = 0;
+let drawToken = 0;
 let liveTimer = null;
 
 /* ---------- stars ----------
@@ -1854,6 +1869,9 @@ async function loadTournament(opts = {}) {
   if (token !== tmtToken) return;
   tmt.loading = false;
   if (opts.fresh) tmt.checked = new Date();
+  /* A bracket fills in as the week goes, so the live check refreshes it too —
+     but only while it is the view being looked at. */
+  if (tmt.view === 'draw') loadBracket({ fresh: !!opts.fresh });
   renderTmt();
   writeHash();
 }
@@ -1917,6 +1935,245 @@ async function pickDay(day) {
   tmt.loading = false;
   renderTmt();
 }
+
+/* ---------- the bracket ----------
+
+   The other reading of the same tournament. The order of play answers "what is
+   on court today"; the draw answers "where is this all heading", which is the
+   question a tournament page cannot answer from one day's fixtures.
+
+   ⚠️ Loaded only when the view is actually opened. It is two requests per
+   discipline switch and most readers come for the day's matches, so a page that
+   fetched all five draws on arrival would spend the reader's rate limit on
+   something they never looked at. */
+
+/** Every draw at this tournament, then the one that is showing. */
+async function loadBracket(opts = {}) {
+  const t = tmt.pick && tmt.pick.tmt;
+  if (!t || !t.id) return;
+  const token = ++drawToken;
+  /* Switching between two tournaments running the same week keeps the page but
+     changes everything on it: the drawIds are that tournament's, and MS at one
+     is not MS at the other. */
+  if (tmt.drawFor !== t.id) {
+    tmt.drawFor = t.id;
+    tmt.drawList = [];
+    tmt.draws.clear();
+    tmt.drawCode = null;
+  }
+  tmt.drawError = null;
+  tmt.drawLoading = true;
+  renderTmt();
+
+  try {
+    // The list of draws at a tournament is settled before it starts, so a live
+    // refresh re-asks for the bracket and never for this.
+    if (!tmt.drawList.length) {
+      const list = parseDrawList(await loadDrawList(t.id));
+      if (token !== drawToken) return;
+      tmt.drawList = list;
+    }
+    /* ⚠️ Outside the block above, not inside it. A link naming a discipline is
+       usually followed *while the list is already loaded* — the reader is
+       already on the page — so honouring `dr=` only on the first fetch meant a
+       bracket link opened on whatever was showing before. Falling back to the
+       first draw covers the other case: a link made at a tournament that ran a
+       discipline this one does not, which should not blank the page. */
+    if (tmt.wantDraw) {
+      const want = tmt.drawList.find(d => d.code === tmt.wantDraw);
+      if (want) tmt.drawCode = want.code;
+      tmt.wantDraw = null;
+    }
+    if (!tmt.drawCode) tmt.drawCode = (tmt.drawList[0] || {}).code || null;
+    const d = tmt.drawList.find(x => x.code === tmt.drawCode);
+    if (!d) { tmt.drawLoading = false; renderTmt(); return; }
+
+    if (!tmt.draws.has(d.id) || opts.fresh) {
+      const raw = await loadDrawData(t.id, d.id, { fresh: !!opts.fresh });
+      if (token !== drawToken) return;
+      tmt.draws.set(d.id, parseDraw(raw));
+    }
+  } catch (e) {
+    if (token !== drawToken) return;
+    /* ⚠️ Expected, not exceptional: `vue-tournament-draw-data` returns 500 for
+       some tournaments — Paris 2024 and the 2026 Indonesia Open are both known
+       (Part 3.4d) — and a bracket *is* that payload, so there is nothing to
+       fall back to. What matters is that the order of play beside it stays
+       reachable rather than the page going down with the draw. */
+    tmt.drawError = 'BWF would not give up this draw (' + e.message
+      + '). The order of play still works.';
+  }
+  if (token !== drawToken) return;
+  tmt.drawLoading = false;
+  renderTmt();
+}
+
+const currentDraw = () => {
+  const d = tmt.drawList.find(x => x.code === tmt.drawCode);
+  return d ? tmt.draws.get(d.id) || null : null;
+};
+
+function setTmtView(view) {
+  if (tmt.view === view) return;
+  tmt.view = view;
+  writeHash();
+  renderTmt();
+  if (view === 'draw') loadBracket();
+}
+
+function pickDrawCode(code) {
+  if (code === tmt.drawCode) return;
+  tmt.drawCode = code;
+  /* The round belonged to the draw being left. Two disciplines at the same
+     tournament can be different sizes — the men's singles at Pontianak is a 64
+     and the women's is a 32 — so "R64" is not even a round the next one has. */
+  tmt.round = null;
+  writeHash();
+  renderTmt();
+  loadBracket();
+}
+
+function pickRound(round) {
+  tmt.round = round;
+  writeHash();
+  renderTmt();
+}
+
+/* One side of a bracket card. The same reading order as the order of play —
+   flag, seed, name, that side's games — in a card a third of the width, so the
+   country line and the round label the big card carries are dropped rather than
+   shrunk. */
+function bracketSide(m, sd) {
+  const cls = ['bside', sd.won ? 'is-winner' : '', sd.lost ? 'is-loser' : '']
+    .filter(Boolean).join(' ');
+  /* ⚠️ Surnames only. A doubles pair written in full is four names in a 190px
+     card; the predecessor found the same thing and shortened its pair names
+     everywhere for it. Singles keep the full name, and the full form is on the
+     card's tooltip either way. */
+  const names = sd.players.length
+    ? (sd.players.length > 1
+      ? sd.players.map(pl => surnameOf(pl.name)).join(' / ')
+      : sd.players[0].name)
+    : `<span class="muted">${m.bye ? 'Bye' : '—'}</span>`;
+  const sets = sd.games.map(g => `<b class="${g.won ? 'won' : ''}">${g.own}</b>`).join('');
+  const mark = m.note && sd.lost ? `<b class="mk">${esc(m.note.short)}</b>` : '';
+  return `<div class="${cls}">`
+    + (sd.flag ? `<img class="flag" src="${esc(sd.flag)}" alt="${esc(sd.country)}">`
+      : '<span class="flag"></span>')
+    + `<span class="seed">${esc(sd.seed || '')}</span>`
+    + `<span class="bn">${sd.players.length ? esc(names) : names}</span>`
+    + `<span class="bsc">${sets}${mark}</span></div>`;
+}
+
+function bracketCardHtml(card) {
+  const m = card.match;
+  const star = isStarred(m);
+  const dimming = tmt.starred.size > 0;
+  const moved = tmt.fresh.get(m.id);
+  const cls = ['bcard', 'is-' + m.status,
+    m.bye ? 'is-bye' : '',
+    star ? 'is-starred' : dimming && !m.bye ? 'is-dim' : '',
+    moved && Date.now() - moved < FRESH_MS ? 'is-fresh' : ''].filter(Boolean).join(' ');
+
+  // The full names, which the card itself has no room for.
+  const who = m.sides.map(sd => sd.players.map(pl => pl.name).join(' / ') || 'TBD').join('  v  ');
+  const tip = m.bye
+    ? `${who.replace('  v  TBD', '')}\nThrough without playing`
+    : `${who}\n${m.round}${m.time ? ' · ' + m.time : ''}`
+      + (star ? '\nStarred — click to remove' : '\nClick to star this match');
+
+  return `<article class="${cls}" data-id="${esc(m.id)}" data-bye="${m.bye}"`
+    + ` style="left:${card.x}px;top:${card.y}px;width:${card.w}px;height:${card.h}px"`
+    + ` title="${esc(tip)}">`
+    + m.sides.map(sd => bracketSide(m, sd)).join('')
+    + '</article>';
+}
+
+function renderDrawBars() {
+  const draw = currentDraw();
+  $('tmtDrawPick').innerHTML = tmt.drawList.map(d => {
+    const on = d.code === tmt.drawCode;
+    return `<button type="button" class="chip${on ? ' on' : ''}" data-code="${esc(d.code)}"`
+      + ` aria-pressed="${on}" title="${esc(d.label + (d.size ? ` — ${d.size} draw` : ''))}">`
+      + `${esc(d.code)}${d.size ? `<span class="n">${d.size}</span>` : ''}</button>`;
+  }).join('');
+
+  /* The rounds that can be folded to. The last one is left off: "Final" would
+     be one card, which is not a bracket, and `fromCol` refuses to go past the
+     semi-finals anyway — offering a chip that silently does something else is
+     worse than not offering it. */
+  const rounds = draw ? bracketRounds(draw).slice(1, -1) : [];
+  const active = draw ? resolvedRound(draw, tmt.round) : 'all';
+  const chip = (val, text, title) =>
+    `<button type="button" class="chip${val === active ? ' on' : ''}" data-round="${esc(val)}"`
+    + ` aria-pressed="${val === active}" title="${esc(title)}">${esc(text)}</button>`;
+  $('tmtRounds').innerHTML = rounds.length
+    ? chip('all', 'All', 'The whole draw, first round included')
+      + rounds.map(r => chip(r.round, r.round,
+        `Re-lay the tree out from the ${r.round}`)).join('')
+    : '';
+}
+
+function renderBracket() {
+  const body = $('tmtDrawBody');
+  const canvas = $('tmtCanvas');
+  const draw = currentDraw();
+
+  // The schedule failing is a bigger problem than the draw failing, and this is
+  // the only place it can be said while the bracket is the view.
+  if (tmt.error) {
+    canvas.style.width = canvas.style.height = '';
+    canvas.innerHTML = `<p class="gnote error">${esc(tmt.error)}</p>`;
+    return;
+  }
+  if (tmt.drawError) {
+    canvas.style.width = canvas.style.height = '';
+    canvas.innerHTML = `<p class="gnote error">${esc(tmt.drawError)}</p>`;
+    return;
+  }
+  if (!draw) {
+    canvas.style.width = canvas.style.height = '';
+    canvas.innerHTML = tmt.drawLoading
+      ? '<p class="gnote">Working out the bracket…</p>'
+      : `<p class="gnote">BWF has not published ${tmt.drawList.length ? 'this draw'
+        : 'the draws'} yet.</p>`;
+    return;
+  }
+
+  const L = bracketLayout(draw, tmt.round);
+  canvas.style.width = L.width + 'px';
+  canvas.style.height = L.height + 'px';
+  canvas.innerHTML =
+    L.labels.map(l => `<div class="bcol" style="left:${l.x}px;top:${l.y}px;`
+      + `width:${l.w}px">${esc(l.text)}</div>`).join('')
+    + L.lines.map(n => `<div class="bline" style="left:${n.x}px;top:${n.y}px;`
+      + `width:${n.w}px;height:${n.h}px"></div>`).join('')
+    + L.cards.map(bracketCardHtml).join('');
+  body.dataset.cards = L.cards.length;
+}
+
+$('tmtView').addEventListener('click', e => {
+  const b = e.target.closest('[data-view]');
+  if (b) setTmtView(b.dataset.view);
+});
+
+$('tmtDrawPick').addEventListener('click', e => {
+  const b = e.target.closest('[data-code]');
+  if (b) pickDrawCode(b.dataset.code);
+});
+
+$('tmtRounds').addEventListener('click', e => {
+  const b = e.target.closest('[data-round]');
+  if (b) pickRound(b.dataset.round);
+});
+
+/* A bye has nobody to play, so there is nothing to star — and a card that
+   highlights on hover but does nothing when clicked is worse than an inert one. */
+$('tmtCanvas').addEventListener('click', e => {
+  const card = e.target.closest('.bcard');
+  if (!card || card.dataset.bye === 'true' || !card.dataset.id) return;
+  toggleStar(card.dataset.id);
+});
 
 /* ---------- checking for changes ----------
 
@@ -2160,6 +2417,25 @@ function renderTmt() {
   if (t && t.tmtLink) { link.href = t.tmtLink; link.hidden = false; } else { link.hidden = true; }
   renderTmtAlso();
 
+  const isDraw = tmt.view === 'draw';
+  $('tmtView').querySelectorAll('[data-view]').forEach(b => {
+    const on = b.dataset.view === tmt.view;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+  /* The day bar and the draw filter belong to the order of play. A bracket is
+     one discipline across the whole week, so neither question applies to it —
+     it brings its own two bars instead. */
+  $('tmtDayBar').hidden = isDraw;
+  $('tmtDrawsBar').hidden = isDraw;
+  $('tmtBody').hidden = isDraw;
+  $('tmtNote').hidden = isDraw;
+  $('tmtDrawBar').hidden = !isDraw;
+  $('tmtDrawBody').hidden = !isDraw;
+  $('tmtDrawNote').hidden = !isDraw;
+
+  if (isDraw) { renderDrawBars(); renderBracket(); paintLive(); return; }
+
   renderTmtDays();
   renderTmtDraws();
   renderStarBar();
@@ -2265,6 +2541,11 @@ function readHash() {
      names one that is actually on, so an old link falls back to the default. */
   tmt.wantCode = h.get('t') || null;
   if (h.has('dw')) tmt.hiddenDraws = new Set(h.get('dw').split('.').filter(Boolean));
+  /* Set unconditionally, like the grid's view: a link without `tv` is claiming
+     the order of play rather than saying nothing about it. */
+  tmt.view = h.get('tv') === 'draw' ? 'draw' : 'oop';
+  tmt.wantDraw = h.get('dr') || null;
+  tmt.round = h.get('rd') || null;
   tmt.starredOnly = h.get('so') === '1';
   /* Set unconditionally, like the grid's view and bar: a link without it is
      claiming the default rather than saying nothing. */
@@ -2329,6 +2610,16 @@ function writeHash() {
   if (page === 'tmt' && tmt.pick && tmt.pick.also && tmt.pick.also.length
       && tmt.wantCode) p.set('t', tmt.wantCode);
   if (page === 'tmt' && tmt.hiddenDraws.size) p.set('dw', [...tmt.hiddenDraws].join('.'));
+  /* Which reading of the tournament, which discipline, and how far in — all
+     three are what the page is *arguing*, so a link to a semi-final draw opens
+     on that semi-final draw. The round only travels when it was chosen: the
+     default follows the tournament, and a link that pinned it would still be
+     showing the quarter-finals a week later. */
+  if (page === 'tmt' && tmt.view === 'draw') {
+    p.set('tv', 'draw');
+    if (tmt.drawCode) p.set('dr', tmt.drawCode);
+    if (tmt.round) p.set('rd', tmt.round);
+  }
   // Which matches are starred is a decision about *this reader*, not about the
   // tournament, so it stays in localStorage. Whether the page is filtered to
   // them is a view of it, and travels.
@@ -2476,6 +2767,48 @@ window.BST = {
     only: v => (v == null ? tmt.starredOnly
       : (tmt.starredOnly = !!v, renderTmt(), writeHash(), tmt.starredOnly)),
     moved: () => tmt.moved,
+
+    /** The bracket, read back off the DOM rather than off the model. */
+    bracket: {
+      view: v => (v == null ? tmt.view : (setTmtView(v), tmt.view)),
+      draws: () => tmt.drawList.map(d => ({ code: d.code, id: d.id, size: d.size })),
+      pick: c => (c == null ? tmt.drawCode : (pickDrawCode(c), tmt.drawCode)),
+      round: r => (r === undefined ? tmt.round : (pickRound(r), tmt.round)),
+      shown: () => {
+        const on = document.querySelector('#tmtRounds .chip.on');
+        return on ? on.dataset.round : null;
+      },
+      ready: () => !tmt.drawLoading && !tmt.loading && queueDepth() === 0,
+      reload: () => loadBracket({ fresh: true }),
+      /** Every card on the canvas, with where it actually landed. */
+      cards: () => [...document.querySelectorAll('#tmtCanvas .bcard')].map(c => ({
+        id: c.dataset.id,
+        bye: c.dataset.bye === 'true',
+        starred: c.classList.contains('is-starred'),
+        x: Math.round(parseFloat(c.style.left)),
+        y: Math.round(parseFloat(c.style.top)),
+        w: Math.round(parseFloat(c.style.width)),
+        h: Math.round(parseFloat(c.style.height)),
+        names: [...c.querySelectorAll('.bn')].map(n => n.textContent.trim()),
+      })),
+      lines: () => document.querySelectorAll('#tmtCanvas .bline').length,
+      labels: () => [...document.querySelectorAll('#tmtCanvas .bcol')]
+        .map(l => l.textContent.trim()),
+      canvas: () => {
+        const c = $('tmtCanvas');
+        return { w: Math.round(parseFloat(c.style.width) || 0),
+          h: Math.round(parseFloat(c.style.height) || 0) };
+      },
+      /** Does the viewport have to scroll to show it? */
+      fits: () => {
+        const vp = document.querySelector('#tmtDrawBody .brwrap');
+        const c = $('tmtCanvas');
+        if (!vp || !c) return null;
+        return { w: vp.clientWidth >= (parseFloat(c.style.width) || 0),
+          h: vp.clientHeight >= (parseFloat(c.style.height) || 0) };
+      },
+    },
+
     /** Day headings, when every day is on screen at once. */
     groups: () => [...document.querySelectorAll('#tmtPage .daygroup')].map(g => ({
       head: (g.querySelector('h3') || {}).textContent || '',

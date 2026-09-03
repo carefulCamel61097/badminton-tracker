@@ -191,6 +191,67 @@ it matters. **Refresh** asks now. Times are given at the venue and, where it dif
 you are. `#now=YYYY-MM-DD` pins what the page thinks today is, useful for seeing what finals
 day will look like without waiting for one.
 
+### The bracket
+
+The other reading of the same tournament. The order of play answers *what is on court
+today*; the draw answers *where is this all heading*, which no single day's fixtures can.
+**Order of play / Bracket** switches between them and the choice travels in the link.
+
+It is the predecessor's map view: feeders on the left, the Final on the right, elbow
+connectors between, every card sitting at the midpoint of the two that feed it. Positions
+are computed rather than walked —
+
+```
+centre(c, r) = (r + 0.5) · 2^c · SLOT        SLOT = card height + gap
+left(c)      = c · (card width + connector width)
+```
+
+— so each column is a doubling of the one before it.
+
+**Folding away the rounds that are over.** By the quarter-finals a full bracket is mostly
+empty space: the spacing law means every round doubles the gap between its cards, so four
+quarter-final cards sit **sixteen slots apart** because they still have to line up with
+thirty-two first-round matches nobody is looking at any more. Hiding the early columns
+would not have helped — the gaps are the geometry, not the drawing. So the tree is
+*re-laid out* from the round you pick, which becomes the new column zero and puts its
+cards one slot apart again. It stays a real bracket, connectors and all, just a smaller
+one:
+
+| Show from | Cards | Segments | Canvas |
+|---|---|---|---|
+| All | 63 | 124 | 1548 × 1906 |
+| R32 | 31 | 60 | 1290 × 978 |
+| R16 | 15 | 28 | 1032 × 514 |
+| QF | 7 | 12 | 774 × 282 |
+
+From the quarter-finals the whole rest of the tournament is on screen with no scrolling at
+all. **The default follows the tournament**, like the day bar: it opens on the earliest
+round that still has a match to play, and stops at the quarter-finals however finished the
+draw is, because one card is not a bracket.
+
+**A draw is one discipline by definition**, so the bracket picks exactly one rather than
+filtering several, and it says the field size beside each — `MS 64`, `WS 32`. The draw ids
+come from BWF's own list rather than from counting: at a tournament with qualifying they
+run 2, 4, 6, 8, 10, and asking for `1` gets you the men's *qualifying* draw, which is a
+real payload quietly answering a different question.
+
+**Byes are drawn, not invented.** A first-round cell with one side filled and the other
+empty is a player already through, not a fixture — it gets a dashed card reading *Bye*
+rather than "v TBD". This is not a doubles curiosity: the men's singles at the Pontianak
+Indonesia Masters is a 64 draw with **sixteen** of them.
+
+A doubles pair is written `SURNAME / SURNAME`, because four names do not fit a card and one
+pair is one competitor; singles keep the full name, and hovering any card gives the full
+form either way. **Clicking a card stars the match** — the same star the order of play
+uses, on the same match, because it is the same match.
+
+**Scrolling is the browser's.** The predecessor drove pan and zoom from pointer events and
+recorded two traps it cost: `setPointerCapture` retargets the follow-up click, so cards
+never received it, and `preventDefault()` on `pointerdown` can suppress the click entirely.
+All of that exists so dragging and clicking can coexist. Here the fold does the job custom
+panning was there for, so there is no drag, the click is an ordinary click, and none of
+those traps can come back.
+
 ## Winners
 
 One column per season, oldest on the left, each a pyramid of the titles that mattered —
@@ -439,6 +500,8 @@ photograph. Draw data is kept only as a fallback.
 node tools/discover.mjs [url…]   # what endpoints does BWF's own frontend call?
 node tools/shot.mjs [#hash…]     # screenshot the strip, from fixtures
 node tools/probe-draws.mjs       # what tournaments/draws returns per format
+node tools/probe-draw.mjs        # which drawId each discipline actually has
+node tools/probe-bracket.mjs     # the fold table, and the geometry, against live draws
 ```
 
 `discover.mjs` captures the API requests a BWF page makes and scans its JS bundles for
@@ -449,6 +512,12 @@ endpoint literals. It is how Parts 3.2 and 3.5 of `HANDOVER.md` were found.
 defaults cover a singles career, a doubles one, the grid and a two-player comparison; any
 `#hash` works, and one carrying `g=1` is captured at the width the compare page needs.
 `--top` clips to the chrome — nav, hero, page header — at a scale you can read.
+
+`probe-draw.mjs` lists the draws at the three tournaments the schedule names and prints the
+`drawId` BWF gives each one — the measurement behind Part 3.4k, and the way to re-check it
+if a bracket ever opens on the wrong discipline. `probe-bracket.mjs` goes further: it runs
+the real layout over real draws and reports, per fold, the card and segment counts, the
+canvas size, and the worst deviation of any card from the midpoint of the two that feed it.
 
 `probe-draws.mjs` reports the stage layout `tournaments/draws` returns for a knockout, a
 draw with qualifying, a group stage and a team event — the shapes the ladder has to handle.

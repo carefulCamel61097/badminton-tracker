@@ -276,6 +276,14 @@
     <h2 id="tmtTitle">Tournament</h2>
     <span id="tmtWhen" class="tmtwhen"></span>
     <span id="tmtState" class="badge"></span>
+
+    <!-- The day and the draw are two readings of the same tournament: one is
+         what is on court today, the other is where it is all heading. -->
+    <span id="tmtView" class="kindwrap" role="group" aria-label="view">
+      <button type="button" class="seg on" data-view="oop" aria-pressed="true">Order of play</button>
+      <button type="button" class="seg" data-view="draw" aria-pressed="false">Bracket</button>
+    </span>
+
     <button type="button" id="tmtRefresh" class="seg">Refresh</button>
     <a id="tmtLink" class="seg" href="#" target="_blank" rel="noopener" hidden>On BWF ↗</a>
   </header>
@@ -284,7 +292,7 @@
        is also the only week the page has to choose. -->
   <div class="chiprow" id="tmtAlso" hidden></div>
 
-  <div class="chiprow tmtbar"><span class="lbl">Day</span>
+  <div class="chiprow tmtbar" id="tmtDayBar"><span class="lbl">Day</span>
     <div id="tmtDays" class="daybar" role="group" aria-label="days"></div>
     <span class="stars">
       <span id="starCount" class="starcount"></span>
@@ -292,11 +300,38 @@
       <button type="button" id="clearStars" class="seg">Clear</button>
     </span>
   </div>
-  <div class="chiprow"><span class="lbl">Draws</span>
+  <div class="chiprow" id="tmtDrawsBar"><span class="lbl">Draws</span>
     <div id="tmtDraws" class="chips" role="group" aria-label="draws shown"></div>
   </div>
 
+  <!-- A draw is one discipline by definition, so the bracket picks exactly one
+       rather than filtering several. Its own row, because it means something
+       different from the draw chips above. -->
+  <div class="chiprow" id="tmtDrawBar" hidden><span class="lbl">Draw</span>
+    <div id="tmtDrawPick" class="chips" role="group" aria-label="discipline"></div>
+    <span class="lbl from">Show from</span>
+    <div id="tmtRounds" class="chips" role="group" aria-label="first round shown"></div>
+  </div>
+
   <div id="tmtBody" class="oop"></div>
+
+  <div id="tmtDrawBody" hidden>
+    <div class="brwrap"><div id="tmtCanvas" class="brcanvas"></div></div>
+  </div>
+
+  <p class="legend note" id="tmtDrawNote" hidden>
+    The whole draw, feeders on the left and the final on the right. The
+    <strong>Show from</strong> chips fold away the rounds that are over — and
+    they do it by <em>re-laying out</em> the tree from that round, not by hiding
+    columns: every round doubles the gap between its cards, so the four
+    quarter-final cards sit sixteen slots apart to line up with thirty-two
+    first-round matches nobody is looking at any more. Hiding the columns would
+    have left the gaps. It opens on the earliest round that still has a match to
+    play. A dashed card with <strong>Bye</strong> is not a fixture — that player
+    is through without playing, which at some tournaments is sixteen of the
+    thirty-two first-round cells. <strong>Click a card to star the match</strong>,
+    the same star the order of play uses.
+  </p>
 
   <p class="legend note" id="tmtNote">
     One column per court, and down each one the matches in the order they are

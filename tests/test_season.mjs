@@ -112,6 +112,18 @@ check('the page opens on a search box, with no id anywhere',
 check('and focuses it, because typing a name is the first thing to do',
   await b.ev(`document.activeElement === document.getElementById('q')`));
 
+/* ⚠️ **Then blur it, immediately.** The app autofocuses the box at boot, which
+   is right for a reader and wrong for a suite: this runs for ten minutes in a
+   real, windowed, foreground Chrome, so a focused search box collects any
+   keystroke that happens on the machine meanwhile. That lands as a search
+   nobody wrote, an unfixtured request, and a "no fixture misses" failure naming
+   a query that appears in no test — twice with different junk, once as
+   "SHI Yu Qik", a stray k on the end of a query typed nine minutes earlier.
+   Nothing below needs the focus: every test here sets `.value` and dispatches
+   `input` directly, which is what the app actually listens to. */
+const unfocus = () => b.ev(`document.getElementById('q').blur()`);
+await unfocus();
+
 await b.ev(`(() => {
   const i = document.getElementById('q');
   i.value = 'axelsen';
@@ -182,6 +194,7 @@ await b.ev(`(() => {
   i.value = '';
   i.dispatchEvent(new Event('input'));
 })()`);
+await unfocus();
 
 /* ============================ a whole career ============================ */
 
@@ -810,8 +823,15 @@ eq('a retired player is not in the roster', cold.local, 0);
 check('so the box says it is still looking, rather than looking broken',
   /Searching/i.test(cold.shown.join(' ')), cold.shown.join(' | '));
 
+/* ⚠️ **Blur it, not just empty it.** This block focuses the search box and the
+   suite then runs for another ten minutes with a real, windowed, foreground
+   Chrome. Left focused, the box collects any keystroke that happens on the
+   machine meanwhile — which lands as a search nobody wrote, an unfixtured
+   request, and a "no fixture misses" failure naming a query that appears in no
+   test. Seen twice, with different junk each time. */
 await b.ev(`document.getElementById('q').value = '';
   document.getElementById('q').dispatchEvent(new Event('input', { bubbles: true }));`);
+await unfocus();
 
 /* Players this reader has opened are remembered, which is how a retired player
    becomes instant the second time. */
@@ -1717,6 +1737,173 @@ await b.ev('window.BST.tmt.clearStars()');
 eq('clearing puts them all back', (await b.ev('window.BST.tmt.stars()')).length, 0);
 check('and undims the day',
   (await b.ev('window.BST.tmt.cards()')).every(c => !c.dim && !c.starred));
+
+/* ---- the bracket ----
+
+   The other reading of the same tournament. Ported from the predecessor, where
+   the geometry was worked out; what is checked here is the part that is this
+   app's — that the two views share a page, a pick and a set of stars without
+   either of them leaking into the other. */
+
+console.log('\n=== the bracket ===');
+
+await b.ev(`window.BST.tmt.bracket.view('draw')`);
+check('the bracket loads', await b.until('window.BST.tmt.bracket.ready()', { timeout: 120000 }));
+
+const brDraws = await b.ev('window.BST.tmt.bracket.draws()');
+eq('every discipline is offered', brDraws.map(d => d.code).join(' '), 'MS WS MD WD XD');
+/* ⚠️ The ids come from BWF's own list rather than from counting. At a
+   tournament with qualifying they are 2, 4, 6, 8, 10 — the predecessor
+   hardcoded 1-5 and would have drawn the men's *qualifying* draw as the men's
+   singles. This tournament has none, so here they happen to be 1-5. */
+eq('with the drawId BWF gave it', brDraws.map(d => d.id).join(' '), '1 2 3 4 5');
+eq('and the field size', brDraws[0].size, 64);
+
+check('the day bar steps aside — a bracket is a week, not a day',
+  await b.ev(`document.getElementById('tmtDayBar').hidden
+    && document.getElementById('tmtDrawsBar').hidden
+    && !document.getElementById('tmtDrawBar').hidden`));
+check('and so does the order of play',
+  await b.ev(`document.getElementById('tmtBody').hidden
+    && !document.getElementById('tmtDrawBody').hidden`));
+
+/* ---- the shape ---- */
+
+const brCards = await b.ev('window.BST.tmt.bracket.cards()');
+const brLines = await b.ev('window.BST.tmt.bracket.lines()');
+check('there are cards on the canvas', brCards.length >= 3, brCards.length + ' cards');
+check('and connectors between them', brLines > 0, brLines + ' segments');
+
+/* Every card must sit at the midpoint of the two that feed it — that property
+   is what makes the picture read as a tree rather than as a list of columns.
+   Checked off the DOM here, not off the model, because a CSS rule that moved a
+   card would not fail a model test. */
+const xs = [...new Set(brCards.map(c => Math.round(c.x)))].sort((a, b) => a - b);
+check('the columns march left to right at an even pitch',
+  xs.length >= 3 && new Set(xs.slice(1).map((x, i) => x - xs[i])).size === 1,
+  xs.join(' '));
+const colOf = x => xs.indexOf(Math.round(x));
+let drift = 0, checkedPairs = 0;
+for (const c of brCards) {
+  const i = colOf(c.x);
+  if (i < 1) continue;
+  const feeders = brCards.filter(f => colOf(f.x) === i - 1)
+    .sort((a, b) => a.y - b.y);
+  const mine = brCards.filter(f => colOf(f.x) === i).sort((a, b) => a.y - b.y).indexOf(c);
+  const f1 = feeders[2 * mine], f2 = feeders[2 * mine + 1];
+  if (!f1 || !f2) continue;
+  checkedPairs++;
+  drift = Math.max(drift, Math.abs((c.y + c.h / 2)
+    - ((f1.y + f1.h / 2) + (f2.y + f2.h / 2)) / 2));
+}
+check('and every card sits between the two that feed it',
+  checkedPairs >= 2 && drift < 1, `${checkedPairs} pairs, worst ${drift.toFixed(2)}px`);
+
+const brLabels = await b.ev('window.BST.tmt.bracket.labels()');
+check('each column says which round it is',
+  brLabels.length === xs.length && brLabels.every(Boolean), brLabels.join(' '));
+
+/* ---- folding ---- */
+
+/* ⚠️ The default follows the tournament: it opens on the earliest round that
+   still has a match to play, and this draw is finished, so it stops at the
+   quarter-finals rather than showing a single card. */
+eq('a finished draw opens at the quarter-finals',
+  await b.ev('window.BST.tmt.bracket.shown()'), 'QF');
+eq('which is seven cards', brCards.length, 7);
+const foldedFits = await b.ev('window.BST.tmt.bracket.fits()');
+check('and the whole of it is on screen at once',
+  foldedFits && foldedFits.w && foldedFits.h, JSON.stringify(foldedFits));
+
+await b.ev(`window.BST.tmt.bracket.round('all')`);
+const brAll = await b.ev('window.BST.tmt.bracket.cards()');
+eq('unfolding shows the whole 64 draw', brAll.length, 63);
+const allCanvas = await b.ev('window.BST.tmt.bracket.canvas()');
+const qfCanvas = { w: 774, h: 282 };
+check('which is a wall by comparison',
+  allCanvas.h > qfCanvas.h * 4, `${allCanvas.w}x${allCanvas.h} vs 654x282`);
+/* The measurement folding exists for: the gap is geometry, so hiding the early
+   columns would have left it. */
+const brQfAll = brAll.filter(c => Math.round(c.x) === Math.round(Math.max(...brAll.map(z => z.x))) - 0)
+  .length;
+check('and the last column is still a single card', brQfAll === 1, String(brQfAll));
+
+await b.ev(`window.BST.tmt.bracket.round('SF')`);
+eq('folding to the semi-finals leaves three cards',
+  (await b.ev('window.BST.tmt.bracket.cards()')).length, 3);
+check('and it is still a bracket, connectors and all',
+  await b.ev('window.BST.tmt.bracket.lines()') > 0);
+
+/* ---- byes ---- */
+
+await b.ev(`window.BST.tmt.bracket.round('all')`);
+const brByes = (await b.ev('window.BST.tmt.bracket.cards()')).filter(c => c.bye);
+/* This draw has none — the Worlds run full 64 fields — but the card has to be
+   able to say so, and the model test covers a draw that does. */
+check('a bye, where there is one, is not offered as a fixture',
+  brByes.every(c => c.names.some(n => /Bye/i.test(n))), brByes.length + ' byes');
+
+/* ---- the stars are the same stars ---- */
+
+await b.ev('window.BST.tmt.clearStars()');
+await b.ev(`window.BST.tmt.bracket.round(null)`);
+const brStarTarget = (await b.ev('window.BST.tmt.bracket.cards()')).find(c => !c.bye && c.id);
+await b.ev(`document.querySelector('#tmtCanvas .bcard[data-id="${brStarTarget.id}"]').click()`);
+const brStars = await b.ev('window.BST.tmt.stars()');
+eq('clicking a card stars the match', brStars.join(), brStarTarget.id);
+check('and the card says so',
+  (await b.ev('window.BST.tmt.bracket.cards()'))
+    .find(c => c.id === brStarTarget.id).starred);
+
+/* ⚠️ The same star, not a second set of them: a match starred in the bracket is
+   starred in the order of play, because it is the same match. Keyed on the
+   match `id`, which only the flat `matches[]` array carries — the grid cells
+   have `code`, which is unique only within one draw. */
+await b.ev(`window.BST.tmt.bracket.view('oop')`);
+check('and it is the same star the order of play uses',
+  await b.until(`window.BST.tmt.ready()`, { timeout: 120000 })
+    && (await b.ev('window.BST.tmt.stars()')).join() === brStarTarget.id);
+await b.ev('window.BST.tmt.clearStars()');
+
+/* ---- it travels ---- */
+
+await b.ev(`window.BST.tmt.bracket.view('draw')`);
+await b.until('window.BST.tmt.bracket.ready()', { timeout: 120000 });
+await b.ev(`window.BST.tmt.bracket.pick('WD')`);
+check('another discipline loads', await b.until('window.BST.tmt.bracket.ready()', { timeout: 120000 }));
+eq('and it is the one asked for', await b.ev('window.BST.tmt.bracket.pick()'), 'WD');
+check('the link carries the view and the draw',
+  await b.ev(`location.hash.includes('tv=draw') && location.hash.includes('dr=WD')`),
+  await b.ev('location.hash'));
+
+/* ⚠️ The round is dropped on a discipline switch rather than carried. Two draws
+   at one tournament can be different sizes — a 64 men's singles beside a 32
+   women's — so "R64" is not a round the other one has at all. */
+await b.ev(`window.BST.tmt.bracket.round('SF')`);
+await b.ev(`window.BST.tmt.bracket.pick('MS')`);
+check('switching discipline drops the round rather than carrying a stale one',
+  await b.until('window.BST.tmt.bracket.ready()', { timeout: 120000 })
+    && (await b.ev('window.BST.tmt.bracket.round()')) === null);
+
+/* A link straight into a folded draw opens on it. */
+check('a bracket link opens on the bracket',
+  await openTmt('#pg=tmt&now=2026-08-23&tv=draw&dr=XD&rd=SF')
+    && await b.until('window.BST.tmt.bracket.ready()', { timeout: 120000 }));
+eq('on the discipline it names', await b.ev('window.BST.tmt.bracket.pick()'), 'XD');
+eq('folded where it says', await b.ev('window.BST.tmt.bracket.shown()'), 'SF');
+
+/* ⚠️ A link made at another tournament may name a discipline this one does not
+   run. Falling back beats blanking the page. */
+await b.ev(`window.BST.tmt.state.wantDraw = 'ZZ'; window.BST.tmt.state.drawList = [];
+  window.BST.tmt.state.drawFor = null;`);
+await b.ev('window.BST.tmt.bracket.reload()');
+check('a discipline this tournament does not run falls back rather than blanking',
+  await b.until('window.BST.tmt.bracket.ready()', { timeout: 120000 })
+    && (await b.ev('window.BST.tmt.bracket.pick()')) === 'MS',
+  await b.ev('window.BST.tmt.bracket.pick()'));
+
+await b.ev(`window.BST.tmt.bracket.view('oop')`);
+await b.until('window.BST.tmt.ready()', { timeout: 120000 });
 
 /* ---- and back ---- */
 

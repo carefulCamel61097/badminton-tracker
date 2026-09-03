@@ -960,6 +960,111 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
   .oop-grid .match-head .sep.court { display: inline; }
 }
 
+/* ========================== the bracket ==========================
+
+   One absolutely-positioned canvas inside a scroller. The positions come from
+   `bracketLayout`, which is arithmetic and lives in the model; nothing here
+   knows the spacing law.
+
+   ⚠️ **Native scrolling, deliberately — no custom pan.** The predecessor drove
+   this with pointer events and recorded two traps it cost it: `setPointerCapture`
+   retargets the follow-up `click` to the capturing element, so cards never
+   received it, and `preventDefault()` on `pointerdown` can suppress the
+   compatibility click entirely. It also needed a capture-phase click swallower
+   so that releasing a drag did not open the card underneath. All of that exists
+   to make dragging and clicking coexist. Here the fold does the work custom
+   panning was there to do — from the quarter-finals the rest of the tournament
+   is 654 x 282 and fits with no scrolling at all — so the scroller is the
+   browser's, the click is an ordinary click, and none of those traps can
+   return. */
+
+.brwrap {
+  overflow: auto;
+  max-height: min(72vh, 900px);
+  background: var(--surface-sunk);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-card);
+  scrollbar-width: thin;
+}
+.brcanvas { position: relative; }
+
+.bcol {
+  position: absolute;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* Hairlines. A 1px box rather than an SVG path: there are at most 124 of them
+   and they are all axis-aligned, so a div is cheaper than a path and lands on
+   the same device pixel at every zoom. */
+.bline { position: absolute; background: var(--border); }
+
+.bcard {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-card);
+  cursor: pointer;
+}
+.bcard.is-upcoming { border-left-color: var(--border); }
+.bcard.is-live { border-left-color: var(--live); }
+/* A bye is not a fixture, and must not read as one waiting to be played. */
+.bcard.is-bye { border-style: dashed; border-left-color: var(--border); cursor: default; }
+
+.bside {
+  display: grid;
+  grid-template-columns: 15px 18px 1fr auto;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 6px;
+  min-width: 0;
+}
+.bside + .bside { border-top: 1px solid var(--border-soft); }
+.bside .flag { width: 15px; height: 15px; border-radius: 50%; object-fit: cover; }
+.bside .seed { font-size: 9.5px; color: var(--text-muted); text-align: right; }
+.bside .bn {
+  min-width: 0;
+  font-size: 11.5px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bside .bn .muted { color: var(--text-muted); }
+.bside.is-winner .bn { font-weight: 700; }
+.bside.is-loser .bn, .bside.is-loser .bsc { opacity: .5; }
+.bside .bsc { display: flex; gap: 2px; }
+.bside .bsc b {
+  min-width: 14px;
+  padding: 0 2px;
+  border-radius: 3px;
+  background: var(--surface-2);
+  font-family: var(--mono);
+  font-size: 10px;
+  text-align: center;
+  font-weight: 400;
+}
+.bside .bsc b.won { background: var(--accent); color: var(--accent-fg); }
+.bside .bsc b.mk { background: transparent; color: var(--bad); font-weight: 700; }
+
+/* Same star, same meaning as the order of play. */
+.bcard.is-dim { opacity: .45; border-left-color: var(--border); }
+.bcard.is-dim:hover { opacity: .9; }
+.bcard.is-starred { box-shadow: 0 0 0 1px var(--accent); }
+.bcard.is-starred .bside .bn { color: var(--accent-text); }
+.bcard.is-fresh { border-color: var(--live); }
+
+.chiprow .lbl.from { margin-left: 14px; white-space: nowrap; }
+
 /* ---- the card: BWF's reading order — flag, seed, name, per-game scores ---- */
 
 .match {

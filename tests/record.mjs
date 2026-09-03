@@ -209,4 +209,25 @@ process.stdout.write(`  tournament (${TMT_DAY}) … `);
     + `, ${(days || []).length} days, +${fixtureCount() - before} fixtures`);
 }
 
+/* The brackets: the draw list, then every discipline in it. The list is one
+   call and each draw is one more, so this is six for a full tournament — worth
+   recording in full, because the suite switches between them and a discipline
+   that was never fetched is a fixture miss rather than a failure with a name. */
+process.stdout.write('  brackets … ');
+{
+  const before = fixtureCount();
+  await b.ev(`window.BST.tmt.bracket.view('draw')`);
+  const ok = await b.until('window.BST.tmt.bracket.ready()', { timeout: 90000 });
+  const draws = await b.ev('window.BST.tmt.bracket.draws()');
+  for (const d of draws || []) {
+    await b.ev(`window.BST.tmt.bracket.pick(${JSON.stringify(d.code)})`);
+    await b.until('window.BST.tmt.bracket.ready()', { timeout: 90000 });
+    await b.wait(300);
+  }
+  const cards = await b.ev('window.BST.tmt.bracket.cards().length');
+  console.log(`${ok ? '' : 'timeout '}${(draws || []).length} draws `
+    + `(${(draws || []).map(d => d.code + '=' + d.id).join(' ')}), `
+    + `${cards} cards, +${fixtureCount() - before} fixtures`);
+}
+
 finish(0);

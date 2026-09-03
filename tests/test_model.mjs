@@ -29,6 +29,8 @@ import {
   careerHonours, honourSections,
   pickTournament, scheduleGroup, tournamentDays, defaultDay, parseDayMatches, orderOfPlay,
   nameScore, rosterMatches, mergeSuggestions,
+  parseDrawList, parseDraw, bracketRounds, autoFromCol, fromCol, resolvedRound,
+  bracketLayout, SLOT,
   drawsPresent, courtGrid, courtOrder, dayOf, matchSignature, prettyDay,
   LEVEL, SLOT_W, BOX_H, MIN_LABEL_PX, LEVEL_ORDER,
 } from '../model.js';
@@ -2064,6 +2066,191 @@ check('and a properly tapering season is not', pyramidBulges(pyramidSeason([
 ], pyWho)).length === 0);
 
 eq('nothing at all is four empty rows', pyramidSeason([], {}).length, 4);
+
+
+/* ============================ the bracket ============================
+
+   The geometry is arithmetic, so it is checked here rather than by looking at
+   it: a card in column c must sit at the midpoint of the two that feed it, at
+   every fold, in every draw size. That property is what makes the picture read
+   as a tree, and it is the one a wrong constant would quietly break.
+   ==================================================================== */
+
+console.log('\n=== the draws at a tournament ===');
+
+/* ⚠️ Real ids, from `vue-tournament-draws` on 4 September 2026. The
+   qualification draws are numbered into the *same* sequence as the main draws,
+   which is why the discipline cannot be turned into a drawId by counting: at
+   this tournament MS is 2 and WS is 4. */
+const WITH_QUAL = { results: [
+  { value: '1', text: 'MS - Qualification', qualification: 1, size: 16, slug: 'ms-qualification', doubles: false },
+  { value: '2', text: 'MS', qualification: 0, size: 64, slug: 'ms', doubles: false },
+  { value: '3', text: 'WS - Qualification', qualification: 1, size: 16, slug: 'ws-qualification', doubles: false },
+  { value: '4', text: 'WS', qualification: 0, size: 32, slug: 'ws', doubles: false },
+  { value: '5', text: 'MD - Qualification', qualification: 1, size: 16, slug: 'md-qualification', doubles: true },
+  { value: '6', text: 'MD', qualification: 0, size: 32, slug: 'md', doubles: true },
+] };
+const NO_QUAL = { results: [
+  { value: '1', text: 'MS', qualification: 0, size: 32, slug: 'ms', doubles: false },
+  { value: '2', text: 'WS', qualification: 0, size: 32, slug: 'ws', doubles: false },
+] };
+
+const withQual = parseDrawList(WITH_QUAL);
+eq('qualifying draws are not brackets and are left out', withQual.length, 3);
+eq('and the main draws keep the ids BWF gave them',
+  withQual.map(d => d.code + '=' + d.id).join(' '), 'MS=2 WS=4 MD=6');
+eq('a tournament without qualifying numbers them from one',
+  parseDrawList(NO_QUAL).map(d => d.code + '=' + d.id).join(' '), 'MS=1 WS=2');
+eq('the field size is the one a reader recognises', withQual[0].size, 64);
+check('and doubles is carried through', parseDrawList(WITH_QUAL)[2].doubles);
+eq('no payload is no draws', parseDrawList(null).length, 0);
+eq('and neither is a shape nobody expected', parseDrawList({ results: 'nope' }).length, 0);
+
+/* ---- a whole draw ---- */
+
+console.log('\n=== reading a bracket ===');
+
+/** A draw of `size` first-round matches, with `played` rounds decided. */
+function fakeDraw(size, played, opts = {}) {
+  const results = {};
+  const matches = [];
+  const rounds = ['R32', 'R16', 'QF', 'SF', 'Final'];
+  const off = rounds.length - (Math.log2(size) + 1);
+  let n = 0;
+  for (let c = 0; size >> c; c++) {
+    for (let r = 0; r < (size >> c); r++) {
+      const code = String(++n);
+      const bye = c === 0 && opts.byes && r < opts.byes;
+      const decided = c < played;
+      const m = {
+        code,
+        roundName: rounds[off + c],
+        winner: decided ? 1 : 0,
+        matchStatus: decided ? 'F' : 'N',
+        team1: { countryCode: 'DEN', players: [{ id: 'a' + code, nameDisplay: 'A' + code }] },
+        team2: bye ? {}
+          : { countryCode: 'JPN', players: [{ id: 'b' + code, nameDisplay: 'B' + code }] },
+        score: decided ? [{ set: 1, home: 21, away: 15 }, { set: 2, home: 21, away: 17 }] : [],
+      };
+      results[c + '-' + r] = { match: m };
+      // Only the flat list carries the id, which is the whole reason it exists.
+      matches.push(Object.assign({ id: 'id-' + code }, m));
+    }
+  }
+  return { results, matches, drawsize: size };
+}
+
+const d32 = parseDraw(fakeDraw(16, 0));          // a 32 field: 16 first-round matches
+eq('every cell in the grid is read', d32.cells.size, 31);
+eq('and the tree is as deep as the draw', d32.maxCol, 4);
+eq('the rounds come back outermost first',
+  bracketRounds(d32).map(r => r.round).join(' '), 'R32 R16 QF SF Final');
+
+/* ⚠️ The join on `code` is the point: only `matches[]` has `id`, and the id is
+   what a star is keyed on. Without the join every bracket card would be
+   unstarrable — and worse, `code` is unique only *within* a draw, so keying on
+   it would have MS and WD starring each other's matches. */
+eq('a cell carries the id from the flat list, not just its code',
+  d32.cells.get('0-0').id, 'id-1');
+eq('and its code as well', d32.cells.get('0-0').code, '1');
+
+const byes = parseDraw(fakeDraw(32, 0, { byes: 16 }));
+eq('a 64 draw is one column deeper', byes.maxCol, 5);
+eq('a first-round cell with one side empty is a bye',
+  [...byes.cells.values()].filter(m => m.bye).length, 16);
+check('and it is not read as a fixture waiting to be played',
+  byes.cells.get('0-0').bye && byes.cells.get('0-0').sides[1].players.length === 0);
+/* ⚠️ Only in the first round. Every later cell has an empty side too, right up
+   until its feeders finish — reading those as byes would call the whole
+   unplayed half of the draw a walkover. */
+check('a later empty cell is a fixture, not a bye', !byes.cells.get('4-0').bye);
+
+eq('an empty payload is an empty draw', parseDraw(null).cells.size, 0);
+eq('and asks for no columns', parseDraw({}).maxCol, 0);
+
+/* ---- folding ---- */
+
+console.log('\n=== folding away the rounds that are over ===');
+
+eq('a draw nobody has played opens at the first round', autoFromCol(parseDraw(fakeDraw(16, 0))), 0);
+eq('once the first round is done it opens at the second',
+  autoFromCol(parseDraw(fakeDraw(16, 1))), 1);
+eq('and at the quarter-finals when it is', autoFromCol(parseDraw(fakeDraw(16, 2))), 2);
+
+/* ⚠️ An unplayed bye is not a match, and must not hold the view on a round that
+   is otherwise finished — the sixteen byes of a 64 draw never get a winner. */
+const halfPlayed = parseDraw(fakeDraw(32, 1, { byes: 16 }));
+eq('an unplayed bye does not hold the view back', autoFromCol(halfPlayed), 1);
+
+/* However finished a draw is, one card is not a bracket. */
+const done = parseDraw(fakeDraw(16, 5));
+eq('a finished draw stops short of the final', autoFromCol(done), 2);
+eq('which reads as the quarter-finals', resolvedRound(done, null), 'QF');
+
+eq('"all" is honoured', fromCol(d32, 'all'), 0);
+eq('a named round is found', fromCol(d32, 'QF'), 2);
+eq('a round this draw does not have is ignored rather than blanking it',
+  fromCol(d32, 'R64'), 0);
+eq('and folding never goes past the semi-finals', fromCol(d32, 'Final'), 3);
+eq('the first round reads back as "all"', resolvedRound(d32, 'all'), 'all');
+eq('a fold reads back as its own round', resolvedRound(d32, 'QF'), 'QF');
+
+/* ---- geometry ---- */
+
+console.log('\n=== the shape of a bracket ===');
+
+/** Every card must sit at the midpoint of the two that feed it. */
+function worstDrift(draw, pick) {
+  const L = bracketLayout(draw, pick);
+  const at = new Map(L.cards.map(c => [c.match.col + '-' + c.match.row, c.y + c.h / 2]));
+  let worst = 0;
+  for (const [k, mid] of at) {
+    const [c, r] = k.split('-').map(Number);
+    const f1 = at.get((c - 1) + '-' + (2 * r));
+    const f2 = at.get((c - 1) + '-' + (2 * r + 1));
+    if (f1 == null || f2 == null) continue;
+    worst = Math.max(worst, Math.abs(mid - (f1 + f2) / 2));
+  }
+  return worst;
+}
+
+const big = parseDraw(fakeDraw(32, 0));
+eq('a 64 draw is 63 cards', bracketLayout(big, 'all').cards.length, 63);
+eq('and 124 connector segments', bracketLayout(big, 'all').lines.length, 124);
+eq('with a column heading each', bracketLayout(big, 'all').labels.length, 6);
+eq('every card sits between its feeders', worstDrift(big, 'all'), 0);
+eq('and still does once the tree is folded', worstDrift(big, 'QF'), 0);
+eq('and at every other fold', ['R32', 'R16', 'SF'].map(r => worstDrift(big, r)).join(), '0,0,0');
+
+/* ⚠️ The measured reason folding exists. Hiding columns would have left the
+   gaps — the spacing law doubles them every round — so the tree is re-laid out
+   from the chosen round instead. Numbers from a real 64 draw, 4 September 2026. */
+const shape = pick => {
+  const L = bracketLayout(big, pick);
+  return `${L.cards.length} ${L.lines.length} ${Math.round(L.width)}x${Math.round(L.height)}`;
+};
+eq('all of it is a wall', shape('all'), '63 124 1548x1906');
+eq('from the last 32 it halves', shape('R32'), '31 60 1290x978');
+eq('from the last 16 again', shape('R16'), '15 28 1032x514');
+eq('and from the quarter-finals it is a picture', shape('QF'), '7 12 774x282');
+
+const folded = bracketLayout(big, 'QF');
+check('a fold is a real bracket, connectors and all', folded.lines.length > 0);
+eq('the folded column becomes column zero', folded.from, 3);
+eq('and its cards sit one slot apart',
+  Math.round(folded.cards[1].y - folded.cards[0].y), SLOT);
+/* ⚠️ The measurement the whole fold exists for: unfolded, the same four
+   quarter-final cards sit **eight slots apart**, because they still have to
+   line up with thirty-two first-round matches. That gap is geometry, not
+   rendering, which is why hiding the early columns would not have closed it. */
+const qfIn = pick => bracketLayout(big, pick).cards.filter(c => c.match.round === 'QF');
+eq('unfolded, the quarter-finals sit eight slots apart',
+  Math.round(qfIn('all')[1].y - qfIn('all')[0].y), 8 * SLOT);
+eq('and folded to them, one slot apart',
+  Math.round(qfIn('QF')[1].y - qfIn('QF')[0].y), SLOT);
+
+eq('nothing to draw is nothing, not a crash', bracketLayout(null, 'all').cards.length, 0);
+eq('and it asks for no canvas', bracketLayout(parseDraw({}), 'all').width, 0);
 
 
 process.exit(report());

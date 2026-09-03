@@ -552,6 +552,46 @@ export function loadSchedule(opts = {}) {
   return getJSON('vue-tmt-schedule', { drawCount: 1 }, opts);
 }
 
+/* ---- the draws, and the brackets in them ----
+
+   Two calls, and the first one is not optional bookkeeping.
+
+   ⚠️⚠️ **`drawId` is not the discipline.** The predecessor hardcoded
+   `{ms:1, ws:2, md:3, wd:4, xd:5}` and was right for every tournament it ever
+   saw — but it only ever saw one, a World Championships with no qualifying.
+   Qualification draws are numbered into the *same* sequence, so at the Pontianak
+   Indonesia Masters (3 September 2026) the ids run:
+
+     1 MS - Qualification   2 MS   3 WS - Qualification   4 WS   5 MD - Qual …
+
+   i.e. MS is 2 and WS is 4. Asking for `drawId=1` there returns the men's
+   qualifying draw — a real payload, with real matches, silently answering a
+   different question. The list has to be read; the number cannot be assumed.
+*/
+
+/** Every draw at a tournament, main and qualifying, in BWF's own order. */
+export function loadDrawList(tmtId, opts = {}) {
+  return getJSON('vue-tournament-draws', {
+    tmtId, tmtType: 1,
+  }, { persist: true, ...opts });
+}
+
+/**
+ * One draw: the bracket grid, and the flat match list that goes with it.
+ *
+ * ⚠️ Takes **tmtId**, the number — not the `code` GUID that `tournaments/draws`
+ * and `day-matches` take. Both identifiers are in the schedule payload and they
+ * are not interchangeable.
+ *
+ * Not persisted: a bracket fills in through the week, and a twelve-hour copy of
+ * a live draw would be showing yesterday's semi-finals.
+ */
+export function loadDrawData(tmtId, drawId, opts = {}) {
+  return getJSON('vue-tournament-draw-data', {
+    tmtId, tmtType: 1, drawId, isPara: 0,
+  }, opts);
+}
+
 /**
  * One day's order of play.
  *

@@ -1010,14 +1010,17 @@ so never call them before you know the draw, and never cache under the player id
 ```
 GET /vue-rankingtable?rankId={2|9}&catId={id}&page={n}&drawCount=1
                      &searchKey=&publicationId=0&doubles={bool}&pageKey=10
-GET /vue-tournament-draw-data?tmtId={id}&tmtType=1&drawId={1..5}&isPara=0
+GET /vue-tournament-draws?tmtId={id}&tmtType=1
+GET /vue-tournament-draw-data?tmtId={id}&tmtType=1&drawId={from the list}&isPara=0
 GET /tournaments/day-matches?tournamentCode={GUID}&date=YYYY-MM-DD&order=1&court=0
 GET /h2h/statistics?t1p1={id}&t2p1={id}[&t1p2=&t2p2=]
 ```
 
 `rankId`: 2 = BWF World Rankings, 9 = HSBC Race to Finals.
 Ranking category ids — world: MS 6, WS 7, MD 8, WD 9, XD 10; race: 57/58/59/60/61.
-Draw ids: MS 1, WS 2, MD 3, WD 4, XD 5.
+⚠️ **Draw ids are read from `vue-tournament-draws`, never assumed.** MS 1, WS 2, MD 3,
+WD 4, XD 5 holds only where there is no qualifying; where there is, the qualifying draws
+are numbered into the same sequence and MS is 2, WS is 4, MD is 6. See Part 3.4k.
 
 ### 3.4b The ranking archive — *(investigated 23 Aug 2026, `tools/probe-rank.mjs`)*
 
@@ -1430,6 +1433,90 @@ the ordinary week.
 one it replaced. `pickTournament` returns `also` — the live ones it did not pick — and takes
 a `wantCode` to pin one; the page draws them as buttons and the choice travels as `t=` in the
 hash. A pin naming something not on today is ignored rather than blanking the page.
+
+### 3.4k The brackets, and the drawId that is not the discipline *(built 4 Sep 2026)*
+
+Ported from the predecessor, which had worked out the geometry. Two calls:
+
+```
+GET /api/vue-tournament-draws?tmtId=5625&tmtType=1
+GET /api/vue-tournament-draw-data?tmtId=5625&tmtType=1&drawId=1&isPara=0
+```
+
+⚠️⚠️ **`drawId` is not the discipline, and the predecessor's `{ms:1, ws:2, md:3, wd:4,
+xd:5}` is wrong here.** It was right for every tournament that repo ever saw — but it only
+ever saw one, a World Championships with no qualifying. Qualification draws are numbered
+into the *same* sequence. Measured 4 Sep 2026 with `tools/probe-draw.mjs`:
+
+| tournament | MS | WS | MD | WD | XD |
+|---|---|---|---|---|---|
+| LI-NING China Masters (no qualifying) | 1 | 2 | 3 | 4 | 5 |
+| Pontianak Indonesia Masters | **2** | **4** | **6** | **8** | **10** |
+| BWF World Championships | 1 | 2 | 3 | 4 | 5 |
+
+`drawId=1` at the second one is *MS - Qualification*: a real payload, with real matches,
+silently answering a different question. The list has to be read.
+
+⚠️ **The two size fields disagree by a factor of two, on purpose.** The list says
+`size: 32` — the field. The draw payload says `drawsize: 16` — the number of first-round
+*matches*. Neither is wrong; they are different quantities with confusable names.
+
+⚠️ **Draw sizes vary inside one tournament.** At Pontianak the men's singles is a 64 and
+every other draw is a 32. Nothing may assume a tournament has one shape, and a round name
+from one draw ("R64") may not exist in the next — which is why switching discipline drops
+the fold rather than carrying it.
+
+⚠️ **A qualifying draw is not a bracket.** It comes back as a single column of eight cells
+all reading "Qual. R16", with `drawendcol` set. `parseDrawList` drops them: one column is a
+list, and those matches already appear in the order of play on the day.
+
+⚠️ **Only `matches[]` carries `id`.** The grid cells carry `code`, which is unique within a
+draw and **not** across one — MS and WD both have a match `1`. Anything identifying a match
+across the tournament, a star above all, needs the id, so the richer object is joined in on
+`code` and the cell is then parsed by the same `parseMatch` the order of play uses.
+
+⚠️ **Byes are not a doubles curiosity.** The predecessor's README says they happen when 48
+pairs enter a 64 draw and that its singles fields were full. True of a World Championships,
+false in general: the men's singles at Pontianak is a 64 draw with **16 byes**. A bye is a
+*first-round* cell with one side filled — in any later column the same shape is an ordinary
+fixture whose feeder has not been decided, and reading those as byes would call the whole
+unplayed half of the draw a walkover.
+
+⚠️ An unplayed bye must not hold the auto-fold on a round that is otherwise finished: the
+sixteen byes of a 64 draw never get a winner, so `autoFromCol` skips them.
+
+⚠️ **This endpoint 500s for some tournaments** — Paris 2024 and the 2026 Indonesia Open
+are both recorded in Part 3.4d, which is why the winners page reads the last day's order of
+play instead. There is no substitute here, because a bracket *is* the draw data, so the
+view says the draw could not be loaded and the order of play stays reachable beside it. A
+tournament whose draw 500s must not take the page down with it.
+
+**The geometry is inherited whole and re-verified**: `centre(c, r) = (r + 0.5) · 2^c ·
+SLOT`. `tools/probe-bracket.mjs` runs the layout over every draw of three real tournaments
+and reports the worst deviation of a card from the midpoint of its feeders — **0.000 px**
+in all of them, at every fold. `bracketLayout` is a pure function of the parsed draw for
+exactly this reason: it is arithmetic, so it is tested as arithmetic.
+
+**Not ported: custom pan and zoom.** The predecessor drove the map with pointer events and
+recorded two traps that cost it clicking a card — `setPointerCapture()` retargets the
+follow-up `click` to the capturing element, and `preventDefault()` on `pointerdown` can
+suppress the compatibility click entirely — plus a capture-phase swallower so releasing a
+drag did not open the card underneath. All of it exists to let dragging and clicking
+coexist. The fold does what panning was there for (from the QF the rest of the tournament
+is 774 × 282), so the scroller is the browser's, the click is an ordinary click, and none
+of those traps can return. **This is the one place where not porting something was the
+lesson.**
+
+⚠️ **A `dr=` in the hash has to be honoured after the list is already loaded**, not only on
+the first fetch. Following a bracket link usually happens while the reader is already on
+the page, so applying it inside the "list is empty" branch meant a shared link opened on
+whatever was showing before. Caught by the suite, not by looking.
+
+⚠️ **Card width is 230px, and it was found by looking at it.** At 190 the arithmetic was
+fine and the names were cut — `Kunlavut VIT…`, `Kodai NARA…`, `Anders ANTON…`. A doubles
+pair can be shortened to surnames; a singles player is one name and there is nothing to
+shorten, so the card has to fit the longest of them. This is the third time a label has
+been found clipped by a screenshot rather than by a test.
 
 ### 3.5 Endpoints — the tournament pages *(discovered 21 Aug 2026, all verified 200)*
 
