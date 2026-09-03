@@ -760,7 +760,15 @@ await b.ev(`window.BST.grid.zoom(20)`);
 
 console.log('\n=== the search box ===');
 
-await b.ev(`document.getElementById('q').focus()`);
+/* ⚠️ Blur first, then focus. The roster is fetched on the `focus` **event**
+   (app.js), not on the box being focused — so calling `focus()` on a box that
+   already has it fires nothing and the roster is never asked for. That used to
+   be harmless because the app autofocuses at boot and the roster was long since
+   loaded by the time this ran; now that the suite blurs the box at boot, the
+   app's autofocus can land *after* that blur and leave it focused again. Nine
+   checks failed exactly once this way. Forcing the transition costs nothing and
+   is what the test means. */
+await b.ev(`document.getElementById('q').blur(); document.getElementById('q').focus();`);
 check('focusing the box fetches the roster',
   await b.until(`window.BST.roster.state.asked
     && !window.BST.roster.state.loading`, { timeout: 120000 }),
@@ -1766,6 +1774,37 @@ check('the day bar steps aside — a bracket is a week, not a day',
 check('and so does the order of play',
   await b.ev(`document.getElementById('tmtBody').hidden
     && !document.getElementById('tmtDrawBody').hidden`));
+
+/* ⚠️ Both bars are **pickers**, and have to look like it. Drawn in the neutral
+   chip style they read as a caption — the fold in particular looked like a
+   label saying which round you were on rather than a control for choosing it.
+   BWF red is what every other control on the page uses for "this one is
+   chosen", so the picked chip takes it; the unpicked ones must stay neutral, or
+   the row says nothing at all. */
+const chipPaint = JSON.parse(await b.ev(`(() => {
+  const read = sel => {
+    const on = document.querySelector(sel + ' .chip.on');
+    const off = document.querySelector(sel + ' .chip:not(.on)');
+    return { on: on && getComputedStyle(on).backgroundColor,
+      off: off && getComputedStyle(off).backgroundColor };
+  };
+  return JSON.stringify({ draw: read('#tmtDrawPick'), round: read('#tmtRounds') });
+})()`));
+const BWF_RED = 'rgb(223, 32, 39)';
+eq('the chosen draw is picked out in BWF red', chipPaint.draw.on, BWF_RED);
+eq('and the chosen round too', chipPaint.round.on, BWF_RED);
+check('while the ones you could pick instead stay neutral',
+  chipPaint.draw.off !== BWF_RED && chipPaint.round.off !== BWF_RED,
+  JSON.stringify(chipPaint));
+/* The filter rows elsewhere are not pickers — many are on at once — so they
+   must not have been dragged along with this. */
+await b.ev(`window.BST.tmt.bracket.view('oop')`);
+await b.until('window.BST.tmt.ready()', { timeout: 120000 });
+eq('a filter chip is still not painted like a choice',
+  await b.ev(`getComputedStyle(document.querySelector('#tmtDraws .chip.on')).backgroundColor`),
+  'rgb(47, 47, 47)');
+await b.ev(`window.BST.tmt.bracket.view('draw')`);
+await b.until('window.BST.tmt.bracket.ready()', { timeout: 120000 });
 
 /* ---- the shape ---- */
 

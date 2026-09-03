@@ -230,7 +230,10 @@ round that still has a match to play, and stops at the quarter-finals however fi
 draw is, because one card is not a bracket.
 
 **A draw is one discipline by definition**, so the bracket picks exactly one rather than
-filtering several, and it says the field size beside each — `MS 64`, `WS 32`. The draw ids
+filtering several, and it says the field size beside each — `MS 64`, `WS 32`. Both bars are
+pickers rather than filters — exactly one draw, exactly one round — so the chosen chip is
+filled in BWF red like every other control on the page, and not left in the neutral style
+the filter rows elsewhere use, where being on is the resting state. The draw ids
 come from BWF's own list rather than from counting: at a tournament with qualifying they
 run 2, 4, 6, 8, 10, and asking for `1` gets you the men's *qualifying* draw, which is a
 real payload quietly answering a different question.

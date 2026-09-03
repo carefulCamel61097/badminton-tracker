@@ -289,6 +289,23 @@ input::placeholder { color: var(--text-muted); }
 .chip.team.on { border-color: var(--accent); color: var(--accent-text); }
 .chip.more { border-style: dotted; }
 
+/* ⚠️ Filled red in the two bracket bars only, and the distinction is real:
+   everywhere else a chip row is a **filter**, where many are on at once and
+   "on" is the resting state — painting those accent would make an ordinary page
+   shout. These two are **pickers**: exactly one draw, exactly one round. The
+   neutral "on" rendered as a slightly lighter pill, which said "this one" but
+   gave no hint the choice *was* a choice, so the fold looked like a caption
+   rather than a control. */
+#tmtDrawPick .chip.on, #tmtRounds .chip.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+#tmtDrawPick .chip.on:hover, #tmtRounds .chip.on:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
 button:focus-visible, input:focus-visible, a:focus-visible, li:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
