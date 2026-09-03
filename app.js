@@ -12,7 +12,7 @@
  */
 
 import {
-  loadSeason, loadPlayer, loadDraws, searchPlayers, loadTopRanked,
+  loadSeason, loadPlayer, loadDraws, searchPlayers, loadTopRanked, loadRoster,
   loadWorldRank, loadRaceRank, loadLastMatch, rankingFor,
   RANKING_CATEGORIES, queueDepth, loadSchedule, loadDayMatches, loadWinners,
 } from './api.js';
@@ -26,7 +26,8 @@ import {
   HONOUR_STEPS, HONOUR_DEFAULT, honourStep, honourScale, honourRung,
   careerHonours, honourSections,
   pickTournament, tournamentDays, defaultDay, parseDayMatches, orderOfPlay,
-  courtGrid, drawsPresent, dayOf, matchSignature, prettyDay,
+  courtGrid, drawsPresent, dayOf, matchSignature, prettyDay, tidyTmtName,
+  rosterMatches, mergeSuggestions,
   pyramidSeason, pyramidBulges, pyramidRowWidth,
 } from './model.js';
 
@@ -71,9 +72,25 @@ const state = {
   loading: false,
   suggestions: null,
   highlighted: -1,
+  searching: false,
 };
 
 let loadToken = 0;
+
+/* ⚠️ Declared up here, with the rest of the module's state, rather than beside
+   the search code that uses them. `wireSearch` is *called* for the compare box
+   several hundred lines above where it is defined — a function declaration
+   hoists and a `const` does not, so leaving these next to it threw
+   "Cannot access 'openBoxes' before initialization" and took the whole page
+   down before `window.BST` existed. */
+const roster = { players: [], loading: false, asked: false };
+const openBoxes = [];
+
+/* Players this reader has actually opened. The roster is the current top 50 of
+   five ranking tables and LIN Dan is in none of them — but somebody who looked
+   him up once will look him up again. */
+const RECENT_KEY = 'bst:recent';
+const RECENT_MAX = 30;
 
 /* ============================ what gets drawn ============================ */
 
@@ -563,6 +580,7 @@ const cmp = {
   error: null,
   suggestions: null,
   highlighted: -1,
+  searching: false,
 };
 let cmpToken = 0;
 
@@ -1358,6 +1376,60 @@ wireBody('gridBody');
  * `store` is where the current suggestions live, so the main search can keep
  * them on `state` — which is where the suites and the recorder read them from.
  */
+/* ---------- who the box already knows about ----------
+
+   ⚠️ BWF's search is **alphabetical, not relevant**: it returns page 1 of a
+   list ordered by given name. Measured 3 Sep 2026, "viktor" put Viktor AXELSEN
+   at index 13 of 30, and "chen" and "an" did not contain CHEN Yu Fei or AN Se
+   Young at all — the reigning world number ones, missing from their own names.
+   Sorting the answer harder cannot fix that; they are not in it.
+
+   So the top of each ranking table is held locally and matched *before* the
+   network is asked. It is also instant, which is the other half of it: BWF is
+   400ms–1.2s away and until it answers the box has nothing to show at all. */
+
+function recentPlayers() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+    return Array.isArray(raw) ? raw.filter(p => p && p.id && p.name) : [];
+  } catch { return []; }        // a corrupt list is no list, not a broken page
+}
+
+function rememberPlayer(player) {
+  if (!player || !player.id || !player.name) return;
+  const keep = { id: String(player.id), name: player.name, slug: player.slug || '',
+    country: player.country || '', countryCode: player.countryCode || '',
+    flag: player.flag || '' };
+  const rest = recentPlayers().filter(p => String(p.id) !== keep.id);
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify([keep, ...rest].slice(0, RECENT_MAX)));
+  } catch { /* a full or blocked store is not worth a broken search box */ }
+}
+
+/* Fetched on first focus rather than at boot: five requests that nobody who
+   never searches should pay for, and they would otherwise compete with the
+   first career load. Cached twelve hours by api.js, so it is once a day. */
+async function ensureRoster() {
+  if (roster.asked) return;
+  roster.asked = true;
+  roster.loading = true;
+  try { roster.players = await loadRoster(); }
+  catch { roster.players = []; }     // the network search still works without it
+  roster.loading = false;
+  // A reader who typed while this was in flight is looking at a shorter list
+  // than they should be; redraw whichever box is open.
+  refreshOpenSuggestions();
+}
+
+function refreshOpenSuggestions() {
+  for (const box of openBoxes) box.retryLocal();
+}
+
+/** The roster and the reader's own history, as one pool. */
+function knownPlayers() {
+  return roster.players.concat(recentPlayers());
+}
+
 function wireSearch({ input, list, form, store, onPick }) {
   let seq = 0;
   let timer = null;
@@ -1370,11 +1442,16 @@ function wireSearch({ input, list, form, store, onPick }) {
       input.setAttribute('aria-expanded', 'false');
       return;
     }
+    /* ⚠️ "Nothing" and "not yet" are different sentences. Before this the list
+       was simply hidden until BWF answered, so for up to a second and a half a
+       search that was working looked like a search box that was broken. */
     list.innerHTML = rows.length
       ? rows.map((p, i) => `<li role="option" data-id="${esc(p.id)}" data-i="${i}"`
         + ` aria-selected="${i === store.highlighted}">`
         + (p.flag ? `<img class="flag" src="${esc(p.flag)}" alt="">` : '')
-        + `<span>${esc(p.name)}</span><span class="cc">${esc(p.countryCode)}</span></li>`).join('')
+        + `<span>${esc(p.name)}</span>`
+        + `<span class="cc">${esc(p.countryCode || p.country || '')}</span></li>`).join('')
+      : store.searching ? '<li class="none">Searching…</li>'
       : '<li class="none">No player of that name</li>';
     list.hidden = false;
     input.setAttribute('aria-expanded', 'true');
@@ -1383,6 +1460,7 @@ function wireSearch({ input, list, form, store, onPick }) {
   function close() {
     store.suggestions = null;
     store.highlighted = -1;
+    store.searching = false;
     draw();
   }
 
@@ -1392,27 +1470,67 @@ function wireSearch({ input, list, form, store, onPick }) {
     onPick(player);
   }
 
-  /* Search runs on a delay, and only the newest keystroke's answer is used. The
-     lookup is a single call, but it is still BWF's server: typing "axelsen"
-     should cost one request, not seven. */
+  /* Two answers to every keystroke.
+     The local one is drawn immediately — no await, no debounce, the roster is
+     already in memory — so the players almost everybody searches for appear as
+     fast as the letters do. BWF is then asked on the usual delay and merged in
+     underneath, because the roster is only the current top of five tables and
+     the careers worth looking up historically are in none of them. */
+  function localFor(q) {
+    return q.length < 2 ? [] : rosterMatches(knownPlayers(), q);
+  }
+
   input.addEventListener('input', () => {
     const q = input.value.trim();
     clearTimeout(timer);
     if (q.length < 2) { close(); return; }
+
+    const local = localFor(q);
+    store.suggestions = local;
+    store.highlighted = local.length ? 0 : -1;
+    /* Only while there is nothing yet: a list that is already showing the right
+       player should not also be saying it is still looking. */
+    store.searching = !local.length;
+    draw();
 
     timer = setTimeout(async () => {
       const mine = ++seq;
       try {
         const found = await searchPlayers(q);
         if (mine !== seq) return;               // a later keystroke already won
-        store.suggestions = found.slice(0, 12);
-        store.highlighted = found.length ? 0 : -1;
+        store.searching = false;
+        // Recomputed rather than reused: the roster may have landed meanwhile.
+        store.suggestions = mergeSuggestions(localFor(q), found);
+        store.highlighted = store.suggestions.length ? 0 : -1;
         draw();
       } catch {
-        if (mine === seq) close();
+        if (mine !== seq) return;
+        store.searching = false;
+        // The local list is still a real answer, so it is kept rather than
+        // thrown away because BWF was unreachable.
+        if (!store.suggestions || !store.suggestions.length) close();
+        else draw();
       }
     }, 320);
   });
+
+  /* The five roster requests are paid for by somebody who is about to search,
+     not by everybody who loads the page. */
+  input.addEventListener('focus', () => { ensureRoster(); });
+
+  /* Called when the roster lands, in case it landed mid-query. */
+  function retryLocal() {
+    const q = input.value.trim();
+    if (q.length < 2 || !store.suggestions) return;
+    const merged = mergeSuggestions(localFor(q), store.suggestions);
+    if (merged.length === store.suggestions.length
+      && merged.every((p, i) => p.id === store.suggestions[i].id)) return;
+    store.suggestions = merged;
+    store.highlighted = merged.length ? 0 : -1;
+    store.searching = false;
+    draw();
+  }
+  openBoxes.push({ retryLocal });
 
   input.addEventListener('keydown', e => {
     const rows = store.suggestions;
@@ -1456,6 +1574,7 @@ function wireSearch({ input, list, form, store, onPick }) {
 /** Put a player on the page. */
 function choose(player) {
   if (!player) return;
+  rememberPlayer(player);
   state.player = player.name ? player : null;
   $('q').value = player.name || '';
   loadCareer(player.id);
@@ -1623,6 +1742,7 @@ const tmt = {
   loading: false,
   error: null,
   wantDay: null,          // a day from the hash, before the schedule has landed
+  wantCode: null,         // a tournament pinned by the hash, when two are on
   pickedFor: null,        // the date the current pick was made against
   byDay: new Map(),       // day -> that day's matches, so "All" is one merge
   starred: new Set(),     // match ids the reader picked out
@@ -1714,7 +1834,7 @@ async function loadTournament(opts = {}) {
       tmt.schedule = await loadSchedule({ fresh: !!opts.fresh });
       if (token !== tmtToken) return;
       tmt.pickedFor = todayStr();
-      tmt.pick = pickTournament(tmt.schedule, todayStr());
+      tmt.pick = pickTournament(tmt.schedule, todayStr(), tmt.wantCode);
       const days = tournamentDays(tmt.pick && tmt.pick.tmt);
       // A day from the hash only counts if this tournament actually has it.
       tmt.day = (tmt.wantDay && days.includes(tmt.wantDay)) ? tmt.wantDay
@@ -1995,6 +2115,37 @@ function dayGroupHtml(day, list) {
     + `</header>${oopHtml(list)}</section>`;
 }
 
+/**
+ * The other tournaments running right now.
+ *
+ * BWF streams more than one at a time and the page shows the biggest, so
+ * without this the smaller one is not merely second — it is unreachable. Drawn
+ * only when there is one, so an ordinary week gains no furniture.
+ */
+function renderTmtAlso() {
+  const pick = tmt.pick;
+  const also = (pick && pick.also) || [];
+  const box = $('tmtAlso');
+  if (!also.length) { box.hidden = true; box.innerHTML = ''; return; }
+  box.hidden = false;
+  box.innerHTML = '<span class="lbl">Also on</span>' + also.map(t =>
+    `<button type="button" class="seg" data-code="${esc(String(t.code))}">`
+    + `${esc(tidyTmtName(t.name).label || t.name)}</button>`).join('');
+}
+
+$('tmtAlso').addEventListener('click', e => {
+  const b = e.target.closest('[data-code]');
+  if (!b) return;
+  tmt.wantCode = b.dataset.code;
+  // The day belonged to the tournament being left, so it is dropped rather
+  // than carried across to one whose dates it may not even be inside.
+  tmt.wantDay = null;
+  tmt.day = null;
+  tmt.pickedFor = null;
+  writeHash();
+  loadTournament();
+});
+
 function renderTmt() {
   if (page !== 'tmt') return;
   const pick = tmt.pick;
@@ -2007,6 +2158,7 @@ function renderTmt() {
   badge.className = 'badge' + (pick ? ' ' + pick.state : '');
   const link = $('tmtLink');
   if (t && t.tmtLink) { link.href = t.tmtLink; link.hidden = false; } else { link.hidden = true; }
+  renderTmtAlso();
 
   renderTmtDays();
   renderTmtDraws();
@@ -2109,6 +2261,9 @@ function readHash() {
   // the only way a suite replaying an August fixture can be deterministic.
   pinnedToday = /^\d{4}-\d{2}-\d{2}$/.test(h.get('now') || '') ? h.get('now') : null;
   if (h.has('d')) tmt.wantDay = h.get('d');
+  /* Which of the concurrent tournaments this link is about. Only honoured if it
+     names one that is actually on, so an old link falls back to the default. */
+  tmt.wantCode = h.get('t') || null;
   if (h.has('dw')) tmt.hiddenDraws = new Set(h.get('dw').split('.').filter(Boolean));
   tmt.starredOnly = h.get('so') === '1';
   /* Set unconditionally, like the grid's view and bar: a link without it is
@@ -2169,6 +2324,10 @@ function writeHash() {
   if (cmp.playerId) p.set('c', cmp.playerId);
   if (pinnedToday) p.set('now', pinnedToday);
   if (page === 'tmt' && tmt.day) p.set('d', tmt.day);
+  // Only when it is doing something: a pin that names the tournament the page
+  // would have chosen anyway is noise in the link.
+  if (page === 'tmt' && tmt.pick && tmt.pick.also && tmt.pick.also.length
+      && tmt.wantCode) p.set('t', tmt.wantCode);
   if (page === 'tmt' && tmt.hiddenDraws.size) p.set('dw', [...tmt.hiddenDraws].join('.'));
   // Which matches are starred is a decision about *this reader*, not about the
   // tournament, so it stays in localStorage. Whether the page is filtered to
@@ -2228,6 +2387,17 @@ window.BST = {
   loadLadders,
   loadRanks: () => loadRanks(loadToken),
   search: searchPlayers,
+  roster: {
+    state: roster,
+    load: ensureRoster,
+    known: knownPlayers,
+    local: q => rosterMatches(knownPlayers(), q),
+    remember: rememberPlayer,
+    recent: recentPlayers,
+  },
+  // How much work is outstanding. `ready` is derived from it; exposing the
+  // number itself is what lets a probe say *why* something felt slow.
+  queueDepth,
   positionInfo, fillFraction,
   top: () => topCache.get(topCat) || null,
   showTop,

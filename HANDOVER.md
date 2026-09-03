@@ -1357,6 +1357,80 @@ A sweep of every distinct draw name in the fixtures is the way to find these; th
 them, and after this the only ones that come back null are the bare "Singles"/"Doubles" of a
 team tie, which is correct.
 
+### 3.4i The search box: alphabetical, and on the wrong lane *(fixed 3 Sep 2026)*
+
+Reported as "sometimes no suggestions show up, and it is slow". Three separate faults, none
+of them the size of the pool:
+
+⚠️⚠️ **`vue-popular-players` orders by given name and returns page one.** It is a
+dictionary, not a ranking. Measured with `tools/probe-search.mjs`:
+
+| query | result |
+|---|---|
+| `viktor` | Viktor AXELSEN at index **13** of 30 |
+| `axelsen` | Rikke AXELSEN first |
+| `chen`, `an` | CHEN Yu Fei and AN Se Young **absent entirely** |
+
+Re-sorting the reply cannot fix this. The fix is a local roster matched *first*.
+
+⚠️⚠️ **Search was on the `low` lane.** One uncached search issued while a career was loading
+took **10 516 ms**, queued behind that career's draw ladders at 320 ms each. Anything a
+reader is waiting on belongs in the fast lane however cheap it looks. Now 758 ms.
+
+⚠️ **Nothing was drawn while waiting.** `store.suggestions` stayed null until BWF answered,
+and `draw()` hides the list when it is null — so for 0.4–10 s a working search was
+indistinguishable from a dead box. There is a `searching` flag now, and a "Searching…" row.
+
+⚠️⚠️ **`pageKey` is the page size**, and `loadTopRanked` was sending a hardcoded 10 under a
+comment claiming paging was "hard-locked at 15". It answers 10/15/20/30/50/100, each from
+rank 1, and `page` still walks on top of it. **The top 50 of a discipline is one 33KB
+request**, so the whole roster is five, not the fifty it would have been.
+
+⚠️ **The roster is fetched on first *focus*, not at boot.** Five requests nobody who never
+searches should pay for, and at boot they would compete with the first career load. Cached
+12h, so it is once or twice a day.
+
+⚠️ **It augments, never replaces.** The roster is the current top 50 of five tables. LIN Dan
+and LEE Chong Wei are in none of them — nor, in September 2026, is Viktor AXELSEN, who has
+been out injured and has dropped out of the top 50 of his own discipline. `mergeSuggestions`
+keeps BWF's whole answer under the local one.
+
+⚠️ **Matching is word-by-word and order-blind**, because BWF stores names given-name-first
+(`Se Young AN`) and displays them surname-first (`AN Se Young`). The consequence is that
+`chong wei` matches **MAN Wei Chong**, a real Malaysian doubles player — which is correct,
+and cost a test that assumed otherwise.
+
+⚠️ **`const` does not hoist.** `roster`, `openBoxes` and the recents constants live with the
+rest of the module state near the top of `app.js`, not beside the search code that uses them:
+`wireSearch` is *called* for the compare box several hundred lines above where it is defined,
+and declaring them next to it threw `Cannot access 'openBoxes' before initialization` and
+took the whole page down before `window.BST` existed.
+
+### 3.4j Two tournaments at once *(fixed 3 Sep 2026)*
+
+`pickTournament` took the **first** of `nextLive` / `nextTmt` / `previousTmt` whose dates
+contained today. That order is BWF's, and it is not a ranking: on 3 September 2026 `nextLive`
+was the Pontianak Indonesia Masters, a **Super 100**, and `nextTmt` was the LI-NING China
+Masters, a **Super 750**, both running 1–6 September. The page opened on the smaller one.
+
+⚠️⚠️ **`vue-tmt-schedule` carries no category and no prize money.** The whole row is id, code,
+name, slug, dates, two logo URLs and a label. So the tier comes from:
+
+1. **The name**, for the majors — and this is not an optimisation. A major's `catLogo` is
+   **null**, so without it the World Championships ranks below a Super 100.
+2. **`catLogo`**, whose filename is the tier: `.../tournament/suffix_750-01.svg`. An
+   undocumented URL convention rather than a field, which is why it is second and why
+   anything unrecognised falls through instead of being guessed at.
+
+Ranked through `GRID_ORDER`, the project's one ladder, so a tier added there is ranked here
+without anybody remembering to. **Ties keep BWF's own order**, which makes this a no-op in
+the ordinary week.
+
+⚠️ **Choosing the bigger one makes the other unreachable**, which is a worse page than the
+one it replaced. `pickTournament` returns `also` — the live ones it did not pick — and takes
+a `wantCode` to pin one; the page draws them as buttons and the choice travels as `t=` in the
+hash. A pin naming something not on today is ignored rather than blanking the page.
+
 ### 3.5 Endpoints — the tournament pages *(discovered 21 Aug 2026, all verified 200)*
 
 Part 3.2 was found by pointing `discover.mjs` at the calendar, home and rankings

@@ -26,6 +26,12 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url));
    plays both disciplines, an Olympic champion, and a veteran whose career
    reaches back into the Superseries era. */
 const DEFAULT_PLAYERS = [
+  /* ⚠️ Whoever is **world number one in men's singles** has to be in here. With
+     no player in the link the app looks that up and lands on them, so their
+     career is fetched on almost every page load in the suite — and when the
+     number one changed from SHI Yu Qi to Jonatan CHRISTIE in September 2026 the
+     replay started falling through to the live API on boot. */
+  73442,   // Jonatan CHRISTIE MS, world #1 as of Sep 2026
   57945,   // SHI Yu Qi        MS
   87442,   // AN Se Young      WS
   70762,   // Delphine DELRUE  XD, second-named
@@ -128,6 +134,11 @@ const QUERIES = [
   // only match once the query is rotated.
   'Shi Yu Qi',
   'an se young',
+  // A common surname, which is the case BWF's alphabetical ordering answers
+  // worst and the local roster answers first.
+  'chen',
+  // Nobody the roster can help with: retired, and in no ranking table.
+  'lee chong wei',
 ];
 process.stdout.write(`  searches (${QUERIES.length}) … `);
 {
@@ -165,6 +176,19 @@ process.stdout.write(`  top-ranked tabs … `);
     await b.wait(300);
   }
   console.log(`+${fixtureCount() - before} fixtures`);
+}
+
+/* The search roster: the same five tables again, but asked for fifty rows at a
+   time rather than ten, which is a different URL and so a different fixture.
+   This is what the search box matches against before it asks BWF anything. */
+process.stdout.write(`  search roster … `);
+{
+  const before = fixtureCount();
+  await b.ev(`void window.BST.roster.load()`);
+  await b.until(`window.BST.roster.state.asked && !window.BST.roster.state.loading`,
+    { timeout: 60000 });
+  const n = await b.ev(`window.BST.roster.state.players.length`);
+  console.log(`+${fixtureCount() - before} fixtures, ${n} players`);
 }
 
 /* The tournament page: the schedule, then every day of whatever it names. One

@@ -405,7 +405,20 @@ await b.until(`window.BST.top() !== null`, { timeout: 30000 });
 await b.wait(500);
 eq('a table already fetched costs no request', fx ? fx.stats.served : 0, servedBefore);
 
-await b.ev(`document.querySelector('#topList .pl').click()`);
+/* ⚠️ SHI Yu Qi by name, not "the first one in the list". The first one is
+   whoever is world number one this week — it was him when this was written and
+   Jonatan CHRISTIE by September — so the original clicked whatever the latest
+   recording had put at the top and then loaded a career with no fixtures,
+   failing three checks for a reason that had nothing to do with the panel. */
+const clicked = await b.ev(`(() => {
+  const el = [...document.querySelectorAll('#topList .pl')]
+    .find(x => /SHI Yu Qi/i.test(x.textContent));
+  if (!el) return false;
+  el.click();
+  return true;
+})()`);
+check('SHI Yu Qi is still somewhere in the singles table', clicked,
+  await b.ev(`[...document.querySelectorAll('#topList .pl')].map(x => x.textContent.trim()).join(' | ')`));
 check('picking one loads that career',
   await b.until(`window.BST.state.playerId === '57945'`, { timeout: 30000 }),
   await b.ev('window.BST.state.playerId'));
@@ -722,6 +735,95 @@ check('the zoom is a viewing preference, so it stays out of the link',
 await b.ev(`window.BST.grid.zoom(20)`);
 
 /* ---- the level toggles ---- */
+
+/* ---- the search box ----
+
+   ⚠️ Two problems, both measured on 3 September 2026 and both invisible from
+   the code: BWF's search is **alphabetical**, so "chen" did not contain CHEN Yu
+   Fei at all; and it rode the **low** lane, so one uncached search issued while
+   a career was loading took **10.5 seconds** behind that career's draw ladders.
+   Until it answered, the list was simply hidden — a working search looked like
+   a broken box. */
+
+console.log('\n=== the search box ===');
+
+await b.ev(`document.getElementById('q').focus()`);
+check('focusing the box fetches the roster',
+  await b.until(`window.BST.roster.state.asked
+    && !window.BST.roster.state.loading`, { timeout: 120000 }),
+  await b.ev('JSON.stringify(window.BST.roster.state.asked)'));
+const rosterSize = await b.ev('window.BST.roster.state.players.length');
+check('and it holds the top of every discipline', rosterSize > 200, rosterSize + ' players');
+
+/* The whole point: these are the queries BWF's own search answers worst. */
+for (const [q, want] of [['chen', 'CHEN'], ['an se young', 'AN Se Young'],
+  ['yamaguchi', 'YAMAGUCHI'], ['shi yu', 'SHI Yu Qi']]) {
+  const got = await b.ev(`window.BST.roster.local(${JSON.stringify(q)}).map(p => p.name)`);
+  check(`"${q}" is answered from memory`,
+    Array.isArray(got) && got.length > 0 && got[0].includes(want),
+    (got || []).slice(0, 3).join(' | ') || '(none)');
+}
+
+/* ⚠️ Instantly, and without a request. The debounce plus BWF is 700ms-1.6s
+   away; the roster is already in memory and the answer has to be on screen
+   before the next keystroke, not after it. */
+const typed = JSON.parse(await b.ev(`(() => {
+  const el = document.getElementById('q');
+  el.value = 'chen';
+  const before = performance.now();
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  return JSON.stringify({
+    ms: Math.round(performance.now() - before),
+    shown: [...document.querySelectorAll('#suggest li')].map(x => x.textContent.trim()),
+    hidden: document.getElementById('suggest').hidden,
+  });
+})()`));
+check('typing puts suggestions up in the same tick', typed.ms < 50, typed.ms + 'ms');
+check('and the list is actually open', !typed.hidden);
+check('with a real player at the top', /CHEN/i.test(typed.shown[0] || ''),
+  typed.shown.slice(0, 3).join(' | '));
+
+/* And BWF's answer arrives underneath rather than replacing it. */
+await b.wait(2500);
+const settled = await b.ev(
+  `[...document.querySelectorAll('#suggest li')].map(x => x.textContent.trim())`);
+check('BWF adds to the list rather than clearing it',
+  settled.length >= typed.shown.length && /CHEN/i.test(settled[0] || ''),
+  settled.slice(0, 4).join(' | '));
+
+/* ⚠️ A query the roster cannot answer must still work: LEE Chong Wei is retired
+   and in no ranking table, and he is half the comparison this project exists
+   for. The local list being empty is exactly when "Searching…" has to show. */
+const cold = JSON.parse(await b.ev(`(() => {
+  const el = document.getElementById('q');
+  el.value = 'lee chong wei';
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  return JSON.stringify({
+    shown: [...document.querySelectorAll('#suggest li')].map(x => x.textContent.trim()),
+    local: window.BST.roster.local('lee chong wei').length,
+  });
+})()`));
+/* ⚠️ "chong wei" alone would not do: the matcher is word-order-blind, so it
+   finds MAN Wei Chong, a Malaysian doubles player who really is in the roster.
+   The full name is what nothing local can answer. */
+eq('a retired player is not in the roster', cold.local, 0);
+check('so the box says it is still looking, rather than looking broken',
+  /Searching/i.test(cold.shown.join(' ')), cold.shown.join(' | '));
+
+await b.ev(`document.getElementById('q').value = '';
+  document.getElementById('q').dispatchEvent(new Event('input', { bubbles: true }));`);
+
+/* Players this reader has opened are remembered, which is how a retired player
+   becomes instant the second time. */
+await b.ev(`window.BST.roster.remember({ id: '50152', name: 'LEE Chong Wei',
+  country: 'Malaysia', countryCode: 'MAS' })`);
+const remembered = await b.ev(`window.BST.roster.local('lee chong wei').map(p => p.name)`);
+eq('and then it is remembered', (remembered || []).join(), 'LEE Chong Wei');
+check('a corrupt store is no store, not a broken box', await b.ev(`(() => {
+  localStorage.setItem('bst:recent', 'not json at all');
+  try { return Array.isArray(window.BST.roster.recent()); } catch { return false; }
+})()`));
+await b.ev(`localStorage.removeItem('bst:recent')`);
 
 console.log('\n=== levels can be switched out ===');
 

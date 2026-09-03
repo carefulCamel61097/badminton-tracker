@@ -53,10 +53,16 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 /* ============================ the queue ============================
 
-   Two lanes, not one chain. Background work — a ranking table is paginated 15
-   rows at a time and hard-locked there, so an index is dozens of calls — would
-   otherwise sit in front of whatever the user just clicked and leave the view
-   spinning. Anything the visible view needs goes in the fast lane.
+   Two lanes, not one chain. Background work — every tournament's draw ladder,
+   a whole season of them — would otherwise sit in front of whatever the user
+   just clicked and leave the view spinning. Anything the visible view needs
+   goes in the fast lane.
+
+   ⚠️ **The low lane is FIFO and can be tens deep.** Measured 3 Sep 2026: one
+   uncached player search issued while a career was loading took **10.5
+   seconds**, because it queued behind that career's draw ladders at 320ms
+   apiece. Anything a reader is *waiting on* — which includes typing — belongs
+   in the fast lane however cheap it looks.
    ================================================================ */
 
 const lanes = { high: [], low: [] };
@@ -290,19 +296,25 @@ export async function loadRaceRank(playerId, name, raceCat, opts = {}) {
  * The top of a ranking table, as a shortcut to the players most people arrive
  * looking for.
  *
- * Paging is hard-locked at 15 rows — `per_page`, `limit` and the rest are all
- * ignored — so page 1 is the top 15 and `count` just trims it. Rankings move
- * once a week, which is what the twelve-hour store is for.
+ * ⚠️ **`pageKey` is the page size**, and was being sent as a hardcoded 10 while
+ * a comment here claimed paging was locked at 15. Measured 3 Sep 2026: it
+ * answers 10, 15, 20, 30, 50 and 100 rows, each starting from rank 1, and
+ * `page` still walks on top of it — so the top 50 of a discipline is **one 33KB
+ * request** rather than five. Rankings move once a week, which is what the
+ * twelve-hour store is for.
  *
  * ⚠️ A doubles row is a *pair*: two players, either of whom might be the one
  * being looked for, so both are returned rather than assuming the first.
  */
 export async function loadTopRanked(catId, { count = 10, ...opts } = {}) {
   const cat = RANKING_CATEGORIES.find(c => c.id === Number(catId));
+  /* Ask for exactly what is wanted. Clamped to what the endpoint was seen to
+     answer: below 10 is untested and above 100 unnecessary. */
+  const pageKey = Math.min(100, Math.max(10, Number(count) || 10));
   const raw = await getJSON('vue-rankingtable', {
     rankId: 2, catId, page: 1, drawCount: 1,
     searchKey: '', publicationId: 0,
-    doubles: !!(cat && cat.doubles), pageKey: 10,
+    doubles: !!(cat && cat.doubles), pageKey,
   }, { priority: 'low', persist: true, ...opts });
 
   const r = raw && raw.results;
@@ -321,6 +333,52 @@ export async function loadTopRanked(catId, { count = 10, ...opts } = {}) {
       }))
       .filter(p => p.name),
   })).filter(row => row.players.length);
+}
+
+/**
+ * The players most people are looking for, as one flat list.
+ *
+ * ⚠️ **This exists because BWF's search is alphabetical, not relevant.**
+ * `vue-popular-players` returns page 1 of a list ordered by given name, so
+ * measured on 3 September 2026: "viktor" put Viktor AXELSEN at index **13** of
+ * 30, "axelsen" put Rikke AXELSEN above him, and "chen" and "an" did not
+ * contain CHEN Yu Fei or AN Se Young **at all** — the reigning world number
+ * ones, absent from their own names. No amount of re-sorting the answer fixes
+ * that; the player is not in it.
+ *
+ * So the top of each ranking is held locally and matched first. It is also
+ * instant, which is the other half of the problem: the network answer is
+ * 400ms–1.2s away and until it lands the box has nothing to show.
+ *
+ * ⚠️ **It cannot replace the search, only precede it.** The two careers this
+ * project exists to compare — LIN Dan and LEE Chong Wei — are retired and in no
+ * ranking table at all, and so is everybody else worth looking up historically.
+ *
+ * One request per discipline, five in all, ~33KB each and cached for twelve
+ * hours. A doubles row is a pair, so those three yield 100 players apiece.
+ */
+export async function loadRoster({ count = 50, ...opts } = {}) {
+  const lists = await Promise.all(RANKING_CATEGORIES.map(async cat => {
+    try {
+      const rows = await loadTopRanked(cat.id, { count, ...opts });
+      return rows.flatMap(row => row.players.map(p => ({
+        ...p, rank: row.rank, draw: cat.code,
+      })));
+    } catch {
+      // One discipline failing is not the roster failing; the rest still help.
+      return [];
+    }
+  }));
+
+  /* Deduplicated on id, keeping the best rank: a player can be in two tables —
+     a singles player who also plays mixed — and should be one suggestion at
+     their strongest ranking, not two at different ones. */
+  const by = new Map();
+  for (const p of lists.flat()) {
+    const seen = by.get(p.id);
+    if (!seen || (p.rank || 999) < (seen.rank || 999)) by.set(p.id, p);
+  }
+  return [...by.values()].sort((a, b) => (a.rank || 999) - (b.rank || 999));
 }
 
 /* ============================ tournaments ============================ */
@@ -407,9 +465,12 @@ export async function searchPlayers(query, opts = {}) {
   if (q.length < 2) return [];
 
   const ask = async key => {
+    /* ⚠️ The **fast** lane. This is somebody typing: it is the most obviously
+       interactive request the app makes, and on the low lane it queued behind a
+       loading career's draw ladders for over ten seconds. */
     const raw = await getJSON('vue-popular-players', {
       searchKey: key, activeTab: 1, page: 1,
-    }, { priority: 'low', persist: true, ...opts });
+    }, { priority: 'high', persist: true, ...opts });
     const r = raw && raw.results;
     return Array.isArray(r) ? r
       : (r && Array.isArray(r.data)) ? r.data

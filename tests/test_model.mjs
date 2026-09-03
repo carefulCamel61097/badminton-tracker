@@ -27,7 +27,8 @@ import {
   gridGroupLabel, gridGroupCode, gridGroupShort,
   HONOUR_STEPS, HONOUR_DEFAULT, honourStep, honourScale, honourRung,
   careerHonours, honourSections,
-  pickTournament, tournamentDays, defaultDay, parseDayMatches, orderOfPlay,
+  pickTournament, scheduleGroup, tournamentDays, defaultDay, parseDayMatches, orderOfPlay,
+  nameScore, rosterMatches, mergeSuggestions,
   drawsPresent, courtGrid, courtOrder, dayOf, matchSignature, prettyDay,
   LEVEL, SLOT_W, BOX_H, MIN_LABEL_PX, LEVEL_ORDER,
 } from '../model.js';
@@ -74,9 +75,15 @@ console.log('=== parse: SHI Yu Qi 2026 ===');
 const raw = fixture('vue-player-tournaments', seasonParams(57945, 2026));
 const season = parseSeason(raw);
 
-eq('ten tournaments', season.length, 10);
+/* ⚠️ Counted against the payload rather than written down. This is a live
+   recording of a season still being played, so it grows: it was ten
+   tournaments when this was written and eleven by September, and four checks
+   failed for a reason that had nothing to do with the code. */
+eq('every tournament in the payload comes through', season.length, raw.results.length);
+check('there are enough of them to be worth checking', season.length >= 10, season.length);
 eq('oldest first', season[0].start, '2026-01-06');
-eq('newest last', season[9].start, '2026-08-17');
+check('and the last is the latest', season[season.length - 1].start
+  === season.map(t => t.start).sort().pop());
 check('chronological throughout',
   season.every((t, i) => i === 0 || season[i - 1].start <= t.start),
   season.map(t => t.start).join(' '));
@@ -104,7 +111,8 @@ check('Thomas & Uber Cup is in the parse', !!team, team && team.name);
 check('flagged as a team event', team.team === true);
 eq('its draw carries no position', team.draws[0].position, 'N/A');
 eq('name shortened', team.short, 'Thomas & Uber');
-eq('excluded on request', parseSeason(raw, { includeTeam: false }).length, 9);
+eq('excluded on request', parseSeason(raw, { includeTeam: false }).length,
+  season.filter(t => !t.team).length);
 check('and it is the team one that goes',
   !parseSeason(raw, { includeTeam: false }).some(t => t.team));
 
@@ -113,7 +121,8 @@ check('and it is the team one that goes',
 console.log('\n=== disciplines ===');
 const ds = seasonDisciplines(season);
 eq('MS is the commonest draw', ds[0].name, 'MS');
-eq('nine MS entries', ds[0].count, 9);
+eq('one MS entry per tournament that had an MS draw', ds[0].count,
+  season.filter(t => t.draws.some(d => d.name === 'MS')).length);
 eq('classified as singles', ds[0].kind, 'singles');
 check('a team tie is not offered as a discipline',
   !ds.filter(d => d.kind !== 'team').some(d => d.name === 'SINGLES'),
@@ -593,7 +602,7 @@ eq('no case signal: keep the whole name', surnameOf('THET HTAR THUZAR'), 'THET H
 
 console.log('\n=== results is polymorphic ===');
 const paginated = { results: { current_page: 1, data: raw.results, total: 10 } };
-eq('a paginated response parses the same', parseSeason(paginated).length, 10);
+eq('a paginated response parses the same', parseSeason(paginated).length, season.length);
 eq('an empty response is an empty season, not a crash', parseSeason({}).length, 0);
 eq('so is a null one', parseSeason(null).length, 0);
 eq('and a results-less one', parseSeason({ results: null }).length, 0);
@@ -1281,6 +1290,185 @@ eq('long afterwards it falls back to the last one played', far.state, 'finished'
 eq('a payload with nothing in it is nothing, not a crash',
   pickTournament({}, '2026-08-23'), null);
 eq('and neither is no payload at all', pickTournament(null, '2026-08-23'), null);
+
+/* ======================== matching a name as it is typed ========================
+
+   ⚠️ **BWF's search is alphabetical, not relevant.** `vue-popular-players`
+   returns page 1 of a list ordered by given name, so measured on 3 September
+   2026: "viktor" put Viktor AXELSEN at index 13 of 30, "chen" did not contain
+   CHEN Yu Fei and "an" did not contain AN Se Young — the reigning world number
+   ones, absent from their own names. Nothing done to the answer fixes that;
+   they are not in it. So the top of each ranking table is matched locally
+   first, and this is that matching.
+   ==================================================================== */
+
+console.log('\n=== matching a typed name ===');
+
+/* Real names, in the two forms BWF uses for the same people: the ranking tables
+   say "AN Se Young", the search endpoint says "Se Young AN". */
+const ROSTER = [
+  { id: '1', name: 'AN Se Young', rank: 1 },
+  { id: '2', name: 'Jonatan CHRISTIE', rank: 1 },
+  { id: '3', name: 'CHEN Yu Fei', rank: 4 },
+  { id: '4', name: 'CHOU Tien Chen', rank: 4 },
+  { id: '5', name: 'Anders ANTONSEN', rank: 5 },
+  { id: '6', name: 'SHI Yu Qi', rank: 6 },
+  { id: '7', name: 'Akane YAMAGUCHI', rank: 3 },
+  { id: '8', name: 'Kunlavut VITIDSARN', rank: 3 },
+];
+const hit = q => rosterMatches(ROSTER, q).map(p => p.name);
+
+eq('a surname finds its owner', hit('christie').join(), 'Jonatan CHRISTIE');
+eq('and a given name does too', hit('akane').join(), 'Akane YAMAGUCHI');
+eq('a prefix is enough', hit('vitid').join(), 'Kunlavut VITIDSARN');
+
+/* ⚠️ Word by word and in any order, because the same player is stored both ways
+   round. A reader types the name as the site displays it; BWF's search holds
+   the other one. */
+eq('surname first, as the site writes it', hit('an se young').join(), 'AN Se Young');
+eq('given name first, as BWF stores it', hit('se young an').join(), 'AN Se Young');
+eq('two words out of three', hit('se young').join(), 'AN Se Young');
+eq('and the words need not be adjacent', hit('shi qi').join(), 'SHI Yu Qi');
+
+/* ⚠️ The rank is the tie-break, which is the entire reason for holding a
+   roster rather than sorting BWF's answer harder: "an" matches three of these
+   and the world number one has to be the first of them. */
+eq('an ambiguous prefix puts the highest-ranked first',
+  hit('an')[0], 'AN Se Young');
+check('without dropping the others', hit('an').length >= 2, hit('an').join(' | '));
+eq('a whole word beats a prefix of a longer one',
+  hit('chen')[0], 'CHEN Yu Fei');
+check('and CHOU Tien Chen is still offered', hit('chen').includes('CHOU Tien Chen'));
+
+eq('a name nobody here has finds nobody', hit('axelsen').length, 0);
+eq('one letter is not a query', hit('a').length, 0);
+eq('and neither is nothing', hit('').length, 0);
+eq('an empty roster is empty, not a crash', rosterMatches([], 'chen').length, 0);
+eq('and so is no roster at all', rosterMatches(null, 'chen').length, 0);
+
+eq('a name scores -1 when it does not match', nameScore('CHEN Yu Fei', 'axelsen'), -1);
+check('an exact whole-name match outscores a partial one',
+  nameScore('CHEN Yu Fei', 'chen yu fei') > nameScore('CHEN Yu Fei', 'ch'));
+
+/* ---- and then BWF's answer underneath ---- */
+
+/* ⚠️ **Local first, never local only.** The roster is the current top of five
+   ranking tables. LIN Dan and LEE Chong Wei are retired and in none of them,
+   and they are the comparison this whole project was built for. */
+const REMOTE = [
+  { id: '3', name: 'CHEN Yu Fei' },        // already local, must not double up
+  { id: '90', name: 'Dan LIN' },
+  { id: '91', name: 'Chong Wei LEE' },
+];
+const merged = mergeSuggestions(rosterMatches(ROSTER, 'chen'), REMOTE);
+eq('the local matches come first', merged[0].name, 'CHEN Yu Fei');
+check('and everybody BWF found is still there',
+  merged.some(p => p.id === '90') && merged.some(p => p.id === '91'),
+  merged.map(p => p.name).join(' | '));
+eq('a player in both lists appears once',
+  merged.filter(p => p.id === '3').length, 1);
+eq('nothing local is still BWF alone',
+  mergeSuggestions([], REMOTE).map(p => p.id).join(), '3,90,91');
+eq('nothing at all is nothing', mergeSuggestions(null, null).length, 0);
+check('the list is capped', mergeSuggestions(
+  Array.from({ length: 40 }, (_, i) => ({ id: 'x' + i, name: 'P' + i })), REMOTE).length === 12);
+
+/* ---- two at once, which BWF does more often than the three slots suggest ----
+
+   Every row below is the real `vue-tmt-schedule` payload of 3 September 2026,
+   when the page opened on a Super 100 while a Super 750 was running beside it.
+   The slots are named for what they are to BWF — `nextLive` is the one it is
+   streaming — and BWF streams several at a time, so the order is not a ranking.
+
+   ⚠️ The payload carries **no category and no prize money**: id, code, name,
+   slug, dates, two logo URLs and a label. The tier has to come out of the
+   `catLogo` filename, and out of the name for the majors, whose catLogo is
+   null. */
+
+console.log('\n--- two tournaments at once ---');
+
+const LOGO = 'https://bwfbadminton.com/wp-content/themes/fansite-2020/'
+  + 'assets/images/tournament/';
+const sched = (name, code, suffix, from, to) => ({
+  name, code, start_date: from + ' 00:00:00', end_date: to + ' 00:00:00',
+  catLogo: suffix == null ? null : `${LOGO}suffix_${suffix}-01.svg`,
+});
+
+const INDO = sched('POLYTRON Pontianak Indonesia Masters 2026', 'IND-CODE',
+  100, '2026-09-01', '2026-09-06');
+const CHINA = sched('LI-NING China Masters 2026', 'CHN-CODE',
+  750, '2026-09-01', '2026-09-06');
+const WCH = sched('BWF World Championships 2026', 'WCH-CODE',
+  null, '2026-08-17', '2026-08-23');
+
+eq('a Super 750 is read off its category logo', scheduleGroup(CHINA), 24);
+eq('and a Super 100', scheduleGroup(INDO), 27);
+/* ⚠️ A major has no category logo at all, so without the name it would rank
+   below everything — the World Championships behind a Super 100. */
+eq('a major has no logo and is found by name', scheduleGroup(WCH), 20);
+eq('the Olympics too',
+  scheduleGroup(sched('Paris 2024 Olympic Games', 'X', null, '2024-07-27', '2024-08-05')), 'OLY');
+eq('the season-ending Finals as well',
+  scheduleGroup(sched('HSBC BWF World Tour Finals 2026', 'X', null, '2026-12-16', '2026-12-20')), 22);
+eq('and something with neither is simply unknown',
+  scheduleGroup(sched('Some Invitational 2026', 'X', null, '2026-05-01', '2026-05-03')), null);
+eq('as is nothing at all', scheduleGroup(null), null);
+
+/* The bug, exactly as it was: BWF's own order put the Super 100 first. */
+const twoOn = pickTournament(
+  { nextLive: INDO, nextTmt: CHINA, previousTmt: WCH }, '2026-09-03');
+eq('with two on at once the bigger one is shown', twoOn.tmt.code, 'CHN-CODE');
+eq('and it is live', twoOn.state, 'live');
+eq('the other is offered rather than hidden',
+  twoOn.also.map(t => t.code).join(','), 'IND-CODE');
+
+/* ⚠️ Otherwise choosing the bigger one would make the smaller one unreachable,
+   which is a worse page than the one this replaced. */
+const pinned = pickTournament(
+  { nextLive: INDO, nextTmt: CHINA, previousTmt: WCH }, '2026-09-03', 'IND-CODE');
+eq('a pin reaches the smaller one', pinned.tmt.code, 'IND-CODE');
+eq('and then the bigger one is the one on offer',
+  pinned.also.map(t => t.code).join(','), 'CHN-CODE');
+eq('a pin naming something not on today is ignored', pickTournament(
+  { nextLive: INDO, nextTmt: CHINA }, '2026-09-03', 'WCH-CODE').tmt.code, 'CHN-CODE');
+eq('and so is a pin naming nothing at all', pickTournament(
+  { nextLive: INDO, nextTmt: CHINA }, '2026-09-03', 'no-such-code').tmt.code, 'CHN-CODE');
+
+/* The ordinary week: one thing on, and nothing to choose between. */
+const alone = pickTournament({ nextLive: CHINA, previousTmt: WCH }, '2026-09-03');
+eq('one tournament on its own is still the one shown', alone.tmt.code, 'CHN-CODE');
+eq('with nothing else offered', alone.also.length, 0);
+
+/* ⚠️ Ties keep BWF's own order, which is what makes this change a no-op
+   wherever the tier cannot separate them — including two events neither of
+   which has a recognisable tier. */
+const tied = pickTournament({
+  nextLive: sched('Alpha Open 2026', 'A', 500, '2026-09-01', '2026-09-06'),
+  nextTmt: sched('Beta Open 2026', 'B', 500, '2026-09-01', '2026-09-06'),
+}, '2026-09-03');
+eq('two of the same size keep the payload order', tied.tmt.code, 'A');
+const unknown = pickTournament({
+  nextLive: sched('Alpha Invitational', 'A', null, '2026-09-01', '2026-09-06'),
+  nextTmt: sched('Beta Invitational', 'B', null, '2026-09-01', '2026-09-06'),
+}, '2026-09-03');
+eq('and so do two the ladder cannot place', unknown.tmt.code, 'A');
+
+/* A major running against a World Tour event is the case the name rescue is
+   for: null catLogo must not mean "smallest". */
+const majorWeek = pickTournament({
+  nextLive: sched('SOME Super 1000 2026', 'S1000', 1000, '2026-08-17', '2026-08-23'),
+  nextTmt: WCH,
+}, '2026-08-20');
+eq('a World Championships outranks a Super 1000', majorWeek.tmt.code, 'WCH-CODE');
+
+/* The same choice one week earlier, before either has started. */
+const ahead = pickTournament(
+  { nextLive: INDO, nextTmt: CHINA }, '2026-08-25');
+eq('two starting the same day: the bigger is up next too', ahead.tmt.code, 'CHN-CODE');
+eq('and it has not started', ahead.state, 'upcoming');
+eq('every answer carries the same shape, so no caller checks for it',
+  [twoOn, pinned, alone, ahead, pickTournament({ previousTmt: WCH }, '2027-01-01')]
+    .every(x => Array.isArray(x.also)), true);
 
 /* ---- which day ---- */
 

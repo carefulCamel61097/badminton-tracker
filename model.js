@@ -1611,6 +1611,90 @@ export function honourSections(perCareer, era) {
   }));
 }
 
+/* ========================= matching a typed name =========================
+
+   Pure, so the suggestion order can be tested without a browser or a network.
+
+   ⚠️ **BWF stores names given-name-first and displays them surname-first.** The
+   search endpoint holds AN Se Young as "Se Young AN"; the ranking tables return
+   "AN Se Young". Both are the same person and a reader may type either, so
+   matching is done word by word rather than on the string — every word of the
+   query has to begin some word of the name, in any order.
+   ==================================================================== */
+
+const words = s => String(s || '').toLowerCase().split(/[^a-z0-9]+/i).filter(Boolean);
+
+/**
+ * How well a name answers a query, or -1 for not at all. Higher is better.
+ *
+ * The ranking is deliberately coarse — four bands, then the player's world
+ * ranking inside them — because the difference that matters is "the person you
+ * meant" against "somebody who shares a syllable", not a similarity score.
+ */
+export function nameScore(name, query) {
+  const q = words(query);
+  const n = words(name);
+  if (!q.length || !n.length) return -1;
+
+  // Every word of the query has to be somewhere, or this is not the player.
+  const used = new Set();
+  for (const qw of q) {
+    const at = n.findIndex((nw, i) => !used.has(i) && nw.startsWith(qw));
+    if (at < 0) return -1;
+    used.add(at);
+  }
+
+  const whole = q.every(qw => n.includes(qw));
+  const joined = n.join(' ');
+  // "lee ch" should put LEE Chong Wei above WANG Lee Chong-something.
+  const fromStart = joined.startsWith(q.join(' '));
+  return (whole ? 4 : 0) + (fromStart ? 2 : 0) + (n[0].startsWith(q[0]) ? 1 : 0);
+}
+
+/**
+ * The roster entries that answer a query, best first.
+ *
+ * `rank` breaks ties, so among two equally good name matches the higher-ranked
+ * player comes first — which is the whole point of holding a roster: BWF's own
+ * search put the world number one at index 13 of his own surname.
+ */
+export function rosterMatches(roster, query, limit = 12) {
+  /* ⚠️ The same two-character floor `searchPlayers` uses, and here rather than
+     only in the caller: a single letter matches a third of the roster, and a
+     pure function that hands back sixty players for "a" is a trap for whoever
+     calls it next. */
+  if (String(query || '').trim().length < 2) return [];
+  const scored = [];
+  for (const p of roster || []) {
+    const score = nameScore(p.name, query);
+    if (score >= 0) scored.push({ p, score });
+  }
+  scored.sort((a, b) => b.score - a.score
+    || (a.p.rank || 999) - (b.p.rank || 999)
+    || (a.p.name < b.p.name ? -1 : a.p.name > b.p.name ? 1 : 0));
+  return scored.slice(0, limit).map(x => x.p);
+}
+
+/**
+ * The local list and BWF's, as one.
+ *
+ * ⚠️ **Local first, and never local only.** The roster is the current top of
+ * five ranking tables; LIN Dan and LEE Chong Wei are in none of them, and they
+ * are the comparison this project was built for. What BWF returns is kept in
+ * full, minus anybody already shown.
+ */
+export function mergeSuggestions(local, remote, limit = 12) {
+  const out = [];
+  const seen = new Set();
+  for (const p of [...(local || []), ...(remote || [])]) {
+    if (!p || !p.id || seen.has(String(p.id))) continue;
+    seen.add(String(p.id));
+    out.push(p);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
 /* ============================ the tournament now ============================
 
    The third page: whatever tournament is on, and its order of play, without
@@ -1638,6 +1722,55 @@ export function dayOf(when) {
 const within = (day, from, to) => !!(day && from && to && day >= from && day <= to);
 
 /**
+ * How big a scheduled tournament is, as a `GRID_ORDER` section.
+ *
+ * ⚠️ **`vue-tmt-schedule` carries no category and no prize money.** Its rows are
+ * id, code, name, slug, dates, two logo URLs and a label — that is all. So the
+ * tier has to come out of what is there:
+ *
+ * 1. **The name**, for the majors, using the same patterns `gridGroup` uses.
+ *    This is not an optimisation: a major's `catLogo` is **null**, so without
+ *    it the World Championships would rank below a Super 100.
+ * 2. **`catLogo`**, whose filename is the tier —
+ *    `.../tournament/suffix_750-01.svg` is a Super 750. Undocumented and a URL
+ *    convention rather than a field, which is why it is second and why anything
+ *    unrecognised falls through rather than being guessed at.
+ *
+ * Returns null when neither says anything, and callers rank that last.
+ */
+const SUFFIX_GROUP = { 1000: 23, 750: 24, 500: 25, 300: 26, 100: 27 };
+
+export function scheduleGroup(t) {
+  const name = String((t && t.name) || '');
+  if (isOlympics(name)) return 'OLY';
+  for (const [re, group] of MAJOR_BY_NAME) if (re.test(name)) return group;
+
+  const m = /suffix[_-](\d+)/i.exec(String((t && t.catLogo) || ''));
+  const g = m ? SUFFIX_GROUP[m[1]] : null;
+  return g == null ? null : g;
+}
+
+/**
+ * Two tournaments compared by how much is at stake, biggest first.
+ *
+ * `GRID_ORDER` is the project's one ladder and is reused rather than restated,
+ * so a tier added there is ranked here without anybody remembering to.
+ * Unrecognised sorts last, and **ties keep BWF's own order** — which is what
+ * makes this a no-op in the ordinary week when only one thing is on.
+ */
+function stakes(t) {
+  const g = scheduleGroup(t);
+  const i = g == null ? -1 : GRID_ORDER.indexOf(g);
+  return i < 0 ? Number.MAX_SAFE_INTEGER : i;
+}
+
+/* A stable "biggest first" over the payload's own order: `findIndex` keeps the
+   original position as the tie-break rather than relying on sort stability. */
+function biggest(list) {
+  return list.reduce((best, t) => (best == null || stakes(t) < stakes(best) ? t : best), null);
+}
+
+/**
  * Which tournament to show, and what state it is in.
  *
  * Preference is live, then whichever of the upcoming pair starts soonest, then
@@ -1645,17 +1778,40 @@ const within = (day, from, to) => !!(day && from && to && day >= from && day <= 
  * event but need not be: `nextLive` is the next one with **live scores**, which
  * can be further out than the next one on the calendar.
  *
+ * `wantCode` pins one of the slots by its code, which is what makes the other
+ * live tournament reachable at all: choosing the bigger one by default would
+ * otherwise hide the smaller one completely, and somebody who came for the
+ * Indonesia Masters would have no way to get to it.
+ *
  * @param {object} schedule  the `vue-tmt-schedule` payload
  * @param {string} today     `YYYY-MM-DD`
- * @returns {{tmt: object, state: 'live'|'upcoming'|'finished'}|null}
+ * @param {string} [wantCode]  a tournament code to prefer, if it is on today
+ * @returns {{tmt, state: 'live'|'upcoming'|'finished', also: object[]}|null}
  */
-export function pickTournament(schedule, today) {
+export function pickTournament(schedule, today, wantCode) {
   const s = schedule || {};
   const at = t => (t ? { from: dayOf(t.start_date), to: dayOf(t.end_date) } : null);
 
-  for (const t of [s.nextLive, s.nextTmt, s.previousTmt]) {
+  /* ⚠️ **All of the live ones, then the biggest** — not the first one BWF
+     happens to list. The slots are named for what they are to BWF (`nextLive`
+     is the one it is streaming), not for what matters, and BWF streams more
+     than one at a time: on 3 September 2026 `nextLive` was the Pontianak
+     Indonesia Masters, a **Super 100**, while `nextTmt` was the LI-NING China
+     Masters, a **Super 750**, both running 1-6 September. The page opened on
+     the smaller one. */
+  const live = [s.nextLive, s.nextTmt, s.previousTmt].filter(t => {
     const d = at(t);
-    if (d && within(today, d.from, d.to)) return { tmt: t, state: 'live' };
+    return d && within(today, d.from, d.to);
+  });
+  if (live.length) {
+    /* A pin only counts if it names something actually on today, so a stale
+       link degrades to the ordinary choice rather than to an empty page. */
+    const pinned = wantCode
+      && live.find(t => String(t.code) === String(wantCode));
+    const top = pinned || biggest(live);
+    // `also` is the rest, so the page can offer them rather than silently
+    // hiding a tournament somebody may have come here for.
+    return { tmt: top, state: 'live', also: live.filter(t => t !== top) };
   }
 
   /* All three slots, not just the two named "next". `previousTmt` is normally
@@ -1667,16 +1823,17 @@ export function pickTournament(schedule, today) {
     .filter(t => t && dayOf(t.start_date) && dayOf(t.start_date) > today)
     .sort((a, b) => {
       const x = dayOf(a.start_date), y = dayOf(b.start_date);
-      // 0 for equal, so two events starting the same day keep the payload's own
-      // order — which puts the one with live scores first.
-      return x < y ? -1 : x > y ? 1 : 0;
+      if (x !== y) return x < y ? -1 : 1;
+      // Same day: the bigger one, for the same reason as above. Ties within
+      // that keep the payload's own order, which puts live scores first.
+      return stakes(a) - stakes(b);
     })[0];
-  if (soonest) return { tmt: soonest, state: 'upcoming' };
+  if (soonest) return { tmt: soonest, state: 'upcoming', also: [] };
 
-  if (s.previousTmt) return { tmt: s.previousTmt, state: 'finished' };
+  if (s.previousTmt) return { tmt: s.previousTmt, state: 'finished', also: [] };
   // Nothing live and nothing ahead: whatever there is beats an empty page.
   const any = [s.nextLive, s.nextTmt].find(Boolean);
-  return any ? { tmt: any, state: 'finished' } : null;
+  return any ? { tmt: any, state: 'finished', also: [] } : null;
 }
 
 /** Every day of a tournament, first to last. */

@@ -342,6 +342,41 @@ pyramid asks which titles mattered most in a season across the whole sport, and 
 regional games there picks a region. A career asks what this player won, and Lin Dan really
 did win two Asian Games.
 
+## Searching for a player
+
+Type two letters and the list appears in the same tick, before anything is asked of BWF.
+It is matched against the **top 50 of all five ranking tables** — 377 players — held in
+memory and refreshed twice a day, plus everybody you have opened before. BWF is then asked
+on the usual delay and its answer merged in underneath.
+
+That is not only about speed. **BWF's own search is alphabetical, not relevant**: it returns
+page one of a list ordered by given name. Measured 3 September 2026:
+
+| you type | where BWF puts the obvious answer |
+|---|---|
+| `viktor` | Viktor AXELSEN at **index 13** of 30 |
+| `axelsen` | Rikke AXELSEN above him |
+| `chen` | CHEN Yu Fei **not in the answer at all** |
+| `an` | AN Se Young **not in the answer at all** |
+
+The reigning world number ones, absent from their own names. No amount of re-sorting the
+reply fixes that, because they are not in it.
+
+Names match **word by word, in any order**, because the same player is stored both ways
+round — the ranking tables say `AN Se Young` and the search endpoint says `Se Young AN`, and
+a reader may type either. So `se young`, `an se young` and `se young an` all find her, and
+`shi qi` finds SHI Yu Qi.
+
+⚠️ **The roster can never replace the search, only precede it.** Lin Dan and Lee Chong Wei
+are retired and in no ranking table, and they are the comparison this whole tool was built
+for; Viktor Axelsen has been out injured and is not in the top 50 either. When nothing local
+matches, the box says **Searching…** rather than sitting empty — which is what it used to do
+for up to ten seconds.
+
+Ten seconds because the search rode the **low** request lane, behind every draw ladder the
+career on screen was still fetching, at 320 ms apiece. It is now on the fast lane: the same
+uncached search during a career load went from **10.5 s to 0.76 s**.
+
 ## Who you start on
 
 With nobody in the link, the app opens on the **world number one in men's singles** — looked
