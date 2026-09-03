@@ -107,6 +107,18 @@ check('and the career it opened on finishes loading',
 /* ============================ the player search ============================ */
 
 console.log('=== a player is found by name, not by id ===');
+
+/* ⚠️ On the page you actually land on, not one you navigated to. `showPage` is
+   what stamps `body[data-page]`, and boot skips it when the hash wants the
+   default page — so the stylesheet's `body:not([data-page="seasons"])` matched
+   an absent attribute and hid the strip's own controls on the strip. Live on
+   the deployed site until 4 September 2026; found from a keyboard probe
+   reporting the page as "undefined", not from looking at it. */
+eq('the page says which page it is, from the first paint',
+  await b.ev(`document.body.dataset.page`), 'seasons');
+check('so the controls that belong to the strip are on screen with it',
+  await b.ev(`!!document.getElementById('kindWrap').offsetParent
+    && !!document.getElementById('sized').closest('label').offsetParent`));
 check('the page opens on a search box, with no id anywhere',
   await b.ev(`document.getElementById('q').type === 'search'`));
 check('and focuses it, because typing a name is the first thing to do',

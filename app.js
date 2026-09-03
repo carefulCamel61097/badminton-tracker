@@ -1133,6 +1133,16 @@ function renderViewPick() {
 const PAGES = ['seasons', 'compare', 'tmt', 'winners'];
 let page = 'seasons';
 
+/* ⚠️ Stamped here as well as in `showPage`, and it is not belt and braces.
+   `showPage` is the only thing that writes it, and boot only calls `showPage`
+   when the hash asks for a page *other* than the default — so landing on the
+   seasons page, which is what nearly every visit does, left the attribute
+   unset. The stylesheet reads it as `body:not([data-page="seasons"])`, and an
+   absent attribute matches that: the discipline picker and the *Size by weight*
+   toggle were hidden on the one page they belong to, on the deployed site,
+   until a reader happened to visit another page and come back. */
+document.body.dataset.page = page;
+
 function showPage(name) {
   page = PAGES.includes(name) ? name : 'seasons';
   grid.open = page === 'compare';
