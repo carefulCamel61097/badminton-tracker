@@ -26,7 +26,7 @@ rather than opened as a file — ES modules and the request to BWF both refuse a
 origin.
 
 ```sh
-node serve.mjs          # http://localhost:8080
+node serve.mjs          # http://localhost:8090
 ```
 
 Requires Node 24 for the global `WebSocket` the test harness uses.
