@@ -1679,11 +1679,181 @@ document.addEventListener('click', e => {
   if (!e.target.closest('#topBtn, #topPanel')) openPanel($('topBtn'), $('topPanel'), false);
   if (!e.target.closest('#moreBtn, #morePanel')) openPanel($('moreBtn'), $('morePanel'), false);
 }, true);
+/* ============================ keyboard ============================
+
+   Every shortcut here does something the page already offers with a click. It
+   is a faster route through the same controls, never a hidden feature.
+
+   ⚠️⚠️ **Nothing fires while a modifier is held.** `Alt`+arrow is the browser's
+   Back and Forward, `Ctrl`+O opens a file, `Ctrl`+S saves the page and `Ctrl`+W
+   closes the tab — every one of those collides with a letter below. So a
+   modified keystroke is ignored *and left alone*: not handled, not prevented,
+   passed straight through to the browser.
+
+   ⚠️ **Nothing fires while you are typing**, which matters more than it sounds:
+   the app focuses the search box on load, so on a fresh page every letter here
+   would land in it rather than reaching the page. `Escape` blurs the box for
+   exactly this reason — it is the way out of the field and into the shortcuts.
+
+   ⚠️ **The arrows are taken from the page scroller, on purpose and only where
+   they earn it.** Left and Right move between pages everywhere; Up and Down are
+   claimed *only* on the tournament page, where they step the day or the fold.
+   That page has a scroller of its own — an unfolded 64 draw is 1906px inside a
+   ~900px viewport — so the trade is real: the mouse wheel, the scrollbar,
+   PageUp/PageDown, Home/End and the space bar all still scroll it, and every
+   other page keeps its arrows.
+   ==================================================================== */
+
+/** Anywhere text is being entered, the keyboard belongs to the field. */
+function isTyping(el) {
+  if (!el) return false;
+  const tag = el.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
+    || el.isContentEditable;
+}
+
+/** Wrapping, because four pages in a ring beats two dead ends. */
+function stepPage(by) {
+  const i = PAGES.indexOf(page);
+  showPage(PAGES[(i + by + PAGES.length) % PAGES.length]);
+}
+
+/**
+ * Step through a list of values, clamped.
+ *
+ * ⚠️ Clamped rather than wrapped, unlike the pages: these lists have real ends.
+ * Pressing Down on the last day of a tournament should stay there, not jump
+ * back to "All" — and the same for folding past the semi-finals.
+ */
+function stepIn(list, current, by) {
+  const i = list.indexOf(current);
+  if (i < 0) return list[0];
+  return list[Math.min(list.length - 1, Math.max(0, i + by))];
+}
+
+/* ---- the tournament's disciplines ----
+
+   ⚠️ The same keystroke has to mean the same thing in both views, and the two
+   views hold the discipline in genuinely different ways: the bracket **picks**
+   one draw, while the order of play **filters** several, any number of which
+   can be on at once. So M/W/X mean "show me the men's singles" in both — in the
+   bracket that picks the draw, and in the order of play it isolates it, hiding
+   the rest. Pressing the same letter again moves to that gender's doubles,
+   which is the only sensible reading of one letter for two draws. Clicking the
+   chips undoes any of it. */
+
+const DISCIPLINE_KEY = { m: ['MS', 'MD'], w: ['WS', 'WD'], x: ['XD'] };
+
+/** The draw the tournament page is currently *about*, in either view. */
+function soleDraw() {
+  if (tmt.view === 'draw') return tmt.drawCode;
+  const shown = drawsPresent(tmt.matches).filter(d => !tmt.hiddenDraws.has(d));
+  return shown.length === 1 ? shown[0] : null;
+}
+
+function isolateDraw(code) {
+  const present = drawsPresent(tmt.matches);
+  tmt.hiddenDraws = new Set(present.filter(d => d !== code));
+  renderTmt();
+  writeHash();
+}
+
+function cycleDiscipline(letter) {
+  const wanted = DISCIPLINE_KEY[letter];
+  if (!wanted) return false;
+  // Only the ones this tournament actually runs: a letter for a draw that is
+  // not there should do nothing rather than blank the view.
+  const have = tmt.view === 'draw'
+    ? tmt.drawList.map(d => d.code)
+    : drawsPresent(tmt.matches);
+  const options = wanted.filter(c => have.includes(c));
+  if (!options.length) return false;
+  const at = options.indexOf(soleDraw());
+  const next = options[(at + 1) % options.length];
+  if (tmt.view === 'draw') pickDrawCode(next); else isolateDraw(next);
+  return true;
+}
+
+/** Up and down on the tournament page: the day, or how much of the draw. */
+function stepTournament(by) {
+  if (tmt.view === 'draw') {
+    const draw = currentDraw();
+    if (!draw) return false;
+    // Rounds outermost first, minus the final — the same list the chips offer.
+    const rounds = ['all', ...bracketRounds(draw).slice(1, -1).map(r => r.round)];
+    if (rounds.length < 2) return false;
+    // Up shows more of the draw, down shows less. Up is out, as it is in a map.
+    pickRound(stepIn(rounds, resolvedRound(draw, tmt.round), by));
+    return true;
+  }
+  const days = ['all', ...tournamentDays(tmt.pick && tmt.pick.tmt)];
+  if (days.length < 2) return false;
+  pickDay(stepIn(days, tmt.day, by));
+  return true;
+}
+
+function setWinKind(kind) {
+  if (!WIN_KINDS.includes(kind) || kind === win.kind) return;
+  win.kind = kind;
+  writeHash();
+  loadWinnersPage();
+}
+
+/**
+ * What a key does, given where you are. Returns true if it did something —
+ * only then is the browser's own behaviour suppressed.
+ */
+function runHotkey(key) {
+  if (key === 'ArrowLeft') { stepPage(-1); return true; }
+  if (key === 'ArrowRight') { stepPage(1); return true; }
+
+  if (page === 'compare') {
+    if (key === 'g') { setGridView('grid'); return true; }
+    if (key === 'h') { setGridView('honours'); return true; }
+    if (key === 'w') { setGridEra('wt'); return true; }
+    if (key === 's') { setGridEra('ss'); return true; }
+    return false;
+  }
+
+  if (page === 'tmt') {
+    if (key === 'o') { setTmtView('oop'); return true; }
+    if (key === 'b') { setTmtView('draw'); return true; }
+    if (key === 'ArrowUp') return stepTournament(-1);
+    if (key === 'ArrowDown') return stepTournament(1);
+    /* ⚠️ Before the discipline letters, so that S is Starred only here. It is
+       Superseries on the compare page, which is a different page — one letter
+       can mean two things as long as it never means both at once. */
+    if (key === 's') {
+      tmt.starredOnly = !tmt.starredOnly;
+      renderTmt();
+      writeHash();
+      return true;
+    }
+    return cycleDiscipline(key);
+  }
+
+  if (page === 'winners') {
+    if (key === 'm') { setWinKind('MS'); return true; }
+    if (key === 'w') { setWinKind('WS'); return true; }
+  }
+  return false;
+}
+
 document.addEventListener('keydown', e => {
-  if (e.key !== 'Escape') return;
-  openPanel($('topBtn'), $('topPanel'), false);
-  openPanel($('moreBtn'), $('morePanel'), false);
+  if (e.key === 'Escape') {
+    openPanel($('topBtn'), $('topPanel'), false);
+    openPanel($('moreBtn'), $('morePanel'), false);
+    /* The way out of the search box, which the app focuses on load — and so the
+       way in to everything below. */
+    if (isTyping(e.target) && e.target.blur) e.target.blur();
+    return;
+  }
+  // Left entirely alone: this is the browser's keystroke, not the page's.
+  if (e.ctrlKey || e.altKey || e.metaKey) return;
+  if (isTyping(e.target)) return;
+  if (runHotkey(e.key.length === 1 ? e.key.toLowerCase() : e.key)) e.preventDefault();
 });
+
 
 /* ============================ filters ============================ */
 

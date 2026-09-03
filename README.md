@@ -447,6 +447,46 @@ With nobody in the link, the app opens on the **world number one in men's single
 up, not hardcoded, so it is whoever holds it today. An empty strip is a worse first
 impression than anybody's.
 
+## The keyboard
+
+Every shortcut drives a control that is already on the page — a faster route through it,
+never a hidden feature — and each page's own keys are printed under its notes.
+
+| | |
+|---|---|
+| <kbd>←</kbd> <kbd>→</kbd> | move between Seasons, Compare, Tournament and Winners (wrapping) |
+| **Compare** | <kbd>G</kbd> grid · <kbd>H</kbd> honours · <kbd>W</kbd> World Tour names · <kbd>S</kbd> Superseries names |
+| **Tournament** | <kbd>O</kbd> order of play · <kbd>B</kbd> bracket · <kbd>S</kbd> starred only |
+| **Tournament** | <kbd>↑</kbd> <kbd>↓</kbd> the day, or — in the bracket — how much of the draw |
+| **Tournament** | <kbd>M</kbd> <kbd>W</kbd> <kbd>X</kbd> the discipline; press again for that gender's doubles |
+| **Winners** | <kbd>M</kbd> men's singles · <kbd>W</kbd> women's singles |
+
+Four things about this are deliberate.
+
+**Nothing fires while a modifier is held.** <kbd>Alt</kbd>+arrow is the browser's Back and
+Forward, <kbd>Ctrl</kbd>+O opens a file, <kbd>Ctrl</kbd>+S saves the page and
+<kbd>Ctrl</kbd>+W closes the tab — every one collides with a key above. A modified
+keystroke is not handled *and not prevented*: it goes straight through to the browser.
+
+**Nothing fires while you are typing**, which matters more than it sounds, because the app
+focuses the search box on load — so on a fresh page every letter would land in the box
+rather than reaching the page. <kbd>Esc</kbd> leaves the box, and is therefore the way in.
+
+**<kbd>↑</kbd> <kbd>↓</kbd> are taken from the page scroller, and only on the tournament
+page.** That page has a scroller of its own — an unfolded 64 draw is 1906px inside a
+~900px viewport — so the trade is real: the wheel, the scrollbar, <kbd>PgUp</kbd>/<kbd>PgDn</kbd>,
+<kbd>Home</kbd>/<kbd>End</kbd> and the space bar all still scroll it, and every other page
+keeps its arrows. <kbd>←</kbd> <kbd>→</kbd> are taken everywhere, which costs the
+horizontal scroll of the compare grid and the unfolded bracket to the arrows alone.
+
+**One letter, two draws, two kinds of control.** <kbd>M</kbd> means "show me the men's
+singles" in both tournament views, though they hold the discipline differently: the bracket
+*picks* one draw, while the order of play *filters* several, any number of which can be on
+at once. So in the bracket it picks, and in the order of play it isolates — hides the rest —
+and pressing the same letter again moves to that gender's doubles. Clicking the chips undoes
+any of it. Stepping the day and the fold **clamps** rather than wraps, unlike the pages:
+four pages in a ring beat two dead ends, but the last day of a tournament is the last day.
+
 ## Where things are
 
 | File | What it is |

@@ -2150,6 +2150,229 @@ check('a shared link opens on the discipline it names',
 
 await b.ev(`document.querySelector('#pageNav [data-page="seasons"]').click()`);
 
+/* ============================ the keyboard ============================
+
+   Every shortcut is a faster route through a control that is already on the
+   page, so each one is checked by the state it leaves behind rather than by the
+   handler being called. Run last, once every page has been visited and its
+   requests are cached, because the arrows genuinely change page.
+   ==================================================================== */
+
+console.log('\n=== the keyboard ===');
+
+/** A real keydown, on the body, exactly as the browser would deliver it. */
+const press = (key, opts = {}) => b.ev(`(() => {
+  const e = new KeyboardEvent('keydown', Object.assign(
+    { key: ${JSON.stringify(key)}, bubbles: true, cancelable: true },
+    ${JSON.stringify(opts)}));
+  document.body.dispatchEvent(e);
+  return e.defaultPrevented;
+})()`);
+
+const onPage = () => b.ev('document.body.dataset.page');
+
+/* ⚠️ Pin the date first. Walking right lands on the tournament page, which asks
+   BWF what is on *today* — and the winners tests above navigated by hash
+   without `now=`, which clears the pin. Unpinned, this block loaded the real
+   live tournament and went to the network for a day nobody recorded. */
+await b.ev(`location.hash = '#p=57945&pg=seasons&now=2026-08-23'`);
+await b.until(`window.BST.tmt.today() === '2026-08-23'`, { timeout: 30000 });
+await b.ev(`document.querySelector('#pageNav [data-page="seasons"]').click()`);
+eq('starting on the seasons', await onPage(), 'seasons');
+
+/* ---- left and right walk the pages ---- */
+
+await press('ArrowRight');
+eq('right goes to the next page', await onPage(), 'compare');
+await press('ArrowRight');
+check('and the next', await b.until(`document.body.dataset.page === 'tmt'`,
+  { timeout: 120000 }));
+await press('ArrowRight');
+eq('and the next', await onPage(), 'winners');
+/* ⚠️ Wrapping, unlike the day and fold steppers below. Four pages in a ring
+   beats two dead ends; a day list has real ends and should keep them. */
+await press('ArrowRight');
+eq('and wraps round rather than stopping', await onPage(), 'seasons');
+await press('ArrowLeft');
+eq('left wraps the other way', await onPage(), 'winners');
+
+/* ---- what the keyboard must not touch ---- */
+
+/* ⚠️⚠️ Alt+Arrow is the browser's Back and Forward, and Ctrl+O, Ctrl+S and
+   Ctrl+W all collide with letters below. A modified keystroke has to be left
+   *alone* — not handled, and not prevented either, or the browser's own
+   shortcut stops working. */
+const beforeMod = await onPage();
+eq('alt+left is the browser going back, not the app changing page',
+  await press('ArrowLeft', { altKey: true }), false);
+eq('and the page did not move', await onPage(), beforeMod);
+eq('ctrl+left is left alone too', await press('ArrowLeft', { ctrlKey: true }), false);
+eq('and so is the meta key', await press('ArrowRight', { metaKey: true }), false);
+eq('the page still has not moved', await onPage(), beforeMod);
+
+/* ⚠️ The app focuses the search box on load, so without this every letter would
+   be typed into it instead of reaching the page. */
+/* ⚠️ Dispatched **at the box**, not at the body: the guard reads `e.target`,
+   which is what a browser sets to the focused element. A test that fires at the
+   body while the box merely holds focus is testing nothing — it was green
+   against a handler that ignores focus entirely. */
+const typeInBox = key => b.ev(`(() => {
+  const el = document.getElementById('q');
+  el.focus();
+  const e = new KeyboardEvent('keydown',
+    { key: ${JSON.stringify(key)}, bubbles: true, cancelable: true });
+  el.dispatchEvent(e);
+  return e.defaultPrevented;
+})()`);
+const pageBefore = await onPage();
+eq('a keystroke while typing belongs to the field', await typeInBox('m'), false);
+eq('and an arrow does not move the page out from under the cursor',
+  await typeInBox('ArrowRight'), false);
+eq('so nothing moved', await onPage(), pageBefore);
+check('and the box keeps the focus',
+  await b.ev(`document.activeElement === document.getElementById('q')`));
+/* Escape is the way out of the field, and therefore the way in to the rest. */
+await b.ev(`(() => {
+  const e = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+  document.getElementById('q').dispatchEvent(e);
+})()`);
+check('escape leaves the box',
+  await b.ev(`document.activeElement !== document.getElementById('q')`));
+
+/* ---- the winners page ---- */
+
+await b.ev(`document.querySelector('#pageNav [data-page="winners"]').click()`);
+check('the winners page is up', await b.until(`document.body.dataset.page === 'winners'`,
+  { timeout: 120000 }));
+await press('w');
+check('w gives the women', await b.until(
+  `document.querySelector('#winKind .seg.on').textContent === 'WS'`, { timeout: 120000 }));
+await press('m');
+check('and m the men', await b.until(
+  `document.querySelector('#winKind .seg.on').textContent === 'MS'`, { timeout: 120000 }));
+
+/* ---- the compare page ---- */
+
+await b.ev(`document.querySelector('#pageNav [data-page="compare"]').click()`);
+eq('the compare page is up', await onPage(), 'compare');
+await press('h');
+eq('h is the honours board', await b.ev('window.BST.grid.state.view'), 'honours');
+await press('g');
+eq('and g the grid', await b.ev('window.BST.grid.state.view'), 'grid');
+await press('s');
+eq('s is the superseries names', await b.ev('window.BST.grid.state.era'), 'ss');
+await press('w');
+eq('and w the world tour ones', await b.ev('window.BST.grid.state.era'), 'wt');
+/* ⚠️ The same two letters mean something else one page over. That is fine
+   because a page is only ever one of them — but it is worth a check, because
+   the day this becomes a modal it stops being fine. */
+eq('and neither of them starred anything', (await b.ev('window.BST.tmt.stars()')).length, 0);
+
+/* ---- the tournament page ---- */
+
+check('the tournament page loads', await openTmt('#pg=tmt&now=2026-08-23'));
+await press('b');
+eq('b is the bracket', await b.ev('window.BST.tmt.state.view'), 'draw');
+check('and it loads', await b.until('window.BST.tmt.bracket.ready()', { timeout: 120000 }));
+await press('o');
+eq('o is the order of play', await b.ev('window.BST.tmt.state.view'), 'oop');
+
+/* Up and down: the day, in the order of play. */
+await b.ev(`window.BST.tmt.day('2026-08-19')`);
+await b.until('window.BST.tmt.ready()', { timeout: 120000 });
+await press('ArrowDown');
+check('down is the next day', await b.until(
+  `window.BST.tmt.state.day === '2026-08-20'`, { timeout: 120000 }),
+  await b.ev('window.BST.tmt.state.day'));
+await press('ArrowUp');
+check('up is the day before', await b.until(
+  `window.BST.tmt.state.day === '2026-08-19'`, { timeout: 120000 }),
+  await b.ev('window.BST.tmt.state.day'));
+
+/* ⚠️ Clamped, not wrapped: the last day of a tournament is the last day, and
+   stepping off it back to "All" would be a surprise rather than a shortcut. */
+await b.ev(`window.BST.tmt.day('2026-08-23')`);
+await b.until('window.BST.tmt.ready()', { timeout: 120000 });
+await press('ArrowDown');
+eq('and the last day stays the last day',
+  await b.ev('window.BST.tmt.state.day'), '2026-08-23');
+
+/* S is Starred only here — and Superseries on the page before. */
+await b.ev('window.BST.tmt.clearStars()');
+eq('starred-only is off to begin with', await b.ev('window.BST.tmt.only()'), false);
+await press('s');
+eq('s turns it on', await b.ev('window.BST.tmt.only()'), true);
+await press('s');
+eq('and off again', await b.ev('window.BST.tmt.only()'), false);
+
+/* The disciplines, in the order of play, where the chips are a *filter*. */
+await press('m');
+eq('m shows the men’s singles and nothing else',
+  (await b.ev('window.BST.tmt.cards()')).every(c => c.draw === 'MS')
+    && (await b.ev('window.BST.tmt.cards()')).length > 0, true,
+  JSON.stringify([...new Set((await b.ev('window.BST.tmt.cards()')).map(c => c.draw))]));
+/* ⚠️ One letter, two draws: pressing it again moves to that gender's doubles.
+   The alternative was two more letters nobody would remember. */
+await press('m');
+eq('and m again the men’s doubles',
+  [...new Set((await b.ev('window.BST.tmt.cards()')).map(c => c.draw))].join(), 'MD');
+await press('w');
+eq('w is the women’s singles',
+  [...new Set((await b.ev('window.BST.tmt.cards()')).map(c => c.draw))].join(), 'WS');
+await press('w');
+eq('and again the women’s doubles',
+  [...new Set((await b.ev('window.BST.tmt.cards()')).map(c => c.draw))].join(), 'WD');
+await press('x');
+eq('x is the mixed',
+  [...new Set((await b.ev('window.BST.tmt.cards()')).map(c => c.draw))].join(), 'XD');
+await press('x');
+eq('and x again stays there, having nowhere else to go',
+  [...new Set((await b.ev('window.BST.tmt.cards()')).map(c => c.draw))].join(), 'XD');
+
+/* The same letters in the bracket, where the chips are a *picker*. */
+await press('b');
+check('the bracket comes back', await b.until('window.BST.tmt.bracket.ready()',
+  { timeout: 120000 }));
+/* ⚠️ The cycle advances from whatever is showing, so it has to start from a
+   known place. Coming from the women's doubles, `m` means "the men's singles";
+   pressing it again means "the other men's draw". */
+await b.ev(`window.BST.tmt.bracket.pick('WD')`);
+await b.until('window.BST.tmt.bracket.ready()', { timeout: 120000 });
+await press('m');
+eq('m picks the men’s singles draw', await b.ev('window.BST.tmt.bracket.pick()'), 'MS');
+await press('m');
+eq('and m again the men’s doubles', await b.ev('window.BST.tmt.bracket.pick()'), 'MD');
+await press('m');
+eq('and a third press comes back round', await b.ev('window.BST.tmt.bracket.pick()'), 'MS');
+check('which actually loaded', await b.until('window.BST.tmt.bracket.ready()',
+  { timeout: 120000 }));
+
+/* Up and down: how much of the draw, rather than which day. */
+await press('m');
+await b.until('window.BST.tmt.bracket.ready()', { timeout: 120000 });
+await b.ev(`window.BST.tmt.bracket.round('QF')`);
+eq('folded to the quarter-finals', await b.ev('window.BST.tmt.bracket.shown()'), 'QF');
+/* Up shows more of the draw, as it does on a map. */
+await press('ArrowUp');
+eq('up shows more of it', await b.ev('window.BST.tmt.bracket.shown()'), 'R16');
+await press('ArrowDown');
+eq('and down less', await b.ev('window.BST.tmt.bracket.shown()'), 'QF');
+await press('ArrowUp');
+await press('ArrowUp');
+await press('ArrowUp');
+eq('up stops at the whole draw', await b.ev('window.BST.tmt.bracket.shown()'), 'all');
+eq('which is the whole draw', (await b.ev('window.BST.tmt.bracket.cards()')).length, 63);
+await press('ArrowDown');
+await press('ArrowDown');
+await press('ArrowDown');
+await press('ArrowDown');
+eq('and down stops at the semi-finals, never at one card',
+  await b.ev('window.BST.tmt.bracket.shown()'), 'SF');
+
+await b.ev('window.BST.tmt.clearStars()');
+await b.ev(`window.BST.tmt.bracket.view('oop')`);
+await b.until('window.BST.tmt.ready()', { timeout: 120000 });
+
 /* ============================ hygiene ============================ */
 
 console.log('\n=== hygiene ===');
