@@ -2086,7 +2086,9 @@ const pyrSizes = JSON.parse(await b.ev(`JSON.stringify(
     return [t, el ? Math.round(el.getBoundingClientRect().width) : 0];
   }))`));
 const px = Object.fromEntries(pyrSizes);
-check('the Olympics is the largest square', px.OLY > px['20'], JSON.stringify(pyrSizes));
+/* ⚠️ The two summit tiers are the one place size does *not* rank: they share a
+   row, and the gold ring carries the difference. Everything below them steps. */
+eq('the Olympics is drawn at the Worlds size', px.OLY, px['20']);
 check('the Worlds outranks the Tour Finals', px['20'] > px['22'], JSON.stringify(pyrSizes));
 check('the Tour Finals outranks a Super 1000', px['22'] > px['23'], JSON.stringify(pyrSizes));
 check('and a Super 1000 outranks a Super 750', px['23'] > px['24'], JSON.stringify(pyrSizes));
@@ -2489,6 +2491,144 @@ check('and the women’s bars land on their columns too',
 
 await b.ev(`location.hash = '#pg=winners'`);
 await b.until(`window.BST.winners.kind() === 'MS'`, { timeout: 60000 });
+
+/* ---- the summit, at one size ---- */
+
+await b.ev(`location.hash = '#pg=winners'`);
+await b.until(`!!document.querySelector('.pyrtile.t-OLY')`, { timeout: 60000 });
+
+/* ⚠️ The Olympics outranks the Worlds and is drawn the *same size* as it, with
+   the gold ring carrying the difference. Two faces on one line at two sizes
+   read as a layout accident rather than as a ranking — and the honours board
+   one page over still ranks the Olympic square above, because that is a claim
+   about worth and this is a row of portraits. */
+const summit = await b.ev(`(() => {
+  const box = t => {
+    const el = document.querySelector('.pyrtile.t-' + t);
+    const r = el.getBoundingClientRect();
+    return { w: Math.round(r.width), ring: getComputedStyle(el).boxShadow };
+  };
+  return { oly: box('OLY'), wch: box('20'), s1000: box('23') };
+})()`);
+eq('an Olympic square is the same size as a world championship one',
+  summit.oly.w, summit.wch.w);
+check('and larger than a Super 1000 one', summit.oly.w > summit.s1000.w,
+  `${summit.oly.w} vs ${summit.s1000.w}`);
+check('the gold ring is what tells them apart',
+  /255, 210, 74/.test(summit.oly.ring) && !/255, 210, 74/.test(summit.wch.ring),
+  summit.oly.ring + ' | ' + summit.wch.ring);
+
+/* ⚠️ Which is why the footnote mark had to stop being gold. A tier and a
+   footnote cannot share a colour, so a displaced title is now dashed and
+   *outside* the tile, where the tier rings are solid and inside. */
+const movedTile = await b.ev(`(() => {
+  const el = document.querySelector('.pyrseason[data-year="2020"] .pyrtile.is-moved');
+  const st = getComputedStyle(el);
+  return { style: st.outlineStyle, colour: st.outlineColor, shadow: st.boxShadow };
+})()`);
+eq('a displaced title is outlined dashed', movedTile.style, 'dashed');
+check('and no longer in gold', !/255, 210, 74|255, 188, 32/.test(movedTile.colour),
+  movedTile.colour);
+
+/* ⚠️ The one place the stylesheet and `poster.js` can drift: the page paints a
+   tier ring from CSS and the export paints it from a table. Held against each
+   other here, because a poster whose Super 1000s are the wrong blue is a thing
+   nobody would notice until somebody posted one. */
+check('the export paints the tier rings the page paints',
+  await b.ev(`(() => {
+    const want = window.BST.winners.rings();
+    const hex = s => {
+      const m = s.match(/(\\d+), (\\d+), (\\d+)/);
+      return m ? '#' + [1, 2, 3].map(i => (+m[i]).toString(16).padStart(2, '0')).join('') : s;
+    };
+    const bad = [];
+    for (const tier of ['OLY', '20', '22', '23']) {
+      const el = document.querySelector('.pyrtile.t-' + tier);
+      if (!el) continue;
+      const drawn = hex(getComputedStyle(el).boxShadow);
+      if (drawn !== want[tier].colour) bad.push(tier + ': page ' + drawn + ', export ' + want[tier].colour);
+    }
+    return bad.join(' | ') || true;
+  })()`), true);
+
+/* ============================ the export ============================
+
+   ⚠️ The check that matters is that a **blob comes back at all**. Every image
+   will have drawn perfectly on the canvas either way; a canvas that a
+   cross-origin photograph has poisoned only says so at `toBlob`, at the very
+   last step, and the whole feature is then a button that throws.
+   ==================================================================== */
+
+console.log('\n=== the winners page: saving a slice of it ===');
+
+await b.ev(`location.hash = '#pg=winners'`);
+await b.until(`!!document.querySelector('.erabar')`, { timeout: 60000 });
+
+check('the picker is out of the way until it is asked for',
+  await b.ev(`document.getElementById('winExport').hidden`));
+await b.ev(`document.getElementById('winSave').click()`);
+check('the export button opens it', !await b.ev(`document.getElementById('winExport').hidden`));
+const spans = await b.ev(`[...document.querySelectorAll('#expFrom option')].map(o => o.value)`);
+eq('the years on offer are the seasons there are', spans.length,
+  (await b.ev('window.BST.winners.columns()')).length);
+eq('and it opens on the whole board',
+  await b.ev(`document.getElementById('expFrom').value + '-' + document.getElementById('expTo').value`),
+  spans[0] + '-' + spans[spans.length - 1]);
+
+/* A range given backwards is still a range: the picker has two selects and
+   nothing stops a reader setting the later one first. */
+eq('a range given backwards is put the right way round',
+  JSON.stringify(await b.ev(`window.BST.winners.range(2016, 2011)`)),
+  JSON.stringify({ from: 2011, to: 2016 }));
+
+const png = await b.ev(`window.BST.winners.png(2011, 2016)`);
+check('a poster comes back as a real PNG', png && png.type === 'image/png',
+  JSON.stringify(png && png.type));
+check('with something in it', png && png.bytes > 20000, png && png.bytes);
+check('and it decodes to the size the layout asked for',
+  await b.ev(`(async () => {
+    const L = window.BST.winners.poster(2011, 2016);
+    const out = await window.BST.winners.png(2011, 2016);
+    const im = new Image();
+    await new Promise(r => { im.onload = r; im.onerror = r; im.src = out.url; });
+    return im.naturalWidth === Math.round(L.width * 2)
+      && im.naturalHeight === Math.round(L.height * 2)
+      ? true : im.naturalWidth + 'x' + im.naturalHeight
+        + ' want ' + Math.round(L.width * 2) + 'x' + Math.round(L.height * 2);
+  })()`), true);
+
+eq('the file is named for what is in it',
+  await b.ev(`window.BST.winners.name({ from: 2011, to: 2016 })`),
+  'badminton-winners-MS-2011-2016.png');
+
+/* ⚠️⚠️ The trap the whole export rests on. BWF's image host *does* answer a CORS
+   request, which is why the faces can be in a poster at all — but the very same
+   photograph loaded without `crossOrigin` poisons the canvas, and then nothing
+   fails until `toBlob`. The property checked is not "the network is up": it is
+   that an image which loaded must leave the canvas readable. */
+const corsOk = await b.ev(`(async () => {
+  const src = 'https://img.bwfbadminton.com/image/upload/v1604895106'
+    + '/assets/players/thumbnail/50906.jpg';
+  const im = new Image();
+  im.crossOrigin = 'anonymous';
+  const ok = await new Promise(r => {
+    im.onload = () => r(true); im.onerror = () => r(false); im.src = src;
+  });
+  if (!ok) return 'offline';
+  const c = document.createElement('canvas');
+  c.width = c.height = 8;
+  c.getContext('2d').drawImage(im, 0, 0, 8, 8);
+  try { c.toDataURL(); return true; }
+  catch (e) { return 'TAINTED (' + e.name + ') — every export would throw'; }
+})()`);
+/* `offline` is not a pass and not a failure: it says the check could not be
+   made, which is the honest answer when BWF is unreachable. A tainted canvas
+   is a failure, and the only one that matters here. */
+check('a photograph never loads in a way that poisons the canvas',
+  corsOk === true || corsOk === 'offline', String(corsOk));
+
+await b.ev(`document.getElementById('winSave').click()`);
+check('and the picker closes again', await b.ev(`document.getElementById('winExport').hidden`));
 
 await b.ev(`document.querySelector('#pageNav [data-page="seasons"]').click()`);
 

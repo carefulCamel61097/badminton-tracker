@@ -2349,9 +2349,17 @@ export function courtGrid(matches) {
 
    ⚠️ **The Olympics and the World Championships share a row.** Every season has
    one or the other and never neither, so they are the same rung of the calendar
-   even though they are not the same prize — the Olympic square is drawn larger.
-   (2021 held both: Tokyo was postponed into the same year as the Huelva Worlds.
-   The row simply holds two that year, which is why it is a row and not a slot.)
+   even though they are not the same prize. (2021 held both: Tokyo was postponed
+   into the same year as the Huelva Worlds. The row simply holds two that year,
+   which is why it is a row and not a slot.)
+
+   ⚠️ **They are also drawn the same size**, and the gold ring is what tells them
+   apart. The Olympic square used to be a rung larger, which is right on the
+   honours ladder and wrong here: on this page a photograph is a face, and two
+   faces on one line at two different sizes read as a layout accident rather than
+   as a ranking. `pyramidScale` overrides the size for the pyramid only — the
+   honours board still ranks an Olympic gold above a world title, because that is
+   a claim about *worth* and this is a row of portraits.
 
    ⚠️ **No team events, and no regional multi-sport games.** Team events would
    rank a player by the country they were born in. The Asian Games, the
@@ -2507,7 +2515,7 @@ export function pyramidSeason(won, players, season) {
         tier: t.tier,
         name: t.name,
         date: t.date,
-        scale: honourScale(t.tier),
+        scale: pyramidScale(t.tier),
         who: (players || {})[String(t.w)] || null,
         id: t.w,
         // What this rung was called in *this* season, so a 2013 square says
@@ -2629,6 +2637,18 @@ export const SS_LAST_SEASON = 2017;
 export function pyramidLabel(tier, season) {
   const era = Number(season) <= SS_LAST_SEASON ? 'ss' : 'wt';
   return gridGroupLabel(eraGroup(tier, era), era);
+}
+
+/**
+ * How big a pyramid square is, as a multiple of the base.
+ *
+ * The honours ladder everywhere else — except that the Olympics is drawn at the
+ * *Worlds* size rather than a rung above it. See the warning at the top of this
+ * section: they share a row, and on a row of faces the gold ring is the better
+ * way to say which is which.
+ */
+export function pyramidScale(tier) {
+  return honourScale(String(tier) === 'OLY' ? 20 : tier);
 }
 
 /** The edition year BWF's own name claims, or null. */

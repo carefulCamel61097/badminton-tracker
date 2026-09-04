@@ -257,7 +257,22 @@
       <input type="range" id="winZoom" min="8" max="26" step="1" value="14"
              aria-label="photograph size">
     </label>
+
+    <!-- A range of seasons, drawn to a PNG. The years are a range rather than a
+         filter because that is the shape of the claim somebody posts. -->
+    <button type="button" id="winSave" class="seg" aria-pressed="false"
+            title="save a range of seasons as an image">Export</button>
   </header>
+
+  <div class="chiprow exportbar" id="winExport" hidden>
+    <label for="expFrom">From</label>
+    <select id="expFrom" aria-label="first season"></select>
+    <label for="expTo">to</label>
+    <select id="expTo" aria-label="last season"></select>
+    <button type="button" id="expSave" class="seg">Download PNG</button>
+    <button type="button" id="expCopy" class="seg">Copy</button>
+    <span id="expNote" class="note"></span>
+  </div>
 
   <div id="winBody" class="pyr"></div>
 
@@ -265,9 +280,10 @@
     Each square is a title, sized by what it was worth — the same ladder the
     honours board uses, so a Super 1000 here is a Super 1000 there.
     <b>The Olympics and the World Championships share the top row</b>, because
-    every season holds one or the other; the Olympic square is the larger of the
-    two. Below them the World Tour Finals, then the Super 1000s, then the Super
-    750s.
+    every season holds one or the other. They are drawn the <b>same size</b> and
+    the gold ring tells them apart — on a row of faces, two sizes read as a
+    layout accident rather than as a ranking. Below them the World Tour Finals,
+    then the Super 1000s, then the Super 750s.
     <br>
     ⚠️ <b>No team events and no regional games.</b> A team title would rank a
     player by the country they were born in. The Asian Games, the Commonwealth
@@ -284,7 +300,8 @@
     <b>same size</b>. The equal size is the point — a larger top row would
     claim a tier that did not exist for another four years.
     <br>
-    ⚠️ <b>⁕ marks a title that did not happen when its name says.</b> The
+    ⚠️ <b>A dashed square, and ⁕ beside the year, mark a title that did not
+    happen when its name says.</b> The
     season-ending Finals belongs to the season it concludes, so the 2010
     Superseries Finals and the 2020 World Tour Finals are drawn in 2010 and
     2020 though both were played the following January — the same rule the
@@ -299,6 +316,11 @@
     champion a year would erase exactly that. Runs are consecutive seasons only,
     so a dip is a gap and 2020 severs every line.
   
+    <br>
+    <b>Export</b> draws whatever range of seasons you pick — the pyramid, the
+    band and all — to a PNG at twice the screen's density, with the link on it.
+    It is drawn from the data rather than photographed off the page, so it comes
+    out the same size whatever the zoom slider is on.
     <span class="keys"><kbd>←</kbd><kbd>→</kbd> page · <kbd>M</kbd> men’s ·
       <kbd>W</kbd> women’s · <kbd>E</kbd> eras · <kbd>↑</kbd><kbd>↓</kbd> the bar</span>
   </p>

@@ -1282,6 +1282,54 @@ hues, so both of Viktor AXELSEN's eras are the same colour and two players share
 eight others opened between them. The BWF red and the live-match teal are deliberately not in
 the palette.
 
+### 3.4i Exporting a slice as an image *(built 4 Sep 2026)*
+
+`poster.js` is a fourth module: `posterLayout(file, opts)` places a range of seasons in CSS
+pixels and touches no DOM, and `drawPoster` paints that onto a canvas and hands back a PNG
+blob. app.js owns only the picker and the download.
+
+⚠️⚠️ **`crossOrigin = 'anonymous'` on every photograph.** Asked of the live site with
+`tools/probe-poster.mjs`'s sibling probe: BWF's image host *does* answer a CORS request and
+the canvas stays readable. Without the attribute the identical image loads, draws perfectly,
+and poisons the canvas — and nothing says so until `toBlob`, at the very last step, so the
+symptom is a button that throws after everything looked fine.
+
+⚠️ **The GitHub avatar is the opposite case** and cannot be fetched at all: `github.com/<user>.png`
+is a redirect and the redirect drops the header, so `crossOrigin` makes it fail to load
+outright. It is committed as `data/avatar.png` and served from our own origin.
+
+⚠️ **`POSTER.unit` is the base of the whole honours ladder, not a tile size.** `honourScale`
+is measured from the Super 100 rung and the smallest tier this page draws is already 2.62×
+that, so the first attempt at 30 produced a six-season poster 3935px wide. 13 matches the
+page's default zoom.
+
+⚠️ **A badged tile reserves the badge's width on both sides.** Same trick as `.pyrmajor`'s
+`padding-right`, and 2021 is why: it holds an Olympics and a Worlds side by side, and without
+the reserved slot the cup was drawn across the Olympic champion's face.
+
+⚠️ **Chrome silently returns a blank canvas above 16384 device pixels wide.** A twenty-season
+export at 2× would hit it, so the density drops to 1 rather than the picture being cut.
+
+⚠️ **The footer height is derived from the legend**, not fixed: the first version had a
+54px footer and the third legend line lost its descenders off the bottom edge.
+
+⚠️ **The tier ring colours exist twice** — in `styles.css` for the page and in
+`poster.js`'s `TIER_RING` for the canvas — because there is no way to hand one to the other
+without a build step. `test_season.mjs` reads the computed colour off a drawn tile and holds
+it against the table, so they cannot drift quietly.
+
+### 3.4j The summit at one size *(built 4 Sep 2026)*
+
+`pyramidScale` is `honourScale` except that `OLY` is drawn at the Worlds size. They share a
+row, and on a row of *faces* two sizes read as a layout accident rather than as a ranking —
+the gold ring carries the difference instead. It is a pyramid-only override: `honourScale`
+still ranks an Olympic gold a rung above a world title, because the honours board is making a
+claim about worth and this page is a row of portraits.
+
+⚠️ Which forced the footnote mark off gold. A displaced title is now a **dashed outline**,
+drawn *outside* the tile where the tier rings are solid and inside — a footnote and a rank
+must not share a colour, and now they do not share a line style or a side either.
+
 ### 3.4e The era switch, and why backwards is a different map *(built 30 Aug 2026)*
 
 The compare page can name its ladder in either vocabulary. `era` is `'wt'` or `'ss'`, it is a

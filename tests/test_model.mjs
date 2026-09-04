@@ -17,7 +17,7 @@ import {
   pyramidTier, pyramidSeason, pyramidBulges, pyramidRow, PYRAMID_ROWS,
   pyramidLabel, pyramidTitleSeason, pyramidSeasonMarks, winnersSeasons,
   pyramidReigns, reignLanes, reignStep, REIGN_STEPS, REIGN_DEFAULT,
-  flatSupers, PREMIER_FROM,
+  flatSupers, PREMIER_FROM, pyramidScale,
   parseSeason, seasonDisciplines, drawFor, drawForKind, dominantDraw,
   kindOf, seasonKinds, defaultKind, seasonLevels,
   positionInfo, fillFraction, boxSize, boxScale, levelLabel, isTeamEvent,
@@ -37,6 +37,7 @@ import {
   drawsPresent, courtGrid, courtOrder, dayOf, matchSignature, prettyDay,
   LEVEL, SLOT_W, BOX_H, MIN_LABEL_PX, LEVEL_ORDER,
 } from '../model.js';
+import { posterLayout, tileSlot, POSTER, REIGN_COLOURS, TIER_RING } from '../poster.js';
 import { check, eq, near, report } from './check.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -2034,12 +2035,22 @@ eq('in the order they were played',
   pyRows[3].tiles.map(t => t.name).join(' '), 'India Open Japan Open');
 
 /* Sizes come from the honours ladder, so a Super 1000 square is the same size
-   here as it is there — and the Olympic square is larger than the Worlds one
-   even though they share a row. */
+   here as it is there. */
 near('a Super 750 tile', pyRows[3].tiles[0].scale, honourScale(24));
-check('the Olympics outranks the Worlds on the same row',
-  pyramidSeason([{ tier: 'OLY', name: 'Games', date: '2028-07-01', w: 1 }], pyWho)[0].tiles[0].scale
-  > pyRows[0].tiles[0].scale);
+
+/* ⚠️ **Except at the summit.** The Olympics outranks the Worlds on the honours
+   ladder and is drawn the *same size* here, because they share a row and two
+   faces on one line at two different sizes read as a layout accident rather
+   than as a ranking. The gold ring is what tells them apart; `pyramidScale` is
+   what makes them match, and it must not leak back into `honourScale`. */
+eq('an Olympic square is drawn at the Worlds size',
+  pyramidSeason([{ tier: 'OLY', name: 'Games', date: '2028-07-01', w: 1 }],
+    pyWho, 2028)[0].tiles[0].scale, pyRows[0].tiles[0].scale);
+check('while the honours ladder still ranks it above',
+  honourScale('OLY') > honourScale(20),
+  `${honourScale('OLY').toFixed(3)} vs ${honourScale(20).toFixed(3)}`);
+eq('and every other tier is unchanged by it',
+  [22, 23, 24].map(t => pyramidScale(t) === honourScale(t)).join(), 'true,true,true');
 
 /* ⚠️ An empty row is kept. A season with no Tour Finals should show a hole
    where it goes, not close the gap and pretend the shape is different. */
@@ -2276,6 +2287,109 @@ eq('one entry for a career with two eras, not two', axelsen.length, 1);
 eq('and both of his runs sit in the same lane', axelsen[0].runs.length, 2);
 
 
+
+/* ============================ the export's geometry ============================
+
+   `posterLayout` touches no DOM, so where a poster puts things can be checked
+   here rather than by decoding a picture. The drawing itself is end-to-end, in
+   test_season.mjs, because the one thing that can go wrong at the very last
+   step — a canvas that drew perfectly and then will not be read back — only
+   happens in a browser.
+   ==================================================================== */
+
+console.log('\n=== a slice of the board, laid out for export ===');
+
+const posterOf = (from, to, extra) => posterLayout(winMS,
+  { from, to, kind: 'MS', min: '3', eras: true, ...extra });
+
+const slice = posterOf(2011, 2016);
+eq('exactly the seasons asked for', slice.years.join(' '),
+  '2011 2012 2013 2014 2015 2016');
+eq('and it says so', slice.title, 'Men’s singles · 2011–2016');
+check('with a width to match', slice.width > 900 && slice.width < 2600, slice.width);
+check('and a sane height', slice.height > 300 && slice.height < 900, slice.height);
+
+/* ⚠️ Clamped to what was harvested rather than trusted. A link or a stale select
+   can ask for 1999, and a poster of an empty range is a blank rectangle. */
+const all = posterOf(1990, 2200);
+eq('a range wider than the data is clamped to the data', `${all.from}–${all.to}`,
+  `${winSeasons.years[0]}–${winSeasons.years[winSeasons.years.length - 1]}`);
+eq('and a backwards one draws nothing rather than throwing',
+  posterOf(2016, 2011).years.length, 0);
+
+/* ---- the bars ---- */
+
+const barsIn = L => L.bars.map(b => `${(b.who || {}).n} ${b.from}-${b.to}`);
+check('a run that runs off the left of the crop is still drawn',
+  barsIn(slice).includes('LEE Chong Wei 2007-2016'), barsIn(slice).join(' | '));
+const cut = slice.bars.find(b => (b.who || {}).n === 'LEE Chong Wei');
+check('and marked as cut, so its corner can say there is more of it',
+  cut.openLeft === true && cut.openRight === false,
+  `openLeft ${cut.openLeft} openRight ${cut.openRight}`);
+eq('with only the seasons in range drawn',
+  cut.years.map(y => y.year).join(' '), '2011 2012 2013 2014 2015 2016');
+check('and its left edge on the first column',
+  Math.abs(cut.x - slice.columns[0].x) < 0.01, `${cut.x} vs ${slice.columns[0].x}`);
+check('and its right edge on the last',
+  Math.abs((cut.x + cut.w)
+    - (slice.columns[5].x + slice.columns[5].w)) < 0.01);
+check('a run entirely outside the crop is left out',
+  !barsIn(slice).some(b => /SHI Yu Qi/.test(b)), barsIn(slice).join(' | '));
+
+/* ⚠️ Lanes, colours and the shading scale are all worked out over the **whole**
+   board and then cropped. An export of 2011–2016 that recoloured CHEN Long
+   because LEE Chong Wei happened to be cut off would not be the picture the
+   sender was looking at. */
+const whole = posterOf(2007, 2026);
+const colourOf = (L, name) => (L.bars.find(b => (b.who || {}).n === name) || {}).colour;
+for (const who of ['LEE Chong Wei', 'CHEN Long', 'Kento MOMOTA']) {
+  eq(`${who} is the same colour cropped as uncropped`,
+    colourOf(slice, who) || colourOf(posterOf(2015, 2019), who),
+    colourOf(whole, who));
+}
+eq('and the shading is scaled to the whole board, not the crop',
+  posterOf(2019, 2020).peak, whole.peak);
+check('every bar has a lane the whole board agreed on',
+  slice.bars.every(b => {
+    const same = whole.bars.find(o => o.id === b.id);
+    return same && same.lane === b.lane;
+  }));
+
+/* ---- the space a summit mark takes ---- */
+
+/* ⚠️ 2021 is the only season holding an Olympics and a Worlds at once, and it is
+   the case that catches this: a mark drawn beside a photograph has to be given
+   room on *both* sides, or the second one lands on the first one's face. */
+const slot = t => tileSlot(t);
+const py2021 = pyramidSeason(winSeasons.byYear.get(2021), winMS.players, 2021);
+const majors = py2021[0].tiles;
+eq('2021 holds two summit titles', majors.length, 2);
+check('and each is given room for its mark on both sides',
+  majors.every(t => slot(t).pad > 0 && slot(t).w === slot(t).side + slot(t).pad * 2),
+  JSON.stringify(majors.map(t => slot(t))));
+check('so the second mark starts after the first photograph ends',
+  slot(majors[0]).w + POSTER.tileGap > slot(majors[0]).side + slot(majors[1]).pad,
+  `${slot(majors[0]).w} + ${POSTER.tileGap} vs ${slot(majors[1]).pad}`);
+/* A Super 750 takes no mark and therefore no padding — otherwise every base row
+   would be padded by a mark that is not there. */
+check('a square with no mark takes no room for one',
+  slot(py2021[3].tiles[0]).pad === 0);
+
+/* ---- what the picture says about itself ---- */
+
+check('the legend explains the squares', /square is a title/.test(slice.legend[0]),
+  slice.legend.join(' / '));
+check('and the bars', slice.legend.some(l => /3\+ of them/.test(l)),
+  slice.legend.join(' / '));
+check('the asterisk is only explained where one is drawn',
+  !slice.legend.some(l => /⁕/.test(l))
+    && posterOf(2019, 2021).legend.some(l => /⁕/.test(l)),
+  posterOf(2019, 2021).legend.join(' / '));
+check('and the bar line goes when the band is off',
+  !posterOf(2011, 2016, { eras: false }).legend.some(l => /spans/.test(l)));
+eq('with no band, no bars', posterOf(2011, 2016, { eras: false }).bars.length, 0);
+check('and a shorter picture for it',
+  posterOf(2011, 2016, { eras: false }).height < slice.height);
 
 /* ============================ the bracket ============================
 

@@ -1289,7 +1289,10 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
   font-size: 10px; font-weight: 700; color: var(--dim); letter-spacing: .04em;
 }
 
-/* The tiers, ranked by the same ladder the honours board uses. */
+/* The tiers, ranked by the same ladder the honours board uses — except at the
+   summit, where the Olympics and the Worlds are the same size and the **gold
+   ring is what tells them apart**. Two faces on one line at two different sizes
+   read as a layout accident rather than as a ranking. */
 .pyrtile.t-OLY { box-shadow: inset 0 0 0 2px #ffd24a; }
 .pyrtile.t-20  { box-shadow: inset 0 0 0 2px #e8e8e8; }
 .pyrtile.t-22  { box-shadow: inset 0 0 0 2px #c77dff; }
@@ -1339,9 +1342,28 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
 
 /* ---- a title drawn somewhere other than where it was played ---- */
 
-.pyrtile.is-moved { box-shadow: inset 0 0 0 1px rgba(255,255,255,.10), 0 0 0 1px var(--warn); }
+/* ⚠️ A **dashed** outline, not a gold ring. It was a gold one, and gold is now
+   what marks an Olympic champion at the summit — a footnote and a tier cannot
+   share a colour. Dashed says "annotated" at any zoom, and it sits outside the
+   tile where the solid tier rings sit inside, so the two can never be read as
+   the same kind of mark. */
+.pyrtile.is-moved { outline: 1px dashed rgba(255, 255, 255, .8); outline-offset: 1px; }
 .pyryear .ast { font-style: normal; color: var(--warn); margin-left: 2px; }
 .pyryear.is-moved { color: var(--text-dim); }
+
+/* ---- the export picker ---- */
+
+.exportbar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 8px 0 2px; font-size: 12px; color: var(--text-dim);
+}
+.exportbar select {
+  background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+  border-radius: var(--radius-btn); padding: 3px 6px; font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+.exportbar #expNote { color: var(--text-muted); }
+.exportbar #expNote.is-bad { color: var(--bad); }
 
 /* ============================ the dominance band ============================
 

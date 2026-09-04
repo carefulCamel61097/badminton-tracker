@@ -266,9 +266,16 @@ Men's and women's singles, 2007 to now.
 
 **The Olympics and the World Championships share the top row.** Every season holds one or
 the other and never neither, so they are the same rung of the calendar even though they are
-not the same prize; the Olympic square is drawn larger. (2021 held both — Tokyo was
-postponed into the same year as the Huelva Worlds — so that row simply holds two.) Below
-them the World Tour Finals, then the Super 1000s, then the Super 750s.
+not the same prize. (2021 held both — Tokyo was postponed into the same year as the Huelva
+Worlds — so that row simply holds two.) Below them the World Tour Finals, then the Super
+1000s, then the Super 750s.
+
+⚠️ **The two are drawn the same size, and the gold ring is what tells them apart.** The
+Olympic square used to be a rung larger, which is right on the honours ladder and wrong
+here: on this page a square is a *face*, and two faces on one line at two different sizes
+read as a layout accident rather than as a ranking. `pyramidScale` overrides the size for
+this page only — the honours board still ranks an Olympic gold above a world title, because
+that is a claim about worth and this is a row of portraits.
 
 ⚠️ **No team events, and no regional multi-sport games.** A team title would rank a player
 by the country they were born in. The Asian Games, the Commonwealth Games and the European
@@ -287,7 +294,10 @@ tables the honours board uses, so the two views cannot drift apart. The summit r
 carries a mark beside the face — the rings for an Olympic champion, a cup for a world
 champion — because size alone is a distinction you have to already know to read.
 
-**⁕ marks a title that did not happen when its name says.** The season-ending Finals belongs
+**⁕ marks a title that did not happen when its name says** — a dashed outline on the square
+and an asterisk beside the year. Dashed and *outside*, where the tier rings are solid and
+inside, so a footnote and a rank can never be read as the same mark; it used to be a gold
+ring, which is now what an Olympic champion gets.  The season-ending Finals belongs
 to the season it *concludes*, so the 2010 Superseries Finals and the 2020 World Tour Finals
 are drawn in 2010 and 2020 although both were played the following January. That is the rule
 `tournamentSeason` has always applied to a career grid; until recently the pyramid read
@@ -310,6 +320,30 @@ Things that look wrong and are not:
   that reads as a harvest bug.)
 - **2020 is nearly bare even with its Finals back.** The calendar entries say "(Cancelled)",
   and a cancelled final has no winner.
+
+### Exporting a slice
+
+**Export** takes a range of seasons — the pyramid, the band and all — and draws it to a PNG
+at twice the screen's density, with the link and a legend on it. Download it, or **Copy** it
+straight to the clipboard where the browser allows that.
+
+It is **drawn from the data, not photographed off the page**. Rasterising the DOM in a
+project with no build step means either a library or the `foreignObject` trick — every
+stylesheet inlined, every image a data URI — and still comes out at whatever zoom the sender
+happened to be on. `poster.js` paints it onto a canvas instead, so an export is the same
+size every time and cropped to the seasons that were asked for rather than to the viewport.
+
+Lanes, colours and the shading scale are worked out over the **whole** board and then
+cropped, so a poster of 2011–2016 is the picture the sender was looking at rather than a
+recoloured one; a run cut by the crop gets a square corner instead of a rounded one, to say
+there is more of it off the side.
+
+⚠️ **The photographs need `crossOrigin="anonymous"`.** Measured against the live site: BWF's
+image host answers a CORS request and the canvas stays readable, and the very same image
+loaded without the attribute draws perfectly and then poisons the canvas — so `toBlob`
+throws at the last step and the whole feature is a button that fails. The GitHub avatar is
+the opposite case: its URL is a redirect that drops the header, so it is committed to this
+repo as `data/avatar.png` and served from our own origin.
 
 ### Dominance
 

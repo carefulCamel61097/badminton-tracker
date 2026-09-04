@@ -32,7 +32,12 @@ import {
   rosterMatches, mergeSuggestions,
   pyramidSeason, pyramidBulges, pyramidRowWidth, pyramidSeasonMarks,
   winnersSeasons, pyramidReigns, reignLanes, REIGN_STEPS, REIGN_DEFAULT, reignStep,
+  pyramidScale,
 } from './model.js';
+import {
+  drawPoster, posterLayout, POSTER, TIER_RING,
+  REIGN_COLOURS, CUP_PATHS, CUP_BOX, RING_AT, RING_COLOURS, RING_BOX,
+} from './poster.js';
 
 const $ = id => document.getElementById(id);
 
@@ -1003,6 +1008,9 @@ const win = {
      default: it is the answer to the question the pyramid raises — the faces
      say a name over and over and the band is what that repetition *means*. */
   eras: true, reign: REIGN_DEFAULT,
+  // Whether the export picker is open. A view of the page, not part of what it
+  // argues, so it never reaches the hash.
+  exporting: false,
 };
 
 const winFile = () => win.files[win.kind] || null;
@@ -1060,22 +1068,21 @@ function winnerFace(who, side) {
    ⚠️ The "black" ring is drawn light. The official mark is black on white and
    this page is #1a1a1a, where the black ring simply is not there — five rings
    with a hole in the middle reads as a mistake rather than as a flag. */
-const RING_COLOURS = ['#0081c8', '#e8e8e8', '#ee334e', '#fcb131', '#00a651'];
-const OLYMPIC_RINGS = `<svg class="pyrbadge rings" viewBox="0 0 104 54" aria-hidden="true">`
-  + [[17, 17], [52, 17], [87, 17], [34.5, 34], [69.5, 34]].map(([cx, cy], i) =>
+/* ⚠️ Built from the path data in `poster.js` rather than written out here. The
+   export has to draw the same two marks with `Path2D`, and two copies of a
+   trophy is two trophies to keep in step. */
+const OLYMPIC_RINGS = `<svg class="pyrbadge rings" viewBox="0 0 ${RING_BOX[0]} ${RING_BOX[1]}"
+  aria-hidden="true">`
+  + RING_AT.map(([cx, cy], i) =>
     `<circle cx="${cx}" cy="${cy}" r="15" fill="none"
       stroke="${RING_COLOURS[i]}" stroke-width="5"/>`).join('')
   + `</svg>`;
 
-const WORLDS_CUP = `<svg class="pyrbadge cup" viewBox="0 0 24 24" aria-hidden="true"
-  fill="none" stroke="currentColor" stroke-width="1.8"
-  stroke-linecap="round" stroke-linejoin="round">
-  <path d="M7 3h10v6a5 5 0 0 1-10 0V3z"/>
-  <path d="M7 5H4v1.5A3.5 3.5 0 0 0 7.5 10"/>
-  <path d="M17 5h3v1.5A3.5 3.5 0 0 1 16.5 10"/>
-  <path d="M12 14v3"/>
-  <path d="M8.5 21h7l-.8-4h-5.4z"/>
-</svg>`;
+const WORLDS_CUP = `<svg class="pyrbadge cup" viewBox="0 0 ${CUP_BOX} ${CUP_BOX}"
+  aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"
+  stroke-linecap="round" stroke-linejoin="round">`
+  + CUP_PATHS.map(d => `<path d="${d}"/>`).join('')
+  + `</svg>`;
 
 /** The mark that goes to the left of a summit-row face, or nothing. */
 function winnerBadge(tier) {
@@ -1140,7 +1147,7 @@ function renderWinners() {
         /* ⚠️ An empty row is drawn as a gap, not closed up. A season with no
            Tour Finals — every season before 2008 — should show the hole where
            it goes rather than quietly becoming a different shape. */
-        const h = Math.round(honourScale(row.tiers[row.tiers.length - 1]) * unit);
+        const h = Math.round(pyramidScale(row.tiers[row.tiers.length - 1]) * unit);
         return `<div class="pyrrow is-empty" style="height:${h}px"
           title="no ${esc(row.label)} this season"></div>`;
       }
@@ -1198,22 +1205,9 @@ function renderWinners() {
 const ERA_LANE_H = 26;
 const ERA_LANE_GAP = 4;
 
-/* One colour per player, cycled.
- *
- * ⚠️ Not the green a title is drawn in everywhere else, which is what this used
- * to be. A bar is not about *what* was won, it is about *who* — and a band in
- * one colour makes two people who overlapped read as one long reign with a step
- * in it. Eight hues, assigned in the order the band is sorted, which is by the
- * season a career opens: two players share a colour only if eight others opened
- * between them, which in the recorded data is never inside one screen.
- *
- * ⚠️ The BWF red and the live-match teal are deliberately absent. Both mean
- * something specific elsewhere in this app and a player who happened to be
- * eighth should not borrow it. */
-const REIGN_COLOURS = [
-  '#4f9dff', '#f2994a', '#c77dff', '#57c98a',
-  '#ff6b8b', '#f6d34a', '#7fd4d0', '#a3a3ff',
-];
+/* The colours are `REIGN_COLOURS`, from `poster.js` — the module that has to
+   draw them from primitives owns the palette, and the export and the page then
+   cannot disagree about who is blue. */
 
 function renderEraBand(seasons, players) {
   const host = $('winEraBand');
@@ -1303,6 +1297,123 @@ function renderEraBand(seasons, players) {
   host.innerHTML = bars;
 }
 
+/* ---- saving a slice of the board ----
+
+   ⚠️ The picture is drawn by `poster.js` onto a canvas, not scraped off the
+   page — see the note at the top of that file for why, and for the `crossOrigin`
+   trap that decides whether the faces can be in it at all.
+
+   The years are a *range*, not a filter: an export is something somebody else
+   will look at once, and "2011 to 2016" is the shape of the claim being made.
+   Both ends default to the whole board, so the first click gives a picture
+   rather than a form. */
+
+function exportYears() {
+  const file = winFile();
+  if (!file) return [];
+  return winnersSeasons(file).years;
+}
+
+/** The range the picker is asking for, clamped and in order. */
+function exportRange() {
+  const years = exportYears();
+  if (!years.length) return null;
+  const lo = Number($('expFrom').value) || years[0];
+  const hi = Number($('expTo').value) || years[years.length - 1];
+  return { from: Math.min(lo, hi), to: Math.max(lo, hi) };
+}
+
+function renderExportBar() {
+  const years = exportYears();
+  const box = $('winExport');
+  box.hidden = !win.exporting || !years.length;
+  $('winSave').classList.toggle('on', win.exporting);
+  $('winSave').setAttribute('aria-pressed', String(win.exporting));
+  if (box.hidden) return;
+
+  /* ⚠️ Rebuilt only when the years actually change. The selects hold the
+     reader's choice, and re-rendering the options on every redraw — which is
+     what a redraw of the board does — would reset it to the whole span every
+     time they moved the bar. */
+  const stamp = win.kind + ':' + years.join(',');
+  if (box.dataset.stamp !== stamp) {
+    box.dataset.stamp = stamp;
+    const opts = sel => years.map(y =>
+      `<option value="${y}"${y === sel ? ' selected' : ''}>${y}</option>`).join('');
+    $('expFrom').innerHTML = opts(years[0]);
+    $('expTo').innerHTML = opts(years[years.length - 1]);
+  }
+}
+
+/** What the file is called when it lands in somebody's downloads. */
+function exportName(range) {
+  return `badminton-winners-${win.kind}-${range.from}-${range.to}.png`;
+}
+
+async function makePoster() {
+  const file = winFile();
+  const range = exportRange();
+  if (!file || !range) return null;
+  return drawPoster(file, {
+    from: range.from, to: range.to,
+    kind: win.kind, min: win.reign, eras: win.eras,
+  });
+}
+
+function exportSaying(msg, bad) {
+  const el = $('expNote');
+  el.textContent = msg || '';
+  el.classList.toggle('is-bad', !!bad);
+}
+
+async function savePoster() {
+  exportSaying('Drawing…');
+  try {
+    const blob = await makePoster();
+    if (!blob) return exportSaying('Nothing to draw yet.', true);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = exportName(exportRange());
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    /* ⚠️ Revoked on a timer rather than immediately: revoking in the same tick
+       as the click races the download in Chrome and lands a zero-byte file. */
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    exportSaying(`Saved ${exportName(exportRange())}`);
+  } catch (e) {
+    exportSaying(e.message || String(e), true);
+  }
+}
+
+async function copyPoster() {
+  exportSaying('Drawing…');
+  try {
+    const blob = await makePoster();
+    if (!blob) return exportSaying('Nothing to draw yet.', true);
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    exportSaying('Copied — paste it anywhere.');
+  } catch (e) {
+    /* Clipboard images need a secure context and a permission most browsers
+       only grant on a real click, so this is a *likely* failure rather than a
+       surprising one. Saying so beats a silent no-op. */
+    exportSaying('Could not copy (' + (e.message || e.name) + '). Save it instead.', true);
+  }
+}
+
+$('winSave').addEventListener('click', () => {
+  win.exporting = !win.exporting;
+  exportSaying('');
+  renderExportBar();
+});
+$('expSave').addEventListener('click', savePoster);
+$('expCopy').addEventListener('click', copyPoster);
+/* Only offered where it can work: `ClipboardItem` is missing on Firefox and on
+   any page not served over https, and a button that always fails is worse than
+   no button. */
+$('expCopy').hidden = typeof ClipboardItem === 'undefined' || !navigator.clipboard;
+
 function renderWinnersControls() {
   $('winKind').innerHTML = WIN_KINDS.map(k =>
     `<button type="button" class="seg${k === win.kind ? ' on' : ''}" data-kind="${k}"
@@ -1334,6 +1445,8 @@ function renderWinnersControls() {
 
   const z = $('winZoom');
   if (z && Number(z.value) !== win.zoom) z.value = String(win.zoom);
+
+  renderExportBar();
 }
 
 function setReign(key) {
@@ -3347,6 +3460,40 @@ window.BST = {
         w: Math.round(r.width * 10) / 10,
       };
     }),
+    /* ---- the export ----
+       The layout is handed back as numbers so the suite can check where things
+       land without decoding a picture, and `png` returns a real encoded image
+       so it can check that the canvas came back *readable* — which is the one
+       failure that happens at the very last step, after everything has drawn
+       perfectly. */
+    export: on => (on == null ? win.exporting
+      : (win.exporting = !!on, renderExportBar(), win.exporting)),
+    range: (from, to) => {
+      if (from != null) $('expFrom').value = String(from);
+      if (to != null) $('expTo').value = String(to);
+      return exportRange();
+    },
+    poster: (from, to) => posterLayout(winFile(), {
+      from, to, kind: win.kind, min: win.reign, eras: win.eras,
+    }),
+    png: async (from, to) => {
+      const blob = await drawPoster(winFile(), {
+        from, to, kind: win.kind, min: win.reign, eras: win.eras,
+      });
+      const url = await new Promise(res => {
+        const r = new FileReader();
+        r.onload = () => res(r.result);
+        r.readAsDataURL(blob);
+      });
+      return { bytes: blob.size, type: blob.type, url };
+    },
+    name: exportName,
+    /* ⚠️ The one place the CSS and `poster.js` can drift: the page paints the
+       tier rings from a stylesheet and the export paints them from a table.
+       Handed back so the suite can hold one against the other. */
+    rings: () => TIER_RING,
+    poster_unit: () => POSTER.unit,
+
     runs: () => {
       const file = winFile();
       if (!file) return [];
