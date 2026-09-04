@@ -29,13 +29,22 @@ import {
    and compares it to the constant here, so the two cannot drift apart quietly.
    ==================================================================== */
 
-/** The ring around a tile, by tier. */
+/* The ring around a tile — **only the two summit tiers have one.**
+ *
+ * ⚠️ There used to be one per tier, in the export and in the stylesheet, and on
+ * the page not one of them was ever visible: they were `inset` box-shadows, and
+ * an inset shadow paints behind the element's content, which here is a
+ * photograph filling the tile. They showed for the instant before the images
+ * loaded and then vanished — so the export drew a set of rings the page did not
+ * have, and the check that held the two tables against each other passed
+ * happily because it was comparing declarations rather than pixels.
+ *
+ * The Olympics and the Worlds are the same size and share a row, so a ring is
+ * the only thing that can separate them. Every other tier says its rank by size,
+ * which is what the whole page is built on. */
 export const TIER_RING = {
   OLY: { colour: '#ffd24a', width: 2 },
   20: { colour: '#e8e8e8', width: 2 },
-  22: { colour: '#c77dff', width: 2 },
-  23: { colour: '#4fc3ff', width: 1 },
-  24: { colour: 'rgba(255,255,255,.16)', width: 1 },
 };
 
 /* One colour per player, cycled.
@@ -296,13 +305,19 @@ export function posterLayout(file, opts) {
   /* ⚠️ Worked out before the height, because it decides it. The first version
      had a fixed 54px footer and the third legend line was drawn 4px from the
      bottom edge with its descenders sliced off. */
+  /* ⚠️ Three separate statements, so three capitals — run on in lower case they
+     read as one sentence broken over three lines. And the third one is *named*
+     rather than shown: it led with a ⁕, which is the mark beside the year and
+     not the mark on the square, so the line appeared to be explaining a small
+     dot when what it is about is a dashed outline. The glyph stays as a pointer
+     and the words do the explaining. */
   const legend = [
     'Every square is a title, sized by what it was worth',
     bars.length
-      ? `a bar spans the seasons somebody won ${reignStep(opts.min).n}+ of them`
+      ? `A bar spans the seasons somebody won ${reignStep(opts.min).n}+ of them`
       : '',
     columns.some(c => c.rows.some(r => r.tiles.some(t => t.mark)))
-      ? '⁕ played in a year other than the one it counts for'
+      ? 'A dashed square, ⁕ by its year, was played in a different year'
       : '',
   ].filter(Boolean);
   const footH = 24 + Math.max(2, legend.length) * 15;
@@ -555,7 +570,7 @@ export async function drawPoster(file, opts) {
 }
 
 function drawTile(ctx, t, x, y, side, faces) {
-  const ring = TIER_RING[String(t.tier)] || TIER_RING[24];
+  const ring = TIER_RING[String(t.tier)];
   ctx.save();
   roundRect(ctx, x, y, side, side, 3);
   ctx.clip();
@@ -571,18 +586,22 @@ function drawTile(ctx, t, x, y, side, faces) {
   }
   ctx.restore();
 
-  ctx.lineWidth = ring.width;
-  ctx.strokeStyle = ring.colour;
-  roundRect(ctx, x + ring.width / 2, y + ring.width / 2,
-    side - ring.width, side - ring.width, 3);
-  ctx.stroke();
+  /* ⚠️ Outside the square, not inside it, which is what the page does now — an
+     inset ring is painted under the photograph and may as well not be there. */
+  if (ring) {
+    ctx.lineWidth = ring.width;
+    ctx.strokeStyle = ring.colour;
+    roundRect(ctx, x - ring.width / 2, y - ring.width / 2,
+      side + ring.width, side + ring.width, 4);
+    ctx.stroke();
+  }
 
-  // The footnote mark, dashed and outside — the same distinction the page makes.
+  // The footnote mark, dashed and clear of the ring — as on the page.
   if (t.mark) {
     ctx.strokeStyle = 'rgba(255,255,255,.8)';
     ctx.lineWidth = 1;
     ctx.setLineDash([3, 3]);
-    roundRect(ctx, x - 1.5, y - 1.5, side + 3, side + 3, 4);
+    roundRect(ctx, x - 3.5, y - 3.5, side + 7, side + 7, 5);
     ctx.stroke();
     ctx.setLineDash([]);
   }

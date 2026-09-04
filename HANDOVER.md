@@ -1326,9 +1326,20 @@ the gold ring carries the difference instead. It is a pyramid-only override: `ho
 still ranks an Olympic gold a rung above a world title, because the honours board is making a
 claim about worth and this page is a row of portraits.
 
-⚠️ Which forced the footnote mark off gold. A displaced title is now a **dashed outline**,
-drawn *outside* the tile where the tier rings are solid and inside — a footnote and a rank
-must not share a colour, and now they do not share a line style or a side either.
+⚠️ Which forced the footnote mark off gold. A displaced title is a **dashed outline**, offset
+clear of the ring — a footnote and a rank must not share a colour.
+
+⚠️⚠️ **The tier rings were `inset` and therefore invisible.** Every tier had one and none of
+them ever showed: an inset box-shadow paints *behind* the element's content, and the content
+is a photograph filling the tile. They appeared for the instant before the images arrived and
+then vanished, which is how it went unnoticed for as long as the page has existed — and how
+it survived a check that held the stylesheet's declared colour against the export's table.
+Declarations matched; pixels never did.
+
+Only the two summit tiers are ringed now, drawn *outside* the square, and the suite asserts
+`!/inset/` on the computed shadow as well as the colour. The ring is a `box-shadow` rather
+than an `outline` because an element has only one outline and the footnote mark needs it —
+Tokyo 2020 is Olympic *and* displaced and has to wear both.
 
 ### 3.4e The era switch, and why backwards is a different map *(built 30 Aug 2026)*
 

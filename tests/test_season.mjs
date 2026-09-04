@@ -2514,39 +2514,73 @@ eq('an Olympic square is the same size as a world championship one',
   summit.oly.w, summit.wch.w);
 check('and larger than a Super 1000 one', summit.oly.w > summit.s1000.w,
   `${summit.oly.w} vs ${summit.s1000.w}`);
-check('the gold ring is what tells them apart',
+check('the gold ring is what tells an Olympic champion from a world one',
   /255, 210, 74/.test(summit.oly.ring) && !/255, 210, 74/.test(summit.wch.ring),
   summit.oly.ring + ' | ' + summit.wch.ring);
+check('and the world champion keeps a white one',
+  /232, 232, 232/.test(summit.wch.ring), summit.wch.ring);
+
+/* ⚠️⚠️ **The ring must not be `inset`.** Every tier used to have an inset one
+   and not a single one of them was ever visible: an inset box-shadow paints
+   *behind* the element's content, and the content here is a photograph filling
+   the tile. They showed for the instant before the images loaded and then went,
+   which is how it survived a check that compared the declared colour to the
+   export's table — declarations matched, pixels never did. */
+check('and neither ring is drawn under the photograph',
+  !/inset/.test(summit.oly.ring) && !/inset/.test(summit.wch.ring),
+  summit.oly.ring + ' | ' + summit.wch.ring);
+
+/* Nothing below the summit is ringed at all. Rank is said by size on this page,
+   and a ring nobody can see is worse than no ring — it is a claim the drawing
+   does not make. */
+check('and no other tier is ringed',
+  await b.ev(`['22', '23', '24'].every(t => {
+    const el = document.querySelector('.pyrtile.t-' + t);
+    return !el || getComputedStyle(el).boxShadow === 'none';
+  })`),
+  await b.ev(`['22', '23', '24'].map(t => {
+    const el = document.querySelector('.pyrtile.t-' + t);
+    return t + ': ' + (el ? getComputedStyle(el).boxShadow : 'absent');
+  }).join(' | ')`));
 
 /* ⚠️ Which is why the footnote mark had to stop being gold. A tier and a
    footnote cannot share a colour, so a displaced title is now dashed and
-   *outside* the tile, where the tier rings are solid and inside. */
+   *outside* the tile. */
 const movedTile = await b.ev(`(() => {
   const el = document.querySelector('.pyrseason[data-year="2020"] .pyrtile.is-moved');
   const st = getComputedStyle(el);
-  return { style: st.outlineStyle, colour: st.outlineColor, shadow: st.boxShadow };
+  return { style: st.outlineStyle, colour: st.outlineColor, offset: st.outlineOffset };
 })()`);
 eq('a displaced title is outlined dashed', movedTile.style, 'dashed');
 check('and no longer in gold', !/255, 210, 74|255, 188, 32/.test(movedTile.colour),
   movedTile.colour);
+/* Tokyo 2020 is Olympic *and* displaced, so the two marks have to sit clear of
+   one another — which is also why the ring is a box-shadow and not an outline,
+   since a tile has only one outline to give. */
+check('and offset clear of the ring, for a square that wears both',
+  parseFloat(movedTile.offset) >= 2, movedTile.offset);
 
 /* ⚠️ The one place the stylesheet and `poster.js` can drift: the page paints a
-   tier ring from CSS and the export paints it from a table. Held against each
-   other here, because a poster whose Super 1000s are the wrong blue is a thing
-   nobody would notice until somebody posted one. */
-check('the export paints the tier rings the page paints',
+   summit ring from CSS and the export paints it from a table. Held against each
+   other here — but on the *painted* value, not on the declaration, which is the
+   mistake the inset rings got away with. */
+check('the export paints the rings the page paints',
   await b.ev(`(() => {
     const want = window.BST.winners.rings();
     const hex = s => {
-      const m = s.match(/(\\d+), (\\d+), (\\d+)/);
+      const m = s.match(/(\d+), (\d+), (\d+)/);
       return m ? '#' + [1, 2, 3].map(i => (+m[i]).toString(16).padStart(2, '0')).join('') : s;
     };
     const bad = [];
-    for (const tier of ['OLY', '20', '22', '23']) {
+    if (Object.keys(want).sort().join() !== '20,OLY') bad.push('table: ' + Object.keys(want).join());
+    for (const tier of Object.keys(want)) {
       const el = document.querySelector('.pyrtile.t-' + tier);
       if (!el) continue;
-      const drawn = hex(getComputedStyle(el).boxShadow);
-      if (drawn !== want[tier].colour) bad.push(tier + ': page ' + drawn + ', export ' + want[tier].colour);
+      const shadow = getComputedStyle(el).boxShadow;
+      if (/inset/.test(shadow)) bad.push(tier + ' is inset and invisible');
+      else if (hex(shadow) !== want[tier].colour) {
+        bad.push(tier + ': page ' + hex(shadow) + ', export ' + want[tier].colour);
+      }
     }
     return bad.join(' | ') || true;
   })()`), true);

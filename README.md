@@ -270,12 +270,20 @@ not the same prize. (2021 held both — Tokyo was postponed into the same year a
 Worlds — so that row simply holds two.) Below them the World Tour Finals, then the Super
 1000s, then the Super 750s.
 
-⚠️ **The two are drawn the same size, and the gold ring is what tells them apart.** The
-Olympic square used to be a rung larger, which is right on the honours ladder and wrong
-here: on this page a square is a *face*, and two faces on one line at two different sizes
-read as a layout accident rather than as a ranking. `pyramidScale` overrides the size for
-this page only — the honours board still ranks an Olympic gold above a world title, because
-that is a claim about worth and this is a row of portraits.
+⚠️ **The two are drawn the same size, and the ring is what tells them apart** — gold for an
+Olympic champion, white for a world champion. The Olympic square used to be a rung larger,
+which is right on the honours ladder and wrong here: on this page a square is a *face*, and
+two faces on one line at two different sizes read as a layout accident rather than as a
+ranking. `pyramidScale` overrides the size for this page only — the honours board still
+ranks an Olympic gold above a world title, because that is a claim about worth and this is a
+row of portraits.
+
+⚠️ **Nothing below the summit is ringed.** There used to be a ring per tier and **not one of
+them was ever visible**: they were `inset` box-shadows, and an inset shadow paints *behind*
+the element's content — which here is a photograph filling the tile. They showed for the
+instant before the images loaded and then went. The two that are left are drawn *outside*
+the square, where a photograph cannot cover them, and every other tier says its rank by size,
+which is what the page is built on.
 
 ⚠️ **No team events, and no regional multi-sport games.** A team title would rank a player
 by the country they were born in. The Asian Games, the Commonwealth Games and the European

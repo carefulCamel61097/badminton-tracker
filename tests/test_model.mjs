@@ -2377,13 +2377,32 @@ check('a square with no mark takes no room for one',
 
 /* ---- what the picture says about itself ---- */
 
+/* ⚠️ Only the two summit tiers carry a ring, in the export as on the page. There
+   used to be one per tier and none of them was visible: they were inset, and an
+   inset shadow paints behind the photograph filling the tile. */
+/* ⚠️ Sorted: an object with a numeric-looking key puts it first whatever order
+   it was written in, so `Object.keys` gives 20,OLY and not OLY,20. */
+eq('only the summit is ringed', Object.keys(TIER_RING).sort().join(), '20,OLY');
+eq('gold for the Olympics', TIER_RING.OLY.colour, '#ffd24a');
+eq('white for the Worlds', TIER_RING[20].colour, '#e8e8e8');
+
 check('the legend explains the squares', /square is a title/.test(slice.legend[0]),
   slice.legend.join(' / '));
 check('and the bars', slice.legend.some(l => /3\+ of them/.test(l)),
   slice.legend.join(' / '));
-check('the asterisk is only explained where one is drawn',
-  !slice.legend.some(l => /⁕/.test(l))
-    && posterOf(2019, 2021).legend.some(l => /⁕/.test(l)),
+check('the footnote is only explained where one is drawn',
+  !slice.legend.some(l => /dashed/.test(l))
+    && posterOf(2019, 2021).legend.some(l => /dashed/.test(l)),
+  posterOf(2019, 2021).legend.join(' / '));
+/* ⚠️ Three separate statements, so three capitals. Run on in lower case they
+   read as one sentence broken across three lines. */
+check('every legend line opens with a capital',
+  posterOf(2019, 2021).legend.every(l => /^[A-Z]/.test(l)),
+  posterOf(2019, 2021).legend.join(' / '));
+/* And the dashed outline is named, not shown: leading with the ⁕ made the line
+   look like an explanation of a small dot rather than of a dashed square. */
+check('and the footnote line says "dashed" rather than opening with a glyph',
+  posterOf(2019, 2021).legend.every(l => !/^⁕/.test(l)),
   posterOf(2019, 2021).legend.join(' / '));
 check('and the bar line goes when the band is off',
   !posterOf(2011, 2016, { eras: false }).legend.some(l => /spans/.test(l)));
