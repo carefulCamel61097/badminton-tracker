@@ -159,7 +159,10 @@ always has something to say, so that is the one a player opens on.
 
 ## The tournament
 
-Whatever is on, without picking it. One 1.8 KB call to BWF says which tournament has live
+Whatever is on, without picking it. **No player card sits above it**, the same as the
+winners page: this page is about what is on court, not about whoever was last looked up, so
+a career here would answer a question nobody asked and push the day down the screen. The
+search box stays, because it is how you leave for a player. One 1.8 KB call to BWF says which tournament has live
 scores, which one just finished and which is next; the page shows the right one and says
 which of the three it is.
 
@@ -456,6 +459,7 @@ never a hidden feature — and each page's own keys are printed under its notes.
 |---|---|
 | <kbd>←</kbd> <kbd>→</kbd> | move between Seasons, Compare, Tournament and Winners (wrapping) |
 | **Compare** | <kbd>G</kbd> grid · <kbd>H</kbd> honours · <kbd>W</kbd> World Tour names · <kbd>S</kbd> Superseries names |
+| **Compare** | <kbd>↑</kbd> <kbd>↓</kbd> the QF+ / SF+ / F+ / W bar — **honours board only**, since that is the only view the bar is on; the grid keeps its arrows for scrolling |
 | **Tournament** | <kbd>O</kbd> order of play · <kbd>B</kbd> bracket · <kbd>S</kbd> starred only |
 | **Tournament** | <kbd>↑</kbd> <kbd>↓</kbd> the day, or — in the bracket — how much of the draw |
 | **Tournament** | <kbd>M</kbd> <kbd>W</kbd> <kbd>X</kbd> the discipline; press again for that gender's doubles |
@@ -467,6 +471,11 @@ Four things about this are deliberate.
 Forward, <kbd>Ctrl</kbd>+O opens a file, <kbd>Ctrl</kbd>+S saves the page and
 <kbd>Ctrl</kbd>+W closes the tab — every one collides with a key above. A modified
 keystroke is not handled *and not prevented*: it goes straight through to the browser.
+
+**Where a page has nothing to step, the arrows are left alone.** <kbd>↑</kbd> <kbd>↓</kbd>
+are not merely inert on the career grid — they are not `preventDefault`ed, so the browser
+still scrolls with them. A shortcut that swallows a key without doing anything is worse
+than no shortcut.
 
 **Nothing fires while you are typing**, which matters more than it sounds, because the app
 focuses the search box on load — so on a fresh page every letter would land in the box

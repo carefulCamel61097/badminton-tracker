@@ -1305,5 +1305,11 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
    750s. Marked rather than hidden — it says the elite tier grew. */
 .pyrseason.is-bulging .pyryear { color: var(--warn); }
 
+/* ⚠️ The player card belongs to the pages that are *about* a player. The
+   tournament and winners pages are about the sport — whatever is on court this
+   week, and who has won what — so a career sitting above them is answering a
+   question nobody on that page asked, and pushes the thing they came for down
+   the screen. The search box stays: it is how you leave for a player. */
 body[data-page="winners"] #hero,
+body[data-page="tmt"] #hero,
 body[data-page="winners"] .legends { display: none !important; }

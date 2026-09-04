@@ -2275,6 +2275,45 @@ await press('s');
 eq('s is the superseries names', await b.ev('window.BST.grid.state.era'), 'ss');
 await press('w');
 eq('and w the world tour ones', await b.ev('window.BST.grid.state.era'), 'wt');
+
+/* The QF+ / SF+ / F+ / W bar, on the arrows.
+
+   ⚠️ It lives on the honours board and nowhere else — `honMin` is hidden in the
+   grid view — so the arrows are claimed there and deliberately left alone on
+   the grid, where a career is taller than the window and scrolling is the right
+   answer for a page with nothing to step. */
+await press('h');
+eq('the honours board is up', await b.ev('window.BST.grid.state.view'), 'honours');
+eq('and the bar is on screen with it',
+  await b.ev(`!document.getElementById('honMin').hidden`), true);
+await b.ev(`document.querySelector('#honMin [data-hmin="sf"]').click()`);
+eq('starting at the semi-finals', await b.ev('window.BST.grid.state.threshold'), 'sf');
+await press('ArrowUp');
+eq('up lowers the bar, showing more', await b.ev('window.BST.grid.state.threshold'), 'qf');
+await press('ArrowDown');
+eq('and down raises it', await b.ev('window.BST.grid.state.threshold'), 'sf');
+await press('ArrowDown');
+await press('ArrowDown');
+eq('down again reaches titles only', await b.ev('window.BST.grid.state.threshold'), 'w');
+await press('ArrowDown');
+eq('and stops there rather than wrapping',
+  await b.ev('window.BST.grid.state.threshold'), 'w');
+await press('ArrowUp');
+await press('ArrowUp');
+await press('ArrowUp');
+await press('ArrowUp');
+eq('up stops at the quarter-finals', await b.ev('window.BST.grid.state.threshold'), 'qf');
+check('the bar travels in the link',
+  await b.ev(`location.hash.includes('th=qf')`), await b.ev('location.hash'));
+
+/* ⚠️ Not prevented on the grid, which is the point: there is no bar to step, so
+   the keystroke has to fall through to the browser and scroll the page. */
+await press('g');
+eq('the grid has no bar to step', await b.ev(`document.getElementById('honMin').hidden`), true);
+eq('so the arrows are left to scroll it', await press('ArrowDown'), false);
+eq('and nothing moved', await b.ev('window.BST.grid.state.threshold'), 'qf');
+await press('h');
+await b.ev(`document.querySelector('#honMin [data-hmin="sf"]').click()`);
 /* ⚠️ The same two letters mean something else one page over. That is fine
    because a page is only ever one of them — but it is worth a check, because
    the day this becomes a modal it stops being fine. */
@@ -2283,6 +2322,17 @@ eq('and neither of them starred anything', (await b.ev('window.BST.tmt.stars()')
 /* ---- the tournament page ---- */
 
 check('the tournament page loads', await openTmt('#pg=tmt&now=2026-08-23'));
+
+/* ⚠️ No player card here. This page is about whatever is on court, not about
+   whoever was last looked up — a career above it answers a question nobody on
+   this page asked and pushes the day down the screen. The winners page already
+   worked this way; the tournament page did not. The search box stays, because
+   it is how you leave for a player. */
+check('the tournament page shows no player card',
+  await b.ev(`!document.getElementById('hero').offsetParent`));
+check('but the search box is still there to leave by',
+  await b.ev(`!!document.getElementById('q').offsetParent`));
+
 await press('b');
 eq('b is the bracket', await b.ev('window.BST.tmt.state.view'), 'draw');
 check('and it loads', await b.until('window.BST.tmt.bracket.ready()', { timeout: 120000 }));

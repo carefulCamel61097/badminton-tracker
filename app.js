@@ -1802,6 +1802,27 @@ function stepTournament(by) {
   return true;
 }
 
+/**
+ * The QF+ / SF+ / F+ / W bar, on the arrows.
+ *
+ * ⚠️ Only on the honours board, because that is the only place the bar exists —
+ * `honMin` is hidden in the grid view. So the arrows are *not* claimed on the
+ * grid, where they go on scrolling a career that is taller than the window,
+ * which is the right answer for a page with nothing to step.
+ *
+ * Up lowers the bar and down raises it, which is the same direction as the
+ * bracket's fold: up shows more.
+ */
+function stepHonourBar(by) {
+  if (grid.view !== 'honours') return false;
+  const next = stepIn(HONOUR_STEPS.map(s => s.key), grid.threshold, by);
+  if (next === grid.threshold) return true;    // at the end, but still handled
+  grid.threshold = honourStep(next).key;
+  renderGrid();
+  writeHash();
+  return true;
+}
+
 function setWinKind(kind) {
   if (!WIN_KINDS.includes(kind) || kind === win.kind) return;
   win.kind = kind;
@@ -1822,6 +1843,7 @@ function runHotkey(key) {
     if (key === 'h') { setGridView('honours'); return true; }
     if (key === 'w') { setGridEra('wt'); return true; }
     if (key === 's') { setGridEra('ss'); return true; }
+    if (key === 'ArrowUp' || key === 'ArrowDown') return stepHonourBar(key === 'ArrowUp' ? -1 : 1);
     return false;
   }
 
