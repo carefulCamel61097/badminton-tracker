@@ -51,13 +51,25 @@ function esc(s) {
    year it has nothing for, and real data reaches back to about 2007, so the
    walk stops after a run of empty seasons rather than grinding through two
    decades of nothing for a player who turned professional last year. */
-/* ⚠️ **2006 is the floor because it is the last season BWF actually has.**
-   Checked live, 30 Aug 2026, with `tools/probe-early.mjs`: 2006 comes back
-   complete — every result carries a position — 2005 is about half empty, and
-   before that BWF returns the tournaments with **no position on any of them**.
-   LEE Chong Wei's 2000-2004 is 40 rows and not one result; LIN Dan's 2004 All
-   England is in there with nothing beside it. A floor lower than this buys rows
-   that can only say "Played".
+/* ⚠️ **2006 is the floor because it is the first season BWF places its results.**
+   The tournaments go back further — LIN Dan's 2001 is seven of them — but a
+   tournament with no *position* on it is a row that can only say "Played".
+   Re-measured with `tools/probe-early.mjs`, 4 Sep 2026, draws carrying a real
+   placing:
+
+     year     2001   2002   2003   2004   2005    2006     2007
+     LCW      0/11    0/6   0/11   1/12    3/9   12/12    15/16
+     LIN Dan   0/7    0/7   1/10   1/11    3/9   10/10    13/14
+
+   The cliff is exactly here. 2005 is two thirds empty, 2004 is one row in
+   twelve, and 2001-2002 is nothing at all. (2007 onwards never reaches 100%
+   either, and should not: a team event carries no individual position.)
+
+   ⚠⚠ **An absent position is the string `"-"`, not an empty one.** LIN Dan's
+   2004 All England — a title he won — comes back as `position: "-"`. The probe
+   counted that as placed until 4 Sep 2026 and so reported 2004 as a *complete*
+   season, which is an argument for lowering the floor built on a bug. The model
+   was never fooled: `positionInfo` reads `"-"` and `"N/A"` as "Played".
 
    It costs a modern career no requests at all: the empty-season run below stops
    those walks years above the floor. */

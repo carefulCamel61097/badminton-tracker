@@ -1439,12 +1439,78 @@ only say "Played".
 It costs a modern career nothing: `EMPTY_RUN` stops those walks two empty seasons after the
 last real one, years above the floor. No test fixture reaches 2006 either, for the same reason.
 
+⚠⚠ **An absent position is the string `"-"`, not an empty one** — and `"N/A"` also occurs.
+`tools/probe-early.mjs`, the tool that set this floor, counted both as placed until 4 September
+2026. It therefore reported LIN Dan's 2004 as **11/11 placed with no titles in it**: a complete
+season in which the reigning All England champion won nothing, which is not a thing that can be
+true. Re-measured with the counter fixed, draws carrying a real placing:
+
+| | 2001 | 2002 | 2003 | 2004 | 2005 | 2006 | 2007 |
+|---|---|---|---|---|---|---|---|
+| LEE Chong Wei | 0/11 | 0/6 | 0/11 | 1/12 | 3/9 | **12/12** | 15/16 |
+| LIN Dan | 0/7 | 0/7 | 1/10 | 1/11 | 3/9 | **10/10** | 13/14 |
+
+**2006 is the first season BWF places its results**, and the cliff is sheer. The tournaments
+themselves go back to 2001 and further; it is the placings that do not. 2007 onwards never
+reaches 100% either and should not — a team event carries no individual position.
+
+`positionInfo` in the model was never fooled by this: it reads `"-"` and `"N/A"` as
+`{ label: '-', tier: 'na', full: 'Played' }`. Only the probe was, and it was fooled in the
+direction of saying the floor could safely be lowered.
+
 ⚠️⚠️ **Before 2007, `tournament_category_id` carries no tier information whatsoever.** In 2006
 the **World Championships**, the **All England** and an International Series are all category
 **6**, and the Asian Games has no category. Lowering the floor alone therefore *gained almost
 nothing* — 7 of LIN Dan's 10 2006 tournaments were dropped as "below Super 100" — which is why
 `gridGroup` now reads nothing off an id before `IDS_MEAN_SOMETHING` (2007) and sends whatever
 the name rescues have not placed to Unmapped.
+
+Re-measured live on **4 September 2026** across six careers of that era — LIN Dan, LEE Chong
+Wei, Taufik HIDAYAT, Peter GADE, ZHANG Ning, XIE Xingfang, seasons 2000-2006:
+
+| id | events | what is in it |
+|---|---|---|
+| **6** | **77** | Danish Open, China Open, All England, World Championships, a $30k Macau Open, a $3,000 Norwegian International |
+| 1 | 5 | the 2004 Olympics — *and* the 2006 Japan and Hong Kong Opens |
+| null | 2 | Doha 2006 Asian Games, Thailand Open 2006 |
+| 16 | 1 | European Senior Championships 2006 |
+
+85 distinct tournaments, **77 of them one id**, spanning a world title and a three-thousand
+dollar satellite. Category 6 is not a tier, it is the absence of one.
+
+### 3.4k Why prize money cannot rescue the pre-2007 seasons *(closed 4 Sep 2026)*
+
+The obvious next move is to derive the tier from the purse, and it does not work. **Do not
+try it.**
+
+Until 2007 the circuit was the **IBF World Grand Prix**, whose events were graded **6-star
+down to 1-star — and the grade was the prize money**. The 2006 bands, from the season's own
+calendar:
+
+| Stars | Purse | 2006 events |
+|---|---|---|
+| 6 | $250-300k | Korea, China Masters, Indonesia, Hong Kong, China Open |
+| 5 | $170-180k | Japan, Singapore, Chinese Taipei, Denmark |
+| 4 | $120-125k | Swiss, **All England**, Philippines, Malaysia |
+| 3 | $80k | German, Thailand |
+| 2 | $50k | New Zealand, Bitburger, Dutch |
+| 1 | $30k | U.S. Open, Vietnam, Bulgarian, **Macau** |
+
+⚠⚠ **The money ladder and the prestige ladder are different ladders.** The All England — the
+oldest title in the sport — was a **4-star on $125,000**, two rungs below the China Masters.
+Deriving a tier from the purse would draw it as a mid-table event on every page of this app,
+authoritatively. The mechanism exists (`prize_money` is in the payload for 61% of those 85
+tournaments) and the mapping does not, so the answer is Unmapped and the Winners board's 2007
+floor — both of which say "no ladder here" rather than inventing one.
+
+⚠️ A second reason, if the first were not enough: **the bands inflate**. The China Open paid
+$225k in 2001, $170k in 2002 and $250k by 2005; Hong Kong was a $30k event in 2001 and a $250k
+one in 2005. A fixed table of bands would misplace every season it was not built from.
+
+⚠️ One data point worth keeping: **BWF's own record beats Wikipedia here.** Wikipedia's 2006
+World Grand Prix table lists the Macau Open at 4-stars / $120,000; BWF's payload for the same
+tournament, same dates, says **$30,000**, which is the 1-star band — and badmintonranks.com
+independently rates it 1-star. Two against one, and the odd one out is the encyclopedia.
 
 ⚠️ **And the sub-World-Tour ids are not believed until 2008** (`BELOW_BELIEVED`). 2007 is the
 first Superseries season and ids 2/8/3/4 all mean what they say, so they are still read — but

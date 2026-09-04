@@ -496,11 +496,22 @@ and Lin Dan 52, where sites with a fuller source say 69 each. The missing ones a
 2000–2004 blank, and they are not evenly split — which is most of why Lee Chong Wei looks so
 far ahead here on Superseries titles and level overall elsewhere.
 
-⚠️ **Before 2007 the category id carries no tier information at all.** In 2006 the World
-Championships, the All England and an International Series are all category **6**. Reading
-those ids as tiers threw away seven of Lin Dan's ten 2006 tournaments, an All England title
-among them, so nothing is read off an id before 2007: the majors are rescued by name as they
-always were, and everything else goes to Unmapped. The ids *below* the World Tour are not
+⚠⚠ **Before 2007 there was no ladder, which is why Unmapped exists.** The Superseries began
+that season; until then the circuit was the IBF World Grand Prix, and it graded its events
+**6-star down to 1-star by prize money alone**. The money was not the prestige — the 2006 All
+England was a **4-star** on $125,000, two rungs under the China Masters at $250,000, and the
+same year's Macau Open paid $30,000. Nothing turns a purse into a tier, so pre-2007 titles are
+shown together in one section that admits its placing is a guess, and the Winners board does
+not draw them at all. Sizing them by what they paid would put an All England below a China
+Masters, which is worse than not sizing them.
+
+⚠️ **And the category id carries no tier information there either.** In 2006 the World
+Championships, the All England and an International Series are all category **6** — and across
+six careers of that era, **77 of 85** pre-2007 tournaments carry that one id, from a world
+championship down to a $3,000 satellite. Reading those ids as tiers threw away seven of Lin
+Dan's ten 2006 tournaments, an All England title among them, so nothing is read off an id
+before 2007: the majors are rescued by name as they always were, and everything else goes to
+Unmapped. The ids *below* the World Tour are not
 believed until 2008 either, because BWF was still filing Grand Prix events as category 6
 through 2007 — which cost exactly one title each, Lin Dan's German Open and Lee Chong Wei's
 Philippines Open.

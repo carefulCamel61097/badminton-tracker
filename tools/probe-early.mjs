@@ -72,8 +72,17 @@ for (const [id, who, from] of WHO) {
         /* ⚠️ The interesting number is not the titles, it is how many results
            carry a position at all. A season of tournaments with no position is
            a hole in BWF's records, and lowering the floor into it would add
-           rows that say only "Played". */
-        const pos = d.position == null ? '' : String(d.position).trim();
+           rows that say only "Played".
+
+           ⚠⚠ **An absent position is the string `"-"`, not an empty one** — and
+           `"N/A"` also occurs. This counted both as placed until 4 Sep 2026,
+           which reported LIN Dan's 2004 as 11/11 placed with no titles in it,
+           i.e. as a complete season in which the reigning All England champion
+           won nothing. `positionInfo` in the model has always read them as
+           "Played"; only this line was fooled, and it was fooled in the
+           direction of saying the floor could safely be lowered. */
+        const raw = d.position == null ? '' : String(d.position).trim();
+        const pos = (raw === '-' || raw === 'N/A') ? '' : raw;
         if (pos) placed++;
         // '1st' is BWF's own word for the champion, and the only one needed here.
         if (pos === '1st') won.push(((t.tournament_model || {}).name || '?').trim());
