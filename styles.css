@@ -289,19 +289,31 @@ input::placeholder { color: var(--text-muted); }
 .chip.team.on { border-color: var(--accent); color: var(--accent-text); }
 .chip.more { border-style: dotted; }
 
-/* ⚠️ Filled red in the two bracket bars only, and the distinction is real:
-   everywhere else a chip row is a **filter**, where many are on at once and
-   "on" is the resting state — painting those accent would make an ordinary page
-   shout. These two are **pickers**: exactly one draw, exactly one round. The
-   neutral "on" rendered as a slightly lighter pill, which said "this one" but
-   gave no hint the choice *was* a choice, so the fold looked like a caption
-   rather than a control. */
-#tmtDrawPick .chip.on, #tmtRounds .chip.on {
+/* **A chosen chip is filled**, on every bar that has one.
+   The neutral "on" was a slightly lighter pill: it said "this one" but gave no
+   hint the choice *was* a choice, so a fold or a filter read as a caption rather
+   than a control. One rule for the pickers in the bracket — exactly one draw,
+   exactly one round — and for the filters on Seasons and Compare, where many are
+   on at once.
+
+   ⚠️ These two really are different kinds of control, and the filters default
+   to **all on**, so this opens those pages on a full row of accent. That was the
+   argument for leaving them neutral and it lost to the bigger one: the same
+   affordance has to look the same everywhere, or a reader learns the red pill on
+   one page and has to learn the grey one again on the next.
+
+   ⚠️ A **team** chip is excluded on purpose. It is not just another level — no
+   individual position, off by default — and it stays a dashed outline so that
+   "on, but a different sort of thing" survives being surrounded by filled pills.
+   Filling it would have hidden the dashed border inside its own colour. */
+#tmtDrawPick .chip.on, #tmtRounds .chip.on,
+#years .chip.on, #levels .chip.on:not(.team), #gridGroups .chip.on {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-fg);
 }
-#tmtDrawPick .chip.on:hover, #tmtRounds .chip.on:hover {
+#tmtDrawPick .chip.on:hover, #tmtRounds .chip.on:hover,
+#years .chip.on:hover, #levels .chip.on:not(.team):hover, #gridGroups .chip.on:hover {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
 }

@@ -50,6 +50,14 @@ a chip per level. The levels nobody filters by, which is mostly pre-2019 categor
 project has no name for, sit behind one "N more" menu of checkboxes so they do not crowd out
 the ones that matter.
 
+**A chip that is on is filled in BWF red**, here and on the compare grid and in the bracket
+bars. These filters default to *all* on, so both rows open red — which was the argument for
+leaving them neutral, and it lost to the bigger one: the same affordance has to look the same
+on every page, or a reader learns the red pill in one place and the grey one in another. Team
+events are the exception and stay a dashed outline, because they are not just another level.
+The tournament page's own draw filter stays neutral too, since it sits directly under the day
+bar and a second row of red there reads as one control rather than two.
+
 How far they got is measured against that draw's **real ladder**, fetched per tournament:
 a quarter-final of a 64-draw fills 3/6 and a quarter-final of a 32-draw fills 2/5. Qualifying
 does not count towards it, and a round robin that *is* the main stage does. The strip renders
@@ -251,9 +259,8 @@ draw is, because one card is not a bracket.
 
 **A draw is one discipline by definition**, so the bracket picks exactly one rather than
 filtering several, and it says the field size beside each — `MS 64`, `WS 32`. Both bars are
-pickers rather than filters — exactly one draw, exactly one round — so the chosen chip is
-filled in BWF red like every other control on the page, and not left in the neutral style
-the filter rows elsewhere use, where being on is the resting state. The draw ids
+pickers rather than filters — exactly one draw, exactly one round — and the chosen chip is
+filled in BWF red, which is what a chosen chip looks like everywhere now. The draw ids
 come from BWF's own list rather than from counting: at a tournament with qualifying they
 run 2, 4, 6, 8, 10, and asking for `1` gets you the men's *qualifying* draw, which is a
 real payload quietly answering a different question.

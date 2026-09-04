@@ -310,6 +310,33 @@ check('turning a level off drops its tournaments across every season',
   `${before1000} -> ${after1000.length}`);
 await b.ev(`document.querySelector('#levels .chip[data-cat="23"]').click()`);
 
+/* ⚠️ **A chosen chip is filled, on every bar that has one.** The filters here
+   were left neutral for a while on the argument that they are not pickers — many
+   are on at once, and they default to all on, so this opens the page on a full
+   row of accent. That argument lost to the bigger one: the same affordance has to
+   look the same everywhere, or a reader learns the red pill in the bracket and
+   has to learn the grey one again here. Read off the painted pixel, because the
+   thing being asserted is what the eye gets.
+
+   ⚠️ A **team** chip is the exception and stays a dashed outline: it is not just
+   another level, and filling it would bury the dashed border in its own colour. */
+const seasonPaint = JSON.parse(await b.ev(`(() => {
+  const bg = el => (el ? getComputedStyle(el).backgroundColor : null);
+  return JSON.stringify({
+    year: bg(document.querySelector('#years .chip.on')),
+    level: bg(document.querySelector('#levels .chip.on:not(.team)')),
+    off: bg(document.querySelector('#levels .chip:not(.on)')),
+    team: bg(document.querySelector('#levels .chip.team')),
+  });
+})()`));
+eq('a season that is shown is filled in BWF red', seasonPaint.year, 'rgb(223, 32, 39)');
+eq('and a level that is shown', seasonPaint.level, 'rgb(223, 32, 39)');
+check('while one switched off stays neutral', seasonPaint.off !== 'rgb(223, 32, 39)',
+  JSON.stringify(seasonPaint));
+check('and a team chip keeps its outline rather than being filled',
+  seasonPaint.team === null || seasonPaint.team !== 'rgb(223, 32, 39)',
+  JSON.stringify(seasonPaint));
+
 /* ============================ the Olympics ============================ */
 
 console.log('\n=== the Olympics ===');
@@ -887,6 +914,12 @@ eq('the rows are still all there', trimmed[0].years.length, cards[0].years.lengt
 check('and the tier band loses that segment',
   !trimmed[0].tiers.includes('GMS'), trimmed[0].tiers.join(' | '));
 await b.ev(`document.querySelector('#gridGroups .chip[data-group="GAMES"]').click()`);
+
+/* The same rule as the Seasons page's filters, and read the same way — these
+   two rows are the pair somebody would most notice disagreeing. */
+eq('a level shown on the grid is filled in BWF red too',
+  await b.ev(`getComputedStyle(document.querySelector('#gridGroups .chip.on')).backgroundColor`),
+  'rgb(223, 32, 39)');
 
 /* ---- two players side by side ---- */
 
@@ -1859,11 +1892,15 @@ eq('and the chosen round too', chipPaint.round.on, BWF_RED);
 check('while the ones you could pick instead stay neutral',
   chipPaint.draw.off !== BWF_RED && chipPaint.round.off !== BWF_RED,
   JSON.stringify(chipPaint));
-/* The filter rows elsewhere are not pickers — many are on at once — so they
-   must not have been dragged along with this. */
+/* ⚠️ The day's **draw filter** is the one chip row left neutral, and it is the
+   odd one out on purpose rather than by omission: the Seasons and Compare
+   filters were painted to match these pickers on 4 Sep 2026 and this row was
+   not, because it sits on the same page as them and a bar of red directly above
+   a bar of red is two controls that look like one. Pinned so the asymmetry is a
+   decision somebody has to change on purpose. */
 await b.ev(`window.BST.tmt.bracket.view('oop')`);
 await b.until('window.BST.tmt.ready()', { timeout: 120000 });
-eq('a filter chip is still not painted like a choice',
+eq('the day’s draw filter stays neutral',
   await b.ev(`getComputedStyle(document.querySelector('#tmtDraws .chip.on')).backgroundColor`),
   'rgb(47, 47, 47)');
 await b.ev(`window.BST.tmt.bracket.view('draw')`);
