@@ -287,10 +287,11 @@ picks anything for it to be right.
   turns those into *live* / *upcoming* / *finished* by comparing dates.
 - **A day bar** across the tournament's dates, opening on today when it is on, its last day
   when it has finished, its first when it has not started.
-- **A real grid**, ported from the predecessor: one column per court, one row per position
-  on that court, so two cards level with each other are genuinely at the same point in the
-  day. Row 3 means "third on this court". Rows nothing occupies are skipped, so filtering to
-  one draw gives a dense grid rather than one full of holes.
+- **A real grid**: one column per court, one row per **moment** in the day, so two cards
+  level with each other were on court together. Rows nothing occupies are skipped, so
+  filtering to one draw gives a dense grid rather than one full of holes.
+  ⚠⚠ The rows were positions on court — "row 3 is third on this court" — until 4 September
+  2026, and that is only the same thing while every court keeps step. See 3.5a.
   `courtGrid` returns **null** — and the view falls back to a plain list — when a grid would
   be a lie or a waste: any match missing its court or position means the order of play is not
   out, and with one court a grid is a list with extra machinery. Finals day is the second
@@ -1336,10 +1337,16 @@ then vanished, which is how it went unnoticed for as long as the page has existe
 it survived a check that held the stylesheet's declared colour against the export's table.
 Declarations matched; pixels never did.
 
-Only the two summit tiers are ringed now, drawn *outside* the square, and the suite asserts
+The gold Olympic ring is the only one left, drawn *outside* the square, and the suite asserts
 `!/inset/` on the computed shadow as well as the colour. The ring is a `box-shadow` rather
 than an `outline` because an element has only one outline and the footnote mark needs it —
 Tokyo 2020 is Olympic *and* displaced and has to wear both.
+
+⚠️ **The world championship square wore a white ring for exactly one commit.** Ringing both
+summit squares made them a matched pair in two liveries rather than a ranking — and white is
+the brighter colour on a dark ground, so the square meant to be the plain case read as the
+*bigger* prize. `TIER_RING` now holds one entry and `test_season.mjs` asserts the world
+championship tile's computed `box-shadow` is literally `none`.
 
 ### 3.4e The era switch, and why backwards is a different map *(built 30 Aug 2026)*
 
@@ -1665,6 +1672,73 @@ pair can be shortened to surnames; a singles player is one name and there is not
 shorten, so the card has to fit the longest of them. This is the third time a label has
 been found clipped by a screenshot rather than by a test.
 
+### 3.5a A row of the order of play is a moment, not a position *(fixed 4 Sep 2026)*
+
+`courtGrid` laid the day out with **one row per position on court** — row 3 was "third on
+this court" — and claimed in its own doc comment that two cards on the same row were
+therefore at the same point in the day. That claim holds only while every court keeps step,
+and it was found false by a reader looking at the LI-NING China Masters:
+
+```
+Court 1   10:00*  10:50  11:45  12:35  13:25  17:00*  17:50  18:40  19:30  20:20
+Court 2   10:00*  10:50  11:45  12:35         17:00*  17:50  18:40  19:30
+Court 3   11:00*  19:00*
+                          (* a time BWF published; the rest are its estimates)
+```
+
+Court 3 held two matches all day, each opening a session of its own. Both were
+first-and-second **on their court**, so the positional grid put the 11:00 match level with
+the 10:00 ones and the **7pm match level with 10:50** — beside a match that had finished
+eight hours earlier.
+
+**The fix is not to sort the day by the clock**, and that is why this is harder than it
+looks — 4.7 exists precisely because most of those times are not real. What is real is the
+*anchor*: BWF publishes a start for the first match of every session and estimates the rest
+at a flat 50 minutes, and those estimates run backwards across a session boundary. So:
+
+- a court's day is cut into **runs** at every anchored match;
+- runs are placed in the order of their anchors, and each run's matches then take
+  consecutive rows, which is the positional rule *inside* a session;
+- a run whose anchor falls between two existing rows has a row spliced in for it, and the
+  columns beside it are simply empty — because at that moment nothing was on those courts.
+
+On a day where every court starts and breaks together the runs line up and share rows, and
+this lands on exactly the grid the positional rule gave. The World Championships fixture
+gains one row: courts 3 and 4 came back at 14:10 while courts 1 and 2 played through.
+
+⚠️ **Two anchors within a quarter of an hour are one moment** (`SAME_MOMENT`). At those same
+Worlds courts 1 and 2 opened at 9:00 and courts 3 and 4 at 9:10; two half-empty rows would
+say something the day did not, and the shortest badminton match is forty minutes. The grace
+applies **anchor to anchor only** — a published time never snaps onto an estimated one,
+which is what keeps court 3's 11:00 off the 10:50 row.
+
+⚠️ **"Not before 5:00 PM" is an anchor, not an estimate.** It reads like hedging and is not:
+it is how BWF opens an afternoon or evening session. `parseMatch` gained `anchored`, and
+`estimated` is now simply its negation — so such a card also stopped being marked ≈.
+
+⚠️⚠️ **The grid orders on `matchTimeUtc`, never on `matchTime`.** They disagree. In the
+recorded Worlds day the offset between them wanders between 5.00, 5.50 and 6.00 hours on
+matches ten minutes apart, and it is the *venue* clock that runs backwards:
+
+```
+Court 1 #4  matchTime 11:40   utc 05:40
+Court 1 #5  matchTime 11:20   utc 06:20      <- venue goes back, utc does not
+```
+
+`matchTimeUtc` was strictly increasing down every court in that payload; `matchTime` was
+not. The card still prints the venue clock, because that is what the arena shows, but
+nothing may be *ordered* by it. `startAt()` in `model.js` is the only place in the app that
+turns a match time into an instant.
+
+⚠️ With no times at all the grid falls back to the old positional layout rather than
+inventing an ordering — `positionalGrid`, which is also what the session logic reduces to.
+
+**Seeds.** While in the same view: a seed is drawn `[1]`, never bare. BWF sends the string
+`"1"`, and a lone numeral beside a name on a match card is the one thing there that could be
+read as something else — a score, a game count, a court. The brackets are punctuation and
+live in `app.js`; `sd.seed` stays the string BWF sent. Both `.side` and `.bside` had to widen
+their seed column, which is a fixed pixel track in each grid.
+
 ### 3.5 Endpoints — the tournament pages *(discovered 21 Aug 2026, all verified 200)*
 
 Part 3.2 was found by pointing `discover.mjs` at the calendar, home and rankings
@@ -1959,6 +2033,15 @@ tall canvas. Filtering rounds is a layout change, not a visibility change.
 
 The **array order from `day-matches` is the order of play.** Do not sort by `matchTime` —
 BWF spaces the estimates a flat 50 minutes apart and they are not real.
+
+⚠️ Which does not mean the day carries no real times. Every session's **first** match has a
+published one — *Starting at 10:00 AM*, or *Not before 5:00 PM* for a session opening
+mid-day — and those are exact. `parseMatch` marks them `anchored`, and the grid's rows are
+built on them; see 3.5a.
+
+⚠⚠ And `matchTime` and `matchTimeUtc` **disagree**: in the recorded Worlds day the offset
+between them wanders between 5.00 and 6.00 hours, and it is the venue clock that runs
+backwards while UTC does not. Print `matchTime`, order on `matchTimeUtc`.
 
 ### 4.8 `el.hidden = true` does not hide anything this sheet styles
 

@@ -40,11 +40,14 @@ import {
  * happily because it was comparing declarations rather than pixels.
  *
  * The Olympics and the Worlds are the same size and share a row, so a ring is
- * the only thing that can separate them. Every other tier says its rank by size,
- * which is what the whole page is built on. */
+ * the only thing that can separate them — and only **one** of them needs it.
+ * Ringing both made the pair read as equals with two liveries; worse, the white
+ * one is the brighter of the two against a dark ground, so the world champion
+ * came out looking like the bigger prize. One square is marked out and the other
+ * is the plain case. Every other tier says its rank by size, which is what the
+ * whole page is built on. */
 export const TIER_RING = {
   OLY: { colour: '#ffd24a', width: 2 },
-  20: { colour: '#e8e8e8', width: 2 },
 };
 
 /* One colour per player, cycled.

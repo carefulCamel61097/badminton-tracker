@@ -1585,17 +1585,51 @@ check('a full day draws as a grid', !!grid);
 eq('four courts, four columns', grid.cols, 4);
 eq('each with a heading', grid.heads.join(' '), 'Court 1 Court 2 Court 3 Court 4');
 
-/* The whole claim of the layout: a row is one position on court, so two cards
-   level with each other are at the same point in the day. Checked against the
-   painted geometry, not the style attribute — a stylesheet that ignored the
-   grid would still pass a check on what JS asked for. */
+/* ⚠️⚠️ The whole claim of the layout: **a row is a moment**, not "nth on this
+   court". It was positional until the China Masters of 4 September 2026, where
+   court 3 held two matches all day — one at 11:00 and one at 19:00 — and both,
+   being first-and-second on their court, were drawn level with the morning on
+   courts 1 and 2. The evening match sat beside one that had finished eight
+   hours earlier.
+
+   The claim is checked on the times BWF actually **published**: the anchors, the
+   ones whose card does not say "Followed by". The estimates strung between them
+   are BWF's own arithmetic and drift by an hour over a session, so they are the
+   one thing a row cannot be held to. Checked against the painted geometry as
+   well, not only the style attribute — a stylesheet that ignored the grid would
+   still pass a check on what JS asked for. */
 const byRow = {};
 for (const c of grid.cells) (byRow[c.row] = byRow[c.row] || []).push(c);
-check('every card in a row is at the same position on its court',
-  Object.values(byRow).every(cs => new Set(cs.map(c => c.seq)).size === 1),
-  Object.entries(byRow).slice(0, 3).map(([r, cs]) =>
-    r + ':' + cs.map(c => c.seq).join(',')).join(' | '));
-check('and the browser actually lays them out level',
+const stamp = c => Date.parse(String(c.at).replace(' ', 'T') + 'Z');
+const QUARTER = 15 * 60 * 1000;
+
+check('every published start in a row is the same moment',
+  Object.values(byRow).every(cs => {
+    const fixed = cs.filter(c => c.anchored).map(stamp);
+    return fixed.every(t => t - Math.min(...fixed) <= QUARTER);
+  }),
+  Object.entries(byRow).filter(([, cs]) => cs.some(c => c.anchored))
+    .map(([r, cs]) => r + ':' + cs.filter(c => c.anchored)
+      .map(c => c.at.slice(11, 16)).join(',')).join(' | '));
+
+check('and those moments run forwards down the grid',
+  (() => {
+    const opens = Object.entries(byRow)
+      .filter(([, cs]) => cs.some(c => c.anchored))
+      .map(([r, cs]) => [Number(r), Math.min(...cs.filter(c => c.anchored).map(stamp))])
+      .sort((a, b) => a[0] - b[0]);
+    return opens.every((o, i) => i === 0 || o[1] >= opens[i - 1][1]);
+  })());
+
+/* A court is still read straight down: whatever the rows are built on, the
+   running order of a court is the one thing the layout may never reorder. */
+check('a court is read downwards, in the order of play',
+  grid.heads.every(court => {
+    const mine = grid.cells.filter(c => c.court === court).sort((a, b) => a.row - b.row);
+    return mine.every((c, i) => i === 0 || c.seq > mine[i - 1].seq);
+  }));
+
+check('and the browser actually lays a row out level',
   Object.values(byRow).every(cs => new Set(cs.map(c => c.y)).size === 1),
   Object.entries(byRow).slice(0, 3).map(([r, cs]) =>
     r + ':' + cs.map(c => c.y).join(',')).join(' | '));
@@ -1610,9 +1644,26 @@ check('columns are laid out in that order too',
       i === 0 || x[k] > x[ks[i - 1]]);
   })());
 
+/* ⚠️ Courts 3 and 4 came back from a break at 14:10 that day while courts 1 and
+   2 played straight through. That restart is a row of its own with two empty
+   columns beside it, which is exactly the point: at that moment there was
+   nothing on courts 1 and 2, and a positional grid drew it as though there was. */
+const restartRow = Object.entries(byRow)
+  .find(([, cs]) => cs.length < 4 && cs.some(c => c.anchored && c.seq > 1));
+check('a court coming back from a break gets a row to itself', !!restartRow,
+  restartRow && restartRow[1].map(c => `${c.court}#${c.seq} ${c.at.slice(11, 16)}`).join(' '));
+
 const tCards = await b.ev('window.BST.tmt.cards()');
+/* ⚠️ Down the day, not down court one and then back to the top — which is what
+   a narrow screen gets when it drops the grid and simply stacks the cards. Held
+   per court, because across courts the running numbers no longer march in step:
+   a court that opened late is on its first match while its neighbour is on its
+   eighth, and that is the fix, not a fault. */
 check('the cards come out in running order, down the day',
-  tCards.every((c, i) => i === 0 || c.seq >= tCards[i - 1].seq),
+  grid.heads.every(court => {
+    const mine = tCards.filter(c => c.court === court);
+    return mine.every((c, i) => i === 0 || c.seq > mine[i - 1].seq);
+  }),
   tCards.slice(0, 8).map(c => `${c.court}#${c.seq}`).join(' '));
 
 const played = tCards.filter(m => m.status === 'finished');
@@ -2517,8 +2568,11 @@ check('and larger than a Super 1000 one', summit.oly.w > summit.s1000.w,
 check('the gold ring is what tells an Olympic champion from a world one',
   /255, 210, 74/.test(summit.oly.ring) && !/255, 210, 74/.test(summit.wch.ring),
   summit.oly.ring + ' | ' + summit.wch.ring);
-check('and the world champion keeps a white one',
-  /232, 232, 232/.test(summit.wch.ring), summit.wch.ring);
+/* ⚠️ And the world champion beside it wears **nothing**. It had a white ring for
+   a day, which was worse than none: on a dark ground white is the brighter of
+   the two, so the square that was meant to be the plain case came out looking
+   like the bigger prize. One marked square and one bare one is the ranking. */
+eq('and the world champion square is bare', summit.wch.ring, 'none');
 
 /* ⚠️⚠️ **The ring must not be `inset`.** Every tier used to have an inset one
    and not a single one of them was ever visible: an inset box-shadow paints
@@ -2526,19 +2580,18 @@ check('and the world champion keeps a white one',
    the tile. They showed for the instant before the images loaded and then went,
    which is how it survived a check that compared the declared colour to the
    export's table — declarations matched, pixels never did. */
-check('and neither ring is drawn under the photograph',
-  !/inset/.test(summit.oly.ring) && !/inset/.test(summit.wch.ring),
-  summit.oly.ring + ' | ' + summit.wch.ring);
+check('and the one that is left is not drawn under the photograph',
+  !/inset/.test(summit.oly.ring), summit.oly.ring);
 
-/* Nothing below the summit is ringed at all. Rank is said by size on this page,
+/* Nothing else on the board is ringed at all. Rank is said by size on this page,
    and a ring nobody can see is worse than no ring — it is a claim the drawing
    does not make. */
 check('and no other tier is ringed',
-  await b.ev(`['22', '23', '24'].every(t => {
+  await b.ev(`['20', '22', '23', '24'].every(t => {
     const el = document.querySelector('.pyrtile.t-' + t);
     return !el || getComputedStyle(el).boxShadow === 'none';
   })`),
-  await b.ev(`['22', '23', '24'].map(t => {
+  await b.ev(`['20', '22', '23', '24'].map(t => {
     const el = document.querySelector('.pyrtile.t-' + t);
     return t + ': ' + (el ? getComputedStyle(el).boxShadow : 'absent');
   }).join(' | ')`));
@@ -2572,7 +2625,7 @@ check('the export paints the rings the page paints',
       return m ? '#' + [1, 2, 3].map(i => (+m[i]).toString(16).padStart(2, '0')).join('') : s;
     };
     const bad = [];
-    if (Object.keys(want).sort().join() !== '20,OLY') bad.push('table: ' + Object.keys(want).join());
+    if (Object.keys(want).join() !== 'OLY') bad.push('table: ' + Object.keys(want).join());
     for (const tier of Object.keys(want)) {
       const el = document.querySelector('.pyrtile.t-' + tier);
       if (!el) continue;

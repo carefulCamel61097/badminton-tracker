@@ -1636,14 +1636,7 @@ check('a full day draws as a real grid', !!grid);
 eq('one column per court', grid.courts.length, 4);
 eq('every match placed', grid.cells.length, day19.length);
 
-/* Row 3 means "third on this court", so two cards on the same row are at the
-   same point in the day. That is the whole claim of the layout. */
-check('a row is one position on court, across every court',
-  grid.cells.every(c => {
-    const others = grid.cells.filter(o => o.row === c.row);
-    return others.every(o => o.match.seq === c.match.seq);
-  }));
-check('and a column is one court',
+check('a column is one court',
   grid.cells.every(c => {
     const others = grid.cells.filter(o => o.col === c.col);
     return others.every(o => o.match.court === c.match.court);
@@ -1651,12 +1644,50 @@ check('and a column is one court',
 check('no two matches land in the same cell',
   new Set(grid.cells.map(c => c.col + ':' + c.row)).size === grid.cells.length);
 
+/* ⚠️ A court's cards only ever move **down** the page. Whatever the rows are
+   built on, the running order of a court is the one thing the layout may never
+   reorder — Part 4.7. */
+const downTheCourt = g => g.courts.every(court => {
+  const mine = g.cells.filter(c => c.match.court === court).sort((a, b) => a.row - b.row);
+  return mine.every((c, i) => i === 0 || c.match.seq > mine[i - 1].match.seq);
+});
+check('and a court is read downwards, in the order of play', downTheCourt(grid));
+
+/* Rows run forwards through the day. A row's own instant is the earliest match
+   on it, so this is the check that a card can never appear above one that was
+   on court before it. */
+const rowClock = g => g.rows.map(r => r.at);
+const clockLine = g => rowClock(g)
+  .map(t => (t == null ? '—' : new Date(t).toISOString().slice(11, 16))).join(' ');
+check('the rows run forwards through the day',
+  rowClock(grid).every((t, i) => i === 0 || t >= rowClock(grid)[i - 1]), clockLine(grid));
+
 /* Row-major, so a narrow screen that drops the grid and stacks the cards still
    reads down the day rather than down court one and then back to the top. */
 check('the cells come out row-major, which is running order',
   grid.cells.every((c, i) => i === 0
     || c.row > grid.cells[i - 1].row
     || (c.row === grid.cells[i - 1].row && c.col > grid.cells[i - 1].col)));
+
+/* ⚠️ Courts 1 and 2 opened at 9:00 that day and courts 3 and 4 at 9:10 — a
+   published ten-minute stagger. Two half-empty rows at the top of the grid would
+   say something the day did not, and a badminton match runs forty minutes at its
+   shortest, so anchors that close together are read as one moment. */
+eq('a ten-minute stagger at the start is still one row',
+  new Set(grid.cells.filter(c => c.match.seq === 1).map(c => c.row)).size, 1);
+
+/* ⚠️ But a genuine break is not. Courts 3 and 4 came back at 14:10 while courts
+   1 and 2 played straight through, so that restart is a row of its own with two
+   empty columns beside it — which is the whole point: a row is a moment, and at
+   that moment nothing was happening on courts 1 and 2. */
+const restart = grid.cells.find(c => c.match.court === 'Court 3' && c.match.anchored
+  && c.match.seq > 1);
+check('a court that comes back from a break gets its own row', !!restart,
+  restart ? `Court 3 #${restart.match.seq} at ${restart.match.time} on row ${restart.row}`
+    : 'no restart in the fixture');
+eq('and it is shared only with the other court that broke',
+  grid.cells.filter(c => c.row === restart.row).map(c => c.match.court).join(', '),
+  'Court 3, Court 4');
 
 eq('the finals are one court, so no grid — a list would say the same thing',
   courtGrid(day23), null);
@@ -1668,6 +1699,86 @@ eq('a day with no courts yet is no grid',
   courtGrid(day19.map(m => ({ ...m, court: '' }))), null);
 eq('and so is one where only some matches are placed',
   courtGrid(day19.map((m, i) => (i ? m : { ...m, seq: null }))), null);
+
+/* ---- a court that keeps its own hours ---- */
+
+/* ⚠️⚠️ The day that broke the positional grid, transcribed from
+   `tournaments/day-matches` for the LI-NING China Masters on **4 September
+   2026** — quarter-finals, three courts, venue clock UTC+8. Court 3 held two
+   matches all day and each carried a published time of its own: 11:00 in the
+   morning and 19:00 at night. Both were first-and-second *on their court*, so a
+   grid whose rows are positions drew the 7pm match level with a 10:50 one that
+   had finished eight hours earlier.
+
+   Written out rather than recorded: the live day is a week of the calendar and
+   what is being pinned here is a shape. */
+const CHINA_QF = [
+  ['Court 1', 1, '02:00', 'Starting at 10:00 AM'], ['Court 1', 2, '02:50', 'Followed by'],
+  ['Court 1', 3, '03:45', 'Followed by'], ['Court 1', 4, '04:35', 'Followed by'],
+  ['Court 1', 5, '05:25', 'Followed by'],
+  ['Court 1', 6, '09:00', 'Not before 5:00 PM'], ['Court 1', 7, '09:50', 'Followed by'],
+  ['Court 1', 8, '10:40', 'Followed by'], ['Court 1', 9, '11:30', 'Followed by'],
+  ['Court 1', 10, '12:20', 'Followed by'],
+  ['Court 2', 1, '02:00', 'Starting at 10:00 AM'], ['Court 2', 2, '02:50', 'Followed by'],
+  ['Court 2', 3, '03:45', 'Followed by'], ['Court 2', 4, '04:35', 'Followed by'],
+  ['Court 2', 5, '09:00', 'Not before 5:00 PM'], ['Court 2', 6, '09:50', 'Followed by'],
+  ['Court 2', 7, '10:40', 'Followed by'], ['Court 2', 8, '11:30', 'Followed by'],
+  ['Court 3', 1, '03:00', 'Starting at 11:00 AM'],
+  ['Court 3', 2, '11:00', 'Starting at 7:00 PM'],
+];
+const chinaQF = parseDayMatches(CHINA_QF.map((row, i) => ({
+  id: 900 + i, drawName: 'MS', roundName: 'Quarter Final',
+  courtName: row[0], oopRound: row[1], oopText: row[3],
+  matchTime: '2026-09-04 ' + row[2] + ':00', matchTimeUtc: '2026-09-04 ' + row[2] + ':00',
+  matchStatus: 'S',
+  team1: { players: [{ id: 1, nameDisplay: 'A' }] },
+  team2: { players: [{ id: 2, nameDisplay: 'B' }] },
+})), '2026-09-04');
+eq('the day reads back whole', chinaQF.length, 20);
+
+/* ⚠️ "Not before 5:00 PM" is a **published** time, not a 50-minute estimate. It
+   reads like hedging and is not: it is how BWF opens an afternoon session, and
+   both the grid's rows and the card's ≈ mark turn on the difference. */
+eq('a session opening mid-day counts as a published time',
+  chinaQF.filter(m => m.anchored).length, 6);
+eq('and only "Followed by" is an estimate',
+  [...new Set(chinaQF.filter(m => m.estimated).map(m => m.oop))].join(), 'Followed by');
+
+const china = courtGrid(chinaQF);
+const rowOf = (g, court, seq) => {
+  const c = g.cells.find(x => x.match.court === court && x.match.seq === seq);
+  return c ? c.row : null;
+};
+check('court three keeps its own hours without losing the grid', !!china);
+eq('every match still placed', china.cells.length, chinaQF.length);
+check('and read downwards on every court', downTheCourt(china));
+
+/* The bug, stated the way the reader found it. */
+check('a court that starts an hour later is not drawn level with the rest',
+  rowOf(china, 'Court 3', 1) !== rowOf(china, 'Court 1', 1),
+  'court 3 opens on row ' + rowOf(china, 'Court 3', 1)
+    + ', court 1 on ' + rowOf(china, 'Court 1', 1));
+check('it lands after the 10:50 matches and before the 11:45 ones',
+  rowOf(china, 'Court 3', 1) > rowOf(china, 'Court 1', 2)
+    && rowOf(china, 'Court 3', 1) < rowOf(china, 'Court 1', 3),
+  [rowOf(china, 'Court 1', 2), rowOf(china, 'Court 3', 1), rowOf(china, 'Court 1', 3)].join(' '));
+check('and its 7pm match sits with the evening, not with the morning',
+  rowOf(china, 'Court 3', 2) > rowOf(china, 'Court 1', 8),
+  '7pm on row ' + rowOf(china, 'Court 3', 2)
+    + ', the 18:40 match on ' + rowOf(china, 'Court 1', 8));
+check('the rows still run forwards through the day',
+  rowClock(china).every((t, i) => i === 0 || t >= rowClock(china)[i - 1]), clockLine(china));
+/* Two rows more than the ten positions on court one: the two moments court
+   three had to itself, and nothing else. */
+eq('which costs exactly the two rows court three needed', china.rows.length, 12);
+
+/* ⚠️ The fallback. With no times there is nothing to place a session against,
+   so the grid goes back to being positional rather than inventing an order. */
+const timeless = courtGrid(chinaQF.map(m => ({ ...m, utc: '' })));
+eq('a day with no times falls back to one row per position on court',
+  timeless.rows.length, 10);
+check('and still places everything',
+  timeless.cells.length === chinaQF.length && downTheCourt(timeless));
 
 /* ============================ the Superseries era ============================
 
@@ -2377,14 +2488,15 @@ check('a square with no mark takes no room for one',
 
 /* ---- what the picture says about itself ---- */
 
-/* ⚠️ Only the two summit tiers carry a ring, in the export as on the page. There
-   used to be one per tier and none of them was visible: they were inset, and an
-   inset shadow paints behind the photograph filling the tile. */
-/* ⚠️ Sorted: an object with a numeric-looking key puts it first whatever order
-   it was written in, so `Object.keys` gives 20,OLY and not OLY,20. */
-eq('only the summit is ringed', Object.keys(TIER_RING).sort().join(), '20,OLY');
-eq('gold for the Olympics', TIER_RING.OLY.colour, '#ffd24a');
-eq('white for the Worlds', TIER_RING[20].colour, '#e8e8e8');
+/* ⚠️ **One ring on the whole board**, and it is the Olympic one. There used to be
+   one per tier and not one of them was visible: they were inset, and an inset
+   shadow paints behind the photograph filling the tile. The world championship
+   square then had a white one for a day, which read as the *brighter* of the two
+   beside the gold and so quietly outranked it. The summit row is one marked
+   square and one plain one. */
+eq('exactly one tier is ringed', Object.keys(TIER_RING).join(), 'OLY');
+eq('and it is gold', TIER_RING.OLY.colour, '#ffd24a');
+eq('the world championship square is not ringed', TIER_RING[20], undefined);
 
 check('the legend explains the squares', /square is a title/.test(slice.legend[0]),
   slice.legend.join(' / '));

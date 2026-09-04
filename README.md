@@ -168,16 +168,33 @@ which of the three it is.
 
 A day bar runs across the tournament's dates and opens on today — or on the last day if it
 is over, the first if it has not started. Below it the order of play, laid out as a grid:
-**one column per court, one row per position on that court**. Two cards level with each other
-are at the same point in the day; row three means third on. When there is only one court, or
-the order of play is not out yet, it falls back to a plain list.
+**one column per court, one row per moment in the day**. Two cards level with each other were
+on court together. When there is only one court, or the order of play is not out yet, it
+falls back to a plain list.
 
-The y-axis is the running order, never the clock. BWF publishes a flat 50-minute estimate per
-match and on some courts they run backwards, so only the first match on a court is given a
-time as fact. The rest are marked **≈** and carry its own wording — *Followed by*.
+⚠️ **A row is a moment, not "nth on this court".** It was positional until the China
+Masters of 4 September 2026, where court 3 held two matches all day — one at 11:00 and one at
+19:00 — and both, being first-and-second on their court, were drawn level with the morning on
+courts 1 and 2. The evening match sat beside one that had finished eight hours earlier.
+
+Which is *not* the same as sorting the day by the clock, and that is why this is harder than
+it looks. Only some times are real: BWF publishes a start for the first match of every
+session — *Starting at 10:00 AM*, or *Not before 5:00 PM* when a session opens mid-day — and
+then strings a flat 50-minute estimate through the rest, which on some courts runs backwards.
+So the day is cut into sessions at its **published** times, those are placed against each
+other in order, and inside a session position on court is still the row. A court that opens
+its own session gets a row to itself and the columns beside it are simply empty there. On a
+day where every court starts and breaks together this lands on exactly the grid the old rule
+gave. Two published starts within a quarter of an hour count as one moment — courts opening
+ten minutes apart is a stagger, not a different part of the day.
+
+Estimated times are marked **≈** and carry BWF's own wording, *Followed by*. A published
+one never is, however it is phrased.
 
 Each card is a scoreboard: flag, seed, name, and **that side's own games** as badges with the
-ones they won picked out. The winner's name is bold, the loser's dimmed. A **walkover** or a
+ones they won picked out. A seed is written `[1]`, never bare — a lone numeral beside a name
+on a scoreboard is the one thing there that could be read as something else. The winner's
+name is bold, the loser's dimmed. A **walkover** or a
 **retirement** is marked on the side it happened to — the one that lost — because both happen
 and a walkover has no score at all to print.
 
@@ -270,8 +287,12 @@ not the same prize. (2021 held both — Tokyo was postponed into the same year a
 Worlds — so that row simply holds two.) Below them the World Tour Finals, then the Super
 1000s, then the Super 750s.
 
-⚠️ **The two are drawn the same size, and the ring is what tells them apart** — gold for an
-Olympic champion, white for a world champion. The Olympic square used to be a rung larger,
+⚠️ **The two are drawn the same size, and a gold ring is what tells them apart.** Only the
+Olympic square wears one: one marked square beside a plain one is the ranking, and ringing
+both made them read as a matched pair in two liveries. The world champion had a white ring
+for a day, which was the worse of the two mistakes — on a dark ground white is the *brighter*
+colour, so the square meant to be the plain case came out looking like the bigger prize.
+The Olympic square used to be a rung larger,
 which is right on the honours ladder and wrong here: on this page a square is a *face*, and
 two faces on one line at two different sizes read as a layout accident rather than as a
 ranking. `pyramidScale` overrides the size for this page only — the honours board still
@@ -281,8 +302,8 @@ row of portraits.
 ⚠️ **Nothing below the summit is ringed.** There used to be a ring per tier and **not one of
 them was ever visible**: they were `inset` box-shadows, and an inset shadow paints *behind*
 the element's content — which here is a photograph filling the tile. They showed for the
-instant before the images loaded and then went. The two that are left are drawn *outside*
-the square, where a photograph cannot cover them, and every other tier says its rank by size,
+instant before the images loaded and then went. The one that is left is drawn *outside* the
+square, where a photograph cannot cover it, and every other tier says its rank by size,
 which is what the page is built on.
 
 ⚠️ **No team events, and no regional multi-sport games.** A team title would rank a player

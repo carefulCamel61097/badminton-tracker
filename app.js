@@ -2589,6 +2589,18 @@ function pickRound(round) {
   renderTmt();
 }
 
+/* A seed, in the brackets an order of play is printed with.
+ *
+ * ⚠️ **Always bracketed, never bare.** BWF hands back a plain `"1"`, and a bare
+ * numeral beside a name is the one thing on a match card that could be read as
+ * anything — a score, a game count, a court. `[1]` is how a draw sheet writes a
+ * seeding and it cannot be mistaken for a number that was played for. The
+ * brackets are punctuation, so they live here and not in the model: `sd.seed`
+ * stays the string BWF sent. */
+function seedTag(sd) {
+  return sd.seed ? `[${esc(sd.seed)}]` : '';
+}
+
 /* One side of a bracket card. The same reading order as the order of play —
    flag, seed, name, that side's games — in a card a third of the width, so the
    country line and the round label the big card carries are dropped rather than
@@ -2610,7 +2622,7 @@ function bracketSide(m, sd) {
   return `<div class="${cls}">`
     + (sd.flag ? `<img class="flag" src="${esc(sd.flag)}" alt="${esc(sd.country)}">`
       : '<span class="flag"></span>')
-    + `<span class="seed">${esc(sd.seed || '')}</span>`
+    + `<span class="seed">${seedTag(sd)}</span>`
     + `<span class="bn">${sd.players.length ? esc(names) : names}</span>`
     + `<span class="bsc">${sets}${mark}</span></div>`;
 }
@@ -2787,7 +2799,7 @@ function sideHtml(sd, note) {
   return `<div class="${cls}">`
     + (sd.flag ? `<img class="flag" src="${esc(sd.flag)}" alt="${esc(sd.country)}">`
       : '<span class="flag"></span>')
-    + `<span class="seed">${esc(sd.seed || '')}</span>`
+    + `<span class="seed">${seedTag(sd)}</span>`
     + `<span class="nm">${names}<small class="sub">${esc(sd.country)}</small></span>`
     + `<span class="sets">${sets}${mark}</span></div>`;
 }
@@ -2809,9 +2821,11 @@ function matchHtml(m) {
     + `<span class="sep court">&middot;</span><span class="court">${esc(m.court)}</span>`
     + `<span class="stat ${statCls}">${esc(m.statusWord)}</span>`;
 
-  /* Only the first match on a court has a real time. Everything after it is
-     "Followed by" against a flat 50-minute estimate that on some courts runs
-     backwards, so it is marked approximate rather than presented as fact. */
+  /* A match BWF gave a time to says it plainly; one that only says "Followed
+     by" is carrying a flat 50-minute estimate that on some courts runs
+     backwards, so it is marked approximate rather than presented as fact.
+     ⚠️ "Not before 5:00 PM" is a published time and is **not** marked — it opens
+     a session, which is also what the grid builds its rows on. */
   const tip = m.estimated
     ? ' title="Estimated — this match follows the one before it on court"' : '';
   const approx = m.estimated ? '&asymp;' : '';
@@ -2842,7 +2856,8 @@ function matchHtml(m) {
 
   return `<article class="${cls}" data-draw="${esc(m.draw)}"`
     + ` data-id="${esc(m.id)}" data-seq="${m.seq == null ? '' : m.seq}"`
-    + ` data-court="${esc(m.court)}" data-starred="${star}"`
+    + ` data-court="${esc(m.court)}" data-at="${esc(m.utc)}"`
+    + ` data-anchored="${m.anchored}" data-starred="${star}"`
     + ` title="${star ? 'Starred — click to remove' : 'Click to star this match'}">`
     + `<div class="match-head"><span class="star" aria-hidden="true">`
     + `${star ? '&#9733;' : '&#9734;'}</span>${head}</div>`
@@ -2894,9 +2909,13 @@ function renderTmtDraws() {
  * The order of play.
  *
  * A real grid where there is one to draw — one column per court, one row per
- * position on it, so two cards on the same row are at the same point in the day
+ * point in the day, so two cards on the same row really are on court together
  * — and a plain stack when there is not: one court, or a day whose order of
  * play BWF has not published.
+ *
+ * ⚠️ A row is a *moment*, not "nth on this court". A court that opens its own
+ * session gets its own row, and the columns beside it are simply empty there.
+ * See `courtGrid`.
  */
 function oopHtml(shown) {
   const grid = courtGrid(shown);
@@ -3386,6 +3405,10 @@ window.BST = {
           row: Number(c.style.gridRow),
           court: (c.querySelector('.match') || {}).dataset.court,
           seq: Number((c.querySelector('.match') || { dataset: {} }).dataset.seq),
+          /* The instant BWF gave the match, and whether it published it or
+             estimated it — which is what the grid's rows are built on. */
+          at: (c.querySelector('.match') || { dataset: {} }).dataset.at,
+          anchored: (c.querySelector('.match') || { dataset: {} }).dataset.anchored === 'true',
           x: Math.round(c.getBoundingClientRect().left),
           y: Math.round(c.getBoundingClientRect().top),
         })),
@@ -3397,6 +3420,8 @@ window.BST = {
       id: m.dataset.id,
       court: m.dataset.court,
       seq: Number(m.dataset.seq),
+      at: m.dataset.at,
+      anchored: m.dataset.anchored === 'true',
       status: (m.className.match(/is-(finished|live|upcoming)/) || [])[1],
       starred: m.dataset.starred === 'true',
       dim: m.classList.contains('is-dim'),

@@ -1951,11 +1951,22 @@ export function parseMatch(m) {
     });
   });
 
-  // BWF's own words for when a match starts: "Starting at 1:00 PM" on the first
-  // of a court, "Followed by" on every one after it. Only the first has a real
-  // time — the rest are flat 50-minute estimates that on some courts run
-  // backwards (Part 4.7), so they are marked rather than stated as fact.
+  // BWF's own words for when a match starts. Three forms, and the distinction
+  // between them is load-bearing:
+  //
+  //   "Starting at 1:00 PM"  a published time — the first match of a session
+  //   "Not before 5:00 PM"   also a published time — a session opening mid-day
+  //   "Followed by"          no time at all; what `matchTime` holds is a flat
+  //                          50-minute estimate that on some courts runs
+  //                          *backwards* (Part 4.7)
+  //
+  // ⚠️ "Not before" is an **anchor, not an estimate**. It reads like hedging and
+  // is not: it is how BWF publishes the start of an afternoon or evening session,
+  // and a court can open one while its neighbours are still playing through the
+  // morning. `courtGrid` builds the day's rows on exactly these anchors, and the
+  // card stops calling such a time approximate.
   const oop = raw.oopText || '';
+  const anchored = !/^\s*followed\b/i.test(oop);
 
   return {
     id: raw.id != null ? String(raw.id) : '',
@@ -1963,7 +1974,7 @@ export function parseMatch(m) {
     round: raw.roundName || '',
     court: raw.courtName || '',
     courtCode: raw.courtCode != null ? String(raw.courtCode) : '',
-    /** Position on court: 1 is first on, 2 follows it. The grid's y-axis. */
+    /** Position on court: 1 is first on, 2 follows it. */
     seq: Number(raw.oopRound) || null,
     oop,
     time: clockOf(raw.matchTime),
@@ -1972,7 +1983,9 @@ export function parseMatch(m) {
        that is where the reader is sitting, which is the whole question when the
        tournament is eight time zones away. */
     utc: raw.matchTimeUtc || '',
-    estimated: !!oop && !/^\s*starting/i.test(oop),
+    /** A time BWF published, rather than one it estimated by adding 50 minutes. */
+    anchored,
+    estimated: !anchored,
     sides,
     winner,
     status: done ? 'finished' : playing ? 'live' : 'upcoming',
@@ -2303,12 +2316,44 @@ export function orderOfPlay(matches) {
 }
 
 /**
- * The day as a true grid: one column per court, one row per position on court.
+ * When a match actually starts, as a number, or **null** if BWF has not said.
  *
- * Row 3 means "third on this court" — which is both true and the way an order
- * of play is read — and it means two matches on the same row really are at the
- * same point in the day. Rows nothing occupies are skipped, so filtering to one
- * draw gives a dense grid rather than sixteen mostly-empty ones.
+ * ⚠️ `utc` and not `time`: the venue clock is a wall-clock string with no date
+ * on it, so two courts either side of midnight would compare backwards. This is
+ * the only place in the app that turns a match time into an instant.
+ */
+function startAt(m) {
+  const s = String((m && m.utc) || '');
+  if (!s) return null;
+  const t = Date.parse(s.replace(' ', 'T') + (/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? '' : 'Z'));
+  return Number.isFinite(t) ? t : null;
+}
+
+/** Two published starts this close together are one moment. See `courtGrid`. */
+const SAME_MOMENT = 15 * 60 * 1000;
+
+/**
+ * A court's day cut into **sessions**: a new run begins at every match carrying
+ * a published start time, and the "Followed by" matches trail behind it.
+ */
+function courtRuns(day) {
+  const runs = [];
+  let run = null;
+  for (const m of day) {
+    if (!run || m.anchored) runs.push(run = { court: m.court, at: startAt(m), matches: [] });
+    run.matches.push(m);
+  }
+  return runs;
+}
+
+/**
+ * The day as a true grid: one column per court, and a row for each point in the
+ * day, so **two cards on the same row really are on court together** — as far as
+ * BWF has said, which means exactly on the published times and to within its own
+ * arithmetic on the estimates between them.
+ *
+ * Rows nothing occupies are skipped, so filtering to one draw gives a dense grid
+ * rather than sixteen mostly-empty ones.
  *
  * Returns **null** when a grid would be a lie or a waste: if any match is
  * missing its court or its position then the order of play is not out yet, and
@@ -2318,6 +2363,33 @@ export function orderOfPlay(matches) {
  * `cells` comes back in **row-major order** — down the day, then across — so a
  * narrow screen that drops the grid and simply stacks the cards still reads in
  * running order.
+ *
+ * ⚠️⚠️ **The row is not "nth on this court".** It was, for as long as this
+ * function existed, and it was wrong the first time a court kept its own hours.
+ * At the China Masters on 4 September 2026 court 3 held two matches all day —
+ * *"Starting at 11:00 AM"* and *"Starting at 7:00 PM"* — while courts 1 and 2
+ * ran ten each from 10:00. Both of court 3's were first-and-second on their
+ * court, so both sat on the rows holding the 10:00 and 10:50 matches, and the
+ * evening one was drawn beside a match that had finished eight hours earlier.
+ * The layout's whole claim is that a row is a moment; positional rows only
+ * happen to make that true while every court starts together.
+ *
+ * ⚠️ Which does **not** mean sorting the day by its times — Part 4.7, and the
+ * reason this is harder than it looks. Only the *anchors* are real; every
+ * "Followed by" after one is a flat 50-minute guess, and at a session boundary
+ * those guesses run backwards. So the day is cut into sessions at its anchors,
+ * the **anchors** are placed against each other in time order, and inside a
+ * session position on court is still the row. A court that opens a session while
+ * another is mid-session gets a row of its own at the right moment; where every
+ * court starts and breaks together — which is most days — this lands on exactly
+ * the grid the positional rule gave, because the runs line up and share rows.
+ *
+ * ⚠️ **Two anchors within a quarter of an hour are the same moment.** At the
+ * 2026 World Championships courts 1 and 2 opened at 9:00 and courts 3 and 4 at
+ * 9:10; drawing that as two half-empty rows says something the day did not, and
+ * a badminton match runs forty minutes at its shortest. The grace applies to
+ * **anchor against anchor only** — a published time never snaps onto an
+ * estimated one, which is what keeps court 3's 11:00 off the 10:50 row.
  */
 export function courtGrid(matches) {
   const all = matches || [];
@@ -2328,17 +2400,72 @@ export function courtGrid(matches) {
     .sort((a, b) => courtOrder(a) - courtOrder(b));
   if (courts.length < 2) return null;
 
-  const rows = [...new Set(placed.map(m => m.seq))].sort((a, b) => a - b);
-  const col = new Map(courts.map((c, i) => [c, i + 1]));
-  const row = new Map(rows.map((q, i) => [q, i + 2]));   // row 1 is the court header
+  const byCourt = new Map(courts.map(c => [c,
+    placed.filter(m => m.court === c).sort((a, b) => a.seq - b.seq)]));
 
-  return {
-    courts,
-    rows,
-    cells: placed.slice()
-      .sort((a, b) => (a.seq - b.seq) || (col.get(a.court) - col.get(b.court)))
-      .map(m => ({ match: m, col: col.get(m.court), row: row.get(m.seq) })),
-  };
+  /* Without times there is nothing to place sessions against, so the old
+     positional grid is the honest fallback rather than a guess at an ordering.
+     It is also exactly what this reduces to when every court keeps step. */
+  if (placed.some(m => startAt(m) == null)) return positionalGrid(courts, byCourt);
+
+  const runs = courts.flatMap(c => courtRuns(byCourt.get(c)));
+  runs.sort((a, b) => (a.at - b.at) || (courtOrder(a.court) - courtOrder(b.court)));
+
+  /** Each row: the instant it begins, the anchor that opened it, and its cards. */
+  const rows = [];
+  for (const run of runs) {
+    /* A court's cards only ever move down the page, so this run starts below
+       everything that court already holds. */
+    let free = 0;
+    for (let i = 0; i < rows.length; i++) if (rows[i].by.has(run.court)) free = i + 1;
+
+    /* Where the run belongs by the clock: after every row that begins before it. */
+    let at = free;
+    while (at < rows.length && rows[at].at < run.at) at++;
+
+    /* Either side of that seam is a row this session might really be part of —
+       but only if that row was opened by an anchor of its own, and only within
+       the grace. Anchors share rows with anchors; nothing snaps to an estimate. */
+    const snap = [at - 1, at].find(i => i >= free && i < rows.length
+      && rows[i].anchor != null && Math.abs(rows[i].anchor - run.at) <= SAME_MOMENT);
+    if (snap != null) at = snap;
+    else if (at === rows.length) rows.push({ at: run.at, anchor: run.at, by: new Map() });
+    else rows.splice(at, 0, { at: run.at, anchor: run.at, by: new Map() });
+
+    run.matches.forEach((m, i) => {
+      if (at + i === rows.length) rows.push({ at: startAt(m), anchor: null, by: new Map() });
+      const row = rows[at + i];
+      row.by.set(run.court, m);
+      /* A row begins when its earliest match does. Inside a session the courts
+         drift apart by a few minutes, and the first of them is what orders the
+         row against the rest of the day. */
+      if (startAt(m) < row.at) row.at = startAt(m);
+    });
+  }
+  return gridOf(courts, rows);
+}
+
+/** One row per position on court: the grid for a day with no published times. */
+function positionalGrid(courts, byCourt) {
+  const seqs = [...new Set([...byCourt.values()].flat().map(m => m.seq))]
+    .sort((a, b) => a - b);
+  const rows = seqs.map(() => ({ at: null, by: new Map() }));
+  for (const [court, day] of byCourt) {
+    for (const m of day) rows[seqs.indexOf(m.seq)].by.set(court, m);
+  }
+  return gridOf(courts, rows);
+}
+
+/** The rows, turned into placed cells. Row 1 is the court header. */
+function gridOf(courts, rows) {
+  const col = new Map(courts.map((c, i) => [c, i + 1]));
+  const cells = [];
+  rows.forEach((row, i) => {
+    for (const c of courts) {
+      if (row.by.has(c)) cells.push({ match: row.by.get(c), col: col.get(c), row: i + 2 });
+    }
+  });
+  return { courts, rows: rows.map(r => ({ at: r.at })), cells };
 }
 
 /* ============================ the winners' pyramid ============================
