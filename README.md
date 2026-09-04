@@ -280,14 +280,56 @@ golds he did.
 ⚠️ **No doubles.** A doubles title is won by a pair, so one square would have to hold two
 faces and would stop meaning what every other square on the page means.
 
+**Every square is named for what it was called at the time.** Hovering a 2013 Super 1000
+says *Superseries Premier* and the identical rung in 2023 says *Super 1000*; the Finals is a
+*Superseries Finals* until 2017 and a *Tour Finals* after it. The names come out of the same
+tables the honours board uses, so the two views cannot drift apart. The summit row also
+carries a mark beside the face — the rings for an Olympic champion, a cup for a world
+champion — because size alone is a distinction you have to already know to read.
+
+**⁕ marks a title that did not happen when its name says.** The season-ending Finals belongs
+to the season it *concludes*, so the 2010 Superseries Finals and the 2020 World Tour Finals
+are drawn in 2010 and 2020 although both were played the following January. That is the rule
+`tournamentSeason` has always applied to a career grid; until recently the pyramid read
+BWF's filing straight and the two pages disagreed about the same fact.
+
+⚠️ **The Tokyo 2020 Olympics stays in 2021.** It is marked, not moved, and the difference is
+not that one of them was labelled "(New Dates)". A Finals is *retrospective* — the conclusion
+of a season already played, contested by the players that season's results qualified, and the
+one event there is exactly one of per season, so two in a column is a contradiction. An
+Olympics is not the conclusion of anything, and drawing an Olympic gold in the 2020 column
+would say somebody won one in a year nobody played one.
+
 Things that look wrong and are not:
 
 - **2007–2010 are flat slabs rather than pyramids.** There was no Superseries Premier tier
-  before 2011, so all twelve Superseries land on the Super 750 row and the Super 1000 row is
-  genuinely empty. The hole is drawn rather than closed up.
-- **2011 has two Tour Finals.** The 2010 edition was played in January 2011.
-- **2020 is nearly bare.** The calendar entries say "(Cancelled)", and a cancelled final has
-  no winner.
+  before 2011 — all twelve Superseries were one rank — so they all land on the bottom row and
+  the row above is genuinely empty. The hole is drawn rather than closed up.
+- **2020 is nearly bare even with its Finals back.** The calendar entries say "(Cancelled)",
+  and a cancelled final has no winner.
+
+### Dominance
+
+Under the pyramid, one bar per **run of consecutive seasons** in which somebody won at least
+three of the titles above it — four or five on the picker beside **Eras**, the same shape of
+control as the honours board's QF+ / SF+ / F+ / W. The shading inside a bar is that season's
+count, so a seven-title year is brighter than a three-title one.
+
+**Bars overlap on purpose, and that is the entire point.** LEE Chong Wei's decade runs
+*underneath* LIN Dan's and then CHEN Long's; a chart that named one champion per season would
+have drawn three consecutive reigns instead of three simultaneous ones. Lanes are packed
+rather than one per player — fifteen women have cleared three titles in a season and the band
+is three rows deep — so a lane means only "these two overlapped", and a player with two eras
+keeps one lane for both.
+
+⚠️ **Runs are strictly consecutive.** The shelved eras chart, which measures the same thing in
+ranking weeks, had to tolerate dips: a rolling 52-week points sum jitters and one week at
+sixth would sever a decade. A title count does not jitter, so a dip here is drawn as a gap —
+which is why **2020 severs every line on the board**, and why it should.
+
+⚠️ It is also the *opposite* measure from that chart, and for some careers the two disagree
+flatly. The ranking rewards entering tournaments and LIN Dan skipped a great many: 14 weeks at
+number one to LEE Chong Wei's 310, the other way round from the trophies. Neither is wrong.
 
 ### Reading a win
 
@@ -463,7 +505,8 @@ never a hidden feature — and each page's own keys are printed under its notes.
 | **Tournament** | <kbd>O</kbd> order of play · <kbd>B</kbd> bracket · <kbd>S</kbd> starred only |
 | **Tournament** | <kbd>↑</kbd> <kbd>↓</kbd> the day, or — in the bracket — how much of the draw |
 | **Tournament** | <kbd>M</kbd> <kbd>W</kbd> <kbd>X</kbd> the discipline; press again for that gender's doubles |
-| **Winners** | <kbd>M</kbd> men's singles · <kbd>W</kbd> women's singles |
+| **Winners** | <kbd>M</kbd> men's singles · <kbd>W</kbd> women's singles · <kbd>E</kbd> the dominance band |
+| **Winners** | <kbd>↑</kbd> <kbd>↓</kbd> the 3+ / 4+ / 5+ bar, while the band is on |
 
 Four things about this are deliberate.
 

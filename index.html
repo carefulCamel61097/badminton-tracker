@@ -246,6 +246,13 @@
     <h2 id="winTitle">Winners</h2>
     <span id="winKind" class="kindwrap" role="group" aria-label="discipline"></span>
     <span id="winSpan" class="tmtwhen"></span>
+
+    <!-- The band under the pyramid, and the bar it draws at. Not a filter: it
+         adds a reading of the same titles rather than hiding any of them. -->
+    <button type="button" id="winEras" class="seg on" aria-pressed="true"
+            title="the seasons somebody dominated">Eras</button>
+    <span id="winMin" class="kindwrap" role="group" aria-label="titles a season"></span>
+
     <label class="zoom" for="winZoom">Zoom
       <input type="range" id="winZoom" min="8" max="26" step="1" value="14"
              aria-label="photograph size">
@@ -269,11 +276,29 @@
     of them picks a region.
     <br>
     ⚠️ Seasons before 2018 are drawn on the modern ladder — a Superseries
-    Premier where a Super 1000 goes, a Superseries where a Super 750 goes.
-    <b>Before 2011 there was no Premier tier at all</b>, so those seasons have an
-    empty Super 1000 row rather than a missing one.
+    Premier where a Super 1000 goes, a Superseries where a Super 750 goes — and
+    each square is <b>named for what it was called at the time</b>, so hovering
+    a 2013 title says Superseries Premier and the same rung in 2023 says Super
+    1000. <b>Before 2011 there was no Premier tier at all</b>: all twelve
+    Superseries were one rank, which is why 2007–2010 have an empty Super 1000
+    row rather than a missing one.
+    <br>
+    ⚠️ <b>⁕ marks a title that did not happen when its name says.</b> The
+    season-ending Finals belongs to the season it concludes, so the 2010
+    Superseries Finals and the 2020 World Tour Finals are drawn in 2010 and
+    2020 though both were played the following January — the same rule the
+    career grid uses, so the two views cannot disagree. The Tokyo 2020 Olympics
+    stays in 2021, where it was won: a Finals is the conclusion of a season
+    already played, and an Olympics is not the conclusion of anything.
+    <br>
+    <b>Eras</b> draws a bar across every run of seasons in which somebody won at
+    least three of the titles above — four or five on the picker. Bars overlap
+    on purpose: LEE Chong Wei's decade runs under LIN Dan's and then CHEN
+    Long's, and naming one champion a year would erase exactly that. Runs are
+    consecutive seasons only, so a dip is a gap and 2020 severs every line.
   
-    <span class="keys"><kbd>←</kbd><kbd>→</kbd> page · <kbd>M</kbd> men’s · <kbd>W</kbd> women’s</span>
+    <span class="keys"><kbd>←</kbd><kbd>→</kbd> page · <kbd>M</kbd> men’s ·
+      <kbd>W</kbd> women’s · <kbd>E</kbd> eras · <kbd>↑</kbd><kbd>↓</kbd> the bar</span>
   </p>
 </section>
 

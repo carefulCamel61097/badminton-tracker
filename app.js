@@ -30,7 +30,8 @@ import {
   courtGrid, drawsPresent, dayOf, matchSignature, prettyDay, tidyTmtName,
   parseDrawList, parseDraw, bracketLayout, bracketRounds, resolvedRound, surnameOf,
   rosterMatches, mergeSuggestions,
-  pyramidSeason, pyramidBulges, pyramidRowWidth,
+  pyramidSeason, pyramidBulges, pyramidRowWidth, pyramidSeasonMarks,
+  winnersSeasons, pyramidReigns, reignLanes, REIGN_STEPS, REIGN_DEFAULT, reignStep,
 } from './model.js';
 
 const $ = id => document.getElementById(id);
@@ -998,6 +999,10 @@ const WIN_KINDS = ['MS', 'WS'];
 const win = {
   files: {}, errors: {}, loading: {},
   kind: 'MS', zoom: savedWinZoom(),
+  /* The dominance band under the pyramid, and the bar it draws at. On by
+     default: it is the answer to the question the pyramid raises — the faces
+     say a name over and over and the band is what that repetition *means*. */
+  eras: true, reign: REIGN_DEFAULT,
 };
 
 const winFile = () => win.files[win.kind] || null;
@@ -1040,6 +1045,59 @@ function winnerFace(who, side) {
   return `<span class="face noface" aria-label="${name}">${esc(initials)}</span>`;
 }
 
+/* ---- the two badges on the summit row ----
+
+   The top row holds two different prizes and says so by size alone, which is a
+   distinction you have to already know to read. A mark beside the face says it
+   outright: the rings for an Olympic champion, a cup for a world champion.
+
+   Inline SVG rather than the emoji, for two reasons. It takes `currentColor`
+   and the tile's size, so it scales with the zoom slider like everything else
+   on the page; and the emoji are a platform decision — 🏆 is a different object
+   on Windows and on a phone, and ⛎ is what several platforms draw for the
+   rings, which is not the Olympics at all.
+
+   ⚠️ The "black" ring is drawn light. The official mark is black on white and
+   this page is #1a1a1a, where the black ring simply is not there — five rings
+   with a hole in the middle reads as a mistake rather than as a flag. */
+const RING_COLOURS = ['#0081c8', '#e8e8e8', '#ee334e', '#fcb131', '#00a651'];
+const OLYMPIC_RINGS = `<svg class="pyrbadge rings" viewBox="0 0 104 54" aria-hidden="true">`
+  + [[17, 17], [52, 17], [87, 17], [34.5, 34], [69.5, 34]].map(([cx, cy], i) =>
+    `<circle cx="${cx}" cy="${cy}" r="15" fill="none"
+      stroke="${RING_COLOURS[i]}" stroke-width="5"/>`).join('')
+  + `</svg>`;
+
+const WORLDS_CUP = `<svg class="pyrbadge cup" viewBox="0 0 24 24" aria-hidden="true"
+  fill="none" stroke="currentColor" stroke-width="1.8"
+  stroke-linecap="round" stroke-linejoin="round">
+  <path d="M7 3h10v6a5 5 0 0 1-10 0V3z"/>
+  <path d="M7 5H4v1.5A3.5 3.5 0 0 0 7.5 10"/>
+  <path d="M17 5h3v1.5A3.5 3.5 0 0 1 16.5 10"/>
+  <path d="M12 14v3"/>
+  <path d="M8.5 21h7l-.8-4h-5.4z"/>
+</svg>`;
+
+/** The mark that goes to the left of a summit-row face, or nothing. */
+function winnerBadge(tier) {
+  if (String(tier) === 'OLY') return OLYMPIC_RINGS;
+  if (String(tier) === '20') return WORLDS_CUP;
+  return '';
+}
+
+/** Everything the hover has to say about one title. */
+function tileTitle(t, year) {
+  const who = (t.who && t.who.n) || 'unknown';
+  return [
+    t.name,
+    // What this rung was called in *this* season: "Superseries Premier" in
+    // 2013, "Super 1000" in 2023. The point the page was making only in a note.
+    t.level,
+    who + (t.who && t.who.c ? ' · ' + t.who.c : ''),
+    String(t.date).slice(0, 10),
+    t.mark ? '⁕ ' + t.mark.note : null,
+  ].filter(Boolean).join('\n');
+}
+
 function renderWinners() {
   const body = $('winBody');
   renderWinnersControls();
@@ -1056,19 +1114,24 @@ function renderWinners() {
   }
 
   const players = file.players || {};
-  const years = Object.keys(file.seasons || {}).map(Number)
-    .filter(y => Number.isFinite(y)).sort((a, b) => a - b);
+  /* ⚠️ Not `Object.keys(file.seasons)`. The file is filed by the year a
+     tournament was *played* in and two season-ending Finals were played in the
+     January after their season — see `winnersSeasons`, which puts them back
+     where the career grid already had them. */
+  const seasons = winnersSeasons(file);
+  const years = seasons.years;
   if (!years.length) {
     body.innerHTML = '<p class="empty">Nothing harvested yet.</p>';
     return;
   }
+  const marks = pyramidSeasonMarks(seasons);
 
   const unit = win.zoom;
   $('winSpan').textContent = `${years[0]}–${years[years.length - 1]} · `
-    + `${years.reduce((n, y) => n + file.seasons[y].length, 0)} titles`;
+    + `${years.reduce((n, y) => n + seasons.byYear.get(y).length, 0)} titles`;
 
   const columns = years.map(year => {
-    const rows = pyramidSeason(file.seasons[year], players);
+    const rows = pyramidSeason(seasons.byYear.get(year), players, year);
     const bulges = pyramidBulges(rows);
     const widest = Math.max(...rows.map(pyramidRowWidth), 1);
 
@@ -1083,23 +1146,113 @@ function renderWinners() {
       }
       return `<div class="pyrrow">` + row.tiles.map(t => {
         const side = Math.round(t.scale * unit);
-        const when = String(t.date).slice(0, 10);
-        return `<span class="pyrtile t-${esc(String(t.tier))}"
+        const tile = `<span class="pyrtile t-${esc(String(t.tier))}${t.mark ? ' is-moved' : ''}"
           style="width:${side}px;height:${side}px"
-          title="${esc(t.name)}\n${esc((t.who && t.who.n) || 'unknown')}${
-            t.who && t.who.c ? ' · ' + esc(t.who.c) : ''}\n${when}">${
-          winnerFace(t.who, side)}</span>`;
+          data-tier="${esc(String(t.tier))}" data-level="${esc(t.level)}"
+          data-mark="${esc(t.mark ? t.mark.kind : '')}"
+          title="${esc(tileTitle(t, year))}">${winnerFace(t.who, side)}</span>`;
+        const badge = winnerBadge(t.tier);
+        /* The badge is a sibling of the tile rather than something inside it,
+           so it sits *beside* the photograph and never over a face. */
+        return badge
+          /* Half the photograph, with a floor: at the smallest zoom a Worlds
+             square is 22px and a proportional mark is a smudge. */
+          ? `<span class="pyrmajor" style="--badge:${Math.max(15, Math.round(side * 0.5))}px"
+              >${badge}${tile}</span>`
+          : tile;
       }).join('') + `</div>`;
     }).join('');
 
+    const note = marks.get(year);
     return `<div class="pyrseason${bulges.length ? ' is-bulging' : ''}"
-      style="min-width:${Math.round(widest * unit) + 12}px">
+      data-year="${year}" style="min-width:${Math.round(widest * unit) + 12}px">
       <div class="pyrstack">${html}</div>
-      <div class="pyryear">${year}</div>
+      <div class="pyryear${note ? ' is-moved' : ''}"${
+        note ? ` title="${esc(note.join('\n'))}"` : ''}>${year}${
+        note ? '<i class="ast">⁕</i>' : ''}</div>
     </div>`;
   }).join('');
 
-  body.innerHTML = `<div class="pyrscroll">${columns}</div>`;
+  /* ⚠️ Both bands live inside one wrapper, and the wrapper is what scrolls.
+     The bars under the pyramid are placed at measured pixel offsets taken off
+     the columns above them, so the two have to share an origin and a scroll
+     position or the bars point at the wrong years. */
+  body.innerHTML = `<div class="pyrwrap">`
+    + `<div class="pyrscroll">${columns}</div>`
+    + (win.eras ? `<div class="eraband" id="winEraBand"></div>` : '')
+    + `</div>`;
+
+  if (win.eras) renderEraBand(seasons, players);
+}
+
+/* ---- the dominance band ----
+
+   ⚠️ **Measured, not computed.** A column's declared `min-width` is what the
+   widest *row* would be if its squares butted together, and they do not — there
+   are 3px gaps between them, twelve of them in a 2007 column. So the drawn
+   column is wider than the number the render asked for, and a band laid out
+   from that number drifts a whole year to the left by the end of the chart.
+   The offsets below come off `getBoundingClientRect` after the pyramid is in
+   the document, which is the same thing the bracket does with its feeders. */
+
+const ERA_LANE_H = 26;
+const ERA_LANE_GAP = 4;
+
+function renderEraBand(seasons, players) {
+  const host = $('winEraBand');
+  if (!host) return;
+  const lanes = reignLanes(pyramidReigns(seasons, players, reignStep(win.reign).n));
+  if (!lanes.length) {
+    host.innerHTML = `<p class="empty">Nobody won ${esc(reignStep(win.reign).full)}`
+      + ` in any season on this board.</p>`;
+    return;
+  }
+
+  const wrap = host.parentElement;
+  const base = wrap.getBoundingClientRect();
+  const at = new Map();
+  for (const col of wrap.querySelectorAll('.pyrseason')) {
+    const r = col.getBoundingClientRect();
+    at.set(Number(col.dataset.year), { left: r.left - base.left, w: r.width });
+  }
+
+  // The brightest year on the board, so the shading means the same thing at
+  // every bar rather than being normalised per player.
+  const peak = Math.max(...lanes.flatMap(p => p.runs.map(r => r.peak)), 1);
+  const bar = reignStep(win.reign).n;
+  const rows = Math.max(...lanes.map(p => p.lane)) + 1;
+
+  const bars = lanes.flatMap(p => p.runs.map(run => {
+    const a = at.get(run.from), b = at.get(run.to);
+    if (!a || !b) return '';
+    const left = Math.round(a.left);
+    const width = Math.round(b.left + b.w - a.left);
+    const years = run.years.map(y => {
+      const c = at.get(y.year);
+      if (!c) return '';
+      // ⚠️ A ramp, not a flat fill: the bar says "a run", the shading says how
+      // hard. LEE Chong Wei's 2013 was seven titles and his 2008 was three, and
+      // one block of colour claims those were the same season.
+      const alpha = (0.22 + 0.6 * (y.n - bar) / Math.max(1, peak - bar)).toFixed(3);
+      return `<span class="erayr" style="left:${Math.round(c.left - a.left)}px;`
+        + `width:${Math.round(c.w)}px;opacity:${alpha}"></span>`;
+    }).join('');
+    const who = (p.who && p.who.n) || String(p.id);
+    const span = run.from === run.to ? String(run.from) : `${run.from}–${run.to}`;
+    const detail = run.years.map(y => `${y.year}: ${y.n}`).join('\n');
+    return `<div class="erabar" data-id="${esc(String(p.id))}" data-lane="${p.lane}"
+      data-from="${run.from}" data-to="${run.to}"
+      style="left:${left}px;width:${width}px;top:${p.lane * (ERA_LANE_H + ERA_LANE_GAP)}px"
+      title="${esc(`${who}\n${span} · ${run.total} titles\n${detail}`)}">${years}`
+      /* Name and total both at the *left*, not at the two ends. LEE Chong
+         Wei's bar is ten columns long, and a total pinned to its right edge
+         is only legible once you have scrolled to a year it is not about. */
+      + `<span class="erawho">${winnerFace(p.who, 20)}<b>${esc(who)}</b>`
+      + `<i class="eran">${run.total}</i></span></div>`;
+  })).join('');
+
+  host.style.height = (rows * ERA_LANE_H + (rows - 1) * ERA_LANE_GAP) + 'px';
+  host.innerHTML = bars;
 }
 
 function renderWinnersControls() {
@@ -1114,8 +1267,33 @@ function renderWinnersControls() {
       loadWinnersPage();
     };
   });
+
+  const eras = $('winEras');
+  eras.classList.toggle('on', win.eras);
+  eras.setAttribute('aria-pressed', String(win.eras));
+  eras.onclick = () => { win.eras = !win.eras; renderWinners(); writeHash(); };
+
+  /* Hidden rather than disabled when the band is off: a bar that sets something
+     invisible is a control with nothing to control. */
+  $('winMin').hidden = !win.eras;
+  $('winMin').innerHTML = REIGN_STEPS.map(s =>
+    `<button type="button" class="seg${s.key === win.reign ? ' on' : ''}"`
+    + ` data-reign="${s.key}" aria-pressed="${s.key === win.reign}"`
+    + ` title="${esc(`a season with ${s.full}`)}">${esc(s.label)}</button>`).join('');
+  $('winMin').querySelectorAll('[data-reign]').forEach(btn => {
+    btn.onclick = () => setReign(btn.dataset.reign);
+  });
+
   const z = $('winZoom');
   if (z && Number(z.value) !== win.zoom) z.value = String(win.zoom);
+}
+
+function setReign(key) {
+  const next = reignStep(key).key;
+  if (next === win.reign) return;
+  win.reign = next;
+  renderWinners();
+  writeHash();
 }
 
 /** Which page the nav says you are on. */
@@ -1867,6 +2045,15 @@ function runHotkey(key) {
   if (page === 'winners') {
     if (key === 'm') { setWinKind('MS'); return true; }
     if (key === 'w') { setWinKind('WS'); return true; }
+    if (key === 'e') { win.eras = !win.eras; renderWinners(); writeHash(); return true; }
+    /* The same two keys as the honours bar, doing the same thing: up shows
+       more. Only while the band is on — with nothing to move they are left to
+       the page scroller, which this page badly needs. */
+    if ((key === 'ArrowUp' || key === 'ArrowDown') && win.eras) {
+      setReign(stepIn(REIGN_STEPS.map(r => r.key), win.reign,
+        key === 'ArrowUp' ? -1 : 1));
+      return true;
+    }
   }
   return false;
 }
@@ -2752,6 +2939,12 @@ function readHash() {
   /* Set unconditionally, like the grid's view and bar: a link without it is
      claiming the default rather than saying nothing. */
   win.kind = WIN_KINDS.includes(h.get('wk')) ? h.get('wk') : 'MS';
+  /* The band and its bar are what the page *argues* — a link to LEE Chong Wei's
+     decade is not that link with the band switched off — so both travel, and
+     both are set unconditionally rather than only when present. */
+  win.eras = h.get('we') !== 'off';
+  win.reign = h.has('we') && h.get('we') !== 'off'
+    ? reignStep(h.get('we')).key : REIGN_DEFAULT;
   // `g=1` is what the compare page was called when it was a modal, and links
   // carrying it are still out there.
   wantPage = h.get('pg') || (h.get('g') === '1' ? 'compare' : 'seasons');
@@ -2829,6 +3022,8 @@ function writeHash() {
   // Which discipline is what the page is *about*, so it travels. The tile size
   // is a viewing preference and stays in localStorage.
   if (page === 'winners' && win.kind !== 'MS') p.set('wk', win.kind);
+  if (page === 'winners' && !win.eras) p.set('we', 'off');
+  else if (page === 'winners' && win.reign !== REIGN_DEFAULT) p.set('we', win.reign);
   const next = '#' + p.toString();
   if (location.hash !== next) history.replaceState(null, '', next);
 }
@@ -3058,6 +3253,58 @@ window.BST = {
       })),
       foot: (m.querySelector('.match-foot') || {}).textContent || '',
     })),
+  },
+
+  /* The winners' pyramid and the band under it. The bars are placed at
+     measured pixel offsets, so the seam reads back the geometry rather than the
+     model — a bar that points at the wrong year is the failure worth catching,
+     and it cannot be seen from the numbers that produced it. */
+  winners: {
+    kind: k => (k == null ? win.kind : (setWinKind(k), win.kind)),
+    eras: on => (on == null ? win.eras
+      : (win.eras = !!on, renderWinners(), writeHash(), win.eras)),
+    bar: k => (k == null ? win.reign : (setReign(k), win.reign)),
+    /** Every column, with the year it claims and where it actually is. */
+    columns: () => [...document.querySelectorAll('#winBody .pyrseason')].map(c => {
+      const r = c.getBoundingClientRect();
+      return {
+        year: Number(c.dataset.year),
+        moved: !!c.querySelector('.pyryear.is-moved'),
+        note: (c.querySelector('.pyryear') || {}).title || '',
+        rows: [...c.querySelectorAll('.pyrrow')].map(row =>
+          [...row.querySelectorAll('.pyrtile')].map(t => ({
+            tier: t.dataset.tier, level: t.dataset.level, mark: t.dataset.mark,
+            title: t.getAttribute('title') || '',
+            badge: (() => {
+              const b = t.parentElement.querySelector && t.parentElement.matches('.pyrmajor')
+                ? t.parentElement.querySelector('.pyrbadge') : null;
+              return b ? (b.classList.contains('rings') ? 'rings' : 'cup') : '';
+            })(),
+          }))),
+        x: Math.round((r.left) * 10) / 10,
+        w: Math.round(r.width * 10) / 10,
+      };
+    }),
+    /** The dominance bars, as painted. */
+    bars: () => [...document.querySelectorAll('#winEraBand .erabar')].map(b => {
+      const r = b.getBoundingClientRect();
+      return {
+        id: b.dataset.id,
+        who: (b.querySelector('.erawho b') || {}).textContent || '',
+        lane: Number(b.dataset.lane),
+        from: Number(b.dataset.from),
+        to: Number(b.dataset.to),
+        n: Number((b.querySelector('.eran') || {}).textContent),
+        x: Math.round(r.left * 10) / 10,
+        w: Math.round(r.width * 10) / 10,
+      };
+    }),
+    runs: () => {
+      const file = winFile();
+      if (!file) return [];
+      return reignLanes(pyramidReigns(winnersSeasons(file), file.players || {},
+        reignStep(win.reign).n));
+    },
   },
 
   /* The honours board. Same principle: what the browser laid out, not what the

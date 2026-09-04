@@ -1305,6 +1305,78 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
    750s. Marked rather than hidden — it says the elite tier grew. */
 .pyrseason.is-bulging .pyryear { color: var(--warn); }
 
+/* ⚠️ One wrapper around both bands, and the wrapper is what is wider than the
+   screen. `.pyr` scrolls, `.pyrwrap` is as wide as the pyramid, and the
+   dominance bars are placed against *its* left edge — so the two bands cannot
+   drift apart, and one scrollbar moves both. `max-content` rather than a width:
+   the columns size themselves off their tiles. */
+.pyrwrap { width: max-content; min-width: 100%; }
+
+/* ---- the two badges on the summit row ---- */
+
+.pyrmajor { display: inline-flex; align-items: center; gap: 3px; }
+/* ⚠️ `pyrbadge`, not `badge`: the tournament page's status pill is `.badge`
+   and gave both of these a rounded grey box behind them. Found by looking at
+   the page, which is the only way a name collision in CSS ever is. */
+.pyrmajor .pyrbadge { width: var(--badge); height: auto; flex: none; }
+/* ⚠️ The cup is drawn in outline and the rings are five solid strokes, so at
+   the same declared width the cup reads as half the mark. It gets the same
+   width and a heavier stroke instead of being scaled down to "match". It takes
+   the colour the Worlds tile is ringed in, so the badge and the frame around
+   the photograph beside it are the same object said twice. */
+.pyrmajor .pyrbadge.cup { color: #e8e8e8; stroke-width: 2.1; }
+
+/* ---- a title drawn somewhere other than where it was played ---- */
+
+.pyrtile.is-moved { box-shadow: inset 0 0 0 1px rgba(255,255,255,.10), 0 0 0 1px var(--warn); }
+.pyryear .ast { font-style: normal; color: var(--warn); margin-left: 2px; }
+.pyryear.is-moved { color: var(--text-dim); }
+
+/* ============================ the dominance band ============================
+
+   Bars under the pyramid, one run of seasons each, placed at pixel offsets
+   measured off the columns above them. Absolute rather than a grid: the columns
+   are content-sized and every one of them is a different width, so there is no
+   track list to write down. */
+
+.eraband { position: relative; margin: 10px 0 4px; }
+.eraband .empty { margin: 4px 2px; }
+
+.erabar {
+  position: absolute; height: 26px; overflow: hidden;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 6px; padding: 0 6px 0 3px; border-radius: 4px;
+  background: rgba(255, 255, 255, .05);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .10);
+  font-size: 11px; color: var(--text);
+}
+
+/* One block per season inside the run, shaded by how many titles it held. A
+   flat fill would claim LEE Chong Wei's three-title 2008 and his seven-title
+   2013 were the same season. Green because these are titles, and green is what
+   a title is everywhere else in this app. */
+.erayr { position: absolute; top: 0; bottom: 0; background: var(--res-w); }
+
+.erawho {
+  position: relative; display: flex; align-items: center; gap: 5px;
+  min-width: 0; font-weight: 600; white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .8);
+}
+.erawho b { overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.erawho .face {
+  width: 20px; height: 20px; border-radius: 50%; object-fit: cover;
+  object-position: top center; flex: none;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .5);
+}
+.erawho .noface { font-size: 8px; }
+
+.eran {
+  flex: none; font-style: normal; font-variant-numeric: tabular-nums;
+  font-weight: 700; color: var(--text); opacity: .85;
+  padding-left: 2px;
+}
+
+
 /* ⚠️ The player card belongs to the pages that are *about* a player. The
    tournament and winners pages are about the sport — whatever is on court this
    week, and who has won what — so a career sitting above them is answering a

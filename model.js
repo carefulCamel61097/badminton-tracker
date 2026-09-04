@@ -2441,11 +2441,11 @@ export function pyramidTier(entry) {
  *   season that did not hold a Tour Finals should show a hole where it goes
  *   rather than closing the gap and pretending the pyramid is a shape it is not.
  */
-export function pyramidSeason(won, players) {
+export function pyramidSeason(won, players, season) {
   const all = won || [];
   return PYRAMID_ROWS.map(row => ({
     key: row.key,
-    label: row.label,
+    label: pyramidRowLabel(row, season),
     /* Carried even when the row is empty: a season that held no Tour Finals
        still has to be drawn the height a Tour Finals square would have been,
        and the only way to know that is to know the tier. */
@@ -2460,8 +2460,44 @@ export function pyramidSeason(won, players) {
         scale: honourScale(t.tier),
         who: (players || {})[String(t.w)] || null,
         id: t.w,
+        // What this rung was called in *this* season, so a 2013 square says
+        // Superseries Premier and a 2023 one says Super 1000.
+        level: pyramidLabel(t.tier, season),
+        // Why it carries an asterisk, or null. See `pyramidDisplaced`.
+        mark: season == null ? null : pyramidDisplaced(t, season),
       })),
   }));
+}
+
+/**
+ * A row's name in a given season.
+ *
+ * ⚠️ The majors row holds two tiers and keeps both names, because it is the one
+ * row where the reader has to be told it is a row rather than a slot. Every
+ * other row is one rung and is named for it, in the season's own vocabulary.
+ */
+export function pyramidRowLabel(row, season) {
+  return (row.tiers || []).map(t => pyramidLabel(t, season)).join(' · ');
+}
+
+/**
+ * The seasons whose column carries an asterisk, and why.
+ *
+ * Derived from the titles rather than declared, so 2020 and 2021 are not a
+ * hardcoded pair — the same rule catches the 2010 Superseries Finals, played in
+ * January 2011, without anybody having remembered it was coming.
+ */
+export function pyramidSeasonMarks(seasons) {
+  const out = new Map();
+  for (const y of (seasons && seasons.years) || []) {
+    const notes = [];
+    for (const t of (seasons.byYear.get(y) || [])) {
+      const m = pyramidDisplaced(t, y);
+      if (m) notes.push(`${t.name}: ${m.note}`);
+    }
+    if (notes.length) out.set(y, notes);
+  }
+  return out;
 }
 
 /** How wide a row is, in the same units the squares are sized in. */
@@ -2492,6 +2528,266 @@ export function pyramidBulges(rows) {
     if (above > below) out.push({ above: rows[i].key, below: rows[i + 1].key });
   }
   return out;
+}
+
+/* ---- which season a title belongs to, and which ladder names it ----
+
+   ⚠️ **The harvested file is filed the way BWF files it**, which is by the year
+   the tournament was *played* in. That is not always the season it belongs to,
+   and this project already knows it: `tournamentSeason` moves the season-ending
+   Finals to the season it concludes, which is what puts the 2020 World Tour
+   Finals — played 27 January 2021 — in the 2020 row of a career grid.
+
+   The pyramid was reading the file straight, so the same title sat in the 2021
+   column here and in the 2020 row there. Two views of one project disagreeing
+   about a fact is worse than either answer alone, so the pyramid applies the
+   same rule, on the same evidence: BWF's own name still says which edition it
+   is. It moves exactly two titles in the recorded data, both season-ending
+   Finals — "VICTOR- BWF Superseries Finals 2010" (played 5 January 2011) and
+   "HSBC BWF World Tour Finals 2020 (New Dates)" (played 27 January 2021).
+
+   ⚠️ It does **not** move the Tokyo 2020 Olympics, played in July 2021, and
+   that is the same call `tournamentSeason` argues at length. A Finals is
+   retrospective: it is the conclusion of a season already played, contested by
+   the players that season's results qualified, and it is the event there is
+   exactly one of per season — two in a column is a contradiction. An Olympics
+   is not the conclusion of anything, and drawing an Olympic gold in the 2020
+   column would say somebody won one in a year nobody played one. It is marked
+   where it was won instead. */
+
+/* The last Superseries season. The World Tour replaced it in 2018 and renamed
+   every tier below the majors, so what a square is called depends on the season
+   it sits in. This page has no era switch and needs none: a 2009 title was a
+   Superseries and is called one. */
+export const SS_LAST_SEASON = 2017;
+
+/**
+ * What a pyramid tier was called in a given season.
+ *
+ * Built out of the tables the grid and the honours board already use rather
+ * than a fourth list of names — `eraGroup` maps the modern tier onto the
+ * Superseries-era id it is drawn over and `gridGroupLabel` names it. So a Super
+ * 1000 square in 2013 says "Superseries Premier" and the identical square in
+ * 2023 says "Super 1000", and neither can drift from what the honours board
+ * calls the same rung.
+ *
+ * ⚠️ Before 2011 there was no Premier tier at all: all twelve Superseries were
+ * one rank. That is why 2007–2010 draw an *empty* Super 1000 row rather than a
+ * missing one — the hole is the fact.
+ */
+export function pyramidLabel(tier, season) {
+  const era = Number(season) <= SS_LAST_SEASON ? 'ss' : 'wt';
+  return gridGroupLabel(eraGroup(tier, era), era);
+}
+
+/** The edition year BWF's own name claims, or null. */
+function brandedYear(name) {
+  const years = (String(name || '').match(/\b(?:19|20)\d{2}\b/g) || []).map(Number);
+  // The last one: "Dubai World Superseries Finals 2017" has one, and a name
+  // that ever carried two would mean the edition rather than the venue.
+  return years.length ? years[years.length - 1] : null;
+}
+
+/* Only the season-ending Finals is retrospective, so only the season-ending
+   Finals moves. See the warning above. */
+const MOVES_BACK = '22';
+
+/**
+ * The season a harvested title belongs to.
+ *
+ * @param {{tier, name, date}} title  one row of `data/winners-*.json`
+ * @param {number} filed  the year key BWF filed it under
+ */
+export function pyramidTitleSeason(title, filed) {
+  const played = Number(String((title && title.date) || '').slice(0, 4)) || filed;
+  if (String(title && title.tier) !== MOVES_BACK) return played;
+  const edition = brandedYear(title && title.name);
+  // Only ever backwards. A qualifier played in December for next year's event
+  // was still played in the season it was played in.
+  return edition && edition < played ? edition : played;
+}
+
+/**
+ * Why a title carries an asterisk, or null if it is drawn where it was won.
+ *
+ * Two shapes, one cause. `late` is a title drawn in an earlier column than the
+ * year it was played in — the season-ending Finals, moved above. `held` is a
+ * title that stayed where it was played but is branded for an earlier year,
+ * which in the recorded data is the Tokyo 2020 Olympics and nothing else.
+ */
+export function pyramidDisplaced(title, season) {
+  const played = Number(String((title && title.date) || '').slice(0, 4)) || season;
+  if (played !== season) {
+    return { kind: 'late', played, edition: season,
+      note: `the ${season} edition, played in ${played}` };
+  }
+  const edition = brandedYear(title && title.name);
+  if (edition && edition < season) {
+    return { kind: 'held', played, edition,
+      note: `the ${edition} event, held in ${season}` };
+  }
+  return null;
+}
+
+/**
+ * The harvested file regrouped into the seasons its titles belong to.
+ *
+ * @returns {{years: number[], byYear: Map<number, Array>}} every year from the
+ *   first to the last with no gaps, because a season nobody played is a hole
+ *   worth drawing rather than a column that is not there.
+ */
+export function winnersSeasons(file) {
+  const byYear = new Map();
+  for (const [key, list] of Object.entries((file && file.seasons) || {})) {
+    const filed = Number(key);
+    if (!Number.isFinite(filed)) continue;
+    for (const t of list || []) {
+      const y = pyramidTitleSeason(t, filed);
+      const bucket = byYear.get(y);
+      if (bucket) bucket.push(t); else byYear.set(y, [t]);
+    }
+  }
+  const keys = [...byYear.keys()].sort((a, b) => a - b);
+  const years = [];
+  for (let y = keys[0]; y <= keys[keys.length - 1]; y++) {
+    years.push(y);
+    if (!byYear.has(y)) byYear.set(y, []);
+  }
+  return { years, byYear };
+}
+
+/* ============================ dominance ============================
+
+   Horizontal bars under the pyramid, one run per player: the seasons in which
+   they won at least so many of the titles on it.
+
+   ⚠️ **Not "who was the best player", and deliberately not one answer a year.**
+   The whole point is the overlap — LEE Chong Wei's decade runs *underneath* LIN
+   Dan's and then CHEN Long's, and a chart that picked a champion per season
+   would erase exactly the thing worth looking at. Everybody who clears the bar
+   gets a lane, and the reader moves the bar.
+
+   ⚠️ **Counted in titles, not in ranking weeks.** This is the opposite measure
+   from the shelved eras chart, and for some careers the two disagree flatly:
+   the ranking rewards entering tournaments and LIN Dan skipped a great many, so
+   he spent 14 weeks at number one to LEE Chong Wei's 310 — the other way round
+   from the trophies. Neither is wrong. This page has the trophies.
+
+   ⚠️ **Runs are strictly consecutive seasons.** The ranking version had to
+   tolerate dips, because a rolling 52-week points sum jitters and a single week
+   at sixth would sever a decade. A title count does not jitter: a season with
+   two of them in it is a real fact about that season, and closing the gap would
+   draw a run nobody had. A dip is drawn as a gap — which is why 2020 severs
+   every line on the board, and why it should.
+   ==================================================================== */
+
+/**
+ * How many titles in a season count as dominating, hardest last.
+ *
+ * The same shape as `HONOUR_STEPS`, and for the same reason: the bar is a
+ * control rather than a decision, and a reader who thinks three is generous can
+ * say so.
+ */
+export const REIGN_STEPS = [
+  { key: '3', label: '3+', full: 'three titles in a season', n: 3 },
+  { key: '4', label: '4+', full: 'four titles in a season',  n: 4 },
+  { key: '5', label: '5+', full: 'five titles in a season',  n: 5 },
+];
+
+/* Three. Two is a good fortnight rather than a season, and five is rare enough
+   that whole eras vanish — CHEN Long never cleared it and led men's singles for
+   the better part of three years. */
+export const REIGN_DEFAULT = '3';
+
+export function reignStep(key) {
+  return REIGN_STEPS.find(s => s.key === String(key))
+    || REIGN_STEPS.find(s => s.key === REIGN_DEFAULT);
+}
+
+/**
+ * Every run of seasons in which somebody cleared the bar.
+ *
+ * @param {{years, byYear}} seasons  from `winnersSeasons`
+ * @param {object} players  id -> {n, c, a}
+ * @param {number} min  titles a season has to hold to count
+ * @returns {Array<{id, who, first, span, best, runs}>} sorted by the season a
+ *   player's first run opens, so the band reads left to right as a succession —
+ *   which is the claim the chart is making.
+ */
+export function pyramidReigns(seasons, players, min) {
+  const years = (seasons && seasons.years) || [];
+  const byYear = (seasons && seasons.byYear) || new Map();
+  const bar = Math.max(1, Number(min) || 1);
+
+  const perYear = new Map();
+  const everyone = new Set();
+  for (const y of years) {
+    const c = new Map();
+    for (const t of byYear.get(y) || []) {
+      if (t.w == null) continue;
+      const id = String(t.w);
+      c.set(id, (c.get(id) || 0) + 1);
+      everyone.add(id);
+    }
+    perYear.set(y, c);
+  }
+
+  const out = [];
+  for (const id of everyone) {
+    const runs = [];
+    let open = null;
+    for (const y of years) {
+      const n = perYear.get(y).get(id) || 0;
+      if (n < bar) { open = null; continue; }
+      if (!open) { open = { from: y, to: y, years: [], total: 0, peak: 0 }; runs.push(open); }
+      open.to = y;
+      open.years.push({ year: y, n });
+      open.total += n;
+      open.peak = Math.max(open.peak, n);
+    }
+    if (!runs.length) continue;
+    out.push({
+      id,
+      who: (players || {})[id] || null,
+      first: runs[0].from,
+      // The longest single run, which is what the eye actually reads off the
+      // band and so the right tie-break between two players who opened together.
+      span: Math.max(...runs.map(r => r.to - r.from + 1)),
+      best: runs.reduce((n, r) => n + r.total, 0),
+      runs,
+    });
+  }
+
+  return out.sort((a, b) => a.first - b.first || b.span - a.span || b.best - a.best
+    || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+}
+
+/**
+ * Which row of the band each player's bars go in.
+ *
+ * ⚠️ Lanes are **packed, not one per player**. A lane per player is nine rows
+ * for men's singles at 3+ and fifteen for women's, most of them empty for most
+ * of the chart, and the succession — which is the whole claim — gets lost in the
+ * white space. Packing puts LIN Dan's era and Kento MOMOTA's in the same row
+ * because they never overlap, and leaves the vertical axis meaning only "these
+ * two did overlap", which is exactly what it should mean.
+ *
+ * A player keeps **one** lane for all of their runs, so VIKTOR Axelsen's 2017
+ * and his 2021–23 read as the same man twice rather than as two people.
+ *
+ * Greedy, in the order `pyramidReigns` returns — first season first — so the
+ * band fills from the top left and the oldest era is the top line.
+ */
+export function reignLanes(reigns) {
+  const taken = [];
+  return (reigns || []).map(p => {
+    const hits = lane => (p.runs || []).some(r =>
+      (taken[lane] || []).some(o => r.from <= o.to && o.from <= r.to));
+    let lane = 0;
+    while (hits(lane)) lane++;
+    taken[lane] = (taken[lane] || []).concat(p.runs || []);
+    return { ...p, lane };
+  });
 }
 
 /** The draws present on a day, in the usual MS/WS/MD/WD/XD order. */

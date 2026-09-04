@@ -2044,9 +2044,12 @@ eq('and the nav says so',
     .map(b => b.dataset.page + (b.classList.contains('on') ? '*' : '')).join(' ')`),
   'seasons compare tmt winners*');
 
+/* ⚠️ The year comes off `dataset.year`, not off the label's text: a season
+   holding a title that was played in another calendar year carries a ⁕ in that
+   text, and Number('2020⁕') is NaN. The mark is checked on its own further down. */
 const pyrs = JSON.parse(await b.ev(`JSON.stringify(
   [...document.querySelectorAll('.pyrseason')].map(s => ({
-    year: s.querySelector('.pyryear').textContent.trim(),
+    year: s.dataset.year,
     rows: [...s.querySelectorAll('.pyrrow')].map(r => r.querySelectorAll('.pyrtile').length),
   })))`));
 check('every season drew a column', pyrs.length > 10, String(pyrs.length));
@@ -2131,7 +2134,7 @@ check('the discipline travels in the hash',
 
 const wsPyrs = JSON.parse(await b.ev(`JSON.stringify(
   [...document.querySelectorAll('.pyrseason')].map(s => ({
-    year: s.querySelector('.pyryear').textContent.trim(),
+    year: s.dataset.year,
     rows: [...s.querySelectorAll('.pyrrow')].map(r => r.querySelectorAll('.pyrtile').length),
   })))`));
 eq('women’s singles covers the same seasons', wsPyrs.length, pyrs.length);
@@ -2159,6 +2162,192 @@ await b.ev(`location.hash = '#pg=winners&wk=WS'`);
 check('a shared link opens on the discipline it names',
   await b.until(`!!document.querySelector('#winKind .seg.on')
     && document.querySelector('#winKind .seg.on').textContent === 'WS'`, { timeout: 60000 }));
+
+
+/* ---- what a square says it was, and where it belongs ----
+
+   ⚠️ The whole point of these is that they are read off the *painted* page.
+   Every one of them was already true in the model an hour before it was true on
+   screen, because the render was reading `file.seasons` straight and never
+   asked the model which season a title belonged to.
+   ==================================================================== */
+
+await b.ev(`location.hash = '#pg=winners'`);
+await b.until(`!!document.querySelector('.pyrseason')
+  && document.querySelector('#winKind .seg.on').textContent === 'MS'`, { timeout: 60000 });
+
+const cols = () => b.ev('window.BST.winners.columns()');
+const colAt = async y => (await cols()).find(c => c.year === y);
+
+/* The Superseries era, named as the Superseries era. This is what the reader
+   was looking at when they asked whether the two tiers were distinguished: they
+   are, from 2011 — and before that the tier did not exist. */
+const y2013 = await colAt(2013);
+check('a 2013 Super 1000 hover says Superseries Premier',
+  y2013.rows[2][0].level === 'Superseries Premier'
+    && /Superseries Premier/.test(y2013.rows[2][0].title),
+  JSON.stringify(y2013.rows[2][0]));
+eq('and the row below it says Superseries', y2013.rows[3][0].level, 'Superseries');
+const y2023 = await colAt(2023);
+eq('the identical rung in 2023 says Super 1000', y2023.rows[2][0].level, 'Super 1000');
+eq('and the one below it Super 750', y2023.rows[3][0].level, 'Super 750');
+eq('2009 draws no Super 1000s at all, because the tier did not exist yet',
+  (await colAt(2009)).rows[2].length, 0);
+check('but 2011 does', (await colAt(2011)).rows[2].length > 0);
+
+/* ---- the two badges on the summit row ---- */
+
+const y2008 = await colAt(2008);
+eq('an Olympic champion is drawn beside the rings',
+  y2008.rows[0].map(t => t.tier + '/' + t.badge).join(' '), 'OLY/rings');
+eq('and a world champion beside a cup',
+  (await colAt(2009)).rows[0].map(t => t.tier + '/' + t.badge).join(' '), '20/cup');
+/* ⚠️ 2021 is the only season in the record that held both, because Tokyo was
+   pushed into the same year as the Huelva Worlds — so it is the one column
+   where the two marks have to sit side by side and stay told apart. */
+eq('and 2021, which held both, gets one of each',
+  (await colAt(2021)).rows[0].map(t => t.tier + '/' + t.badge).join(' '),
+  'OLY/rings 20/cup');
+check('the badge is beside the photograph, never over it',
+  await b.ev(`[...document.querySelectorAll('.pyrmajor')].every(m => {
+    const bd = m.querySelector('.pyrbadge').getBoundingClientRect();
+    const tl = m.querySelector('.pyrtile').getBoundingClientRect();
+    return bd.right <= tl.left + 1 && bd.width > 6;
+  })`));
+
+/* ---- 2020, put back together ---- */
+
+const moved = (await cols()).filter(c => c.moved).map(c => c.year);
+eq('three seasons carry an asterisk', moved.join(' '), '2010 2020 2021');
+
+/* ⚠️ The bug this fixes: BWF files the delayed Finals under the year it was
+   played, so the pyramid drew *two* Tour Finals in 2021 and none in 2020, while
+   the career grid one page over had already moved it. */
+eq('the 2020 season has its Tour Finals', (await colAt(2020)).rows[1].length, 1);
+check('and it says so on the hover',
+  /played in 2021/.test((await colAt(2020)).rows[1][0].title),
+  (await colAt(2020)).rows[1][0].title);
+eq('2021 is left with exactly one', (await colAt(2021)).rows[1].length, 1);
+/* And the one it must not move: an Olympics is not the conclusion of a season. */
+eq('the Tokyo Olympics stays in 2021, marked rather than moved',
+  (await colAt(2021)).rows[0][0].mark, 'held');
+check('with the column saying why',
+  /2020 event, held in 2021/.test((await colAt(2021)).note), (await colAt(2021)).note);
+
+/* ============================ the dominance band ============================
+
+   ⚠️ Every check here is geometric. A bar is placed at a *measured* pixel
+   offset taken off the column above it, and the failure worth catching is a bar
+   that points at the wrong year — which cannot be seen from the numbers that
+   produced it, only from where it landed.
+   ==================================================================== */
+
+console.log('\n=== the winners page: who dominated, and when ===');
+
+check('the band is drawn', await b.until(`!!document.querySelector('.erabar')`,
+  { timeout: 30000 }));
+
+const bars = () => b.ev('window.BST.winners.bars()');
+const colBox = async () => new Map((await cols()).map(c => [c.year, c]));
+
+let box = await colBox();
+let drawn = await bars();
+check('every bar starts at the left edge of the season it opens in, and ends at'
+  + ' the right edge of the one it closes in',
+  drawn.every(bar => Math.abs(bar.x - box.get(bar.from).x) < 1
+    && Math.abs((bar.x + bar.w) - (box.get(bar.to).x + box.get(bar.to).w)) < 1),
+  drawn.map(bar => `${bar.who} ${bar.from}-${bar.to} off by ${
+    (bar.x - box.get(bar.from).x).toFixed(1)}`).join(' | '));
+
+const lcwBar = drawn.find(x => x.who === 'LEE Chong Wei');
+check('LEE Chong Wei has one bar', !!lcwBar
+  && drawn.filter(x => x.who === 'LEE Chong Wei').length === 1);
+eq('running from 2007', lcwBar.from, 2007);
+eq('to 2016', lcwBar.to, 2016);
+check('and it is the widest thing on the band',
+  drawn.every(x => x.w <= lcwBar.w), drawn.map(x => x.who + ':' + x.w).join(' '));
+
+/* ⚠️ The overlap is the claim. LIN Dan and CHEN Long both dominated inside LEE
+   Chong Wei's decade, and a chart that named one champion a season would have
+   drawn three consecutive reigns instead of three simultaneous ones. */
+const inside = drawn.filter(x => x.who !== 'LEE Chong Wei'
+  && x.from >= lcwBar.from && x.to <= lcwBar.to);
+check('and other players’ eras run underneath it rather than after it',
+  inside.length >= 3 && inside.every(x => x.lane !== lcwBar.lane),
+  inside.map(x => `${x.who} ${x.from}-${x.to} lane ${x.lane}`).join(' | '));
+
+/* ⚠️ 2020 held two titles in the whole season, so nobody can clear three and
+   every line on the board is severed by it. A rule that bridged gaps would draw
+   a continuous era straight through a year that did not happen. */
+check('nothing spans 2020', drawn.every(x => !(x.from < 2020 && x.to > 2020)),
+  drawn.map(x => `${x.who} ${x.from}-${x.to}`).join(' | '));
+
+/* ---- the bar, which is a control rather than a decision ---- */
+
+await b.ev(`window.BST.winners.bar('5')`);
+const five = await bars();
+check('raising it to five titles thins the band',
+  five.length < drawn.length, `${drawn.length} at 3+, ${five.length} at 5+`);
+check('and leaves only runs that really cleared five',
+  (await b.ev('window.BST.winners.runs()'))
+    .every(p => p.runs.every(r => r.years.every(y => y.n >= 5))));
+check('the bar travels in the hash', /(^|&|#)we=5/.test(await b.ev('location.hash')),
+  await b.ev('location.hash'));
+await b.ev(`window.BST.winners.bar('3')`);
+check('and the default drops out of it again', !/we=/.test(await b.ev('location.hash')),
+  await b.ev('location.hash'));
+
+/* ---- switching it off, and the arrows ---- */
+
+eq('E turns the band off', await b.ev(`(() => {
+  const e = new KeyboardEvent('keydown', { key: 'e', bubbles: true, cancelable: true });
+  document.body.dispatchEvent(e);
+  return window.BST.winners.eras();
+})()`), false);
+eq('and the bar goes with it, because it now controls nothing',
+  await b.ev(`document.getElementById('winMin').hidden`), true);
+check('an off band says so in the link', /we=off/.test(await b.ev('location.hash')),
+  await b.ev('location.hash'));
+/* ⚠️ With nothing to step, up and down must be handed back to the page — this
+   board is taller than the window and swallowing the scroll to do nothing is
+   worse than having no shortcut. */
+eq('and the arrows scroll the page rather than doing nothing', await b.ev(`(() => {
+  const e = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true });
+  document.body.dispatchEvent(e);
+  return e.defaultPrevented;
+})()`), false);
+
+await b.ev(`window.BST.winners.eras(true)`);
+check('and it comes back', await b.until(`!!document.querySelector('.erabar')`,
+  { timeout: 30000 }));
+
+const stepBar = key => b.ev(`(() => {
+  document.body.dispatchEvent(new KeyboardEvent('keydown',
+    { key: ${JSON.stringify(key)}, bubbles: true, cancelable: true }));
+  return window.BST.winners.bar();
+})()`);
+/* Up shows more, exactly as it does on the honours board and in the bracket. */
+eq('down raises the bar', await stepBar('ArrowDown'), '4');
+eq('and again', await stepBar('ArrowDown'), '5');
+eq('and stops at the top', await stepBar('ArrowDown'), '5');
+eq('up lowers it', await stepBar('ArrowUp'), '4');
+eq('and stops at the bottom',
+  (await stepBar('ArrowUp'), await stepBar('ArrowUp')), '3');
+
+/* ---- the whole link ---- */
+
+await b.ev(`location.hash = '#pg=winners&wk=WS&we=4'`);
+check('a shared link opens on the discipline and the bar it names',
+  await b.until(`window.BST.winners.kind() === 'WS' && window.BST.winners.bar() === '4'
+    && !!document.querySelector('.erabar')`, { timeout: 60000 }));
+box = await colBox();
+drawn = await bars();
+check('and the women’s bars land on their columns too',
+  drawn.length > 0 && drawn.every(bar => Math.abs(bar.x - box.get(bar.from).x) < 1),
+  drawn.map(x => `${x.who} ${x.from}-${x.to}`).join(' | '));
+
+await b.ev(`location.hash = '#pg=winners'`);
+await b.until(`window.BST.winners.kind() === 'MS'`, { timeout: 60000 });
 
 await b.ev(`document.querySelector('#pageNav [data-page="seasons"]').click()`);
 

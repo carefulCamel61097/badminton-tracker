@@ -15,6 +15,8 @@ import { fileURLToPath } from 'node:url';
 
 import {
   pyramidTier, pyramidSeason, pyramidBulges, pyramidRow, PYRAMID_ROWS,
+  pyramidLabel, pyramidTitleSeason, pyramidSeasonMarks, winnersSeasons,
+  pyramidReigns, reignLanes, reignStep, REIGN_STEPS, REIGN_DEFAULT,
   parseSeason, seasonDisciplines, drawFor, drawForKind, dominantDraw,
   kindOf, seasonKinds, defaultKind, seasonLevels,
   positionInfo, fillFraction, boxSize, boxScale, levelLabel, isTeamEvent,
@@ -2066,6 +2068,187 @@ check('and a properly tapering season is not', pyramidBulges(pyramidSeason([
 ], pyWho)).length === 0);
 
 eq('nothing at all is four empty rows', pyramidSeason([], {}).length, 4);
+
+/* ---- which season a title belongs to, and which ladder names it ----
+
+   Checked against the committed harvest rather than against invented rows: the
+   whole point of the rule is which of BWF's real names it moves, and there are
+   exactly three in twenty seasons. A made-up fixture cannot fail the way the
+   file can.
+   ==================================================================== */
+
+console.log('\n=== the winners file, put back into its seasons ===');
+
+const winMS = JSON.parse(fs.readFileSync(
+  path.join(HERE, '..', 'data', 'winners-MS.json'), 'utf8'));
+const winSeasons = winnersSeasons(winMS);
+
+eq('every season from the first to the last', winSeasons.years.length,
+  winSeasons.years[winSeasons.years.length - 1] - winSeasons.years[0] + 1);
+eq('oldest first', winSeasons.years[0], 2007);
+eq('and no title is lost on the way',
+  winSeasons.years.reduce((n, y) => n + winSeasons.byYear.get(y).length, 0),
+  Object.values(winMS.seasons).reduce((n, l) => n + l.length, 0));
+
+const finals = y => (winSeasons.byYear.get(y) || []).filter(t => String(t.tier) === '22');
+
+/* ⚠️ The one that matters: BWF files the delayed Finals under the year it was
+   *played*, which put two of them in 2021 and none in 2020 — and disagreed with
+   the career grid, which has moved it for as long as `tournamentSeason` has
+   existed. One project, two views, one answer. */
+eq('the 2020 Tour Finals is in the 2020 season', finals(2020).length, 1);
+eq('and it is the one BWF named 2020', finals(2020)[0].name,
+  'HSBC BWF World Tour Finals 2020 (New Dates)');
+eq('so 2021 is left with exactly one Finals', finals(2021).length, 1);
+eq('the same rule catches the 2010 Superseries Finals', finals(2010).length, 1);
+check('which was played in January 2011', finals(2010)[0].date.startsWith('2011'),
+  finals(2010)[0].date);
+eq('and 2011 keeps only its own', finals(2011).length, 1);
+
+/* ⚠️ And the one it must *not* move. A Finals is retrospective — the conclusion
+   of a season already played — and an Olympics is not the conclusion of
+   anything, so drawing Tokyo in 2020 would say somebody won an Olympic gold in
+   a year nobody played one. */
+check('the Tokyo 2020 Olympics stays in 2021, where it was won',
+  (winSeasons.byYear.get(2021) || []).some(t => t.tier === 'OLY'),
+  (winSeasons.byYear.get(2021) || []).map(t => t.tier).join(' '));
+check('and 2020 has no Olympics at all',
+  !(winSeasons.byYear.get(2020) || []).some(t => t.tier === 'OLY'));
+
+eq('a title played in its own season moves nowhere',
+  pyramidTitleSeason({ tier: 23, name: 'YONEX All England Open 2020', date: '2020-03-11' }, 2020),
+  2020);
+/* Only ever backwards: a qualifier played in December for next year's event was
+   still played in the season it was played in. */
+eq('and a name that looks *forward* is left alone',
+  pyramidTitleSeason({ tier: 22, name: 'Something Finals 2027', date: '2026-12-01' }, 2026),
+  2026);
+
+const marks = pyramidSeasonMarks(winSeasons);
+eq('three seasons carry an asterisk, and no more',
+  [...marks.keys()].sort((a, b) => a - b).join(' '), '2010 2020 2021');
+check('2020 says its Finals was played the following January',
+  /played in 2021/.test(marks.get(2020).join(' ')), marks.get(2020).join(' '));
+check('2021 says its Olympics was the 2020 event',
+  /2020 event, held in 2021/.test(marks.get(2021).join(' ')), marks.get(2021).join(' '));
+
+/* ---- what a square was called at the time ---- */
+
+eq('a Super 1000 in 2023 is a Super 1000', pyramidLabel(23, 2023), 'Super 1000');
+eq('and the same rung in 2013 is a Superseries Premier',
+  pyramidLabel(23, 2013), 'Superseries Premier');
+eq('a Super 750 in 2013 is a Superseries', pyramidLabel(24, 2013), 'Superseries');
+eq('the Finals is named for its era too', pyramidLabel(22, 2013), 'Superseries Finals');
+/* ⚠️ 2017 is the last Superseries season and 2018 the first World Tour one, so
+   the cutover is the one place the names can be off by a year. */
+eq('2017 still speaks Superseries', pyramidLabel(24, 2017), 'Superseries');
+eq('2018 speaks World Tour', pyramidLabel(24, 2018), 'Super 750');
+eq('the majors are called the same thing in both', pyramidLabel(20, 2009),
+  pyramidLabel(20, 2025));
+
+const py2013 = pyramidSeason(winSeasons.byYear.get(2013), winMS.players, 2013);
+eq('the row names follow the season as well', py2013.map(r => r.label).join(' / '),
+  'Olympics · Worlds / Superseries Finals / Superseries Premier / Superseries');
+eq('and so do the tiles', py2013[2].tiles[0].level, 'Superseries Premier');
+
+/* ⚠️ Before 2011 there was no Premier tier at all, so 2007–2010 have an *empty*
+   Super 1000 row. The hole is the fact, and it is what the reader was seeing
+   when they asked why the Superseries era is all on one line. */
+for (const y of [2007, 2008, 2009, 2010]) {
+  eq(`${y} has no Superseries Premier, because the tier did not exist`,
+    pyramidSeason(winSeasons.byYear.get(y), winMS.players, y)[2].tiles.length, 0);
+}
+check('2011 is the season it appears',
+  pyramidSeason(winSeasons.byYear.get(2011), winMS.players, 2011)[2].tiles.length > 0);
+
+/* ============================ dominance ============================ */
+
+console.log('\n=== the runs of seasons somebody dominated ===');
+
+const reigns3 = pyramidReigns(winSeasons, winMS.players, 3);
+const reignName = id => (winMS.players[id] || {}).n || id;
+const reignLCW = reigns3.find(r => reignName(r.id) === 'LEE Chong Wei');
+check('LEE Chong Wei cleared three titles in every season from 2007', !!reignLCW);
+eq('as one unbroken run', reignLCW.runs.length, 1);
+eq('from 2007', reignLCW.runs[0].from, 2007);
+eq('to 2016', reignLCW.runs[0].to, 2016);
+eq('and the run counts every title in it', reignLCW.runs[0].total,
+  reignLCW.runs[0].years.reduce((n, y) => n + y.n, 0));
+
+/* ⚠️ Strictly consecutive. LIN Dan won one title in 2010 between two dominant
+   stretches, and closing that gap would draw a five-year era he did not have —
+   which is the whole difference between this and the ranking version, where a
+   dip of a fortnight is noise and had to be tolerated. */
+const linDan = reigns3.find(r => reignName(r.id) === 'LIN Dan');
+eq('LIN Dan has two runs, not one', linDan.runs.length, 2);
+eq('and the gap is the season he did not clear the bar',
+  `${linDan.runs[0].to} then ${linDan.runs[1].from}`, '2009 then 2011');
+
+check('the band is sorted by the season a career opens',
+  reigns3.every((r, i) => i === 0 || r.first >= reigns3[i - 1].first),
+  reigns3.map(r => r.first).join(' '));
+
+/* Raising the bar can only ever remove seasons from a run, never add them. */
+const reigns5 = pyramidReigns(winSeasons, winMS.players, 5);
+check('a higher bar is a subset of a lower one',
+  reigns5.every(r => {
+    const same = reigns3.find(o => o.id === r.id);
+    return same && r.runs.every(run => run.years.every(y =>
+      same.runs.some(o => o.years.some(z => z.year === y.year && z.n === y.n))));
+  }));
+check('and it never draws more players', reigns5.length <= reigns3.length,
+  `${reigns5.length} at 5+, ${reigns3.length} at 3+`);
+check('every year in every run really did clear the bar',
+  reigns5.every(r => r.runs.every(run => run.years.every(y => y.n >= 5))));
+
+/* ⚠️ 2020 held two titles in the whole season, so nobody can clear three and
+   every line on the board is severed by it. That is the honest drawing of a
+   year that did not happen, and a rule that bridged gaps would hide it. */
+check('nothing spans 2020', reigns3.every(r => r.runs.every(run =>
+  !(run.from < 2020 && run.to > 2020))),
+  reigns3.flatMap(r => r.runs.map(x => x.from + '-' + x.to)).join(' '));
+
+eq('an empty board draws nothing',
+  pyramidReigns({ years: [], byYear: new Map() }, {}, 3).length, 0);
+
+/* ---- packing the lanes ---- */
+
+const lanes3 = reignLanes(reigns3);
+eq('every player keeps a lane', lanes3.length, reigns3.length);
+check('a player has one lane for all of their runs',
+  lanes3.every(p => Number.isInteger(p.lane) && p.lane >= 0));
+
+/* ⚠️ The lane is the whole vertical claim: two bars in different lanes at the
+   same year means those two overlapped. If a lane ever held two runs that
+   overlap, the picture would be saying the opposite of what happened. */
+const byLane = new Map();
+for (const p of lanes3) for (const r of p.runs) {
+  (byLane.get(p.lane) || byLane.set(p.lane, []).get(p.lane)).push({ ...r, id: p.id });
+}
+let clashes = 0;
+for (const runs of byLane.values()) {
+  for (let i = 0; i < runs.length; i++) {
+    for (let j = i + 1; j < runs.length; j++) {
+      if (runs[i].from <= runs[j].to && runs[j].from <= runs[i].to) clashes++;
+    }
+  }
+}
+eq('no lane ever holds two runs that overlap', clashes, 0);
+
+/* Packed rather than one row each: fifteen women cleared three titles in a
+   season and the band is three rows deep, which is what makes the succession
+   visible instead of a fifteen-row diagonal of white space. */
+check('and the band is far shorter than one lane per player',
+  Math.max(...lanes3.map(p => p.lane)) + 1 < lanes3.length / 2,
+  `${Math.max(...lanes3.map(p => p.lane)) + 1} lanes for ${lanes3.length} players`);
+
+/* ⚠️ Viktor AXELSEN dominated in 2017 and again in 2021–23 with three fallow
+   seasons between. Both bars have to be in *his* lane, or the band says two
+   different people did it. */
+const axelsen = lanes3.filter(p => reignName(p.id) === 'Viktor AXELSEN');
+eq('one entry for a career with two eras, not two', axelsen.length, 1);
+eq('and both of his runs sit in the same lane', axelsen[0].runs.length, 2);
+
 
 
 /* ============================ the bracket ============================

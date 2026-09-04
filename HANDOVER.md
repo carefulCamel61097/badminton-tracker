@@ -1194,6 +1194,60 @@ picks a region.
 drawn as the gap a Tour Finals square would have left, and without the tier there is no
 height — the whole page throws on the first such season.
 
+### 3.4f What a square was called, and which season it belongs to *(built 4 Sep 2026)*
+
+Three things the pyramid was getting wrong, all of them the same mistake: it was reading
+`data/winners-*.json` as if the file were the answer, when the file is BWF's filing.
+
+**The season.** BWF files a tournament under the year it was *played*. The season-ending
+Finals is retrospective, so the 2020 edition — played 27 January 2021 — came back under 2021,
+and the pyramid drew **two Tour Finals in 2021 and none in 2020**. The career grid has never
+had that bug: `tournamentSeason` moves it, on BWF's own name ("HSBC BWF World Tour Finals 2020
+(New Dates)"). `winnersSeasons` now applies the same rule on the same evidence. It moves
+exactly two titles in twenty seasons — that one and "VICTOR- BWF Superseries Finals 2010",
+played 5 January 2011.
+
+⚠️ **Do not generalise it to "the year in the name wins".** Exactly three names in the file
+carry an earlier year than the date they were played on; the third is `Tokyo 2020 Olympic
+Games Badminton`, and it must stay in 2021. A Finals is the conclusion of a season already
+played, contested by the players that season's results qualified, and there is exactly one
+per season — two in a column is a contradiction. An Olympics is the conclusion of nothing, and
+an Olympic gold drawn in 2020 says somebody won one in a year nobody played one. It is marked
+(`pyramidDisplaced` returns `held` rather than `late`) and left where it was won.
+
+**The name of a rung.** A 2013 Super 1000 was a *Superseries Premier* and the page called it a
+Super 1000. `pyramidLabel(tier, season)` composes `eraGroup` + `gridGroupLabel` — the honours
+board's own tables — rather than adding a fourth list of names, so the two cannot drift.
+`SS_LAST_SEASON = 2017` is the only new constant.
+
+⚠️ **2007–2010 really do have an empty Super 1000 row.** There was no Premier tier before 2011;
+all twelve Superseries were one rank. This is the thing that reads as a harvest bug and is not,
+and it is now visible on the hover rather than only in the note.
+
+### 3.4g Dominance: bars, and why they are packed *(built 4 Sep 2026)*
+
+`pyramidReigns(seasons, players, min)` returns, per player, the **runs of consecutive seasons**
+in which they won at least `min` of the titles on the pyramid. `reignLanes` then packs them.
+
+⚠️ **Strictly consecutive, unlike the shelved ranking-based eras chart** (branch `eras-chart`,
+README "Dominance eras"). That one had to tolerate dips of up to four weeks because a rolling
+52-week points sum jitters and a single week at sixth would sever a decade. A title count does
+not jitter, so bridging a gap here would draw a run nobody had — and 2020 held two titles in
+the entire season, so it severs every line on the board. That is the honest drawing.
+
+⚠️ **Lanes are packed, and a player keeps one lane for all their runs.** One lane per player is
+nine rows for MS at 3+ and fifteen for WS, mostly empty, and the succession disappears into the
+white space; packed it is three. The consequence is that a lane means only "these two
+overlapped" — which is the claim — and never "this lane is this person".
+
+⚠️ **The band is placed from measured pixels, not from the widths the render asked for.** A
+column's declared `min-width` is `widest * unit + 12`, which is what the widest row would be if
+its squares butted together; they do not, there is a 3px gap between each pair, and a 2007
+column holds twelve. Laying the bars out from that number drifts a full year to the left by the
+end of the chart. `renderEraBand` reads `getBoundingClientRect` off the drawn columns, the same
+way the bracket places its feeders. Both bands live inside one `.pyrwrap` so they share an
+origin and a scrollbar.
+
 ### 3.4e The era switch, and why backwards is a different map *(built 30 Aug 2026)*
 
 The compare page can name its ladder in either vocabulary. `era` is `'wt'` or `'ss'`, it is a
