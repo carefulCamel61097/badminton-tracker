@@ -2066,12 +2066,17 @@ check('the years run in order without a gap',
 check('every season has all four rows', pyrs.every(p => p.rows.length === 4),
   pyrs.filter(p => p.rows.length !== 4).map(p => `${p.year}:${p.rows.length}`).join(' '));
 
-/* Before 2011 there was no Superseries Premier tier, so the Super 1000 row is
-   genuinely empty — a real hole, not a harvest that missed something. */
+/* ⚠️ Before 2011 there was no Superseries Premier tier — all twelve Superseries
+   were one rank — so those seasons are dealt across *both* Super rows at the
+   one size rather than drawn as a slab under an empty row. The equal size is
+   what says they were equal; see `flatSupers`. */
 const y2009 = pyrs.find(p => p.year === '2009');
-eq('2009 has no Super 1000s, because the tier did not exist', y2009.rows[2], 0);
+eq('2009 fills both Super rows, because its twelve were one rank',
+  y2009.rows.slice(2).join(','), '6,6');
 check('but it did have a summit and a season-ending final',
   y2009.rows[0] === 1 && y2009.rows[1] === 1, JSON.stringify(y2009.rows));
+eq('and 2013, which had two ranks, does not split evenly',
+  pyrs.find(p => p.year === '2013').rows.slice(2).join(','), '5,8');
 
 /* ⚠️ Sizes come from the honours ladder, so the summit must actually be the
    biggest square on the page and a Super 750 the smallest. */
@@ -2191,9 +2196,27 @@ eq('and the row below it says Superseries', y2013.rows[3][0].level, 'Superseries
 const y2023 = await colAt(2023);
 eq('the identical rung in 2023 says Super 1000', y2023.rows[2][0].level, 'Super 1000');
 eq('and the one below it Super 750', y2023.rows[3][0].level, 'Super 750');
-eq('2009 draws no Super 1000s at all, because the tier did not exist yet',
-  (await colAt(2009)).rows[2].length, 0);
-check('but 2011 does', (await colAt(2011)).rows[2].length > 0);
+/* ⚠️ And the seasons before it had *one* Superseries rank, drawn as two rows of
+   equally sized squares rather than as a slab under a hole. Both halves have to
+   say Superseries and both have to be the same size — a larger upper row would
+   assert a Premier tier that did not exist for another four years. */
+const y2009c = await colAt(2009);
+eq('2009 fills both Super rows', y2009c.rows.slice(2).map(r => r.length).join(','), '6,6');
+eq('and both of them say Superseries',
+  [...new Set(y2009c.rows.slice(2).flat().map(t => t.level))].join(), 'Superseries');
+check('with the two rows drawn at the same size',
+  await b.ev(`(() => {
+    const col = document.querySelector('.pyrseason[data-year="2009"]');
+    const rows = [...col.querySelectorAll('.pyrrow')];
+    const w = r => Math.round(r.querySelector('.pyrtile').getBoundingClientRect().width);
+    return w(rows[2]) === w(rows[3]);
+  })()`));
+check('while 2011, which had both, does not', await b.ev(`(() => {
+  const col = document.querySelector('.pyrseason[data-year="2011"]');
+  const rows = [...col.querySelectorAll('.pyrrow')];
+  const w = r => Math.round(r.querySelector('.pyrtile').getBoundingClientRect().width);
+  return w(rows[2]) > w(rows[3]);
+})()`));
 
 /* ---- the two badges on the summit row ---- */
 
@@ -2281,6 +2304,124 @@ check('and other players’ eras run underneath it rather than after it',
    a continuous era straight through a year that did not happen. */
 check('nothing spans 2020', drawn.every(x => !(x.from < 2020 && x.to > 2020)),
   drawn.map(x => `${x.who} ${x.from}-${x.to}`).join(' | '));
+
+/* ---- what a bar is made of ---- */
+
+/* ⚠️ Every season inside a run has to touch the next one. The columns are 10px
+   apart, and blocks that stopped at their own column's right edge left a dark
+   stripe at every year boundary — so a nine-season run read as nine bars.
+   Measured off the drawn blocks, because the arithmetic that produced them is
+   exactly what got this wrong. */
+check('the seasons inside a bar are continuous, with no gap at a year boundary',
+  await b.ev(`(() => {
+    const bad = [];
+    for (const bar of document.querySelectorAll('#winEraBand .erabar')) {
+      const blocks = [...bar.querySelectorAll('.erayr')]
+        .map(y => [parseFloat(y.style.left), parseFloat(y.style.width)])
+        .sort((p, q) => p[0] - q[0]);
+      for (let i = 1; i < blocks.length; i++) {
+        const gap = blocks[i][0] - (blocks[i - 1][0] + blocks[i - 1][1]);
+        if (Math.abs(gap) > 1) bad.push(bar.dataset.id + '@' + i + ':' + gap);
+      }
+      const end = blocks.length
+        ? blocks[blocks.length - 1][0] + blocks[blocks.length - 1][1] : 0;
+      if (blocks.length && Math.abs(end - bar.getBoundingClientRect().width) > 1) {
+        bad.push(bar.dataset.id + ' overruns by ' + (end - bar.getBoundingClientRect().width));
+      }
+    }
+    return bad.join(' | ') || true;
+  })()`), true);
+
+/* ⚠️ A colour per player, not a colour for "a title". One colour for the whole
+   band made two people who overlapped read as one long reign with a step in it,
+   which is the opposite of what the band exists to say. */
+const hues = await b.ev(`[...document.querySelectorAll('#winEraBand .erabar')]
+  .map(x => x.dataset.id + '=' + x.style.getPropertyValue('--era'))`);
+check('every bar has a colour of its own',
+  hues.length === drawn.length && hues.every(h => /=#[0-9a-f]{6}$/i.test(h)),
+  hues.join(' '));
+/* ⚠️ One colour per *career*, not per bar: Viktor AXELSEN dominated in 2017 and
+   again in 2021–23, and two colours would say two people did it. */
+check('and a career with two eras keeps one colour across both',
+  await b.ev(`(() => {
+    const by = new Map();
+    for (const x of document.querySelectorAll('#winEraBand .erabar')) {
+      const k = x.dataset.id;
+      (by.get(k) || by.set(k, new Set()).get(k)).add(x.style.getPropertyValue('--era'));
+    }
+    const bad = [...by].filter(([, set]) => set.size > 1).map(([k]) => k);
+    return bad.join(' ') || true;
+  })()`), true);
+/* Assigned in the band's own order, which is by the season a career opens, so
+   two players share a hue only if eight others opened between them. */
+check('and neighbours in time never share one',
+  await b.ev(`(() => {
+    const seen = [];
+    for (const x of document.querySelectorAll('#winEraBand .erabar')) {
+      const c = x.style.getPropertyValue('--era');
+      if (!seen.length || seen[seen.length - 1][1] !== c) seen.push([x.dataset.id, c]);
+      else if (seen[seen.length - 1][0] !== x.dataset.id) return 'two in a row: ' + c;
+    }
+    return true;
+  })()`), true);
+
+/* The label: a face, the name, the flag — and no total, which is on the hover
+   with the season-by-season breakdown instead. */
+check('a bar names the player, with their flag',
+  await b.ev(`(() => {
+    const x = document.querySelector('#winEraBand .erabar');
+    return !!x.querySelector('.erawho b') && !!x.querySelector('.erawho .flag')
+      && /flag-circle/.test(x.querySelector('.erawho .flag').src);
+  })()`));
+check('and does not print the total on the bar',
+  await b.ev(`![...document.querySelectorAll('#winEraBand .erabar')]
+    .some(x => /\\d/.test(x.querySelector('.erawho').textContent))`),
+  await b.ev(`document.querySelector('#winEraBand .erawho').textContent`));
+check('which is on the hover, season by season',
+  /\n2007: \d+\n2008: \d+/.test(await b.ev(
+    `document.querySelector('#winEraBand .erabar').getAttribute('title')`)),
+  await b.ev(`document.querySelector('#winEraBand .erabar').getAttribute('title')`));
+
+/* ⚠️ The name is sticky, which is the whole reason `.erabar` may not clip: an
+   `overflow: hidden` ancestor is a scroll container, and sticky inside one
+   sticks to a box that never scrolls. LEE Chong Wei's bar is ten columns long,
+   so scroll well past its start and the name has to still be on screen. */
+const winScroller = `document.getElementById('winBody')`;
+await b.ev(`${winScroller}.scrollLeft = 600`);
+await b.wait(150);
+check('the name travels with the scroll rather than staying at 2007',
+  await b.ev(`(() => {
+    const bar = [...document.querySelectorAll('#winEraBand .erabar')]
+      .find(x => x.dataset.from === '2007' && x.dataset.to === '2016');
+    const view = document.getElementById('winBody').getBoundingClientRect();
+    const tag = bar.querySelector('.erawho').getBoundingClientRect();
+    return tag.left >= view.left - 1 && tag.right <= view.right + 1;
+  })()`));
+check('and never leaves the bar it belongs to',
+  await b.ev(`[...document.querySelectorAll('#winEraBand .erabar')].every(x => {
+    const bar = x.getBoundingClientRect(), tag = x.querySelector('.erawho').getBoundingClientRect();
+    return tag.left >= bar.left - 1 && tag.right <= bar.right + 1;
+  })`));
+await b.ev(`${winScroller}.scrollLeft = 0`);
+
+/* ---- and the photograph the badge sits beside ----
+
+   ⚠️ The mark used to be centred *with* the tile, which pushed every summit
+   photograph half a badge to the right of its own column. Nothing else in a
+   column is off-centre, so it showed. */
+check('a summit photograph is centred in its column, badge or no badge',
+  await b.ev(`(() => {
+    const bad = [];
+    for (const col of document.querySelectorAll('.pyrseason')) {
+      const row = col.querySelector('.pyrrow');
+      if (!row || row.querySelectorAll('.pyrtile').length !== 1) continue;
+      const t = row.querySelector('.pyrtile').getBoundingClientRect();
+      const c = col.getBoundingClientRect();
+      const off = (t.left + t.width / 2) - (c.left + c.width / 2);
+      if (Math.abs(off) > 1) bad.push(col.dataset.year + ':' + off.toFixed(1));
+    }
+    return bad.join(' ') || true;
+  })()`), true);
 
 /* ---- the bar, which is a control rather than a decision ---- */
 

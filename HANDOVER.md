@@ -1220,9 +1220,13 @@ Super 1000. `pyramidLabel(tier, season)` composes `eraGroup` + `gridGroupLabel` 
 board's own tables — rather than adding a fourth list of names, so the two cannot drift.
 `SS_LAST_SEASON = 2017` is the only new constant.
 
-⚠️ **2007–2010 really do have an empty Super 1000 row.** There was no Premier tier before 2011;
-all twelve Superseries were one rank. This is the thing that reads as a harvest bug and is not,
-and it is now visible on the hover rather than only in the note.
+⚠️ **2007–2010 had one Superseries rank, not two.** There was no Premier tier before 2011.
+Drawn literally that is a twelve-square slab under an empty row, which reads as a harvest bug
+however true it is — so `flatSupers(season)` deals those seasons across *both* Super rows,
+earlier half on top, **at the one square size**. The equal size is the claim; a larger upper
+row would assert a tier that did not exist for another four years. `rowsFor` does it by
+overriding the s1000 row's `tiers` to `[24]`, which carries the name and the height together
+rather than special-casing either.
 
 ### 3.4g Dominance: bars, and why they are packed *(built 4 Sep 2026)*
 
@@ -1247,6 +1251,36 @@ column holds twelve. Laying the bars out from that number drifts a full year to 
 end of the chart. `renderEraBand` reads `getBoundingClientRect` off the drawn columns, the same
 way the bracket places its feeders. Both bands live inside one `.pyrwrap` so they share an
 origin and a scrollbar.
+
+### 3.4h Drawing the band *(built 4 Sep 2026)*
+
+Four traps, three of them found by looking at the page.
+
+⚠️ **`.erabar` must not clip.** The name is `position: sticky` so it travels with the scroll
+and is readable for the whole of a ten-column run. An `overflow: hidden` ancestor is a scroll
+container, and a sticky element inside one sticks to a box that never scrolls — which is to
+say it does nothing, silently. `.erafill` (absolute, inset 0) does the clipping instead, and
+`.erawho` is clamped with `max-width: calc(100% - 6px)` so a long name in a one-season bar
+cannot hang over the neighbouring lane.
+
+⚠️ **A season's block runs to where the *next* column starts**, not to its own right edge.
+The columns are 10px apart and stopping at the edge left a dark stripe at every year
+boundary, so a nine-season run read as nine bars. Only the last block in a run stops at its
+own column, because that is where the run stops.
+
+⚠️ **The intensity ramp is 0.62–0.95, not 0–1.** The wide version made every season boundary
+a hard edge and undid the point of closing the gaps.
+
+⚠️ **The badge is balanced by an equal `padding-right` on `.pyrmajor`.** In flow and unbalanced
+it centred the badge and the photograph as a pair, pushing every summit photograph half a
+badge to the right of its column. Absolute positioning was the other fix and is wrong: 2021
+holds two summit tiles side by side, and a mark out of the flow lands on the photograph next
+to it.
+
+Colours are assigned per *career* in the band's sort order (first season first), cycling eight
+hues, so both of Viktor AXELSEN's eras are the same colour and two players share one only if
+eight others opened between them. The BWF red and the live-match teal are deliberately not in
+the palette.
 
 ### 3.4e The era switch, and why backwards is a different map *(built 30 Aug 2026)*
 

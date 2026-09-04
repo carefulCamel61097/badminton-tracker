@@ -17,6 +17,7 @@ import {
   pyramidTier, pyramidSeason, pyramidBulges, pyramidRow, PYRAMID_ROWS,
   pyramidLabel, pyramidTitleSeason, pyramidSeasonMarks, winnersSeasons,
   pyramidReigns, reignLanes, reignStep, REIGN_STEPS, REIGN_DEFAULT,
+  flatSupers, PREMIER_FROM,
   parseSeason, seasonDisciplines, drawFor, drawForKind, dominantDraw,
   kindOf, seasonKinds, defaultKind, seasonLevels,
   positionInfo, fillFraction, boxSize, boxScale, levelLabel, isTeamEvent,
@@ -2151,15 +2152,40 @@ eq('the row names follow the season as well', py2013.map(r => r.label).join(' / 
   'Olympics · Worlds / Superseries Finals / Superseries Premier / Superseries');
 eq('and so do the tiles', py2013[2].tiles[0].level, 'Superseries Premier');
 
-/* ⚠️ Before 2011 there was no Premier tier at all, so 2007–2010 have an *empty*
-   Super 1000 row. The hole is the fact, and it is what the reader was seeing
-   when they asked why the Superseries era is all on one line. */
+/* ⚠️ Before 2011 there was no Premier tier at all: the twelve Superseries were
+   one rank. Drawn literally that is a slab under an empty row, which reads as a
+   harvest that missed something — so those seasons are dealt across both Super
+   rows, **at the one size**. The equal size is the claim; a larger upper row
+   would assert a tier that did not exist for another four years. */
 for (const y of [2007, 2008, 2009, 2010]) {
-  eq(`${y} has no Superseries Premier, because the tier did not exist`,
-    pyramidSeason(winSeasons.byYear.get(y), winMS.players, y)[2].tiles.length, 0);
+  const rows = pyramidSeason(winSeasons.byYear.get(y), winMS.players, y);
+  eq(`${y} fills both Super rows`,
+    rows.slice(2).map(r => r.tiles.length).join(','), '6,6');
+  eq(`and ${y} calls both of them Superseries`,
+    rows.slice(2).map(r => r.label).join(), 'Superseries,Superseries');
+  eq(`and draws both at the one size`,
+    rows[2].tiles[0].scale, rows[3].tiles[0].scale);
+  /* Date order still runs left to right and top to bottom: the upper row is the
+     first half of the season, not a selection out of it. */
+  check(`and the upper row is the earlier half of ${y}`,
+    rows[2].tiles[rows[2].tiles.length - 1].date <= rows[3].tiles[0].date,
+    rows[2].tiles[rows[2].tiles.length - 1].date + ' then ' + rows[3].tiles[0].date);
 }
-check('2011 is the season it appears',
-  pyramidSeason(winSeasons.byYear.get(2011), winMS.players, 2011)[2].tiles.length > 0);
+check('and nothing is lost in the dealing', [2007, 2008, 2009, 2010].every(y => {
+  const rows = pyramidSeason(winSeasons.byYear.get(y), winMS.players, y);
+  const drawn = rows.flatMap(r => r.tiles).length;
+  return drawn === (winSeasons.byYear.get(y) || []).length;
+}));
+
+/* 2011 is the season the split becomes real, and from then on the two rows are
+   different tiers at different sizes again. */
+const py2011 = pyramidSeason(winSeasons.byYear.get(2011), winMS.players, 2011);
+eq('2011 has a Premier row of its own', py2011[2].label, 'Superseries Premier');
+check('drawn larger than the Superseries below it',
+  py2011[2].tiles[0].scale > py2011[3].tiles[0].scale);
+check('flatSupers knows where the line is',
+  flatSupers(2010) && !flatSupers(2011) && !flatSupers(2026) && !flatSupers(null),
+  `${flatSupers(2010)} ${flatSupers(2011)}`);
 
 /* ============================ dominance ============================ */
 

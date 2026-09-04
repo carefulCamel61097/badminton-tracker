@@ -2441,19 +2441,69 @@ export function pyramidTier(entry) {
  *   season that did not hold a Tour Finals should show a hole where it goes
  *   rather than closing the gap and pretending the pyramid is a shape it is not.
  */
+/* ---- the seasons before the Premier tier existed ----
+
+   ⚠️ **2007–2010 had one Superseries rank, not two.** Drawn literally that is a
+   twelve-square slab with an empty row above it, which reads as a harvest that
+   missed something rather than as a calendar that had not split yet.
+
+   So those seasons are dealt across *both* Super rows — and both rows keep the
+   Superseries square size. The equal size is the whole point: it says these
+   twelve were one rank, which a taller row of larger squares would deny. It is
+   the same claim the empty row was making, made in a shape that matches every
+   other column instead of looking broken.
+
+   Earlier half on top, in date order, so the column still reads left to right
+   and top to bottom. The odd one goes on the *lower* row, so a season with an
+   odd count still tapers rather than bulging. */
+export const PREMIER_FROM = 2011;
+
+/** True for a season BWF ran with a single Superseries rank. */
+export function flatSupers(season) {
+  return season != null && Number(season) < PREMIER_FROM;
+}
+
+/**
+ * The rows to draw for a season: `PYRAMID_ROWS`, except that before 2011 the
+ * Super 1000 row is a second Superseries row rather than a tier of its own.
+ */
+function rowsFor(season) {
+  if (!flatSupers(season)) return PYRAMID_ROWS;
+  return PYRAMID_ROWS.map(r => (r.key === 's1000'
+    // ⚠️ `tiers` drives both the row's name and the height an empty row is
+    // drawn at, so overriding it here is what makes the upper row say
+    // "Superseries" and stand at the Superseries size.
+    ? { ...r, tiers: [24] }
+    : r));
+}
+
 export function pyramidSeason(won, players, season) {
   const all = won || [];
-  return PYRAMID_ROWS.map(row => ({
-    key: row.key,
-    label: pyramidRowLabel(row, season),
-    /* Carried even when the row is empty: a season that held no Tour Finals
-       still has to be drawn the height a Tour Finals square would have been,
-       and the only way to know that is to know the tier. */
-    tiers: row.tiers,
-    tiles: all
-      .filter(t => pyramidRow(t.tier) === row.key)
-      .sort((a, b) => String(a.date).localeCompare(String(b.date)))
-      .map(t => ({
+  const flat = flatSupers(season);
+  /* Both halves come out of the one tier, so they are split here rather than
+     filtered per row — a row cannot know how many the row below it took. */
+  let top = null, bottom = null;
+  if (flat) {
+    const supers = all.filter(t => pyramidRow(t.tier) === 's750')
+      .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    const half = Math.floor(supers.length / 2);
+    top = supers.slice(0, half);
+    bottom = supers.slice(half);
+  }
+
+  return rowsFor(season).map(row => {
+    const raw = flat && row.key === 's1000' ? top
+      : flat && row.key === 's750' ? bottom
+        : all.filter(t => pyramidRow(t.tier) === row.key)
+          .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    return {
+      key: row.key,
+      label: pyramidRowLabel(row, season),
+      /* Carried even when the row is empty: a season that held no Tour Finals
+         still has to be drawn the height a Tour Finals square would have been,
+         and the only way to know that is to know the tier. */
+      tiers: row.tiers,
+      tiles: raw.map(t => ({
         tier: t.tier,
         name: t.name,
         date: t.date,
@@ -2466,7 +2516,8 @@ export function pyramidSeason(won, players, season) {
         // Why it carries an asterisk, or null. See `pyramidDisplaced`.
         mark: season == null ? null : pyramidDisplaced(t, season),
       })),
-  }));
+    };
+  });
 }
 
 /**

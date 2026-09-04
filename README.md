@@ -302,9 +302,12 @@ would say somebody won one in a year nobody played one.
 
 Things that look wrong and are not:
 
-- **2007–2010 are flat slabs rather than pyramids.** There was no Superseries Premier tier
-  before 2011 — all twelve Superseries were one rank — so they all land on the bottom row and
-  the row above is genuinely empty. The hole is drawn rather than closed up.
+- **2007–2010 have two Super rows of the same size.** There was no Superseries Premier tier
+  before 2011 — all twelve Superseries were one rank — so those seasons are dealt across both
+  rows at the one square size, earlier half on top. The equal size *is* the statement: a
+  larger upper row would assert a tier that did not exist for another four years. (They used
+  to be drawn as a twelve-wide slab under an empty row, which is the same claim in a shape
+  that reads as a harvest bug.)
 - **2020 is nearly bare even with its Finals back.** The calendar entries say "(Cancelled)",
   and a cancelled final has no winner.
 
@@ -312,8 +315,20 @@ Things that look wrong and are not:
 
 Under the pyramid, one bar per **run of consecutive seasons** in which somebody won at least
 three of the titles above it — four or five on the picker beside **Eras**, the same shape of
-control as the honours board's QF+ / SF+ / F+ / W. The shading inside a bar is that season's
-count, so a seven-title year is brighter than a three-title one.
+control as the honours board's QF+ / SF+ / F+ / W. Each bar carries the player's face, name
+and flag; the totals are on the hover, season by season, rather than printed on the bar.
+
+**One colour per career**, cycled through eight hues in the order the band is sorted — which
+is by the season a career opens, so two players share a colour only if eight others opened
+between them. A career with two eras keeps one colour for both. The shading *within* a colour
+is that season's count, kept deliberately gentle: a wide range turned every season boundary
+into a hard edge and a decade read as ten bars.
+
+**The name is `position: sticky`**, so it slides along with the scroll and stays readable for
+the whole of a ten-season run rather than only while 2007 is on screen. Repeating it once per
+season was the other candidate and is a wall of the same six words. This is why the bar
+itself may not clip: an `overflow: hidden` ancestor is a scroll container, and sticky inside
+one sticks to a box that never scrolls.
 
 **Bars overlap on purpose, and that is the entire point.** LEE Chong Wei's decade runs
 *underneath* LIN Dan's and then CHEN Long's; a chart that named one champion per season would

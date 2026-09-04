@@ -1314,7 +1314,18 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
 
 /* ---- the two badges on the summit row ---- */
 
-.pyrmajor { display: inline-flex; align-items: center; gap: 3px; }
+/* ⚠️ The badge is balanced by an equal padding on the *right*, so the
+   photograph sits in the middle of the column and the mark hangs off its left.
+   Without it the badge and the tile were centred as a pair and every summit
+   photograph was pushed half a badge to the right of the column it belongs to —
+   which is visible the moment you look down the page, because nothing else in
+   the column is off-centre. Padding rather than absolute positioning: 2021
+   holds two of these side by side, and a mark taken out of the flow would have
+   been drawn on top of the Olympic photograph next to it. */
+.pyrmajor {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding-right: calc(var(--badge) + 3px);
+}
 /* ⚠️ `pyrbadge`, not `badge`: the tournament page's status pill is `.badge`
    and gave both of these a rounded grey box behind them. Found by looking at
    the page, which is the only way a name collision in CSS ever is. */
@@ -1342,40 +1353,58 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
 .eraband { position: relative; margin: 10px 0 4px; }
 .eraband .empty { margin: 4px 2px; }
 
+/* ⚠️ **Not `overflow: hidden`.** It was, and it silently broke the sticky name
+   inside: an element with a clipped overflow is a scroll container, and a
+   `position: sticky` child inside one sticks to a box that never scrolls, which
+   is to say it does nothing. `.erafill` does the clipping instead. */
 .erabar {
-  position: absolute; height: 26px; overflow: hidden;
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 6px; padding: 0 6px 0 3px; border-radius: 4px;
-  background: rgba(255, 255, 255, .05);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .10);
+  position: absolute; height: 26px;
+  display: flex; align-items: center;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .13);
   font-size: 11px; color: var(--text);
 }
 
-/* One block per season inside the run, shaded by how many titles it held. A
-   flat fill would claim LEE Chong Wei's three-title 2008 and his seven-title
-   2013 were the same season. Green because these are titles, and green is what
-   a title is everywhere else in this app. */
-.erayr { position: absolute; top: 0; bottom: 0; background: var(--res-w); }
+.erafill {
+  position: absolute; inset: 0; overflow: hidden; border-radius: 4px;
+  background: rgba(255, 255, 255, .04);
+}
 
+/* One block per season inside the run, in the player's colour and shaded by how
+   many titles that season held — a flat fill would claim LEE Chong Wei's
+   three-title 2008 and his seven-title 2013 were the same season.
+   ⚠️ Every block but the last runs to where the *next* column starts, not to
+   its own right edge: the columns are 10px apart and stopping at the edge left
+   a dark stripe at every year boundary, so a decade read as ten bars. */
+.erayr { position: absolute; top: 0; bottom: 0; background: var(--era); }
+
+/* ⚠️ Sticky, so the name travels with the scroll and is readable for the whole
+   of a ten-season run rather than only while 2007 is on screen. Clamped to its
+   own bar, so it never wanders onto somebody else's. The dark pill is what
+   keeps it legible as it slides across eight different colours at six different
+   strengths. */
 .erawho {
-  position: relative; display: flex; align-items: center; gap: 5px;
-  min-width: 0; font-weight: 600; white-space: nowrap;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, .8);
+  position: sticky; left: 3px; z-index: 1;
+  display: flex; align-items: center; gap: 5px;
+  /* ⚠️ Clamped to the bar it belongs to. `.erabar` cannot clip — that would
+     break the sticky above — so a long name in a one-season bar has to be
+     stopped here or it hangs over the neighbouring lane. */
+  max-width: calc(100% - 6px); min-width: 0;
+  margin: 0 3px; padding: 2px 6px 2px 2px; border-radius: 11px;
+  background: rgba(16, 16, 16, .55);
+  font-weight: 600; white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .9);
 }
 .erawho b { overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
 .erawho .face {
-  width: 20px; height: 20px; border-radius: 50%; object-fit: cover;
+  width: 18px; height: 18px; border-radius: 50%; object-fit: cover;
   object-position: top center; flex: none;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, .5);
 }
 .erawho .noface { font-size: 8px; }
-
-.eran {
-  flex: none; font-style: normal; font-variant-numeric: tabular-nums;
-  font-weight: 700; color: var(--text); opacity: .85;
-  padding-left: 2px;
-}
-
+/* Smaller than the photograph beside it: the flag says which country, and a
+   circle the same size as a face competes with it for the same job. */
+.erawho .flag { width: 14px; height: 14px; }
 
 /* ⚠️ The player card belongs to the pages that are *about* a player. The
    tournament and winners pages are about the sport — whatever is on court this

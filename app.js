@@ -1198,6 +1198,23 @@ function renderWinners() {
 const ERA_LANE_H = 26;
 const ERA_LANE_GAP = 4;
 
+/* One colour per player, cycled.
+ *
+ * ⚠️ Not the green a title is drawn in everywhere else, which is what this used
+ * to be. A bar is not about *what* was won, it is about *who* — and a band in
+ * one colour makes two people who overlapped read as one long reign with a step
+ * in it. Eight hues, assigned in the order the band is sorted, which is by the
+ * season a career opens: two players share a colour only if eight others opened
+ * between them, which in the recorded data is never inside one screen.
+ *
+ * ⚠️ The BWF red and the live-match teal are deliberately absent. Both mean
+ * something specific elsewhere in this app and a player who happened to be
+ * eighth should not borrow it. */
+const REIGN_COLOURS = [
+  '#4f9dff', '#f2994a', '#c77dff', '#57c98a',
+  '#ff6b8b', '#f6d34a', '#7fd4d0', '#a3a3ff',
+];
+
 function renderEraBand(seasons, players) {
   const host = $('winEraBand');
   if (!host) return;
@@ -1205,6 +1222,7 @@ function renderEraBand(seasons, players) {
   if (!lanes.length) {
     host.innerHTML = `<p class="empty">Nobody won ${esc(reignStep(win.reign).full)}`
       + ` in any season on this board.</p>`;
+    host.style.height = '';
     return;
   }
 
@@ -1216,39 +1234,69 @@ function renderEraBand(seasons, players) {
     at.set(Number(col.dataset.year), { left: r.left - base.left, w: r.width });
   }
 
+  /* ⚠️ A season's block runs to where the *next* one starts, not to its own
+     right edge. The columns are 10px apart, and stopping at the edge left a
+     dark stripe at every year boundary — so a nine-season run read as nine
+     bars rather than as one. The last season in a run stops at the column,
+     because that is where the run stops. */
+  const order = [...at.keys()].sort((a, b) => a - b);
+  const runsTo = new Map(order.map((y, i) => {
+    const next = at.get(order[i + 1]);
+    return [y, next ? next.left : at.get(y).left + at.get(y).w];
+  }));
+
   // The brightest year on the board, so the shading means the same thing at
   // every bar rather than being normalised per player.
   const peak = Math.max(...lanes.flatMap(p => p.runs.map(r => r.peak)), 1);
   const bar = reignStep(win.reign).n;
   const rows = Math.max(...lanes.map(p => p.lane)) + 1;
 
-  const bars = lanes.flatMap(p => p.runs.map(run => {
+  const bars = lanes.flatMap((p, i) => p.runs.map(run => {
     const a = at.get(run.from), b = at.get(run.to);
     if (!a || !b) return '';
     const left = Math.round(a.left);
-    const width = Math.round(b.left + b.w - a.left);
-    const years = run.years.map(y => {
+    const right = b.left + b.w;
+    const width = Math.round(right - a.left);
+    const years = run.years.map((y, n) => {
       const c = at.get(y.year);
       if (!c) return '';
-      // ⚠️ A ramp, not a flat fill: the bar says "a run", the shading says how
-      // hard. LEE Chong Wei's 2013 was seven titles and his 2008 was three, and
-      // one block of colour claims those were the same season.
-      const alpha = (0.22 + 0.6 * (y.n - bar) / Math.max(1, peak - bar)).toFixed(3);
+      const to = n === run.years.length - 1 ? right : runsTo.get(y.year);
+      /* ⚠️ A ramp, not a flat fill: the bar says "a run", the shading says how
+         hard. LEE Chong Wei's 2013 was seven titles and his 2008 was three, and
+         one block of colour claims those were the same season.
+         ⚠️ Gentle on purpose — 0.62 to 0.95, not 0 to 1. A wide range turned
+         every season boundary into a hard edge, and a decade drawn in ten
+         visibly different shades reads as ten bars however well they touch. */
+      const alpha = (0.62 + 0.33 * (y.n - bar) / Math.max(1, peak - bar)).toFixed(3);
       return `<span class="erayr" style="left:${Math.round(c.left - a.left)}px;`
-        + `width:${Math.round(c.w)}px;opacity:${alpha}"></span>`;
+        + `width:${Math.round(to - c.left)}px;opacity:${alpha}"></span>`;
     }).join('');
     const who = (p.who && p.who.n) || String(p.id);
     const span = run.from === run.to ? String(run.from) : `${run.from}–${run.to}`;
     const detail = run.years.map(y => `${y.year}: ${y.n}`).join('\n');
+    /* ⚠️ The name is `position: sticky`, so it slides along the bar and stays on
+       screen for the whole of a ten-season run rather than only while its first
+       season is in view. Repeating it once per season was the other candidate
+       and is a wall of the same six words. That is why `.erabar` must *not*
+       clip: an `overflow: hidden` ancestor is a scroll container, and a sticky
+       element inside one sticks to a box that never scrolls — which is to say,
+       it does nothing at all. The shading is clipped by `.erafill` instead. */
     return `<div class="erabar" data-id="${esc(String(p.id))}" data-lane="${p.lane}"
-      data-from="${run.from}" data-to="${run.to}"
-      style="left:${left}px;width:${width}px;top:${p.lane * (ERA_LANE_H + ERA_LANE_GAP)}px"
-      title="${esc(`${who}\n${span} · ${run.total} titles\n${detail}`)}">${years}`
-      /* Name and total both at the *left*, not at the two ends. LEE Chong
-         Wei's bar is ten columns long, and a total pinned to its right edge
-         is only legible once you have scrolled to a year it is not about. */
+      data-from="${run.from}" data-to="${run.to}" data-n="${run.total}"
+      style="--era:${REIGN_COLOURS[i % REIGN_COLOURS.length]};left:${left}px;`
+      + `width:${width}px;top:${p.lane * (ERA_LANE_H + ERA_LANE_GAP)}px"
+      title="${esc(`${who}${p.who && p.who.c ? ' · ' + p.who.c : ''}\n`
+        + `${span} · ${run.total} titles\n${detail}`)}">`
+      + `<span class="erafill">${years}</span>`
       + `<span class="erawho">${winnerFace(p.who, 20)}<b>${esc(who)}</b>`
-      + `<i class="eran">${run.total}</i></span></div>`;
+      + (p.who && p.who.f
+        /* ⚠️ Not lazy, unlike the faces. There are at most fifteen of these on
+           the board and they are a kilobyte each, and a lazy flag arrives after
+           the name it belongs to has already been read. */
+        ? `<img class="flag" src="${esc(p.who.f)}" alt="${esc(p.who.c || '')}"
+            width="14" height="14">`
+        : '')
+      + `</span></div>`;
   })).join('');
 
   host.style.height = (rows * ERA_LANE_H + (rows - 1) * ERA_LANE_GAP) + 'px';
@@ -3294,7 +3342,7 @@ window.BST = {
         lane: Number(b.dataset.lane),
         from: Number(b.dataset.from),
         to: Number(b.dataset.to),
-        n: Number((b.querySelector('.eran') || {}).textContent),
+        n: Number(b.dataset.n),
         x: Math.round(r.left * 10) / 10,
         w: Math.round(r.width * 10) / 10,
       };
