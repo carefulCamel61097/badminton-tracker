@@ -3063,6 +3063,45 @@ await b.until(`window.BST.tmt.today() === '2026-08-23'`, { timeout: 30000 });
 await b.ev(`document.querySelector('#pageNav [data-page="seasons"]').click()`);
 eq('starting on the seasons', await onPage(), 'seasons');
 
+/* ---- the level chips, on the seasons page ----
+
+   The same two keys as the compare grid, doing the same thing to the same kind
+   of row: up adds the highest that is off, down drops the lowest that is on. */
+
+/** The level chips as drawn, hardest first — the order the keys walk. */
+const seasonChips = () => b.ev(`[...document.querySelectorAll('#levels .chip')]
+  .map(c => (c.classList.contains('on') ? '' : '-') + c.dataset.cat)`);
+
+const levelsBefore = await seasonChips();
+check('the level chips are up', levelsBefore.length > 3, levelsBefore.join(' '));
+/* ⚠️ The team events start off, by `applyLevelDefaults` — so "the lowest that is
+   on" is not simply the last chip, and a rule that assumed it was would have
+   pressed a chip that was already off. */
+const lowestOn = [...levelsBefore].reverse().find(c => !c.startsWith('-'));
+eq('down drops the lowest level that is on', await press('ArrowDown'), true);
+eq('which is the last one lit, not the last one drawn',
+  (await seasonChips()).find(c => c === '-' + lowestOn), '-' + lowestOn);
+await press('ArrowUp');
+/* ⚠️ Up adds the **highest** that is off, and after that press the highest one
+   off is the chip that was just dropped — which is what makes the two keys
+   inverses of each other. */
+eq('and up puts it back', (await seasonChips()).join(' '), levelsBefore.join(' '));
+
+/* Pressed enough times, up eventually reaches the team events, which is the
+   right answer: they are off by default and this is a way to switch them on. */
+for (let i = 0; i < levelsBefore.length; i++) await press('ArrowUp');
+check('up far enough turns everything on',
+  (await seasonChips()).every(c => !c.startsWith('-')),
+  (await seasonChips()).join(' '));
+eq('and one more is handled without doing anything', await press('ArrowUp'), true);
+for (let i = 0; i < levelsBefore.length + 1; i++) await press('ArrowDown');
+check('down far enough turns everything off',
+  (await seasonChips()).every(c => c.startsWith('-')),
+  (await seasonChips()).join(' '));
+/* Back to where the page started, so nothing below inherits an empty strip. */
+await b.ev(`location.hash = '#p=57945&pg=seasons&now=2026-08-23'`);
+await b.until(`document.querySelectorAll('#levels .chip.on').length > 3`, { timeout: 30000 });
+
 /* ---- left and right walk the pages ---- */
 
 await press('ArrowRight');
@@ -3134,6 +3173,20 @@ await press('m');
 check('and m the men', await b.until(
   `document.querySelector('#winKind .seg.on').textContent === 'MS'`, { timeout: 120000 }));
 
+/* The arrows do what the view in front of them has to give: the 3+ / 4+ / 5+
+   bar on the board, the Show bar on the score. */
+await press('s');
+eq('s is the score', await b.ev('window.BST.score.view()'), 'score');
+const floorKeyed = await b.ev('window.BST.score.floor()');
+await press('ArrowUp');
+eq('up lowers the bar, showing more',
+  await b.ev('window.BST.score.floor()'), floorKeyed - 5);
+await press('ArrowDown');
+eq('and down raises it again',
+  await b.ev('window.BST.score.floor()'), floorKeyed);
+await press('b');
+eq('b is the board again', await b.ev('window.BST.score.view()'), 'board');
+
 /* ---- the compare page ---- */
 
 await b.ev(`document.querySelector('#pageNav [data-page="compare"]').click()`);
@@ -3177,12 +3230,53 @@ eq('up stops at the quarter-finals', await b.ev('window.BST.grid.state.threshold
 check('the bar travels in the link',
   await b.ev(`location.hash.includes('th=qf')`), await b.ev('location.hash'));
 
-/* ⚠️ Not prevented on the grid, which is the point: there is no bar to step, so
-   the keystroke has to fall through to the browser and scroll the page. */
+/* The level chips, on the same two arrows one view over.
+
+   ⚠️ **Up adds the highest that is off; down removes the lowest that is on.**
+   Not "the next one along from wherever you last were": a row of chips has no
+   cursor, and a key that depended on one would do different things depending on
+   what had been clicked. From the ends the two keys are exact inverses, which is
+   what the checks below actually assert. */
 await press('g');
-eq('the grid has no bar to step', await b.ev(`document.getElementById('honMin').hidden`), true);
-eq('so the arrows are left to scroll it', await press('ArrowDown'), false);
-eq('and nothing moved', await b.ev('window.BST.grid.state.threshold'), 'qf');
+eq('the grid has no round bar', await b.ev(`document.getElementById('honMin').hidden`), true);
+
+/** The level chips as drawn, hardest first — which is the order the keys walk. */
+const levelChips = id => b.ev(`[...document.querySelectorAll('#${id} .chip')]
+  .map(c => (c.classList.contains('on') ? '' : '-') + c.textContent.replace(/\\d+$/, '').trim())`);
+
+const gridBefore = await levelChips('gridGroups');
+check('and its levels are all on to begin with',
+  gridBefore.every(c => !c.startsWith('-')), gridBefore.join(' '));
+
+eq('down is handled here rather than left to the scroller',
+  await press('ArrowDown'), true);
+const gridDown = await levelChips('gridGroups');
+eq('and it drops the lowest level, not the first',
+  gridDown.filter(c => c.startsWith('-')).join(','),
+  '-' + gridBefore[gridBefore.length - 1]);
+await press('ArrowDown');
+eq('again and it drops the next one up',
+  (await levelChips('gridGroups')).filter(c => c.startsWith('-')).length, 2);
+await press('ArrowUp');
+await press('ArrowUp');
+eq('and up puts them back in the order they went',
+  (await levelChips('gridGroups')).join(' '), gridBefore.join(' '));
+
+/* ⚠️ Off the chips the page has drawn, not off `gridOrder` — a key that walked
+   the source list would eventually reach for something not on the bar. */
+await press('ArrowUp');
+eq('up with everything already on does nothing, but is still handled',
+  (await levelChips('gridGroups')).join(' '), gridBefore.join(' '));
+
+check('what the keys did travels in the link',
+  await b.ev(`(async () => {
+    const before = location.hash;
+    document.body.dispatchEvent(new KeyboardEvent('keydown',
+      { key: 'ArrowDown', bubbles: true, cancelable: true }));
+    return location.hash !== before;
+  })()`));
+await press('ArrowUp');
+
 await press('h');
 await b.ev(`document.querySelector('#honMin [data-hmin="sf"]').click()`);
 /* ⚠️ The same two letters mean something else one page over. That is fine

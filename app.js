@@ -2663,6 +2663,64 @@ function stepHonourBar(by) {
   return true;
 }
 
+/* ---- stepping the level chips ----
+
+   ⚠️ **Up adds the highest that is off, down removes the lowest that is on.**
+   Not "the next one along from wherever you last were": there is no cursor on a
+   row of chips, and a key that depended on one would do different things
+   depending on what had been clicked. Working from the ends means the two keys
+   are inverses of each other — every press of down is undone by a press of up —
+   and it walks the ladder the way somebody narrowing a career actually thinks:
+   *drop the small ones, keep the big ones.*
+
+   ⚠️ The order is the **chip order**, which is the order on screen, so what the
+   key does is visible before it is pressed. On the Seasons page that is
+   `LEVEL_ORDER` filtered to what the career holds; on the Compare grid it is
+   `gridOrder`, which changes with the era switch. Neither is the numeric order
+   of BWF's category ids, which is arbitrary.
+   ==================================================================== */
+
+/**
+ * Which chip the key should press, read off **the chips themselves**.
+ *
+ * ⚠️ Off the row that is rendered, not off `LEVEL_ORDER` or `gridOrder`. Those
+ * are what the row is *built* from, and a key that walked the source list would
+ * eventually reach for something the page had not drawn — the tail behind the
+ * **more** menu on the Seasons page is a dozen unmapped Superseries-era ids, and
+ * switching one of those on changes the strip with nothing on screen moving to
+ * explain it. What is on the bar is what the keys can reach.
+ *
+ * @param {string} id  the chip row
+ * @param {number} by  -1 to add the highest that is off, +1 to remove the lowest on
+ * @returns {HTMLElement|null}
+ */
+function nextLevelChip(id, by) {
+  const chips = [...$(id).querySelectorAll('.chip')];
+  return (by < 0 ? chips.find(c => !c.classList.contains('on'))
+    : chips.reverse().find(c => c.classList.contains('on'))) || null;
+}
+
+/** The Seasons page's level chips. */
+function stepSeasonLevel(by) {
+  const chip = nextLevelChip('levels', by);
+  if (!chip) return !!$('levels').querySelector('.chip');   // nothing left to do
+  toggleLevel(chip.dataset.cat);
+  return true;
+}
+
+/** The Compare page's grid, whose chips are sections rather than raw levels. */
+function stepGridGroup(by) {
+  if (grid.view !== 'grid') return false;
+  const chip = nextLevelChip('gridGroups', by);
+  if (!chip) return !!$('gridGroups').querySelector('.chip');
+  const g = chip.dataset.group;
+  if (grid.hiddenGroups.has(g)) grid.hiddenGroups.delete(g);
+  else grid.hiddenGroups.add(g);
+  renderGrid();
+  writeHash();
+  return true;
+}
+
 function setWinKind(kind) {
   if (!WIN_KINDS.includes(kind) || kind === win.kind) return;
   win.kind = kind;
@@ -2678,12 +2736,24 @@ function runHotkey(key) {
   if (key === 'ArrowLeft') { stepPage(-1); return true; }
   if (key === 'ArrowRight') { stepPage(1); return true; }
 
+  if (page === 'seasons') {
+    if (key === 'ArrowUp' || key === 'ArrowDown') {
+      return stepSeasonLevel(key === 'ArrowUp' ? -1 : 1);
+    }
+    return false;
+  }
+
   if (page === 'compare') {
     if (key === 'g') { setGridView('grid'); return true; }
     if (key === 'h') { setGridView('honours'); return true; }
     if (key === 'w') { setGridEra('wt'); return true; }
     if (key === 's') { setGridEra('ss'); return true; }
-    if (key === 'ArrowUp' || key === 'ArrowDown') return stepHonourBar(key === 'ArrowUp' ? -1 : 1);
+    /* Up shows more on both views, and what "more" means is what each view has
+       to give: another round on the honours board, another level on the grid. */
+    if (key === 'ArrowUp' || key === 'ArrowDown') {
+      const by = key === 'ArrowUp' ? -1 : 1;
+      return grid.view === 'honours' ? stepHonourBar(by) : stepGridGroup(by);
+    }
     return false;
   }
 

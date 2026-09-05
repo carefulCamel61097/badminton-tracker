@@ -2230,6 +2230,31 @@ Worth knowing before adding any other view that toggles: the symptom is not an e
 two things on screen at once, and it is easy to read as a render bug in the new code.
 
 ---
+### 4.9 Stepping a row of chips *(built 5 Sep 2026)*
+
+⚠️ **Up adds the highest that is off; down removes the lowest that is on.** Not "the next one
+along from where you last were": a row of chips has **no cursor**, and a key that invented one
+would do different things depending on what had been clicked. Working from the ends makes the
+two keys exact inverses — every press of down is undone by a press of up — and it walks the
+ladder the way somebody narrowing a career actually thinks: drop the small ones, keep the big
+ones.
+
+⚠️ **The order walked is read off the chips the page has drawn**, not off `LEVEL_ORDER` or
+`gridOrder`. Those are what the row is built *from*, and a key walking the source list would
+eventually reach for something not on the bar — the Seasons page keeps a dozen unmapped
+Superseries-era ids behind its "N more" menu, and switching one of those on changes the strip
+with nothing on screen moving to explain it.
+
+⚠️ **The team events are off by default**, so "the lowest that is on" is not the last chip
+drawn. A rule that assumed it was would press a chip that was already off and appear to do
+nothing.
+
+⚠️ This takes the page scroller's arrows on the Seasons page and the career grid, which
+`README.md` used to promise it never would. The trade is deliberate and is written down
+there: the arrows are the only keys that can be *held*, so narrowing a fourteen-level strip is
+four taps rather than four aimed clicks.
+
+
 
 ## Part 5 — What to port from the old repo
 

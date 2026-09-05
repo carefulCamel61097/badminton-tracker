@@ -764,36 +764,54 @@ never a hidden feature — and each page's own keys are printed under its notes.
 | | |
 |---|---|
 | <kbd>←</kbd> <kbd>→</kbd> | move between Seasons, Compare, Tournament and Winners (wrapping) |
+| **Seasons** | <kbd>↑</kbd> <kbd>↓</kbd> the level chips — up adds the highest that is off, down drops the lowest that is on |
 | **Compare** | <kbd>G</kbd> grid · <kbd>H</kbd> honours · <kbd>W</kbd> World Tour names · <kbd>S</kbd> Superseries names |
-| **Compare** | <kbd>↑</kbd> <kbd>↓</kbd> the QF+ / SF+ / F+ / W bar — **honours board only**, since that is the only view the bar is on; the grid keeps its arrows for scrolling |
+| **Compare** | <kbd>↑</kbd> <kbd>↓</kbd> the QF+ / SF+ / F+ / W bar on the honours board, and the level chips on the grid |
 | **Tournament** | <kbd>O</kbd> order of play · <kbd>B</kbd> bracket · <kbd>S</kbd> starred only |
 | **Tournament** | <kbd>↑</kbd> <kbd>↓</kbd> the day, or — in the bracket — how much of the draw |
 | **Tournament** | <kbd>M</kbd> <kbd>W</kbd> <kbd>X</kbd> the discipline; press again for that gender's doubles |
 | **Winners** | <kbd>B</kbd> board · <kbd>S</kbd> score · <kbd>M</kbd> men's singles · <kbd>W</kbd> women's singles · <kbd>E</kbd> the dominance band |
 | **Winners** | <kbd>↑</kbd> <kbd>↓</kbd> the 3+ / 4+ / 5+ bar while the band is on — or, on the score, the **Show** bar |
 
-Four things about this are deliberate.
+Six things about this are deliberate.
 
 **Nothing fires while a modifier is held.** <kbd>Alt</kbd>+arrow is the browser's Back and
 Forward, <kbd>Ctrl</kbd>+O opens a file, <kbd>Ctrl</kbd>+S saves the page and
 <kbd>Ctrl</kbd>+W closes the tab — every one collides with a key above. A modified
 keystroke is not handled *and not prevented*: it goes straight through to the browser.
 
-**Where a page has nothing to step, the arrows are left alone.** <kbd>↑</kbd> <kbd>↓</kbd>
-are not merely inert on the career grid — they are not `preventDefault`ed, so the browser
-still scrolls with them. A shortcut that swallows a key without doing anything is worse
-than no shortcut.
+**Where a page has nothing to step, the arrows are left alone.** They are not merely inert
+there — they are not `preventDefault`ed, so the browser still scrolls with them. A shortcut
+that swallows a key without doing anything is worse than no shortcut. That now applies only
+to a page with no chips and no bar on it at all: before anybody is searched for, the Seasons
+page has no level chips, so its arrows still scroll.
 
 **Nothing fires while you are typing**, which matters more than it sounds, because the app
 focuses the search box on load — so on a fresh page every letter would land in the box
 rather than reaching the page. <kbd>Esc</kbd> leaves the box, and is therefore the way in.
 
-**<kbd>↑</kbd> <kbd>↓</kbd> are taken from the page scroller, and only on the tournament
-page.** That page has a scroller of its own — an unfolded 64 draw is 1906px inside a
-~900px viewport — so the trade is real: the wheel, the scrollbar, <kbd>PgUp</kbd>/<kbd>PgDn</kbd>,
-<kbd>Home</kbd>/<kbd>End</kbd> and the space bar all still scroll it, and every other page
-keeps its arrows. <kbd>←</kbd> <kbd>→</kbd> are taken everywhere, which costs the
-horizontal scroll of the compare grid and the unfolded bracket to the arrows alone.
+**<kbd>↑</kbd> <kbd>↓</kbd> mean "show me more" everywhere they do anything.** One more round
+on the honours board, one more level on the Seasons strip and the career grid, one more line
+on the domination score, one more day at a tournament. What differs is what each page has to
+give; the direction never does.
+
+On the level chips that is **up adds the highest that is off, down drops the lowest that is
+on**. Not "the next one along from wherever you last were": a row of chips has no cursor, and
+a key that depended on one would do different things depending on what had been clicked. From
+the ends the two keys are exact inverses — every press of down is undone by a press of up —
+and it walks the ladder the way somebody narrowing a career actually thinks: *drop the small
+ones, keep the big ones.* The order walked is the order **on screen**, so what the key will do
+is visible before it is pressed; and the keys reach only the chips the page has drawn, never
+the tail of unmapped ids behind the Seasons page's "N more" menu — switching one of those on
+would change the strip with nothing on screen moving to explain it.
+
+**The cost is the page scroller**, and it is now paid on every page rather than only on the
+tournament one. The wheel, the scrollbar, <kbd>PgUp</kbd>/<kbd>PgDn</kbd>,
+<kbd>Home</kbd>/<kbd>End</kbd> and the space bar all still scroll, and a career strip is long
+enough that this is a real trade. It is worth it because the arrows are the only keys that
+can be *held*: narrowing a fourteen-level strip to the four that matter is four taps of one
+key rather than four aimed clicks. <kbd>←</kbd> <kbd>→</kbd> are taken everywhere, which costs
+the horizontal scroll of the compare grid and the unfolded bracket to the arrows alone.
 
 **One letter, two draws, two kinds of control.** <kbd>M</kbd> means "show me the men's
 singles" in both tournament views, though they hold the discipline differently: the bracket
