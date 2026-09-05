@@ -1690,6 +1690,14 @@ function drawScore(model) {
   const out = [`<defs><clipPath id="scoreFace"><circle r="${SC.face}"></circle></clipPath></defs>`];
   const thin = thinSeasons(seasons);
   const now = new Date().getUTCFullYear();
+  /* ⚠️ **The union, and the axis has to use it too.** A season gets a faint
+     column for either of two reasons — far fewer titles than its neighbours, or
+     the pandemic — and 2021 has only the second. It was drawn the column and the
+     word "Covid" and then *not* the mark beside its year, because the mark was
+     still keyed on the count alone. One set for both, or the axis quietly says a
+     pandemic season was a normal one. */
+  const marked = [...new Set([...thin.set, ...COVID_SEASONS])].sort((a, b) => a - b);
+  const isMarked = new Set(marked);
 
   /* A faint column for a season the reader should not take at face value, named
      at the foot of it. The strip under the axis says *how* short; this says
@@ -1706,7 +1714,7 @@ function drawScore(model) {
   const half = (SC.w - SC.l - SC.r) / Math.max(1, n - 1) / 2;
   /* In year order, not set order: these are drawn into the document and read
      left to right, and the union came out 2020, 2022, 2026, 2021. */
-  for (const yr of [...new Set([...thin.set, ...COVID_SEASONS])].sort((a, b) => a - b)) {
+  for (const yr of marked) {
     const i = years.indexOf(yr);
     if (i < 0) continue;
     out.push(`<rect class="scorehole" x="${x(i) - half * 0.75}" y="${SC.t}"`
@@ -1743,7 +1751,7 @@ function drawScore(model) {
        which is what it does on the board above, where the note calls it an
        asterisk and the page draws a dot. Here the note says asterisk and the
        page draws one. */
-    const mark = thin.set.has(yr) ? '<tspan class="ast">*</tspan>' : '';
+    const mark = isMarked.has(yr) ? '<tspan class="ast">*</tspan>' : '';
     out.push(`<text x="${x(i)}" y="${SC.h - SC.b + 15}" text-anchor="middle">${yr}${mark}</text>`);
   });
   out.push('</g>');
@@ -1970,6 +1978,23 @@ function renderScoreRanking(model) {
      career count says nothing about the season being ranked — what a peak of 76
      *means* is "8 of the 12 titles there were that year", and which year it
      was. */
+  /* ⚠️ Worked out **once**, not per row: what each of these careers looks like
+     with the pandemic seasons counted, so a row being under-counted can say by
+     how much rather than only that it is. Only when they are out — with them in
+     there is nothing to compare against.
+
+     ⚠️ The mark is keyed on **this comparison**, not on `dropped`. A career can
+     lose a season for the other reason too — a year still being played with no
+     calendar to weigh it against — and an asterisk that meant either would be
+     an asterisk that meant neither. Here it means one thing: counting the
+     pandemic seasons would make this number bigger. */
+  const withCovid = new Map(win.covid ? []
+    : dominationRanking(model, win.rank).map(r => [r.id, r]));
+  const under = r => {
+    const w = withCovid.get(r.id);
+    return w && w.total > r.total + 1e-9 ? w : null;
+  };
+
   const byPeak = win.rank === 'peak';
   const tail = byPeak
     ? { a: 'Season', b: 'Titles', va: r => r.peakYear,
@@ -1987,10 +2012,25 @@ function renderScoreRanking(model) {
 ${r.first}–${r.last}`
         + ` · ${r.titles} titles in ${r.seasons} seasons`
         + ` · best ${scoreText(r.peak)} in ${r.peakYear},`
-        + ` ${r.peakTitles} of ${r.peakPlayed}`)}">`
+        + ` ${r.peakTitles} of ${r.peakPlayed}`
+        + (under(r)
+          ? `
+* ${r.dropped} season${r.dropped === 1 ? '' : 's'} set aside`
+            + ` (${covidSpan()}). Counted, this reads`
+            + ` ${scoreText(under(r).total)} total,`
+            + ` ${scoreText(under(r).peak)} peak.`
+          : ''))}">`
       + `<td class="n rk">${r.rank}</td>`
       + `<td><span class="rkwho">${legendFace(r.who) || '<i class="noface"></i>'}`
-      + `${esc(r.who.n)}</span></td>`
+      /* ⚠️ **An asterisk on a career that is being under-counted**, and the same
+         asterisk the axis uses for the same reason: there is a season here you
+         are not being shown. Without it the table looks like a complete account
+         of everybody, when in fact Viktor AXELSEN is fifth on 131 of a career
+         that is 315 with the pandemic seasons in. The mark is the honest way to
+         set them aside — say so on the row, rather than only in a caption above
+         it that a reader scrolling to a name will never have read. */
+      + `${esc(r.who.n)}${under(r) ? '<i class="ast" aria-hidden="true">*</i>' : ''}`
+      + `</span></td>`
       + `<td class="n${byPeak ? '' : ' by'}">${num(r.total)}</td>`
       /* The year is what makes a peak a claim rather than a number — 76 in a
          season nobody remembers is a different sentence from 76 in 2025. It is

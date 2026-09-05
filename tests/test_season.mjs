@@ -2920,9 +2920,15 @@ check('and the count is on every bar, not only the marked ones',
 
 /* ⚠️ A year carrying the footnote must keep its axis label, or the mark has
    nothing to sit on. 2020 and 2022 both fell on the skipped alternate when the
-   axis thinned to every other year, and the asterisk simply was not drawn. */
+   axis thinned to every other year, and the asterisk simply was not drawn.
+   ⚠⚠ **2021 is in this list because it was missed.** A season is marked for
+   either of two reasons — far fewer titles than its neighbours, or the pandemic
+   — and 2021 has only the second. It was drawn the faint column and the word
+   "Covid" and then not the mark beside its year, because the mark was still
+   keyed on the count alone, so the axis said a pandemic season was a normal
+   one. */
 const axisMS = await b.ev(`window.BST.score.axis()`);
-for (const yr of [2020, 2022]) {
+for (const yr of [2020, 2021, 2022]) {
   check(`${yr} keeps its label, and its mark`,
     axisMS.includes(String(yr) + '*'), axisMS.join(' '));
 }
@@ -3082,6 +3088,35 @@ const covidOut = await b.ev(`window.BST.score.ranks()`);
 eq('so the men’s singles reads the way anybody would expect',
   covidOut.slice(0, 3).map(r => r.who).join(', '),
   'LEE Chong Wei, LIN Dan, CHEN Long');
+/* ⚠️ **An asterisk on a name means that career is being under-counted** — the
+   same mark, for the same reason, as the one beside a pandemic year on the axis:
+   there is a season here you are not being shown. Without it the table reads as
+   a complete account of everybody, when Viktor AXELSEN is fifth on 131 of a
+   career that is 315 with those seasons counted. */
+const marked = await b.ev(`[...document.querySelectorAll('#scoreRank .rankrow')]
+  .map(r => ({ who: r.children[1].textContent.trim(),
+    ast: !!r.children[1].querySelector('.ast'),
+    tip: r.getAttribute('title') || '' }))`);
+check('the careers with seasons set aside are marked',
+  marked.some(m => m.ast), marked.slice(0, 6).map(m => m.who).join(' | '));
+check('and the ones with nothing set aside are not',
+  marked.some(m => !m.ast), marked.slice(0, 6).map(m => `${m.who}:${m.ast}`).join(' | '));
+/* ⚠️ LEE Chong Wei and LIN Dan retired before any of it, so a mark on them
+   would be saying something untrue about the number beside it. */
+for (const who of ['LEE Chong Wei', 'LIN Dan']) {
+  const row = marked.find(m => m.who.startsWith(who));
+  if (row) check(`${who} carries no mark, having no season set aside`, !row.ast, row.who);
+}
+const axeRow = marked.find(m => /AXELSEN/.test(m.who));
+if (axeRow) {
+  check('Viktor AXELSEN carries one', axeRow.ast, axeRow.who);
+  /* The hover says by how much, because "under-counted" without a number is a
+     warning rather than a fact. */
+  check('and the hover says what the numbers would be with them counted',
+    /set aside/.test(axeRow.tip) && /Counted, this reads/.test(axeRow.tip),
+    axeRow.tip);
+}
+
 check('and the caption says which seasons are not being counted',
   /2020.{0,3}22 set aside/.test(await b.ev(`document.getElementById('rankWhat').textContent`)),
   await b.ev(`document.getElementById('rankWhat').textContent`));
@@ -3095,6 +3130,11 @@ check('and it is most of his total that they were',
     > 2 * covidOut.find(r => /AXELSEN/.test(r.who)).total,
   `${covidOut.find(r => /AXELSEN/.test(r.who)).total} -> `
   + `${covidIn.find(r => /AXELSEN/.test(r.who)).total}`);
+/* With the seasons counted there is nothing being set aside, so nothing to
+   mark — an asterisk that stayed would be pointing at nothing. */
+check('and with them counted, no career is marked as under-counted',
+  await b.ev(`document.querySelectorAll('#scoreRank .rankrow .ast').length`) === 0,
+  await b.ev(`document.querySelectorAll('#scoreRank .rankrow .ast').length`));
 check('the chip lights when they are in',
   await b.ev(`document.getElementById('rankCovid').classList.contains('on')`));
 /* ⚠️ **Red, and by the same rule as every other chip on the site.** This was

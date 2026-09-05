@@ -1699,6 +1699,11 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
 /* The year a peak was taken in. 76 in a season nobody remembers is a different
    sentence from 76 in 2024, and the number alone cannot say which. */
 .ranktable .yr { font-size: 10px; color: var(--text-muted); margin-left: 5px; }
+/* The same asterisk the axis puts on a pandemic year, for the same reason: there
+   is a season here you are not being shown. */
+.ranktable .ast {
+  font-style: normal; color: var(--warn); margin-left: 3px; font-size: 11px;
+}
 /* "8 of 12" — the denominator is what makes a peak mean something, and it is
    the quieter half of the fact. */
 .ranktable .of, .scorecols .of {
