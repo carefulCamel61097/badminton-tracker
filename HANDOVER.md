@@ -1628,6 +1628,75 @@ than left over. The score chart's `lit()` is `!win.only.size || win.only.has(id)
 carried onto a chart that cannot show it — a competitor below the **Show** bar — would dim
 *every* line at once. The floor slider clears for the same reason.
 
+### 3.4q Dominators: the score, ranked *(built 5 Sep 2026)*
+
+The chart says who dominated *and when*; `dominationRanking` says who dominated, full stop.
+**Two orderings, both always drawn, only the sort moves.**
+
+**Total** is every season's share added up — it rewards staying there. **Peak** is the best
+single season — it rewards the year nobody else got a look in. They genuinely disagree, and
+that is why both columns are on every row and the sorted one is *marked* rather than being the
+only one shown: KIM / SEO are first on peak and eighth on total; LEE Chong Wei is second on
+total with the sixth-best peak on the men's board.
+
+⚠️⚠️ **There is no mean, and it is not an omission.** It is the obvious third column and it
+would be a lie. The data says who *won*, not who *entered*, so a competitor has a point only
+in the seasons they won something — the seasons they played and won nothing are missing from
+the divisor rather than sitting in it as zeroes. One good year would out-rank a fifteen-year
+career and the number would be describing the hole in the data. Same fact as the broken lines
+on the chart, which is worth saying out loud because the obvious fix (add a mean column) will
+look reasonable to whoever reads this next.
+
+⚠️⚠️ **The Show bar must not govern this table, and it took a measurement to see why.** The bar
+filters on *peak*. A total ranking cut by a peak filter is a different claim: at the men's
+singles default of 40 the table would hold seven names, and BOE / MOGENSEN — eight seasons and
+seventh on total — are dropped for a best season of 25.5. The bar declutters the chart; the
+ranking is the whole board. Top twenty by default, one click for all of them.
+
+⚠️ Ranks are **shared on a tie** and the next rank skips, as ranks do. The *order* within a tie
+is settled by the other number and then by name, so it does not depend on the order the seasons
+happened to be read in.
+
+#### Which forced two guards that should have been there anyway
+
+⚠️⚠️ **A pick the chart cannot draw used to fade every line at once.** `lit` was
+`!win.only.size || win.only.has(id)`, so a pick naming somebody the bar had hidden made it
+false for everybody — a chart faded to nothing with the cause off screen and nothing to click.
+It was already reachable from a link before this table existed. Both `drawScore` and
+`renderScoreLegend` now intersect the pick with what they are actually drawing. Exactly the
+same shape as the board's blind spot in 3.4p; two views, one bug, found from opposite ends.
+
+⚠️ **Clicking a row below the bar lowers the bar to fit.** The table lists everybody and the
+chart does not, so a reader who clicks a name in a ranking and gets nothing has been told a
+half-truth. `pickFromRanking` drops the floor to that competitor's peak (rounded down to a
+step) and ends `autoFloor` — and it must not go through the slider's own handlers, which clear
+the pick when the bar moves, deliberately, so that dragging does not leave a stale selection.
+
+⚠️ `.rkwho`, not `.who`. `.who` is the player card's 23px name heading and it made every row of
+this table a headline. Found by looking at the page, which is the only way a CSS name collision
+ever is — the third time this repo has hit one, after `.pyrbadge` / `.badge`.
+
+⚠️ `display: flex` on a `<td>` takes the cell out of table layout: the column stopped lining up
+with its own header and the blank-photograph placeholder was squeezed to a hairline. The flex
+box is a `<span>` inside the cell.
+
+⚠️ `.chiprow > .lbl` is a fixed 58px with `flex: none` — right for the one-word labels every
+other chip row has ("Levels", "Day", "Draws"), wrong for a sentence. Left at 58 it overflowed
+and printed straight over the link beside it, and `white-space: nowrap` alone only made the
+overlap longer.
+
+### 3.4r Every season named on the axis *(fixed 5 Sep 2026)*
+
+The score chart labelled every *other* year above fourteen seasons, on both the page and the
+poster. That was a guess rather than a measurement: the plot is 1118 units wide, which is 59 to
+a season over twenty, against a four-digit label of about 27 — they were never going to
+collide, and the poster's columns are never narrower than `colMin`, 46px. What the thinning did
+instead was make the reader count gaps to place a point, and it had already needed a
+special case to stop 2020 and 2022 losing their footnote marks by falling on the skipped
+alternate. Every year now, and the suite measures the drawn label boxes to prove they do not
+overlap rather than trusting the arithmetic above.
+
+
 ### 3.4j The summit at one size *(built 4 Sep 2026)*
 
 `pyramidScale` is `honourScale` except that `OLY` is drawn at the Worlds size. They share a

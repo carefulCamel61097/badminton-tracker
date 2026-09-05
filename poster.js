@@ -923,12 +923,13 @@ export async function drawScorePoster(file, opts) {
     ctx.fillText(lab, L.left - 12 - ctx.measureText(lab).width, yy + 4);
   }
 
-  /* ⚠️ Every other year when the axis is crowded — **except** a year carrying
-     the footnote, which must keep its label or the mark has nothing to sit on. */
+  /* ⚠️ **Every year**, as on the page. A column is never narrower than
+     `colMin` — 46px — and a four-digit label at 12px is about 28, so they do
+     not collide however long the crop is. Thinning them made the reader count
+     gaps to place a point, and had already had to spare the footnoted years
+     from the thinning by hand. */
   ctx.font = '400 12px "Segoe UI", Roboto, system-ui, sans-serif';
-  L.years.forEach((yr, i) => {
-    const keep = i === L.years.length - 1 || L.thin.set.has(yr);
-    if (L.years.length > 14 && i % 2 && !keep) return;
+  L.years.forEach(yr => {
     const marked = L.thin.set.has(yr);
     const lab = String(yr);
     const w = ctx.measureText(lab).width + (marked ? 6 : 0);

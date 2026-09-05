@@ -2973,6 +2973,190 @@ await b.wait(120);
 eq('clicking again lets it go',
   (await b.ev(`window.BST.score.marks()`)).filter(m => m.faded).length, 0);
 
+
+console.log('\n=== the winners page: the dominators, ranked ===');
+
+await b.ev(`window.BST.score.view('score')`);
+await b.until(`window.BST.score.marks().length > 5
+  && window.BST.score.ranks().length > 5`, { timeout: 60000 });
+
+const rankTotal = await b.ev(`window.BST.score.ranks()`);
+const rankModel = await b.ev(`window.BST.score.model()`);
+/* ⚠️ This section moves the bar — picking somebody it has hidden is one of the
+   things being checked — so what it found is put back at the end of it. A bar
+   the reader chose is ambient state that later sections read. */
+const rankFloorWas = await b.ev(`window.BST.score.floor()`);
+
+/* ⚠️ **The Show bar does not reach this table.** It filters on *peak*, and a
+   total ranking cut by peak is a different claim: at the men's singles default
+   of 40 it leaves seven names, and it drops BOE / MOGENSEN — eight seasons and
+   seventh on total — for a best season of 25. The bar declutters the chart; the
+   ranking is the whole board. */
+check('the ranking holds more people than the chart is drawing',
+  rankTotal.length > new Set((await b.ev(`window.BST.score.marks()`))
+    .map(m => m.id)).size,
+  `${rankTotal.length} ranked, ${new Set((await b.ev(`window.BST.score.marks()`))
+    .map(m => m.id)).size} on the chart`);
+
+eq('it opens in total order', await b.ev(`window.BST.score.rank()`), 'total');
+eq('and says which column that is', (await b.ev(`window.BST.score.rankBy()`)).join(), 'Total');
+check('with the rows actually in that order',
+  rankTotal.every((r, i) => !i || rankTotal[i - 1].total >= r.total),
+  rankTotal.map(r => r.total).join(' '));
+check('and ranked from one',
+  rankTotal[0].rank === 1 && rankTotal.every((r, i) => !i || r.rank >= rankTotal[i - 1].rank));
+
+/* ⚠️ Both numbers are always drawn and only the *sort* moves. The two orderings
+   disagree — that is the whole point — and a table showing one column at a time
+   would have hidden exactly that. */
+check('every row carries both numbers whichever the sort is',
+  rankTotal.every(r => r.total > 0 && r.peak > 0 && r.peakYear > 1990),
+  JSON.stringify(rankTotal[0]));
+
+const rankPeak = await b.ev(`(() => { window.BST.score.rank('peak');
+  return window.BST.score.ranks(); })()`);
+await b.wait(150);
+eq('the toggle re-sorts by peak', await b.ev(`window.BST.score.rank()`), 'peak');
+eq('and the marked column moves with it',
+  (await b.ev(`window.BST.score.rankBy()`)).join(), 'Peak');
+check('the rows are in peak order now',
+  rankPeak.every((r, i) => !i || rankPeak[i - 1].peak >= r.peak),
+  rankPeak.map(r => r.peak).join(' '));
+check('and it is a genuinely different ranking',
+  rankPeak.map(r => r.id).join() !== rankTotal.map(r => r.id).join(),
+  `${rankPeak.slice(0, 3).map(r => r.who)} vs ${rankTotal.slice(0, 3).map(r => r.who)}`);
+eq('nobody has left or joined the table',
+  rankPeak.length, rankTotal.length);
+
+/* Which ordering is on is an argument about the board, so it travels. */
+check('the ordering is in the link', await b.ev(`location.hash.includes('wr=peak')`),
+  await b.ev(`location.hash`));
+await b.ev(`window.BST.score.rank('total')`);
+await b.wait(150);
+eq('and the default ordering leaves the link alone',
+  await b.ev(`location.hash.includes('wr=')`), false);
+
+/* The head of the list by default, all of it on request — nothing is hidden,
+   it is one click. */
+const headCount = (await b.ev(`window.BST.score.ranks()`)).length;
+await b.ev(`window.BST.score.rankAll(true)`);
+await b.wait(200);
+const allRows = await b.ev(`window.BST.score.ranks()`);
+check('every competitor can be shown', allRows.length > headCount,
+  `${headCount} -> ${allRows.length}`);
+eq('and that is all of them', allRows.length, rankModel.people.length);
+await b.ev(`window.BST.score.rankAll(false)`);
+await b.wait(200);
+
+console.log('\n=== the winners page: picking out of the ranking ===');
+
+/* One gesture wherever a competitor is drawn — the square, the era bar, the
+   marker, the legend chip, and now the row. */
+const topId = (await b.ev(`window.BST.score.ranks()`))[0].id;
+const rankPicked = await b.ev(`window.BST.score.rankTap(${JSON.stringify(topId)})`);
+await b.wait(200);
+eq('clicking a row picks that competitor', rankPicked.join(','), topId);
+const litRows = await b.ev(`window.BST.score.ranks()`);
+check('the row stays lit and the rest recede',
+  litRows.every(r => r.faded === (r.id !== topId)),
+  `${litRows.filter(r => !r.faded).length} lit`);
+/* ⚠️ Dimmed, never removed: a ranking with rows missing out of the middle of it
+   is not a ranking. */
+eq('and nothing has left the table', litRows.length, rankPicked.length ? litRows.length : 0);
+check('the chart answers to it too',
+  (await b.ev(`window.BST.score.marks()`)).some(m => !m.faded && m.id === topId));
+
+await b.ev(`window.BST.score.rankTap(${JSON.stringify(topId)})`);
+await b.wait(200);
+eq('and clicking it again lets go', (await b.ev(`window.BST.score.pinned()`)).length, 0);
+
+/* ⚠️⚠️ **The table lists everybody and the chart does not.** Picking somebody
+   the bar has hidden would light a row against a chart that cannot show them —
+   or, before the guard below it, fade every line at once because no drawn line
+   matched the pick. So the bar comes down to fit, which is what a reader
+   clicking a name in a ranking is asking for. */
+await b.ev(`window.BST.score.rankAll(true)`);
+await b.wait(200);
+const floorBefore = await b.ev(`window.BST.score.floor()`);
+const drawnIds = new Set((await b.ev(`window.BST.score.marks()`)).map(m => m.id));
+const hidden = (await b.ev(`window.BST.score.ranks()`))
+  .find(r => !drawnIds.has(r.id));
+check('somebody in the ranking is below the bar', !!hidden,
+  hidden ? `${hidden.who} peak ${hidden.peak}` : 'everybody is on the chart');
+if (hidden) {
+  await b.ev(`window.BST.score.rankTap(${JSON.stringify(hidden.id)})`);
+  await b.wait(250);
+  const floorAfter = await b.ev(`window.BST.score.floor()`);
+  check('picking them brings the bar down to fit', floorAfter < floorBefore,
+    `${floorBefore} -> ${floorAfter}`);
+  const marksNow = await b.ev(`window.BST.score.marks()`);
+  check('so their line is on the chart', marksNow.some(m => m.id === hidden.id),
+    `${marksNow.length} marks`);
+  check('lit, with the rest of the chart dimmed round it',
+    marksNow.every(m => m.faded === (m.id !== hidden.id)),
+    `${marksNow.filter(m => !m.faded).length} lit`);
+  check('and the bar it moved is in the link too',
+    await b.ev(`location.hash.includes('wf=')`), await b.ev(`location.hash`));
+}
+await b.ev(`window.BST.winners.escape()`);
+await b.wait(200);
+await b.ev(`window.BST.score.rankAll(false)`);
+await b.wait(150);
+
+/* ⚠️ A pick the chart cannot draw must never fade **every** line at once. It
+   arrives from a link as well as from the table, and a chart faded to nothing
+   with the cause off screen is unreadable and has nothing to click. */
+const ghost = await b.ev(`(() => {
+  window.BST.score.floor(50);
+  const all = window.BST.score.marks();
+  return { before: all.filter(m => !m.faded).length, total: all.length };
+})()`);
+await b.wait(200);
+await b.ev(`location.hash = location.hash + '&wp=nobody-at-all'`);
+await b.wait(400);
+const ghostMarks = await b.ev(`window.BST.score.marks()`);
+check('a pick naming nobody the chart is drawing fades none of it',
+  ghostMarks.length > 0 && ghostMarks.every(m => !m.faded),
+  `${ghostMarks.filter(m => m.faded).length} of ${ghostMarks.length} faded`);
+check('and the legend is not all switched off either',
+  (await b.ev(`window.BST.score.legend()`)).some(l => !l.off),
+  JSON.stringify(ghost));
+await b.ev(`location.hash = '#pg=winners&wv=score'`);
+await b.until(`window.BST.score.marks().length > 5`, { timeout: 60000 });
+
+// The bar this section borrowed, put back — see `rankFloorWas`.
+await b.ev(`window.BST.score.floor(${rankFloorWas})`);
+await b.wait(150);
+eq('the bar this section borrowed is back where it was',
+  await b.ev(`window.BST.score.floor()`), rankFloorWas);
+
+console.log('\n=== the winners page: every season named on the axis ===');
+
+/* ⚠️ **Every year, not every other one.** The axis used to thin its labels above
+   fourteen seasons, which was a guess rather than a measurement — the plot is
+   1118 units wide, 59 to a season over twenty, against a four-digit label of
+   about 27. What the thinning did instead was make the reader count gaps to
+   place a point, and it had already had to spare the footnoted years by hand
+   because 2020 and 2022 fell on the skipped alternate. */
+const axisYears = (await b.ev(`window.BST.score.axis()`))
+  .map(t => (t.match(/\d{4}/) || [])[0]).filter(Boolean);
+const chartYears = (await b.ev(`window.BST.score.model()`)).years.map(String);
+check('the axis names every season on the chart',
+  chartYears.every(y => axisYears.includes(y)),
+  `missing ${chartYears.filter(y => !axisYears.includes(y)).join(' ')}`);
+eq('and no more than that', axisYears.length, chartYears.length);
+/* The labels are laid out by the browser, so this is the only way to know they
+   are not sitting on top of one another. */
+const axisBoxes = await b.ev(`[...document.querySelectorAll('#scoreChart .scoreaxis text')]
+  .map(t => t.getBoundingClientRect())
+  .filter(r => r.width > 0)
+  .sort((a, b) => a.x - b.x)
+  .map(r => [Math.round(r.x), Math.round(r.right)])`);
+const yearBoxes = axisBoxes.slice(-chartYears.length);
+check('and none of them overlaps its neighbour',
+  yearBoxes.every((r, i) => !i || r[0] > yearBoxes[i - 1][1]),
+  JSON.stringify(yearBoxes.slice(0, 4)));
+
 console.log('\n=== the winners page: the two views hold the same seasons ===');
 
 /* ⚠️ Scaled across **both** draws, so switching discipline does not compare two
@@ -3619,9 +3803,24 @@ for (let i = 0; i < levelsBefore.length + 1; i++) await press('ArrowDown');
 check('down far enough turns everything off',
   (await seasonChips()).every(c => c.startsWith('-')),
   (await seasonChips()).join(' '));
-/* Back to where the page started, so nothing below inherits an empty strip. */
+/* Back to where the page started, so nothing below inherits an empty strip.
+   ⚠️ Waits for the **page** as well as for the chips. It waited only for the
+   chips, which are still in the document while another page is showing — so on
+   a slow load the walk below started from wherever the winners tests had left
+   it, and every one of its five steps was off by exactly one page. Seen once,
+   from a run where the network was answering in seconds rather than
+   milliseconds — and only when the suites run one after another, never on its
+   own, which is what a state race looks like from the outside.
+
+   ⚠️ So the page is **clicked**, not asked for in the hash: `showPage` is
+   synchronous and the nav button is what this section already opens with. The
+   hash still carries the filters and the pinned date. Every one of the five
+   steps below is *relative*, so the one thing they cannot do is assume where
+   they start. */
 await b.ev(`location.hash = '#p=57945&pg=seasons&now=2026-08-23'`);
 await b.until(`document.querySelectorAll('#levels .chip.on').length > 3`, { timeout: 30000 });
+await b.ev(`document.querySelector('#pageNav [data-page="seasons"]').click()`);
+eq('and back on the seasons before the walk', await onPage(), 'seasons');
 
 /* ---- left and right walk the pages ---- */
 

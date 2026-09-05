@@ -3337,6 +3337,84 @@ export function dominationSeasons(file) {
   return { years, seasons, people: list };
 }
 
+
+/* ---- the dominators, ranked ----
+
+   The chart says who dominated *and when*. These say who dominated, full stop,
+   and there is more than one honest answer.
+   ==================================================================== */
+
+/** The two orderings, and nothing else is offered — see `dominationRanking`. */
+export const RANK_MODES = [
+  { key: 'total', label: 'Total', of: 'every season added up' },
+  { key: 'peak', label: 'Peak', of: 'the best single season' },
+];
+export const RANK_DEFAULT = 'total';
+
+export function rankMode(key) {
+  return RANK_MODES.find(m => m.key === key) || RANK_MODES[0];
+}
+
+/**
+ * Every competitor on a board, ranked.
+ *
+ * **Total** is every season's share added up. It rewards staying there: LEE
+ * Chong Wei never took 44 of a season and took some of twelve of them, which is
+ * a claim about a career that no single season can make.
+ *
+ * **Peak** is the best single season. It rewards the year nobody else got a
+ * look in: KIM / SEO took 76 of 2024 and appear in two seasons, so they are
+ * first on peak and eighth on total.
+ *
+ * ⚠️ **And there is deliberately no mean.** It is the obvious third column and
+ * it would be a lie, because this data says who *won*, not who *entered*: a
+ * competitor has a point only in the seasons they won something, so the seasons
+ * they played and won nothing are missing from the divisor rather than sitting
+ * in it as zeroes. A player with one good season and nothing else would come out
+ * ahead of a fifteen-year career, and the number would be describing the gap in
+ * the data rather than the players. The same fact is why the chart's lines break
+ * at a gap instead of running along the bottom.
+ *
+ * ⚠️ Both numbers are the score's own, added up nowhere else. `total` is a sum
+ * of shares, so it is out of a hundred *per season* and reads as "he took two
+ * and three quarter seasons' worth" — which is why it is printed with no
+ * denominator and never as a percentage.
+ *
+ * @param {object} model  a `dominationSeasons` result
+ * @param {string} mode  'total' or 'peak'
+ * @returns {Array} the people, ordered, each with `total`, `peak`, `peakYear`,
+ *   `seasons`, and `rank` — which is **shared on a tie**, so two equal careers
+ *   are not put in an order the numbers do not support.
+ */
+export function dominationRanking(model, mode) {
+  const key = rankMode(mode).key;
+  const rows = ((model && model.people) || []).map(p => {
+    const best = p.pts.reduce((a, b) => (b.score > a.score ? b : a), p.pts[0]);
+    return {
+      id: p.id, who: p.who, colour: p.colour || '',
+      total: p.pts.reduce((n, pt) => n + pt.score, 0),
+      peak: p.peak,
+      peakYear: best ? best.year : null,
+      seasons: p.pts.length,
+      titles: p.pts.reduce((n, pt) => n + pt.n, 0),
+      first: p.pts.length ? p.pts[0].year : null,
+      last: p.pts.length ? p.pts[p.pts.length - 1].year : null,
+    };
+  });
+  /* ⚠️ The *other* number breaks a tie, and the name breaks that — so the order
+     is fixed by the data rather than by whatever order the seasons happened to
+     be read in. Two careers that tie on both are still given the same rank. */
+  const other = key === 'total' ? 'peak' : 'total';
+  rows.sort((a, b) => b[key] - a[key] || b[other] - a[other]
+    || (a.who.n < b.who.n ? -1 : a.who.n > b.who.n ? 1 : 0));
+  let rank = 0, seen = null;
+  rows.forEach((r, i) => {
+    if (seen === null || r[key] !== seen) { rank = i + 1; seen = r[key]; }
+    r.rank = rank;
+  });
+  return rows;
+}
+
 /**
  * The seasons with a hole in them, relative to the seasons around them.
  *

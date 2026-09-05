@@ -34,6 +34,7 @@ import {
   winnersSeasons, pyramidReigns, reignLanes, REIGN_STEPS, REIGN_DEFAULT, reignStep,
   pyramidScale,
   dominationSeasons, thinSeasons, shortSeasonWhy, titleWeight, SCORE_TIERS,
+  dominationRanking, rankMode, RANK_MODES, RANK_DEFAULT,
   bestScoreFloor, SCORE_FLOOR_MAX, SCORE_FLOOR_STEP,
 } from './model.js';
 import {
@@ -1189,6 +1190,9 @@ const win = {
      set of pinned players — empty means everybody the bar admits is lit. */
   view: 'board',
   floor: 0, autoFloor: true, only: new Set(),
+  /* Which ordering the dominators' table is in, and whether it is showing the
+     whole board or the head of it. See `dominationRanking`. */
+  rank: RANK_DEFAULT, rankAll: false,
 };
 
 const winFile = () => win.files[win.kind] || null;
@@ -1657,7 +1661,14 @@ function drawScore(model) {
      season. The set on screen is the bar's set, always; `win.only` decides what
      is lit. */
   const shown = scorePaint(people.filter(p => p.peak >= floor));
-  const lit = id => !win.only.size || win.only.has(id);
+  /* ⚠️ Only the picks the chart can actually **draw** decide what is dim. A pick
+     naming somebody the bar has hidden would otherwise make `lit` false for
+     every line at once — a chart faded to nothing, with the thing that caused
+     it not on screen. It happens from a link, and from the ranking below, which
+     lists everybody whatever the bar is set to. */
+  const drawn = new Set(shown.map(p => p.id));
+  const active = [...win.only].filter(id => drawn.has(id));
+  const lit = id => !active.length || active.includes(id);
   // Faded first, pinned last, so a lit line is never buried under a dim one.
   shown.sort((a, b) => Number(lit(a.id)) - Number(lit(b.id)));
 
@@ -1700,12 +1711,14 @@ function drawScore(model) {
     out.push(`<text x="${SC.l - 8}" y="${y(v) + 3.5}" text-anchor="end">${Math.round(v * 100)}</text>`);
   }
   years.forEach((yr, i) => {
-    /* Every other year when the axis is crowded — except a year carrying the
-       footnote, which must keep its label or the mark has nothing to sit on.
-       2020 and 2022 both fell on the skipped alternate and the mark simply was
-       not drawn. */
-    const keep = i === n - 1 || thin.set.has(yr);
-    if (n > 14 && i % 2 && !keep) return;
+    /* ⚠️ **Every year, not every other one.** It used to thin the labels above
+       fourteen seasons, and that was a guess rather than a measurement: the
+       plot is 1118 units wide, which is 59 to a season over twenty of them,
+       against a four-digit label of about 27. They were never going to collide.
+       What the thinning did instead was make the reader count gaps to place a
+       point — and it had already had to be special-cased twice, because 2020
+       and 2022 both fell on the skipped alternate and their footnote marks
+       simply were not drawn. */
     /* ⚠️ A plain **asterisk**, not the pyramid's ⁕ (U+2055). That glyph has no
        form in Roboto or in any of the fallbacks, so it renders as a small dot —
        which is what it does on the board above, where the note calls it an
@@ -1818,10 +1831,14 @@ function legendFace(who) {
  */
 function renderScoreLegend(model) {
   const floor = win.floor / 100;
-  const lit = id => !win.only.size || win.only.has(id);
-  $('scoreLegend').innerHTML = model.people
-    .filter(p => p.peak >= floor)
-    .sort((a, b) => b.peak - a.peak)
+  const here = model.people.filter(p => p.peak >= floor);
+  /* The same guard the chart uses, and it has to be the same: a pick the bar
+     has hidden would mark every chip off, which says nothing is picked while
+     something is. See `drawScore`. */
+  const active = [...win.only].filter(id => here.some(p => p.id === id));
+  const lit = id => !active.length || active.includes(id);
+  $('scoreLegend').innerHTML = here
+    .slice().sort((a, b) => b.peak - a.peak)
     .map(p => `<button type="button" class="lg${lit(p.id) ? '' : ' off'}"`
       + ` data-id="${esc(p.id)}" aria-pressed="${lit(p.id)}">`
       + `<i style="background:${p.colour || '#666'}"></i>`
@@ -1868,6 +1885,123 @@ function renderScoreTables(model) {
     }).join('');
 }
 
+/* ---- the dominators, ranked ----
+
+   The chart says who dominated *and when*; this says who dominated, full stop.
+   Both orderings are drawn at once and only the sort moves, because the whole
+   point is that they **disagree** — KIM / SEO took 76 of 2024 and appear in two
+   seasons; CAI / FU never took 39 of one and lead the men's doubles on total.
+   Two separate tables would have hidden exactly that.
+
+   ⚠️ **The Show bar does not govern this table.** It filters on *peak*, so a
+   total ranking cut by it is a different claim: at the men's singles default of
+   40 it leaves seven people, and it drops BOE / MOGENSEN — eight seasons and
+   seventh on total — for a peak of 25.5. The bar declutters the chart; the
+   ranking is the whole board. */
+
+const RANK_TOP = 20;
+
+/** How many rows to draw, and the words under them saying so. */
+function rankRows(rows) {
+  return win.rankAll ? rows : rows.slice(0, RANK_TOP);
+}
+
+function renderScoreRanking(model) {
+  const rows = dominationRanking(model, win.rank);
+  const mode = rankMode(win.rank);
+
+  $('rankMode').innerHTML = RANK_MODES.map(m =>
+    `<button type="button" class="chip${m.key === mode.key ? ' on' : ''}"`
+    + ` data-mode="${esc(m.key)}" aria-pressed="${m.key === mode.key}">`
+    + `${esc(m.label)}</button>`).join('');
+
+  /* ⚠️ Lit against the **ranking's own** set, not the chart's. Every competitor
+     is in this table, so a pick is always one of these rows — unlike the chart
+     above, where the bar may have hidden it. */
+  const lit = id => !win.only.size || win.only.has(id);
+  const num = x => scoreText(x);
+
+  $('scoreRank').innerHTML =
+    '<tr><th class="n">#</th><th>Competitor</th>'
+    + `<th class="n${win.rank === 'total' ? ' by' : ''}">Total</th>`
+    + `<th class="n${win.rank === 'peak' ? ' by' : ''}">Peak</th>`
+    + '<th class="n">Seasons</th><th class="n">Titles</th></tr>'
+    + rankRows(rows).map(r =>
+      `<tr class="rankrow${lit(r.id) ? '' : ' faded'}" data-id="${esc(String(r.id))}"`
+      + ` tabindex="0" title="${esc(`${r.who.n}\n${r.first}–${r.last}`
+        + ` · ${r.titles} titles in ${r.seasons} seasons`)}">`
+      + `<td class="n rk">${r.rank}</td>`
+      + `<td><span class="rkwho">${legendFace(r.who) || '<i class="noface"></i>'}`
+      + `${esc(r.who.n)}</span></td>`
+      + `<td class="n${win.rank === 'total' ? ' by' : ''}">${num(r.total)}</td>`
+      /* The year is what makes a peak a claim rather than a number — 76 in a
+         season nobody remembers is a different sentence from 76 in 2024. */
+      + `<td class="n${win.rank === 'peak' ? ' by' : ''}">${num(r.peak)}`
+      + `<span class="yr">${r.peakYear}</span></td>`
+      + `<td class="n">${r.seasons}</td>`
+      + `<td class="n">${r.titles}</td></tr>`).join('');
+
+  const shown = rankRows(rows).length;
+  $('rankMore').hidden = rows.length <= RANK_TOP;
+  $('rankMore').textContent = win.rankAll
+    ? `all ${rows.length} — show the top ${RANK_TOP}`
+    : `${shown} of ${rows.length} — show them all`;
+  $('rankWhat').textContent = mode.of;
+}
+
+/**
+ * A click in the ranking, which is a pick like any other — with one extra job.
+ *
+ * ⚠️ **It lowers the bar to fit.** The table lists everybody and the chart does
+ * not, so picking somebody the bar has hidden would light a row against a chart
+ * that could not show them. Dropping the bar to their best season puts the line
+ * on screen, which is what a reader clicking a name in a ranking is asking for.
+ * The bar's own handlers clear the pick when it moves — deliberately, so that
+ * dragging it does not leave a stale selection — so this must not go through
+ * them.
+ */
+function pickFromRanking(id) {
+  const p = scoreCurrent && scoreCurrent.people.find(q => q.id === id);
+  if (p && !win.only.has(id) && p.peak * 100 < win.floor) {
+    win.floor = Math.max(0, Math.floor(p.peak * 100 / SCORE_FLOOR_STEP) * SCORE_FLOOR_STEP);
+    win.autoFloor = false;
+  }
+  toggleWinPick(id);
+}
+
+$('scoreRank').addEventListener('click', e => {
+  const row = e.target.closest('.rankrow');
+  if (row) pickFromRanking(row.dataset.id);
+});
+/* A table row is not a button, so it does not answer the keyboard for free —
+   and this is a list of names somebody may well be tabbing through. */
+$('scoreRank').addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const row = e.target.closest('.rankrow');
+  if (!row) return;
+  e.preventDefault();
+  pickFromRanking(row.dataset.id);
+});
+
+$('rankMode').addEventListener('click', e => {
+  const chip = e.target.closest('.chip');
+  if (chip) setRankMode(chip.dataset.mode);
+});
+
+$('rankMore').addEventListener('click', () => {
+  win.rankAll = !win.rankAll;
+  renderWinners();
+});
+
+function setRankMode(key) {
+  const next = rankMode(key).key;
+  if (next === win.rank) return false;
+  win.rank = next;
+  renderWinners();
+  writeHash();
+  return true;
+}
+
 /** The clutter bar, and what it is currently hiding, said in words. */
 function renderScoreFloor() {
   const r = $('winFloorRange');
@@ -1908,6 +2042,7 @@ function renderScore(file) {
   renderScoreFloor();
   drawScore(model);
   renderScoreLegend(model);
+  renderScoreRanking(model);
   renderScoreTables(model);
 }
 
@@ -3135,6 +3270,10 @@ function runHotkey(key) {
       // The same two keys as the honours bar and the era bar: up shows more.
       if (key === 'ArrowUp') return stepScoreFloor(-1);
       if (key === 'ArrowDown') return stepScoreFloor(1);
+      /* The two orderings of the ranking, by their initials. Neither letter is
+         doing anything else on this page. */
+      if (key === 't') return setRankMode('total') || true;
+      if (key === 'p') return setRankMode('peak') || true;
       return false;
     }
     if (key === 'e') { win.eras = !win.eras; renderWinners(); writeHash(); return true; }
@@ -4070,6 +4209,7 @@ function readHash() {
   win.floor = win.autoFloor
     ? 0 : Math.max(0, Math.min(SCORE_FLOOR_MAX, Number(h.get('wf')) || 0));
   win.only = new Set((h.get('wp') || '').split(',').filter(Boolean));
+  win.rank = rankMode(h.get('wr') || RANK_DEFAULT).key;
   // `g=1` is what the compare page was called when it was a modal, and links
   // carrying it are still out there.
   wantPage = h.get('pg') || (h.get('g') === '1' ? 'compare' : 'seasons');
@@ -4157,6 +4297,11 @@ function writeHash() {
     // The bar is the other half of what a score link says.
     if (win.view === 'score') {
       if (!win.autoFloor) p.set('wf', String(win.floor));
+      /* Which ordering the ranking is in is an argument about it — total and
+         peak genuinely disagree — so it travels like the bar does. How many
+         rows are on screen does not: that is a reader looking further down a
+         list, not a different claim. */
+      if (win.rank !== RANK_DEFAULT) p.set('wr', win.rank);
     } else if (!win.eras) p.set('we', 'off');
     else if (win.reign !== REIGN_DEFAULT) p.set('we', win.reign);
   }
@@ -4611,6 +4756,48 @@ window.BST = {
         ? l.querySelector('i').style.background : '',
       off: l.classList.contains('off'),
     })),
+    /* ---- the dominators ----
+       Read off the drawn table, because the claim is what the reader sees: the
+       ordering is `dominationRanking`'s and is checked there. */
+    rank: k => {
+      /* Through the chip, not through `setRankMode`, so the suite exercises the
+         control the reader actually has. */
+      if (k != null) {
+        const chip = document.querySelector(`#rankMode .chip[data-mode="${k}"]`);
+        if (chip) chip.click();
+      }
+      return win.rank;
+    },
+    rankAll: on => {
+      if (on != null && win.rankAll !== !!on) $('rankMore').click();
+      return win.rankAll;
+    },
+    ranks: () => [...document.querySelectorAll('#scoreRank .rankrow')].map(r => {
+      const cell = i => r.children[i];
+      return {
+        id: r.dataset.id,
+        rank: Number(cell(0).textContent),
+        who: cell(1).textContent.trim(),
+        total: Number(cell(2).textContent),
+        /* The year is a suffix inside the peak cell, so the two are read apart
+           rather than as one number. */
+        peak: Number(cell(3).childNodes[0].textContent),
+        peakYear: Number((cell(3).querySelector('.yr') || {}).textContent),
+        seasons: Number(cell(4).textContent),
+        titles: Number(cell(5).textContent),
+        faded: r.classList.contains('faded'),
+        by: [...r.children].map(c => c.classList.contains('by')),
+      };
+    }),
+    /** Which column the table says it is sorted by, off the header. */
+    rankBy: () => [...document.querySelectorAll('#scoreRank th')]
+      .filter(t => t.classList.contains('by')).map(t => t.textContent),
+    /** A click on a row, which is the only way a reader has of picking here. */
+    rankTap: id => {
+      const r = document.querySelector(`#scoreRank .rankrow[data-id="${id}"]`);
+      if (r) r.click();
+      return [...win.only];
+    },
     /** The axis labels, which is where the footnote mark has to appear. */
     axis: () => [...document.querySelectorAll('#scoreChart .scoreaxis text')]
       .map(t => t.textContent),

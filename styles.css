@@ -1628,6 +1628,72 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
 .scorecols tr.thin td.n { color: #7a7a7a; }
 .scorecols .ast, #scoreNote .ast { font-style: normal; color: var(--warn); margin-left: 2px; }
 
+/* ---- the dominators, ranked ----
+
+   ⚠️ Both numbers are always drawn and only the *sort* moves. The two orderings
+   disagree — KIM / SEO are first on peak and eighth on total — and that
+   disagreement is the thing worth seeing, which a table that showed one column
+   at a time would have hidden. The sorted column is marked instead. */
+.ranks { margin-top: 22px; }
+.ranks .chiprow { align-items: baseline; gap: 10px; flex-wrap: wrap; }
+/* ⚠️ `.chiprow > .lbl` is a **fixed 58px** with `flex: none` — a tidy column for
+   the one-word labels every other chip row has ("Levels", "Day", "Draws"). This
+   one is a sentence, so it sizes itself; left at 58 it overflowed its box and
+   printed straight over the link beside it, and `white-space: nowrap` on its
+   own only made the overlap longer. */
+.ranks .chiprow > .lbl { width: auto; flex: 0 1 auto; }
+.ranks .chiprow .lbl, .ranks .chiprow .linkish { white-space: nowrap; }
+.ranks h3 {
+  font: 600 11px var(--mono); letter-spacing: .09em; text-transform: uppercase;
+  color: var(--text-muted); margin: 0;
+}
+.ranks .lbl { text-transform: none; letter-spacing: 0; }
+.linkish {
+  background: none; border: 0; padding: 0; cursor: pointer;
+  font: 400 11px var(--font); color: var(--text-muted);
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.linkish:hover { color: var(--text); }
+
+.ranktable { border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+.ranktable th, .ranktable td { padding: 3px 14px 3px 0; text-align: left; white-space: nowrap; }
+.ranktable th {
+  color: var(--text-muted); font: 600 10.5px var(--font);
+  letter-spacing: .06em; text-transform: uppercase;
+}
+.ranktable td.n, .ranktable th.n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.ranktable th.n, .ranktable td.n { text-align: right; }
+/* The column the table is in the order of. Marked rather than moved, so the
+   reader can read the other one off the same row. */
+.ranktable th.by { color: var(--text); }
+.ranktable td.by { color: var(--text); font-weight: 600; }
+.ranktable td:not(.by).n { color: var(--text-muted); }
+.ranktable td.rk { color: var(--text-muted); width: 1px; }
+/* ⚠️ `rkwho`, not `who`: `.who` is the player card's 23px name heading, and it
+   made every row of this table a headline. Found by looking at the page, which
+   is the only way a name collision in CSS ever is — the same trap `.pyrbadge`
+   was named around. */
+/* ⚠️ And the flex box is a **span inside** the cell, not the cell. `display:
+   flex` on a `<td>` takes it out of table layout, and the column stopped lining
+   up with its own header while the blank-photograph placeholder was squeezed to
+   a hairline. */
+.ranktable td .rkwho { display: inline-flex; align-items: center; gap: 7px; }
+.ranktable td .rkwho .noface {
+  width: 18px; height: 18px; border-radius: 50%; flex: none;
+  background: rgba(255, 255, 255, .08);
+}
+/* The year a peak was taken in. 76 in a season nobody remembers is a different
+   sentence from 76 in 2024, and the number alone cannot say which. */
+.ranktable .yr { font-size: 10px; color: var(--text-muted); margin-left: 5px; }
+
+.ranktable tr.rankrow { cursor: pointer; }
+.ranktable tr.rankrow:hover td { background: rgba(255, 255, 255, .04); }
+.ranktable tr.rankrow:focus-visible { outline: 1px solid var(--text-muted); }
+/* ⚠️ Dimmed like everything else a pick pushes back — one gesture, one meaning,
+   wherever a competitor is drawn. Not `display: none`: a ranking with rows
+   missing out of the middle of it is not a ranking. */
+.ranktable tr.rankrow.faded td { opacity: .32; }
+
 /* The ladder, in the note: five weights nobody has to take on trust. */
 #scoreNote .ladder { display: inline-flex; flex-wrap: wrap; gap: 4px 8px; margin: 0 4px; }
 #scoreNote .wt {

@@ -727,6 +727,44 @@ lines come back. Measured on both draws, not guessed.
 winner; a part-played season cannot say who led it, so it is not asked — without this the bar
 collapses every New Year.
 
+### Dominators: the same scores, ranked
+
+The chart says who dominated **and when**. The table under it says who dominated, full stop —
+and there is more than one honest way to answer that, so **both are always on screen and only
+the sort moves**.
+
+**Total** is every season's share added up. It rewards staying there: LEE Chong Wei never took
+44 of a season and took some of twelve of them, which is a claim about a career that no single
+season can make. He is second in the men's singles on the sixth-best peak on the board.
+
+**Peak** is the best single season. It rewards the year nobody else got a look in: KIM / SEO
+took 76 of 2025 and appear in two seasons, so they are **first on peak and eighth on total**.
+
+The two orderings disagree, and the disagreement is the point. A table that showed one column
+at a time would have hidden it, so both numbers are on every row and the sorted column is
+marked rather than moved.
+
+⚠️ **There is deliberately no average**, and the reason is the same one that makes the lines
+above break at a gap. This data says who *won*, not who *entered*, so a competitor has a point
+only in the seasons they won something — the seasons they played and won nothing are missing
+from the divisor rather than sitting in it as zeroes. One good year and nothing else would
+out-rank a fifteen-year career, and the number would be describing the hole in the data rather
+than the players. A third column that cannot be computed honestly is worse than no third
+column.
+
+⚠️ **The Show bar does not reach this table**, and that is not an oversight. The bar filters on
+*peak*, so a total ranking cut by it is a different claim: at the men's singles default of 40
+it would leave seven names, and it drops BOE / MOGENSEN — eight seasons, seventh on total —
+for a best season of 25.5. The bar declutters the chart; the ranking is the whole board. The
+top twenty are shown, and one click shows every competitor.
+
+⚠️ Clicking a row picks that competitor everywhere, like clicking a square or a marker or a
+chip. **And if the bar was hiding them, the bar comes down to fit** — the table lists everybody
+and the chart does not, so a reader who clicks a name in a ranking and gets nothing on the
+chart has been told a half-truth. The chart also now ignores a pick it cannot draw rather than
+fading every line at once, which is what a link naming somebody below the bar used to do.
+
+
 ### Exporting the score
 
 The same picker, the same range, the same foot as the board's export — only the drawing

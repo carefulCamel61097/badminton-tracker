@@ -355,6 +355,20 @@
       <div id="scoreTip" hidden></div>
     </div>
     <div class="legend scorelegend" id="scoreLegend"></div>
+
+    <!-- The ranking. Deliberately *not* governed by the Show bar above it: that
+         filters on peak, and a total ranking cut by peak is a different claim.
+         See `dominationRanking`. -->
+    <div class="ranks">
+      <div class="chiprow">
+        <h3>Dominators</h3>
+        <div id="rankMode" class="chips" role="group" aria-label="rank by"></div>
+        <span class="lbl" id="rankWhat"></span>
+        <button type="button" class="linkish" id="rankMore" hidden></button>
+      </div>
+      <table id="scoreRank" class="ranktable"></table>
+    </div>
+
     <div class="scorecols">
       <div>
         <h3>Best single seasons</h3>
@@ -407,6 +421,32 @@
     bar. Its default is worked out from the data — as high as it will go without
     dropping anybody who ever <i>led</i> a season — and the season being played
     is left out of that sum, because a part-played year cannot say who led it.
+    <br>
+    <b>Dominators</b> ranks the whole board rather than a season of it, and
+    there are two honest ways to do that — so both are always on screen and only
+    the <i>sort</i> moves. <b>Total</b> is every season's share added up: it
+    rewards staying there, and it is why LEE Chong Wei is second in the men's
+    singles on a best season of 43. <b>Peak</b> is the best single season: it
+    rewards the year nobody else got a look in, and it is why KIM / SEO are
+    first in the men's doubles on two seasons and eighth on total. The two
+    orderings disagree, and the disagreement is the point — a table showing one
+    column at a time would have hidden it.
+    <br>
+    ⚠️ <b>There is deliberately no average.</b> It is the obvious third column
+    and it would be a lie. This data says who <i>won</i>, not who <i>entered</i>,
+    so a competitor has a point only in the seasons they won something — the
+    seasons they played and won nothing are missing from the divisor rather than
+    sitting in it as zeroes. One good year and nothing else would out-rank a
+    fifteen-year career, and the number would be describing the hole in the data
+    rather than the players. It is the same fact that makes the lines above
+    break at a gap instead of running along the bottom.
+    <br>
+    ⚠️ <b>The Show bar does not reach this table.</b> The bar filters on peak,
+    and a total ranking cut by peak is a different claim: at the men's singles
+    default it would leave seven names, and it drops BOE / MOGENSEN — eight
+    seasons, seventh on total — for a best season of 25. The bar declutters the
+    chart; the ranking is the whole board. Clicking a name picks it out
+    everywhere, and if the bar was hiding them the bar comes down to fit.
     Click a name to pin it — or <b>click the face on the chart</b>, which is the
     same name with a season attached and does the same thing. The others stay on
     the chart, dimmed, because a share means nothing without the people it was
@@ -420,7 +460,8 @@
     settled over the whole board and then cut to the years you asked for.
     <span class="keys"><kbd>←</kbd><kbd>→</kbd> page · <kbd>B</kbd> board ·
       <kbd>S</kbd> score · <kbd>M</kbd><kbd>W</kbd><kbd>X</kbd> discipline, twice for
-      the doubles · <kbd>↑</kbd><kbd>↓</kbd> the bar · <kbd>Esc</kbd> unpick</span>
+      the doubles · <kbd>↑</kbd><kbd>↓</kbd> the bar · <kbd>T</kbd> total ·
+      <kbd>P</kbd> peak · <kbd>Esc</kbd> unpick</span>
   </p>
 
   <p class="legend note" id="winNote">

@@ -40,6 +40,7 @@ import {
   LEVEL, SLOT_W, BOX_H, MIN_LABEL_PX, LEVEL_ORDER,
   titleWeight, dominationSeasons, thinSeasons, shortSeasonWhy,
   bestScoreFloor, SCORE_FLOOR_STEP,
+  dominationRanking, rankMode, RANK_MODES, RANK_DEFAULT,
 } from '../model.js';
 import {
   posterLayout, scorePosterLayout, gridPosterLayout, honoursPosterLayout,
@@ -2819,6 +2820,103 @@ check('counting the part-played season would drag the bar down',
 
 eq('nothing to draw is a bar of nothing',
   bestScoreFloor({ seasons: [], people: [] }, 2026), 0);
+
+
+console.log('\n=== the dominators, ranked ===');
+
+/* Two honest orderings and no third. The chart says who dominated *and when*;
+   this says who dominated, full stop. */
+
+const rankModel = {
+  years: [2020, 2021, 2022],
+  seasons: [],
+  people: [
+    { id: 'long', who: { n: 'LONG' }, peak: 0.3,
+      pts: [{ year: 2020, score: 0.3, n: 3 }, { year: 2021, score: 0.3, n: 3 },
+        { year: 2022, score: 0.3, n: 3 }] },
+    { id: 'sharp', who: { n: 'SHARP' }, peak: 0.8,
+      pts: [{ year: 2021, score: 0.8, n: 8 }] },
+    { id: 'small', who: { n: 'SMALL' }, peak: 0.1,
+      pts: [{ year: 2022, score: 0.1, n: 1 }] },
+  ],
+};
+
+const byTotal = dominationRanking(rankModel, 'total');
+const byPeak = dominationRanking(rankModel, 'peak');
+
+eq('total is every season added up',
+  byTotal.map(r => r.who.n).join(','), 'LONG,SHARP,SMALL');
+eq('and it is the sum, not an average',
+  Number(byTotal[0].total.toFixed(6)), 0.9);
+eq('peak is the best single season',
+  byPeak.map(r => r.who.n).join(','), 'SHARP,LONG,SMALL');
+/* ⚠️ The two orderings **disagree**, which is the whole reason both are drawn.
+   On the real boards: KIM / SEO are first on peak and eighth on total, and LEE
+   Chong Wei is second on total with only the sixth-best season. */
+check('so the two orderings are not the same ranking',
+  byTotal.map(r => r.id).join() !== byPeak.map(r => r.id).join(),
+  `${byTotal.map(r => r.id)} vs ${byPeak.map(r => r.id)}`);
+
+eq('a rank is given whichever way it is sorted', byPeak[0].rank, 1);
+eq('the year of the peak comes with it, because 80 in 2021 is a claim',
+  byPeak[0].peakYear, 2021);
+eq('and how many seasons it took', byTotal[0].seasons, 3);
+eq('and how many titles', byTotal[0].titles, 9);
+
+/* ⚠️ Ranks are **shared on a tie** rather than put in an order the numbers do
+   not support — and the next rank skips, as ranks do. */
+const rankTied = dominationRanking({ people: [
+  { id: 'a', who: { n: 'AAA' }, peak: 0.5, pts: [{ year: 2020, score: 0.5, n: 1 }] },
+  { id: 'b', who: { n: 'BBB' }, peak: 0.5, pts: [{ year: 2021, score: 0.5, n: 1 }] },
+  { id: 'c', who: { n: 'CCC' }, peak: 0.2, pts: [{ year: 2021, score: 0.2, n: 1 }] },
+] }, 'total');
+eq('two equal careers share a rank', rankTied.map(r => r.rank).join(','), '1,1,3');
+eq('and the tie is broken for *order* by the other number, then the name',
+  rankTied.map(r => r.id).join(','), 'a,b,c');
+
+eq('an unknown mode falls back rather than throwing',
+  dominationRanking(rankModel, 'mean').map(r => r.id).join(),
+  byTotal.map(r => r.id).join());
+eq('and nothing at all ranks nothing', dominationRanking(null, 'total').length, 0);
+eq('the modes on offer are exactly two',
+  RANK_MODES.map(m => m.key).join(','), 'total,peak');
+/* ⚠️ **And there is deliberately no mean.** This data says who *won*, not who
+   *entered*, so the seasons a competitor played and won nothing are missing
+   from the divisor rather than sitting in it as zeroes: SHARP would average 80
+   against LONG's 30 on one season's evidence. The number would be describing
+   the hole in the data rather than the players. */
+check('and a mean is not one of them',
+  !RANK_MODES.some(m => /mean|average/i.test(m.key + m.label)),
+  RANK_MODES.map(m => m.label).join(','));
+
+/* ---- over a real board ---- */
+
+const rankMS = dominationRanking(domMS, 'total');
+eq('every competitor on the board is ranked, not just the ones the bar shows',
+  rankMS.length, domMS.people.length);
+check('the leader is the leader on total', rankMS[0].who.n, rankMS[0].who.n);
+/* ⚠️ The bar filters on **peak**, so a total ranking cut by it is a different
+   claim: at the men's singles default of 40 it would leave seven names. This is
+   why the table is not governed by it. */
+const msFloor = bestScoreFloor(domMS) / 100;
+check('and the bar would have cut most of them',
+  rankMS.filter(r => r.peak >= msFloor).length < rankMS.length / 2,
+  `${rankMS.filter(r => r.peak >= msFloor).length} of ${rankMS.length} clear ${msFloor * 100}`);
+check('including somebody well up the total ranking',
+  rankMS.slice(0, 10).some(r => r.peak < msFloor),
+  rankMS.slice(0, 10).map(r => `${r.who.n} ${(r.peak * 100).toFixed(1)}`).join(' · '));
+
+/* A career's total is its own points and nobody else's. */
+const rankLcw = rankMS.find(r => /LEE Chong Wei/.test(r.who.n));
+const rankLcwPts = domMS.people.find(p => p.id === rankLcw.id).pts;
+const peakYearOf = pts => pts.reduce((a, b) => (b.score > a.score ? b : a), pts[0]).year;
+eq('a total is that career’s seasons and no others',
+  rankLcw.total.toFixed(6),
+  rankLcwPts.reduce((n, pt) => n + pt.score, 0).toFixed(6));
+eq('and its peak is the best of them',
+  rankLcw.peak, Math.max(...rankLcwPts.map(pt => pt.score)));
+eq('taken in the season it was actually taken in',
+  rankLcw.peakYear, peakYearOf(rankLcwPts));
 
 console.log('\n=== a slice of the board, laid out for export ===');
 
