@@ -97,7 +97,8 @@
   .axis .ast { fill: var(--warn); font-size: 13px; }
   .strip .sz { fill: rgba(255,255,255,.14); }
   .strip .sz.is-thin { fill: var(--warn); opacity: .75; }
-  .strip .szn { fill: var(--warn); font: 400 9.5px var(--mono); }
+  .strip .szn { fill: var(--text-muted); font: 400 9.5px var(--mono); }
+  .strip .szn.is-thin { fill: var(--warn); }
   .strip .szlbl { fill: var(--text-muted); font: 400 9px var(--mono); }
   path.series.over-hole { stroke-dasharray: 4 4; }
   .strip .sz.is-thin { fill: var(--warn); opacity: .75; }
@@ -357,7 +358,7 @@ const FACE = 9;
    reader either already knows or wants told at the point of confusion. */
 const WHY_SHORT = {
   2020: 'Covid', 2021: 'Covid', 2022: 'Covid',
-  [new Date().getUTCFullYear()]: 'still on',
+  [new Date().getUTCFullYear()]: 'ongoing',
 };
 
 function thinYears(seasons) {
@@ -471,10 +472,11 @@ function draw(model) {
     out.push(`<rect class="sz${thin.set.has(yr) ? ' is-thin' : ''}"`
       + ` x="${x(i) - bw / 2}" y="${STRIP.top + STRIP.h - h}"`
       + ` width="${bw}" height="${Math.max(h, s.total ? 1 : 0)}"></rect>`);
-    if (thin.set.has(yr)) {
-      out.push(`<text class="szn" x="${x(i)}" y="${STRIP.top + STRIP.h - h - 4}"`
-        + ` text-anchor="middle">${s.total}</text>`);
-    }
+    /* On every bar, not only the short ones. The number was the short seasons'
+       badge, which made a count look like a warning; it is just the size of the
+       season, and a reader comparing 2022 to 2023 wants both of them. */
+    out.push(`<text class="szn${thin.set.has(yr) ? ' is-thin' : ''}" x="${x(i)}"`
+      + ` y="${STRIP.top + STRIP.h - h - 4}" text-anchor="middle">${s.total}</text>`);
   });
   out.push(`<text class="szlbl" x="${PAD.l - 8}" y="${STRIP.top + STRIP.h}"`
     + ` text-anchor="end">titles</text>`);
@@ -620,25 +622,54 @@ function renderControls() {
   $('floorTxt').textContent = (view.floor
     ? `players who scored ${view.floor} or better in some year`
     : 'everybody')
-    + (view.autoFloor ? ' · the most it can hide and still show every season' : '');
+    + (view.autoFloor ? ' · the most it can hide and still show every season’s best' : '');
 }
 
 /**
- * The highest bar that still leaves **somebody on screen in every season**.
+ * The highest bar that still shows **whoever led each season**.
  *
- * ⚠️ The slider is a clutter control and the interesting default is not "show
- * everyone" — forty-four careers is a scribble — but it must not be so high that a
- * season empties out. A year with nobody in it reads as a year nobody won
- * anything, which is the one thing this chart must never say. Walked upwards in
- * the slider's own steps and stopped one short of the first gap.
+ * The slider is a clutter control and the interesting default is not "show
+ * everyone" — forty-four careers is a scribble — but it must not hide the person
+ * who actually dominated a year. Walked up in the slider's own steps, stopped
+ * one short of the first season whose best player would drop off.
+ *
+ * ⚠⚠ This asked the wrong question until 5 Sep 2026: *"is anybody on screen in
+ * every season"*, which is satisfied by any visible player who happened to win
+ * something that year, however little. The women's default came out at 35 on a
+ * rule that was meant to hold the leaders, and CHEN Yu Fei — who led 2019 with a
+ * 30 and scored 33.3 in 2023 — was not drawn at all. The bar it settles on is now
+ * the lowest season-leading score there is, which is the only number that can
+ * honestly be called "the most it can hide".
+ *
+ * ⚠️ Covering the top **two** of each season was the other candidate and it
+ * collapses: some season's runner-up is always somebody with a peak of 10, so
+ * the floor falls to 10 and twenty-three lines come back. Measured, not guessed.
  */
 function bestFloor(model) {
-  const covered = f => model.years.every(yr =>
-    !(model.seasons.find(s => s.year === yr) || {}).total
-    || model.people.some(p => p.peak >= f && p.pts.some(pt => pt.year === yr)));
-  let best = 0;
-  for (let f = 0; f <= 60; f += 5) { if (covered(f / 100)) best = f; else break; }
-  return best;
+  const now = new Date().getUTCFullYear();
+  const need = [];
+  for (const s of model.seasons) {
+    /* ⚠️ The season being played is left out. In January it is one tournament
+       and one winner; by mid-year it can be eight tournaments and eight
+       different winners, whose leader is on 12 and would drag the bar to the
+       floor. A part-played season cannot say who led it, so it is not asked. */
+    if (!s.total || s.year >= now) continue;
+    let lead = null;
+    for (const p of model.people) {
+      const pt = p.pts.find(q => q.year === s.year);
+      if (pt && (!lead || pt[view.metric] > lead.v)) lead = { v: pt[view.metric], peak: p.peak };
+    }
+    if (lead) need.push(lead.peak);
+  }
+  if (!need.length) return 0;
+  /* ⚠️ The leader's **peak**, not their score that season — the slider filters on
+     a career's best year, so what has to clear the bar is the number the filter
+     will actually read. Asking the wrong one of those two put the women's
+     default at 35 instead of 20. */
+  const lowest = Math.min(...need) * 100;
+  let out = 0;
+  for (let f = 0; f <= 60; f += 5) { if (f <= lowest + 1e-9) out = f; else break; }
+  return out;
 }
 
 /* ---------- wiring ---------- */
@@ -666,10 +697,12 @@ function go() {
     + `${n} titles · ${model.people.length} different winners · `
     + `harvested ${file.generated}. `
     + '<span class="warnline">* marks a season with a hole in it — far fewer '
-    + 'titles than the ones around it, so a score built on them is built on less. '
-    + '2020 played three; 2022 still had the Asian swing cancelled; the last year '
-    + 'is only part played. The bar under each year is how much there was to win, '
-    + 'and a dashed leg is a line crossing one of those years.</span>';
+    + 'titles than the ones around it, so a score built on one is built on less. '
+    + '<b>2020</b> stopped in March. <b>2022</b> ran eight of these against a '
+    + 'normal twelve to fifteen, with not one tournament held in China and the '
+    + 'Finals moved out of Guangzhou. The last year is <b>ongoing</b>. The number '
+    + 'under each year is how many titles there were to win, and a dashed leg is '
+    + 'a line crossing one of the marked years.</span>';
 }
 
 $('floor').oninput = e => {
