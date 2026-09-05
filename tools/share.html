@@ -83,7 +83,15 @@
   .grid line { stroke: rgba(255,255,255,.07); }
   .axis text { fill: var(--text-muted); font: 400 10px var(--mono); }
   .lane { fill: rgba(255,255,255,.028); }
-  .thin { fill: rgba(255,188,32,.09); }
+  /* The footnote mark, and everything wearing it. Amber, and the same ⁕ the
+     pyramid puts beside a displaced year — one mark to learn, not two. */
+  .axis .ast { fill: var(--warn); font-size: 13px; }
+  .strip .sz { fill: rgba(255,255,255,.14); }
+  .strip .sz.is-thin { fill: var(--warn); opacity: .75; }
+  .strip .szn { fill: var(--warn); font: 400 9.5px var(--mono); }
+  .strip .szlbl { fill: var(--text-muted); font: 400 9px var(--mono); }
+  path.series.over-hole { stroke-dasharray: 4 4; }
+  circle.pt.on-hole { stroke: var(--warn); stroke-width: 2; }
   path.series { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
   circle.pt { stroke: var(--bg); stroke-width: 1.5; }
   .dim { opacity: .13; }
@@ -145,7 +153,7 @@
 </div>
 
 <div class="chartwrap">
-  <svg id="chart" viewBox="0 0 1180 470" preserveAspectRatio="xMidYMid meet"></svg>
+  <svg id="chart" viewBox="0 0 1180 510" preserveAspectRatio="xMidYMid meet"></svg>
   <div id="tip" hidden></div>
 </div>
 <div class="legend" id="legend"></div>
@@ -308,8 +316,27 @@ function build() {
 
 /* ---------- the chart ---------- */
 
-const PAD = { l: 46, r: 16, t: 14, b: 30 };
-const W = 1180, H = 470;
+/* `b` leaves room under the plot for the year labels *and* the strip that says
+   how big each season was — see `thinYears`. */
+const PAD = { l: 46, r: 16, t: 14, b: 74 };
+const W = 1180, H = 510;
+const STRIP = { top: H - 44, h: 32 };
+
+/* ⚠️ **A season with a hole in it, relative to the seasons around it.** Not a
+   fixed count: the calendar has been 15 titles and 8, and with the Super 500s
+   folded in it is 21, so "fewer than six" would mean different things in
+   different views. Two thirds of the median is the line, which catches 2020
+   (three titles played), 2022 (eight, the Asian swing still cancelled) and the
+   season currently being played. */
+function thinYears(seasons) {
+  const sizes = seasons.map(s => s.total).filter(n => n > 0).sort((a, b) => a - b);
+  if (!sizes.length) return { set: new Set(), median: 0, max: 0 };
+  const median = sizes[Math.floor(sizes.length / 2)];
+  return {
+    median, max: sizes[sizes.length - 1],
+    set: new Set(seasons.filter(s => s.total > 0 && s.total < median * 0.66).map(s => s.year)),
+  };
+}
 
 function draw(model) {
   const { years, seasons, people } = model;
@@ -325,16 +352,7 @@ function draw(model) {
 
   const out = [];
 
-  /* A season with almost nothing in it is not a season anybody dominated: 2020
-     held two of these tournaments, so one title is 50% of the year. Banded
-     rather than dropped — the hole is the story. */
-  const thin = seasons.filter(s => s.total > 0 && s.total < 6);
-  for (const s of thin) {
-    const i = years.indexOf(s.year);
-    const half = (W - PAD.l - PAD.r) / Math.max(1, years.length - 1) / 2;
-    out.push(`<rect class="thin" x="${x(i) - half}" y="${PAD.t}" width="${half * 2}"`
-      + ` height="${H - PAD.t - PAD.b}"></rect>`);
-  }
+  const thin = thinYears(seasons);
 
   out.push('<g class="grid">');
   const step = top > 0.6 ? 0.2 : top > 0.3 ? 0.1 : 0.05;
@@ -346,9 +364,51 @@ function draw(model) {
     out.push(`<text x="${PAD.l - 8}" y="${y(v) + 3.5}" text-anchor="end">${Math.round(v * 100)}</text>`);
   }
   years.forEach((yr, i) => {
-    if (years.length > 14 && i % 2 && i !== years.length - 1) return;
-    out.push(`<text x="${x(i)}" y="${H - PAD.b + 15}" text-anchor="middle">${yr}</text>`);
+    /* Every other year when the axis is crowded — except a year carrying the
+       footnote, which must keep its label or the mark has nothing to sit on.
+       2020 and 2022 both fell on the skipped alternate and the asterisk simply
+       was not drawn. */
+    const keep = i === years.length - 1 || thin.set.has(yr);
+    if (years.length > 14 && i % 2 && !keep) return;
+    /* A mark on the year and a line underneath saying what it is — the same
+       grammar the pyramid uses for a displaced title, so a reader who has learned
+       one footnote on this project has learned this one.
+
+       ⚠️ A plain **asterisk**, and not the pyramid's ⁕ (U+2055): that glyph has no
+       form in Roboto or in any of the fallbacks, so it renders as a small dot —
+       which is what it does on the Winners page too, where the note calls it an
+       asterisk and the page draws a dot. If this ever ships, the two should agree
+       on a character that actually exists. */
+    const mark = thin.set.has(yr) ? '<tspan class="ast">*</tspan>' : '';
+    out.push(`<text x="${x(i)}" y="${H - PAD.b + 15}" text-anchor="middle">${yr}${mark}</text>`);
   });
+  out.push('</g>');
+
+  /* ---- how much there was to win ----
+
+     ⚠️ The denominator, drawn. A score is a fraction and the numerator is the
+     only half the line shows; without this, 66.7 in 2020 and 66.7 in 2015 are
+     the same height on the page and one of them is two matches. Kept out of the
+     plot and under the axis, because it is a different quantity — behind the
+     lines it read as a second series. */
+  out.push('<g class="strip">');
+  const half = (W - PAD.l - PAD.r) / Math.max(1, years.length - 1) / 2;
+  /* Narrow, so a bar reads as a bar. At the width of its own height the tall
+     ones came out as squares and the strip stopped looking like a quantity. */
+  const bw = Math.max(3, Math.min(11, half * 0.7));
+  years.forEach((yr, i) => {
+    const s = seasons[i];
+    const h = thin.max ? (STRIP.h * s.total) / thin.max : 0;
+    out.push(`<rect class="sz${thin.set.has(yr) ? ' is-thin' : ''}"`
+      + ` x="${x(i) - bw / 2}" y="${STRIP.top + STRIP.h - h}"`
+      + ` width="${bw}" height="${Math.max(h, s.total ? 1 : 0)}"></rect>`);
+    if (thin.set.has(yr)) {
+      out.push(`<text class="szn" x="${x(i)}" y="${STRIP.top + STRIP.h - h - 4}"`
+        + ` text-anchor="middle">${s.total}</text>`);
+    }
+  });
+  out.push(`<text class="szlbl" x="${PAD.l - 8}" y="${STRIP.top + STRIP.h}"`
+    + ` text-anchor="end">titles</text>`);
   out.push('</g>');
 
   /* Lines first, then every marker on top of every line, so a dot is never
@@ -360,15 +420,24 @@ function draw(model) {
       if (last && pt.year === last[last.length - 1].year + 1) last.push(pt);
       else runs.push([pt]);
     }
+    /* ⚠️ Segment by segment rather than one polyline per run, so a leg that
+       touches a short season can be **dashed**: a solid line across 2020 asserts
+       a trend through a year that was barely played. Straight legs, so nothing
+       is lost by drawing them separately. */
     for (const run of runs) {
-      if (run.length < 2) continue;
-      const d = run.map((pt, i) => (i ? 'L' : 'M') + at(pt.year) + ' ' + y(pt[view.metric])).join(' ');
-      out.push(`<path class="series" data-id="${p.id}" stroke="${p.colour}" d="${d}"></path>`);
+      for (let i = 1; i < run.length; i++) {
+        const a = run[i - 1], b = run[i];
+        const holed = thin.set.has(a.year) || thin.set.has(b.year);
+        out.push(`<path class="series${holed ? ' over-hole' : ''}" data-id="${p.id}"`
+          + ` stroke="${p.colour}" d="M${at(a.year)} ${y(a[view.metric])}`
+          + ` L${at(b.year)} ${y(b[view.metric])}"></path>`);
+      }
     }
   }
   for (const p of shown) {
     for (const pt of p.pts) {
-      out.push(`<circle class="pt" data-id="${p.id}" data-year="${pt.year}"`
+      out.push(`<circle class="pt${thin.set.has(pt.year) ? ' on-hole' : ''}"`
+        + ` data-id="${p.id}" data-year="${pt.year}"`
         + ` cx="${at(pt.year)}" cy="${y(pt[view.metric])}" r="4" fill="${p.colour}"></circle>`);
     }
   }
@@ -485,9 +554,11 @@ function go() {
         + 'nothing landed on Super 500 before the World Tour, so the earlier '
         + 'seasons are unchanged and the two halves are no longer like for like.</span> '
       : '')
-    + '<span class="warnline">⚠️ A banded year held fewer than six of these '
-    + 'tournaments — 2020 held two, so one title is half the season — and the '
-    + 'last year is still being played.</span>';
+    + '<span class="warnline">* marks a season with a hole in it — far fewer '
+    + 'titles than the ones around it, so a score built on them is built on less. '
+    + '2020 played three; 2022 still had the Asian swing cancelled; the last year '
+    + 'is only part played. The bar under each year is how much there was to win, '
+    + 'and a dashed leg is a line crossing one of those years.</span>';
 }
 
 $('floor').oninput = e => { view.floor = Number(e.target.value); only.clear(); go(); };
