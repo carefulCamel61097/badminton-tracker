@@ -165,6 +165,8 @@
   <span class="seg" id="kindSeg"></span>
   <span class="lbl" style="margin-left:14px">Metric</span>
   <span class="seg" id="metricSeg"></span>
+  <span class="lbl" style="margin-left:14px">Ladder</span>
+  <span class="seg" id="ladderSeg"></span>
 </div>
 <div class="bar">
   <span class="lbl">Show</span>
@@ -233,22 +235,53 @@ const BASE_RUNG = honourRung(24);
    same number. The photographs step by sqrt(phi) on the *side*, which makes the
    *area* step by phi. Area is what the eye actually compares on the pyramid, so
    phi-per-rung is the default and sqrt(phi)-per-rung is offered beside it. */
-/* ⚠️ **φ per rung, and that is the whole ladder.** The photographs on the Winners
-   board step by √φ on the *side* of a square, which steps its **area** by φ — and
-   area is what an eye compares when it looks at that board, so φ is the step this
-   agrees with. A √φ alternative was on a toggle for a while: also defensible,
-   also not what anybody means by "weighted by the golden ratio", and a second
-   control that nobody would ever move is a question asked for nothing. */
-const STEP = PHI;
+/* How much more a title is worth for every rung it sits above a Super 750.
+ *
+ * The photographs on the Winners board step by √φ on the *side* of a square,
+ * which steps its **area** by φ. Both are "the golden ratio" and they are not the
+ * same ladder, so both are here, plus one that is neither.
+ *
+ * ⚠️ **The Olympics is already a rung above the World Championships** and always
+ * has been — 6.854 against 4.236 on the steep ladder. What makes them look equal
+ * is the *pyramid*, where `pyramidScale` draws an Olympic square at the Worlds
+ * size and lets the gold ring carry the difference. That is a drawing decision
+ * about a row of faces; it was never a claim about worth, and `honourRung`, which
+ * is what these weights read, has always ranked them apart.
+ */
+const LADDERS = {
+  steep: {
+    label: 'Steep', why: 'every tier is <b>1.6×</b> the one below — the step a '
+      + 'square’s <i>area</i> takes on the pyramid',
+    at: rung => Math.pow(PHI, BASE_RUNG - rung),
+  },
+  gentle: {
+    label: 'Gentle', why: 'every tier is <b>1.27×</b> the one below — the step a '
+      + 'square’s <i>side</i> takes',
+    at: rung => Math.pow(Math.sqrt(PHI), BASE_RUNG - rung),
+  },
+  /* ⚠️ Gentle everywhere, and then one full φ step for the Olympics alone. The
+     argument for it: four years of a career point at one fortnight, so the gap
+     between an Olympic gold and everything else is not the gap between any other
+     two neighbouring tiers. The argument against: it is a rule with an exception
+     in it, and the exception is the tier a reader is most likely to think it was
+     written for. Here so it can be looked at rather than argued about. */
+  olympic: {
+    label: 'Gentle, Olympic apart',
+    why: 'every tier is <b>1.27×</b> the one below, except the Olympics, which '
+      + 'takes a full <b>1.6×</b> step above the World Championships',
+    at: rung => Math.pow(Math.sqrt(PHI), BASE_RUNG - Math.max(rung, honourRung(20)))
+      * (rung < honourRung(20) ? PHI : 1),
+  },
+};
 
-const weightOf = tier => Math.pow(STEP, BASE_RUNG - honourRung(tier));
+const weightOf = tier => LADDERS[view.ladder].at(honourRung(tier));
 
 const TIER_NAME = { OLY: 'Olympics', 20: 'World Champs', 22: 'Tour Finals',
   23: 'Super 1000', 24: 'Super 750', 25: 'Super 500' };
 
 /* ---------- state ---------- */
 
-const view = { kind: 'MS', metric: 'share', floor: 20, autoFloor: true };
+const view = { kind: 'MS', metric: 'share', ladder: 'steep', floor: 20, autoFloor: true };
 const files = {};
 const only = new Set();     // legend pins; empty means "everybody who clears the floor"
 
@@ -280,8 +313,8 @@ async function load(kind) {
  * claiming the first when it only knows the second. Runs break at any gap, so
  * two dots four years apart stay two dots.
  */
-function build() {
-  const file = files[view.kind];
+function build(kind = view.kind) {
+  const file = files[kind];
   const { years, byYear } = winnersSeasons(file);
 
   const seasons = years.map(year => {
@@ -376,14 +409,32 @@ function paint(shown) {
   return shown;
 }
 
+/**
+ * The top of the y-axis, which must **not** move when the view is narrowed.
+ *
+ * ⚠️ Scaled to the best season in *either* draw, not to the players on screen.
+ * Fitted to the selection it rescaled every time a name was clicked — so
+ * isolating somebody made their line climb the page, which is the chart telling
+ * a lie about the very thing it was asked to show — and the men's and women's
+ * boards were drawn to different heights, so switching between them compared two
+ * pictures at two scales.
+ */
+function axisTop() {
+  let best = 0.01;
+  for (const kind of ['MS', 'WS']) {
+    if (!files[kind]) continue;
+    for (const p of build(kind).people) if (p.peak > best) best = p.peak;
+  }
+  return Math.min(1, Math.max(0.25, Math.ceil(best * 10) / 10));
+}
+
 function draw(model) {
   const { years, seasons, people } = model;
   const svg = $('chart');
   const floor = view.floor / 100;
   const shown = paint(people.filter(p => p.peak >= floor && (!only.size || only.has(p.id))));
 
-  const top = Math.min(1, Math.max(0.25,
-    Math.ceil(Math.max(0.01, ...shown.map(p => p.peak)) * 10) / 10));
+  const top = axisTop();
   const x = i => PAD.l + (W - PAD.l - PAD.r) * (years.length < 2 ? 0.5 : i / (years.length - 1));
   const y = v => H - PAD.b - (H - PAD.t - PAD.b) * (v / top);
   const at = year => x(years.indexOf(year));
@@ -526,13 +577,22 @@ function draw(model) {
 
 /* ---------- the rest of the page ---------- */
 
+/**
+ * Everybody the bar admits, with whoever is not currently drawn dimmed.
+ *
+ * ⚠️ The list must not shrink when a name is clicked. It did, which made
+ * isolating a player a one-way door: the chips you would need to get back, or to
+ * add a second player beside the first, were the ones that had just disappeared.
+ * Off is a state, not an absence.
+ */
 function renderLegend(model, shown) {
-  const ids = new Set(shown.map(p => p.id));
+  const drawn = new Set(shown.map(p => p.id));
+  const floor = view.floor / 100;
   $('legend').innerHTML = model.people
-    .filter(p => ids.has(p.id))
+    .filter(p => p.peak >= floor)
     .sort((a, b) => b.peak - a.peak)
-    .map(p => `<span class="lg${ids.has(p.id) ? '' : ' off'}" data-id="${p.id}">`
-      + `<i style="background:${p.colour}"></i>`
+    .map(p => `<span class="lg${drawn.has(p.id) ? '' : ' off'}" data-id="${p.id}">`
+      + `<i style="background:${p.colour || '#666'}"></i>`
       + (p.who.a ? `<img src="${p.who.a}" alt="">` : '')
       + `${p.who.n}<span class="pk">${score(p.peak)}</span></span>`).join('');
 }
@@ -572,17 +632,18 @@ function renderTables(model) {
 }
 
 function renderWeights() {
+  const L = LADDERS[view.ladder];
   const line = ['OLY', 20, 22, 23, 24, 25]
     .map(t => `${TIER_NAME[t]} <code>${weightOf(t).toFixed(3)}</code>`)
     .join(' · ');
   $('weightNote').innerHTML =
     '<b>A score of 100 is the whole season</b> — every title on the board, and '
     + 'nobody else with one. <b>Titles</b> counts them and treats them all alike. '
-    + '<b>Weighted</b> asks what they were worth: each tier is <b>1.6×</b> the one '
-    + 'below it, so an Olympic gold is nearly seven Super 750s. Super 750 is the '
-    + `unit — ${line} — and 1.6 is the golden ratio, the same step the photographs `
-    + 'on the Winners board are sized by (<code>honourRung</code>), so nothing here '
-    + 'invents a second ranking.';
+    + `<b>Weighted</b> asks what they were worth, on the <b>${L.label.toLowerCase()}</b> `
+    + `ladder: ${L.why}. Super 750 is the unit — ${line}. `
+    + '1.6 is the golden ratio and 1.27 is its square root, which are what the '
+    + 'photographs on the Winners board step by in area and in width; the rungs are '
+    + '<code>honourRung</code>, so nothing here invents a second ranking.';
 }
 
 function renderControls() {
@@ -594,12 +655,19 @@ function renderControls() {
       const b = e.target.closest('button');
       if (!b || b.disabled) return;
       view[key] = b.dataset.val;
+      if (key === 'ladder') view.metric = 'weighted';
       only.clear();
       go();
     };
   };
   seg('kindSeg', [['MS', 'Men’s'], ['WS', 'Women’s']], 'kind');
   seg('metricSeg', [['share', 'Titles'], ['weighted', 'Weighted']], 'metric');
+  /* ⚠️ Live even under *Titles*, where it changes nothing. It used to grey out
+     there, which is tidier and reads as broken to anybody who never switched —
+     a control that is only ever seen disabled looks like a bug, not a rule.
+     Touching it now turns the weighting on, so it is an entrance rather than a
+     dead end. */
+  seg('ladderSeg', Object.entries(LADDERS).map(([k, v]) => [k, v.label]), 'ladder');
   $('floor').value = String(view.floor);
   $('floorTxt').textContent = (view.floor
     ? `players who scored ${view.floor} or better in some year`
@@ -751,7 +819,7 @@ try {
   go();
   /* The other draw in the background, so the toggle is instant when it is used
      and the page is not held up by it when it is not. */
-  load('WS').then(renderControls);
+  load('WS').then(go);
 } catch (err) {
   $('sub').innerHTML = `<span class="warnline">${err.message}</span> — this tool fetches `
     + `<code>../data/*.json</code>, so it needs the dev server: <code>node serve.mjs</code>, `
