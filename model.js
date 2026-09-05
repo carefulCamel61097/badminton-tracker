@@ -2998,6 +2998,190 @@ export function reignLanes(reigns) {
   });
 }
 
+
+/* ============================ the domination score ============================
+
+   The second reading of the same board. The pyramid says *who won what*; this
+   says *how much of it*, as a score out of 100 per player per season.
+
+   100 is the whole season: every title on the board that year, and nobody else
+   with one. It is a percentage underneath and deliberately not called one —
+   "75% of 2022" invites "per cent of what?" every single time it is read, and a
+   score out of 100 carries its own scale.
+
+   ⚠️ **Weighted, always.** Counting titles and treating them alike was the other
+   reading and it is gone: it makes an Olympic year look like a Super 750 year,
+   which is the one thing this project's whole ladder exists to deny. There is no
+   toggle, because a toggle would be offering a reading we do not believe.
+
+   ⚠️ **The weights are `honourRung`'s**, the ladder the photographs on the board
+   are already sized by, so nothing here invents a second ranking. What it does
+   choose is the *step*: the squares step by √φ on the side, which steps their
+   area by φ, and this steps by **φ per rung** — the area, because area is what
+   the eye actually compares on the pyramid.
+
+   ⚠️ Settled by measurement, not by taste. On the gentler √φ ladder LEE Chong
+   Wei finishes 86 points of accumulated score clear of LIN Dan (316 to 230); on
+   φ they finish level (287 to 276), which is the reading the eye already has —
+   LCW won more of them, LIN Dan won the big ones. The half-step variant, where
+   an Olympic gold is √φ above a world title rather than a full rung, was built
+   and dropped: it changes nothing in three years out of four, and in the fourth
+   it moves Beijing from 41 to 37, which is not worth a second ladder to explain.
+   ==================================================================== */
+
+/** Super 750 is the unit: the lowest rung the whole top of the game enters. */
+const SCORE_BASE = honourRung(24);
+
+/**
+ * What one title is worth, in Super 750s.
+ *
+ * Olympics 6.854 · Worlds 4.236 · Tour Finals 2.618 · Super 1000 1.618 ·
+ * Super 750 1. Seven Super 750s to an Olympic gold, which is about the trade
+ * anybody who has watched the sport would make.
+ */
+export function titleWeight(tier) {
+  return Math.pow(PHI, SCORE_BASE - honourRung(tier));
+}
+
+/** The tiers the board holds, best first — for saying the ladder out loud. */
+export const SCORE_TIERS = ['OLY', 20, 22, 23, 24];
+
+/**
+ * Every player's season-by-season share of what there was to win.
+ *
+ * ⚠️ A player has a point only in the seasons they **won something**. There is
+ * no column in this data saying who *entered*, so "0 in 2013" and "not on the
+ * tour in 2013" cannot be told apart — and a line drawn along zero would be
+ * asserting the first while knowing only the second. It is the caller's job to
+ * break its runs at the gaps; `pts` is sparse, and says so by being sparse.
+ *
+ * @param {object} file  a `data/winners-*.json`
+ * @returns {{years, seasons, people}} `seasons` carry the whole season's mass so
+ *   a hover can show the fraction it was made of; `people` are sorted by the
+ *   season a career opens, which is the order the era bands already use.
+ */
+export function dominationSeasons(file) {
+  const { years, byYear } = winnersSeasons(file);
+  const players = (file && file.players) || {};
+
+  const seasons = years.map(year => {
+    const list = byYear.get(year) || [];
+    const mass = list.reduce((n, t) => n + titleWeight(t.tier), 0);
+    const by = new Map();
+    for (const t of list) {
+      if (t.w == null) continue;
+      const id = String(t.w);
+      const cur = by.get(id) || { n: 0, w: 0, titles: [] };
+      cur.n += 1;
+      cur.w += titleWeight(t.tier);
+      cur.titles.push(t);
+      by.set(id, cur);
+    }
+    return { year, total: list.length, mass, by, titles: list };
+  });
+
+  const people = new Map();
+  for (const s of seasons) {
+    for (const [id, got] of s.by) {
+      if (!people.has(id)) {
+        people.set(id, { id, who: players[id] || { n: '#' + id }, pts: [] });
+      }
+      people.get(id).pts.push({
+        year: s.year,
+        score: s.mass ? got.w / s.mass : 0,
+        weight: got.w, of: s.mass,
+        n: got.n, played: s.total,
+        titles: got.titles,
+      });
+    }
+  }
+
+  const list = [...people.values()];
+  for (const p of list) p.peak = Math.max(...p.pts.map(pt => pt.score));
+  list.sort((a, b) => (a.pts[0].year - b.pts[0].year)
+    || (a.who.n < b.who.n ? -1 : a.who.n > b.who.n ? 1 : 0));
+  return { years, seasons, people: list };
+}
+
+/**
+ * The seasons with a hole in them, relative to the seasons around them.
+ *
+ * ⚠️ Not a fixed count. The calendar has held fifteen of these titles and it has
+ * held eight, so "fewer than six" means one thing in 2013 and another in 2022.
+ * Two thirds of the median is the line, and it catches exactly the seasons
+ * anybody would name: 2020 (three titles — the tour stopped in March), 2022 (the
+ * Asian swing still cancelled) and whichever season is being played now.
+ */
+export function thinSeasons(seasons) {
+  const sizes = (seasons || []).map(s => s.total).filter(n => n > 0).sort((a, b) => a - b);
+  if (!sizes.length) return { set: new Set(), median: 0, max: 0 };
+  const median = sizes[Math.floor(sizes.length / 2)];
+  return {
+    median, max: sizes[sizes.length - 1],
+    set: new Set(seasons.filter(s => s.total > 0 && s.total < median * (2 / 3))
+      .map(s => s.year)),
+  };
+}
+
+/** Why a season was short, where that is a fact rather than an inference. */
+export function shortSeasonWhy(year, now) {
+  if (year >= (now || new Date().getUTCFullYear())) return 'ongoing';
+  return (year >= 2020 && year <= 2022) ? 'Covid' : '';
+}
+
+/* The clutter bar's steps. A slider rather than a row of chips because it is a
+   dial with no meaningful stops on it — 20 is not a category. */
+export const SCORE_FLOOR_MAX = 60;
+export const SCORE_FLOOR_STEP = 5;
+
+/**
+ * The highest bar that still shows **whoever led each season**.
+ *
+ * Forty-four careers on one chart is a scribble, so the default hides most of
+ * them — but it must not hide the person who actually dominated a year. So: take
+ * every finished season, find who led it, note that player's best year anywhere,
+ * and put the bar as high as it will go without dropping one of them.
+ *
+ * ⚠️⚠️ This asked the wrong question until 5 Sep 2026: *"is anybody on screen in
+ * every season"*, which any visible player satisfies by winning one thing. The
+ * women's bar came out at 35 on a rule meant to hold the leaders, and CHEN Yu
+ * Fei — who led 2019 and scored 33 in 2023 — was not drawn at all.
+ *
+ * ⚠️ And it is the leader's **peak**, not their score that season: the bar
+ * filters on a career's best year, so what has to clear it is the number the
+ * filter will actually read. Asking the wrong one of those two is the other half
+ * of the same bug.
+ *
+ * ⚠️ Covering the top **two** of each season was the candidate that looked safer,
+ * and it collapses: some season's runner-up is always somebody whose whole career
+ * peaks at 10, so the bar falls to 10 and twenty-three lines come back. Measured
+ * on both draws, not guessed.
+ *
+ * ⚠️ The season being played is left out. In January it is one tournament and one
+ * winner; a part-played season cannot say who led it, so it is not asked. Without
+ * this the bar collapses every New Year.
+ */
+export function bestScoreFloor(model, now) {
+  const year = now || new Date().getUTCFullYear();
+  const need = [];
+  for (const s of (model && model.seasons) || []) {
+    if (!s.total || s.year >= year) continue;
+    let lead = null;
+    for (const p of model.people) {
+      const pt = p.pts.find(q => q.year === s.year);
+      if (pt && (!lead || pt.score > lead.score)) lead = { score: pt.score, peak: p.peak };
+    }
+    if (lead) need.push(lead.peak);
+  }
+  if (!need.length) return 0;
+  const lowest = Math.min(...need) * 100;
+  let out = 0;
+  for (let f = 0; f <= SCORE_FLOOR_MAX; f += SCORE_FLOOR_STEP) {
+    if (f <= lowest + 1e-9) out = f; else break;
+  }
+  return out;
+}
+
 /** The draws present on a day, in the usual MS/WS/MD/WD/XD order. */
 const DRAW_ORDER = ['MS', 'WS', 'MD', 'WD', 'XD'];
 export function drawsPresent(matches) {

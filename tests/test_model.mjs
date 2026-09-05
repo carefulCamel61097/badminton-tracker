@@ -36,6 +36,8 @@ import {
   bracketLayout, SLOT,
   drawsPresent, courtGrid, courtOrder, dayOf, matchSignature, prettyDay,
   LEVEL, SLOT_W, BOX_H, MIN_LABEL_PX, LEVEL_ORDER,
+  titleWeight, dominationSeasons, thinSeasons, shortSeasonWhy,
+  bestScoreFloor, SCORE_FLOOR_STEP,
 } from '../model.js';
 import { posterLayout, tileSlot, POSTER, REIGN_COLOURS, TIER_RING } from '../poster.js';
 import { check, eq, near, report } from './check.mjs';
@@ -2407,6 +2409,169 @@ eq('and both of his runs sit in the same lane', axelsen[0].runs.length, 2);
    step — a canvas that drew perfectly and then will not be read back — only
    happens in a browser.
    ==================================================================== */
+
+
+/* ============================ the domination score ============================ */
+
+console.log('\n=== what one title is worth ===');
+
+/* ⚠️ These five numbers are the whole of the metric, so they are written out
+   rather than derived from the same expression the model uses — a test that
+   recomputes `Math.pow(PHI_, ...)` proves only that Math.pow is deterministic. */
+near('a Super 750 is the unit', titleWeight(24), 1);
+near('a Super 1000 is φ of one', titleWeight(23), 1.618);
+near('the Tour Finals is φ²', titleWeight(22), 2.618);
+near('a world title is φ³', titleWeight(20), 4.236);
+near('and an Olympic gold is φ⁴', titleWeight('OLY'), 6.854);
+/* The claim the note makes out loud, checked. */
+check('which is about seven Super 750s',
+  Math.round(titleWeight('OLY') / titleWeight(24)) === 7,
+  String(titleWeight('OLY')));
+
+/* ⚠️ The Olympics has always outranked the World Championships here. What makes
+   them look equal is `pyramidScale`, which draws an Olympic square at the Worlds
+   size and lets the gold ring carry the difference — a decision about a row of
+   faces, never a claim about worth. */
+check('the Olympics outweighs the Worlds, whatever the board draws',
+  titleWeight('OLY') > titleWeight(20));
+eq('though the board draws them the same size',
+  pyramidScale('OLY'), pyramidScale(20));
+
+/* ⚠️ Every step is the same one. The half-step variant — an Olympic gold √φ
+   above a world title rather than a full rung — was built and dropped, and this
+   is what says it stayed dropped. */
+const ladder = ['OLY', 20, 22, 23, 24].map(titleWeight);
+check('and every rung is the same step',
+  ladder.slice(1).every((w, i) => Math.abs(ladder[i] / w - PHI_) < 1e-9),
+  ladder.map(w => w.toFixed(3)).join(' / '));
+
+console.log('\n=== a season as a share of itself ===');
+
+const domMS = dominationSeasons(winMS);
+
+eq('the same seasons the board draws', domMS.years.length, winSeasons.years.length);
+check('every season is a full one', domMS.seasons.every(s =>
+  s.total === winSeasons.byYear.get(s.year).length));
+
+/* The definition, checked directly: a season's scores are shares of that season
+   and nothing else, so they add to one wherever anybody won anything. */
+let sums = 0;
+for (const s of domMS.seasons) {
+  if (!s.total) continue;
+  let n = 0;
+  for (const p of domMS.people) {
+    const pt = p.pts.find(q => q.year === s.year);
+    if (pt) n += pt.score;
+  }
+  if (Math.abs(n - 1) > 1e-9) sums++;
+}
+eq('every season’s scores add up to a whole season', sums, 0);
+
+/* ⚠️ A player has a point only in the seasons they *won* something. There is no
+   column in this data saying who entered, so a zero would be a claim the model
+   cannot support — and a line drawn along the bottom would make it. */
+check('nobody has a point they did not win anything in',
+  domMS.people.every(p => p.pts.every(pt => pt.n > 0 && pt.score > 0)));
+check('and the points are in order', domMS.people.every(p =>
+  p.pts.every((pt, i) => i === 0 || pt.year > p.pts[i - 1].year)));
+
+/* Ordered the way the era bands order their lanes — by the season a career
+   opens — because the colours are handed out along this list and the two views
+   should tell the same story in the same sequence. */
+check('careers are listed in the order they open', domMS.people.every((p, i) =>
+  i === 0 || p.pts[0].year >= domMS.people[i - 1].pts[0].year));
+
+/* ⚠️ Read off the recorded harvest by hand: 2022 held eight of these titles and
+   Viktor AXELSEN won six of them, including the Worlds. Six of eight by count is
+   75; by weight it is 85.8, and the gap between those two numbers is the whole
+   reason the score is weighted. */
+const ax2022 = domMS.people.find(p => p.who.n === 'Viktor AXELSEN')
+  .pts.find(pt => pt.year === 2022);
+eq('AXELSEN won six of the eight titles of 2022', ax2022.n, 6);
+eq('out of a season that held eight', ax2022.played, 8);
+near('which is 75 by count', (ax2022.n / ax2022.played) * 100, 75, 0.05);
+near('and 85.8 once the Worlds is weighted', ax2022.score * 100, 85.8, 0.05);
+
+/* ⚠️ LIN Dan against LEE Chong Wei is what settled the steepness. On the gentler
+   √φ ladder LCW finishes 86 points clear; on φ they finish level, which is the
+   reading the eye already has — LCW won more of them, LIN Dan won the big ones.
+   Both totals are checked, because "level" is the claim and either one drifting
+   would break it silently. */
+const scoreCareer = name => domMS.people.find(p => p.who.n === name)
+  .pts.reduce((n, pt) => n + pt.score * 100, 0);
+near('LEE Chong Wei’s seasons add to 287', scoreCareer('LEE Chong Wei'), 287, 1);
+near('LIN Dan’s add to 276, which is level with him', scoreCareer('LIN Dan'), 276, 1);
+near('and Lin Dan’s 2007 stands well above LCW’s 2010',
+  domMS.people.find(p => p.who.n === 'LIN Dan').pts.find(pt => pt.year === 2007).score * 100,
+  56.9, 0.1);
+
+console.log('\n=== the seasons with a hole in them ===');
+
+const thinMS = thinSeasons(domMS.seasons);
+/* ⚠️ Two thirds of the median, not a fixed count. The calendar has held fifteen
+   of these titles and it has held eight, so "fewer than six" means one thing in
+   2013 and another in 2022 — and the fixed rule called 2022 a normal season. */
+eq('the median season is fourteen titles', thinMS.median, 14);
+check('2020 was short', thinMS.set.has(2020));
+check('and so was 2022, which a fixed count of six would have missed',
+  thinMS.set.has(2022), `${domMS.seasons.find(s => s.year === 2022).total} titles`);
+check('but 2018 and 2019, at ten, were not',
+  !thinMS.set.has(2018) && !thinMS.set.has(2019));
+eq('an empty board has no short seasons', thinSeasons([]).set.size, 0);
+
+eq('2020 is named for what happened to it', shortSeasonWhy(2020, 2026), 'Covid');
+eq('and 2022 as well', shortSeasonWhy(2022, 2026), 'Covid');
+eq('2019 needs no reason', shortSeasonWhy(2019, 2026), '');
+/* The season being played is short because it is not finished, which is a
+   different fact and gets a different word. */
+eq('the season being played is ongoing, not Covid', shortSeasonWhy(2026, 2026), 'ongoing');
+eq('and so is one in the future', shortSeasonWhy(2027, 2026), 'ongoing');
+
+console.log('\n=== the default clutter bar ===');
+
+/* ⚠️⚠️ The rule is "hide as much as possible without dropping anybody who ever
+   *led* a season", and it is the leader's **peak** that has to clear the bar,
+   because the bar filters on a career's best year. Asking either half of that
+   wrongly put the women's default at 35 and drew CHEN Yu Fei not at all. */
+const floorMS = bestScoreFloor(domMS, 2026);
+const domWS = dominationSeasons(JSON.parse(fs.readFileSync(
+  path.join(HERE, '..', 'data', 'winners-WS.json'), 'utf8')));
+const floorWS = bestScoreFloor(domWS, 2026);
+eq('the men’s board settles at 45', floorMS, 45);
+eq('the women’s at 20', floorWS, 20);
+
+/** Whoever led each finished season, and whether the bar still draws them. */
+function leadersHeld(model, floor, now) {
+  for (const s of model.seasons) {
+    if (!s.total || s.year >= now) continue;
+    let lead = null;
+    for (const p of model.people) {
+      const pt = p.pts.find(q => q.year === s.year);
+      if (pt && (!lead || pt.score > lead.score)) lead = { score: pt.score, peak: p.peak };
+    }
+    if (lead && lead.peak * 100 < floor - 1e-9) return false;
+  }
+  return true;
+}
+for (const [name, model, floor] of [['men', domMS, floorMS], ['women', domWS, floorWS]]) {
+  check(`the ${name}’s bar still draws every season’s leader`,
+    leadersHeld(model, floor, 2026));
+  check(`and one step higher would drop one of them`,
+    !leadersHeld(model, floor + SCORE_FLOOR_STEP, 2026),
+    `at ${floor + SCORE_FLOOR_STEP}`);
+}
+
+/* ⚠️ The season being played is left out of the sum. In January it is one
+   tournament and one winner, whose whole career may peak at 12 — and the bar
+   would collapse to 10 every New Year. Proved by asking the same question with
+   the ongoing season counted. */
+const naive = bestScoreFloor(
+  { seasons: domMS.seasons, people: domMS.people }, 2027);
+check('counting the part-played season would drag the bar down',
+  naive < floorMS, `${naive} against ${floorMS}`);
+
+eq('nothing to draw is a bar of nothing',
+  bestScoreFloor({ seasons: [], people: [] }, 2026), 0);
 
 console.log('\n=== a slice of the board, laid out for export ===');
 

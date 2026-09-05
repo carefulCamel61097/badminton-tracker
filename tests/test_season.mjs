@@ -2683,6 +2683,238 @@ check('the export paints the rings the page paints',
    last step, and the whole feature is then a button that throws.
    ==================================================================== */
 
+/* ============================ the domination score ============================
+
+   The Winners page's second view, checked as **painted**. Every mistake this
+   chart has made was a drawing mistake the numbers underneath were innocent of,
+   so almost nothing here reads the model: it reads the SVG.
+   ==================================================================== */
+
+console.log('\n=== the winners page: the same seasons as a quantity ===');
+
+await b.ev(`location.hash = '#pg=winners&wv=score'`);
+check('the score view draws',
+  await b.until(`document.querySelectorAll('#scoreChart .pt').length > 5`,
+    { timeout: 60000 }));
+
+eq('and it is a view, not a second block under the board',
+  await b.ev(`document.getElementById('winBody').hidden`), true);
+eq('the board’s note goes with the board',
+  await b.ev(`document.getElementById('winNote').hidden`), true);
+eq('and the score’s note comes with the score',
+  await b.ev(`document.getElementById('scoreNote').hidden`), false);
+
+/* ⚠️ Every control that belongs to one view is hidden in the other, never
+   disabled. A row of greyed-out buttons reads as a broken page to anybody who
+   never finds out what would enable them. */
+eq('the era toggle is not on this view at all',
+  await b.ev(`document.getElementById('winEras').hidden`), true);
+eq('nor its bar', await b.ev(`document.getElementById('winMin').hidden`), true);
+eq('nor the zoom slider, which sizes squares there are none of',
+  await b.ev(`document.getElementById('winZoomLbl').hidden`), true);
+eq('and the clutter bar is here instead',
+  await b.ev(`document.getElementById('winFloor').hidden`), false);
+
+const scoreModelMS = await b.ev(`window.BST.score.model()`);
+const marksMS = await b.ev(`window.BST.score.marks()`);
+
+/* Every mark the chart draws is a season somebody actually won something in —
+   and every such season above the bar is drawn. */
+const floorMS = await b.ev(`window.BST.score.floor()`);
+eq('the bar starts where the data puts it', floorMS, 45);
+check('and it says so is derived', await b.ev(`window.BST.score.auto()`));
+const wantMarks = scoreModelMS.people
+  .filter(p => p.peak * 100 >= floorMS - 1e-9)
+  .flatMap(p => p.pts.map(pt => p.id + ':' + pt.year)).sort();
+eq('a face for every season of every career on screen, and no others',
+  marksMS.map(m => m.id + ':' + m.year).sort().join(' '), wantMarks.join(' '));
+
+/* ⚠️ The marker is the photograph. A dot needs a legend and a face does not —
+   and a player who appears in one season only should still be someone. */
+check('the markers are faces, not dots',
+  marksMS.filter(m => m.face).length > marksMS.length * 0.9,
+  `${marksMS.filter(m => m.face).length} of ${marksMS.length}`);
+
+/* ⚠️ Two careers that open in neighbouring seasons are exactly the ones drawn
+   through each other, and `REIGN_COLOURS` holds two blues — which put Viktor
+   AXELSEN and KIDAMBI Srikanth in near-identical blue a season apart. The
+   palette is handed out over the players actually **drawn**, so the set on
+   screen is always distinct. */
+const drawnColours = [...new Set(marksMS.map(m => m.id + '=' + m.colour))];
+const perPlayer = new Map(drawnColours.map(s => s.split('=')));
+eq('one colour per career', perPlayer.size, new Set(marksMS.map(m => m.id)).size);
+eq('and no two careers on screen share one',
+  new Set(perPlayer.values()).size, perPlayer.size);
+
+/* ⚠️ A point only where somebody won something, and runs break at the gaps:
+   this data says who won, not who entered, so a leg across a fallow season
+   would be an assertion the model cannot support. */
+const legsMS = await b.ev(`window.BST.score.legs()`);
+for (const p of scoreModelMS.people.filter(q => q.peak * 100 >= floorMS - 1e-9)) {
+  const consecutive = p.pts.filter((pt, i) => i && pt.year === p.pts[i - 1].year + 1).length;
+  eq(`${p.who} has a leg only between consecutive seasons`,
+    legsMS.filter(l => l.id === p.id).length, consecutive);
+}
+
+/* ⚠️ A solid line across 2020 asserts a trend through a year that was barely
+   played, so a leg touching a short season is dashed. */
+check('a leg touching a short season is dashed',
+  legsMS.some(l => l.dashed));
+const stripMS = await b.ev(`window.BST.score.strip()`);
+eq('the strip says how many titles each season held',
+  stripMS.map(s => s.n).join(','),
+  scoreModelMS.seasons.map(s => s.total).join(','));
+/* ⚠️ The number is on **every** bar, not only the short ones. It was the short
+   seasons' badge, which made a count look like a warning; it is just the size
+   of the season, and a reader comparing 2022 to 2023 wants both. */
+check('and the count is on every bar, not only the marked ones',
+  stripMS.every(s => Number.isFinite(s.n)) && stripMS.some(s => !s.thin && s.n > 0));
+
+/* ⚠️ A year carrying the footnote must keep its axis label, or the mark has
+   nothing to sit on. 2020 and 2022 both fell on the skipped alternate when the
+   axis thinned to every other year, and the asterisk simply was not drawn. */
+const axisMS = await b.ev(`window.BST.score.axis()`);
+for (const yr of [2020, 2022]) {
+  check(`${yr} keeps its label, and its mark`,
+    axisMS.includes(String(yr) + '*'), axisMS.join(' '));
+}
+eq('and the reasons are written where the line goes strange',
+  (await b.ev(`window.BST.score.why()`)).join(','), 'Covid,Covid,ongoing');
+
+/* ⚠️ The axis is scaled to the best season in **either** draw, and never to the
+   selection. Fitted to what was on screen it rescaled every time a name was
+   clicked, so isolating somebody made their line climb the page. */
+const topBefore = await b.ev(`window.BST.score.top()`);
+await b.ev(`window.BST.score.floor(10)`);
+await b.wait(120);
+eq('moving the bar does not move the axis',
+  await b.ev(`window.BST.score.top()`), topBefore);
+check('though it does draw more people',
+  (await b.ev(`window.BST.score.marks()`)).length > marksMS.length);
+check('and the bar stops being the derived default once touched',
+  !await b.ev(`window.BST.score.auto()`));
+
+console.log('\n=== the winners page: pinning a name ===');
+
+await b.ev(`window.BST.score.floor(45)`);
+await b.wait(120);
+const pinId = scoreModelMS.people
+  .filter(p => p.peak * 100 >= 45).sort((a, b) => b.peak - a.peak)[0].id;
+const legendBefore = await b.ev(`window.BST.score.legend()`);
+await b.ev(`window.BST.score.pin('${pinId}')`);
+await b.wait(150);
+
+/* ⚠️ The list must not shrink when a name is clicked. It did, which made
+   picking somebody out a one-way door: the chips you would need to get back —
+   or to put a second player beside the first — were the ones that had just
+   gone. Off is a state, not an absence. */
+const legendAfter = await b.ev(`window.BST.score.legend()`);
+eq('the legend keeps every name it had',
+  legendAfter.map(l => l.id).join(','), legendBefore.map(l => l.id).join(','));
+eq('with the others marked off rather than removed',
+  legendAfter.filter(l => l.off).length, legendAfter.length - 1);
+
+/* ⚠️ Pinning **dims** the rest. Drawing only the pinned player re-ran the
+   palette over a set of one, so the act of picking somebody out changed their
+   colour — and it threw away the context that makes a share chart worth reading
+   at all, which is who else was in the season. */
+const marksPinned = await b.ev(`window.BST.score.marks()`);
+eq('everybody is still on the chart',
+  marksPinned.length, marksMS.length);
+check('with everyone but the pinned player faded',
+  marksPinned.every(m => m.faded === (m.id !== pinId)));
+eq('and the pinned player keeps the colour they had',
+  marksPinned.find(m => m.id === pinId).colour, perPlayer.get(pinId));
+eq('pinning does not move the axis either',
+  await b.ev(`window.BST.score.top()`), topBefore);
+
+/* The pin travels, because it is what a link to this chart is *about*. */
+eq('and it is in the link', await b.ev(`location.hash.includes('wp=${pinId}')`), true);
+await b.ev(`window.BST.score.pin('${pinId}')`);
+await b.wait(120);
+eq('clicking again lets it go',
+  (await b.ev(`window.BST.score.marks()`)).filter(m => m.faded).length, 0);
+
+console.log('\n=== the winners page: the two views hold the same seasons ===');
+
+/* ⚠️ Scaled across **both** draws, so switching discipline does not compare two
+   pictures at two scales. */
+await b.ev(`window.BST.winners.kind('WS')`);
+check('the women’s board draws too',
+  await b.until(`window.BST.score.marks().length > 5`, { timeout: 60000 }));
+eq('and it is drawn to the same height as the men’s',
+  await b.ev(`window.BST.score.top()`), topBefore);
+/* A bar the reader set is theirs, and does not quietly re-derive itself under
+   them when they look at the other draw. */
+eq('a chosen bar survives the switch', await b.ev(`window.BST.score.floor()`), 45);
+
+/* ⚠️ A link without the bar in it is asking for the *default*, and the default
+   is derived per discipline — so the women's board settles far lower than the
+   men's, where two careers have taken 85 and 78 of a season. */
+await b.ev(`location.hash = '#pg=winners&wv=score&wk=WS'`);
+await b.until(`window.BST.score.auto() && window.BST.score.marks().length > 5`,
+  { timeout: 60000 });
+eq('but the derived one is the women’s own',
+  await b.ev(`window.BST.score.floor()`), 20);
+
+await b.ev(`location.hash = '#pg=winners&wv=score'`);
+await b.until(`window.BST.winners.kind() === 'MS' && window.BST.score.marks().length > 5`,
+  { timeout: 60000 });
+eq('and the men’s is theirs', await b.ev(`window.BST.score.floor()`), 45);
+
+/* The score is a share of the same seasons the board draws, so the two cannot
+   disagree about what a season held. */
+const boardYears = await b.ev(`window.BST.score.model().seasons.map(s => s.year)`);
+await b.ev(`window.BST.score.view('board')`);
+check('switching back draws the board',
+  await b.until(`!!document.querySelector('.pyrseason')`, { timeout: 60000 }));
+eq('over exactly the same seasons',
+  (await b.ev(`window.BST.winners.columns().map(c => c.year)`)).join(','),
+  boardYears.join(','));
+eq('and the board’s note is back',
+  await b.ev(`document.getElementById('winNote').hidden`), false);
+
+/* Both keys, because a view you can only reach with the mouse is a view half
+   the readers of this page will never find. */
+await b.ev(`document.body.focus(); window.dispatchEvent(new Event('x'))`);
+await b.ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 's', bubbles: true }))`);
+await b.wait(200);
+eq('S is the score view', await b.ev(`window.BST.score.view()`), 'score');
+await b.ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'b', bubbles: true }))`);
+await b.wait(200);
+eq('and B is the board', await b.ev(`window.BST.score.view()`), 'board');
+
+/* The ladder is written out on the page, because a weight nobody can check is a
+   magic number — and because the whole claim is that it is the *board's* ladder
+   rather than a second ranking. */
+await b.ev(`window.BST.score.view('score')`);
+await b.until(`window.BST.score.marks().length > 5`, { timeout: 60000 });
+eq('the note says what every tier is worth',
+  (await b.ev(`window.BST.score.ladder()`)).join(' | '),
+  'Olympics6.854 | Worlds4.236 | Tour Finals2.618 | Super 10001.618 | Super 7501');
+
+/* ⚠️ The tables mark short seasons with the **same rule the chart marks with**,
+   not a second one — they were left on a fixed "fewer than six" test when the
+   chart moved to two thirds of the median, and called 2022 a normal season while
+   the axis above them said otherwise.
+   ⚠️ And they are dimmed rather than coloured: amber is this palette's attention
+   colour, so the one season nobody should read at face value was the brightest
+   line in the table. A footnote should recede. */
+const yearRows = await b.ev(`window.BST.score.rows('scoreYears')`);
+eq('every season is in the table', yearRows.length, boardYears.length);
+eq('and the short ones are the ones the axis marked',
+  yearRows.filter(r => r.thin).map(r => r.cells[0].replace('*', '')).join(','),
+  '2020,2022,' + new Date().getUTCFullYear());
+check('a short row is dimmed, not lit',
+  await b.ev(`(() => {
+    const tr = [...document.querySelectorAll('#scoreYears tr')].find(r => r.classList.contains('thin'));
+    const lit = [...document.querySelectorAll('#scoreYears tr')].find(r => !r.classList.contains('thin') && r.querySelector('td'));
+    const grey = c => { const [r, g, bl] = c.match(/\\d+/g).map(Number); return (r + g + bl) / 3; };
+    return grey(getComputedStyle(tr.querySelector('td')).color)
+      < grey(getComputedStyle(lit.querySelector('td')).color);
+  })()`));
+
+
 console.log('\n=== the winners page: saving a slice of it ===');
 
 await b.ev(`location.hash = '#pg=winners'`);

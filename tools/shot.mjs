@@ -65,7 +65,11 @@ const winOnly = hash => /[#&]pg=winners/.test(hash) && !/[#&]p=\d/.test(hash);
 for (const [name, hash] of shots) {
   await b.ev(`location.hash = ${JSON.stringify(hash)}`);
   if (winOnly(hash)) {
-    await b.until('!!document.querySelector(".pyrseason")', { timeout: 60000 });
+    // Either view: the board's columns, or the score chart's markers.
+    await b.until('!!document.querySelector(".pyrseason, #scoreChart .pt")',
+      { timeout: 60000 });
+    // The faces on the chart are separate requests and arrive after the SVG.
+    await b.wait(1200);
   } else if (tmtOnly(hash)) {
     await b.until('!!window.BST && window.BST.tmt.ready() && window.BST.tmt.pick() !== null',
       { timeout: 120000 });

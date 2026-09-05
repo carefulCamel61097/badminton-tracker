@@ -66,6 +66,24 @@ export const REIGN_COLOURS = [
   '#ff6b8b', '#f6d34a', '#7fd4d0', '#a3a3ff',
 ];
 
+/* One colour per line on the domination chart. The same idea as the bars above
+ * and not the same list, for two reasons that only apply to a chart.
+ *
+ * ⚠️ **Adjacent entries have to be unconfusable.** `REIGN_COLOURS` holds
+ * `#4f9dff` and `#a3a3ff`, two blues, which is fine for bars lying in different
+ * parts of a page and is not fine on a line chart: careers that open in
+ * neighbouring seasons are exactly the ones drawn through each other, and it put
+ * Viktor AXELSEN and KIDAMBI Srikanth in near-identical blue a season apart. This
+ * list walks the colour wheel instead of the band's palette.
+ *
+ * ⚠️ **Twelve rather than eight**, because a chart draws a dozen careers at once
+ * where the band gives each one a lane of its own. */
+export const SCORE_COLOURS = [
+  '#4f9dff', '#f2994a', '#57c98a', '#ff6b8b',
+  '#f6d34a', '#c77dff', '#12b5a5', '#e8734a',
+  '#8ad35b', '#ff9ad5', '#d4b483', '#7fd4d0',
+];
+
 /* The two summit marks, as SVG path data.
  *
  * ⚠️ One source for both renderers: `app.js` drops these into an inline `<svg>`

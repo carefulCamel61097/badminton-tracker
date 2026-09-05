@@ -33,10 +33,12 @@ import {
   pyramidSeason, pyramidBulges, pyramidRowWidth, pyramidSeasonMarks,
   winnersSeasons, pyramidReigns, reignLanes, REIGN_STEPS, REIGN_DEFAULT, reignStep,
   pyramidScale,
+  dominationSeasons, thinSeasons, shortSeasonWhy, titleWeight, SCORE_TIERS,
+  bestScoreFloor, SCORE_FLOOR_MAX, SCORE_FLOOR_STEP,
 } from './model.js';
 import {
   drawPoster, posterLayout, POSTER, TIER_RING,
-  REIGN_COLOURS, CUP_PATHS, CUP_BOX, RING_AT, RING_COLOURS, RING_BOX,
+  REIGN_COLOURS, SCORE_COLOURS, CUP_PATHS, CUP_BOX, RING_AT, RING_COLOURS, RING_BOX,
 } from './poster.js';
 
 const $ = id => document.getElementById(id);
@@ -1010,6 +1012,17 @@ function savedWinZoom() {
    and would stop meaning what every other square on the page means. */
 const WIN_KINDS = ['MS', 'WS'];
 
+/* Two readings of the same seasons. The board says *who won what*; the score
+   says *how much of it*.
+
+   ⚠️ A view, not a section further down the page. Stacked under the board they
+   could never line up: the pyramid is twenty columns that scroll sideways and
+   the chart is one fixed-width picture, so the eye would be dragging one of them
+   against the other. The Compare page already makes exactly this split between
+   its grid and its honours board, so there is one pattern to learn rather than
+   two. */
+const WIN_VIEWS = ['board', 'score'];
+
 /* ⚠️ Keyed by discipline, not a single `raw`. Switching used to be impossible,
    and the first version that allowed it would have thrown away the file it
    already had every time you switched back. */
@@ -1023,6 +1036,13 @@ const win = {
   // Whether the export picker is open. A view of the page, not part of what it
   // argues, so it never reaches the hash.
   exporting: false,
+
+  /* The score chart. `floor` is the clutter bar in points; `autoFloor` says it
+     is still the derived default and may move with the discipline, and goes
+     false for good the first time the reader touches the slider. `only` is the
+     set of pinned players — empty means everybody the bar admits is lit. */
+  view: 'board',
+  floor: 0, autoFloor: true, only: new Set(),
 };
 
 const winFile = () => win.files[win.kind] || null;
@@ -1119,17 +1139,35 @@ function tileTitle(t, year) {
 
 function renderWinners() {
   const body = $('winBody');
+  const scoring = win.view === 'score';
   renderWinnersControls();
+
+  /* The two views share the discipline, the span and the export button and
+     nothing else, so everything below the header swaps together. */
+  $('winScore').hidden = !scoring;
+  $('winNote').hidden = scoring;
+  $('scoreNote').hidden = !scoring;
+  body.hidden = scoring && !win.errors[win.kind] && !!winFile();
 
   const file = winFile();
   if (win.errors[win.kind]) {
+    body.hidden = false;
     body.innerHTML = `<p class="empty">${esc(win.errors[win.kind])}</p>`;
     $('winSpan').textContent = '';
     return;
   }
   if (!file) {
+    body.hidden = false;
     body.innerHTML = '<p class="empty">Reading the harvested winners…</p>';
     return;
+  }
+  if (scoring) {
+    /* ⚠️ The span is set here as well as below, because the board's render is
+       what usually writes it and the board is not drawn in this view. */
+    const yrs = winnersSeasons(file);
+    $('winSpan').textContent = `${yrs.years[0]}–${yrs.years[yrs.years.length - 1]} · `
+      + `${yrs.years.reduce((n, y) => n + yrs.byYear.get(y).length, 0)} titles`;
+    return renderScore(file);
   }
 
   const players = file.players || {};
@@ -1309,6 +1347,423 @@ function renderEraBand(seasons, players) {
   host.innerHTML = bars;
 }
 
+/* ---- the domination score ----
+
+   The same seasons, read as a quantity. One line per career, a point in every
+   season they won something, and the height is how much of that season they
+   took — see `dominationSeasons` for the ladder and for why there is no toggle
+   on it.
+
+   Drawn as SVG rather than as the board's boxes because the claim is a shape
+   over time, and because a line chart is the one thing in this app that has to
+   be readable at a glance without a hover.
+   ==================================================================== */
+
+/* A viewBox, not pixels: the chart scales to whatever width the page gives it
+   and the geometry below never has to be recomputed on a resize. `b` leaves
+   room under the plot for the year labels *and* the strip that says how big
+   each season was. */
+const SC = {
+  w: 1180, h: 510,
+  l: 46, r: 16, t: 14, b: 74,
+  stripH: 32,
+  /* Big enough to be a face rather than a smudge, small enough that a crowded
+     stretch is still a set of separate marks. */
+  face: 9,
+};
+const scX = (i, n) => SC.l + (SC.w - SC.l - SC.r) * (n < 2 ? 0.5 : i / (n - 1));
+
+/** Out of 100, and never printed with a % sign — see `dominationSeasons`. */
+function scoreText(x) {
+  return (x * 100).toFixed(x >= 0.995 ? 0 : 1).replace(/\.0$/, '');
+}
+
+/** The model for whatever discipline is up, or null. */
+function scoreModel() {
+  const file = winFile();
+  return file ? dominationSeasons(file) : null;
+}
+
+/**
+ * Hand the palette out to the careers on screen, in the order they opened.
+ *
+ * ⚠️ Over the **shown** players and not all forty-four. The era bands can colour
+ * every career from a fixed cycle because two bars of one colour lie far apart
+ * on the page; a line chart draws them through each other, and at one colour per
+ * career LEE Chong Wei, SHI Yu Qi and KIDAMBI Srikanth all came out green.
+ * Colouring what is drawn keeps the set on screen distinct.
+ *
+ * The cost is that a ring changes colour when the bar moves, and it is worth
+ * paying now the marker is a photograph: the face says who it is and the ring
+ * only has to make the line followable.
+ */
+function scorePaint(shown) {
+  shown.forEach((p, i) => { p.colour = SCORE_COLOURS[i % SCORE_COLOURS.length]; });
+  return shown;
+}
+
+/**
+ * The top of the y-axis, which must **not** move under the reader.
+ *
+ * ⚠️ Scaled to the best season in *either* draw, and never to the selection.
+ * Fitted to what was on screen it rescaled every time a name was clicked — so
+ * isolating somebody made their line climb the page, which is the chart lying
+ * about the one thing it was asked to show — and the men's and women's boards
+ * came out at two different heights, so switching between them compared two
+ * pictures at two scales.
+ */
+function scoreTop() {
+  let best = 0.01;
+  for (const kind of WIN_KINDS) {
+    const file = win.files[kind];
+    if (!file) continue;
+    for (const p of dominationSeasons(file).people) if (p.peak > best) best = p.peak;
+  }
+  return Math.min(1, Math.max(0.25, Math.ceil(best * 10) / 10));
+}
+
+function drawScore(model) {
+  const { years, seasons, people } = model;
+  const floor = win.floor / 100;
+  /* ⚠️ Pinning a name **dims the rest instead of removing them**. Drawing only
+     the pinned player re-ran `scorePaint` over a set of one, so the act of
+     picking somebody out changed their colour — and it threw away the context
+     that makes a share chart worth reading at all, which is who else was in the
+     season. The set on screen is the bar's set, always; `win.only` decides what
+     is lit. */
+  const shown = scorePaint(people.filter(p => p.peak >= floor));
+  const lit = id => !win.only.size || win.only.has(id);
+  // Faded first, pinned last, so a lit line is never buried under a dim one.
+  shown.sort((a, b) => Number(lit(a.id)) - Number(lit(b.id)));
+
+  const top = scoreTop();
+  const n = years.length;
+  const x = i => scX(i, n);
+  const y = v => SC.h - SC.b - (SC.h - SC.t - SC.b) * (v / top);
+  const at = year => x(years.indexOf(year));
+  const stripTop = SC.h - 44;
+
+  const out = [`<defs><clipPath id="scoreFace"><circle r="${SC.face}"></circle></clipPath></defs>`];
+  const thin = thinSeasons(seasons);
+  const now = new Date().getUTCFullYear();
+
+  /* A faint column for a season with a hole in it, named at the foot of it. The
+     strip under the axis says *how* short; this says *why*, and puts it where
+     the line does something strange rather than in a caption. */
+  const half = (SC.w - SC.l - SC.r) / Math.max(1, n - 1) / 2;
+  for (const yr of thin.set) {
+    const i = years.indexOf(yr);
+    if (i < 0) continue;
+    out.push(`<rect class="scorehole" x="${x(i) - half * 0.75}" y="${SC.t}"`
+      + ` width="${half * 1.5}" height="${SC.h - SC.t - SC.b}"></rect>`);
+    const why = shortSeasonWhy(yr, now);
+    if (!why) continue;
+    /* The season in progress is the last column, and a centred label there runs
+       off the plot. Anchored to whichever edge it is against. */
+    const last = i === n - 1;
+    out.push(`<text class="scorewhy" x="${last ? SC.w - SC.r - 4 : x(i)}"`
+      + ` y="${SC.h - SC.b - 7}" text-anchor="${last ? 'end' : 'middle'}">${esc(why)}</text>`);
+  }
+
+  const step = top > 0.6 ? 0.2 : top > 0.3 ? 0.1 : 0.05;
+  out.push('<g class="scoregrid">');
+  for (let v = 0; v <= top + 1e-9; v += step) {
+    out.push(`<line x1="${SC.l}" x2="${SC.w - SC.r}" y1="${y(v)}" y2="${y(v)}"></line>`);
+  }
+  out.push('</g><g class="scoreaxis">');
+  for (let v = 0; v <= top + 1e-9; v += step) {
+    out.push(`<text x="${SC.l - 8}" y="${y(v) + 3.5}" text-anchor="end">${Math.round(v * 100)}</text>`);
+  }
+  years.forEach((yr, i) => {
+    /* Every other year when the axis is crowded — except a year carrying the
+       footnote, which must keep its label or the mark has nothing to sit on.
+       2020 and 2022 both fell on the skipped alternate and the mark simply was
+       not drawn. */
+    const keep = i === n - 1 || thin.set.has(yr);
+    if (n > 14 && i % 2 && !keep) return;
+    /* ⚠️ A plain **asterisk**, not the pyramid's ⁕ (U+2055). That glyph has no
+       form in Roboto or in any of the fallbacks, so it renders as a small dot —
+       which is what it does on the board above, where the note calls it an
+       asterisk and the page draws a dot. Here the note says asterisk and the
+       page draws one. */
+    const mark = thin.set.has(yr) ? '<tspan class="ast">*</tspan>' : '';
+    out.push(`<text x="${x(i)}" y="${SC.h - SC.b + 15}" text-anchor="middle">${yr}${mark}</text>`);
+  });
+  out.push('</g>');
+
+  /* ---- how much there was to win ----
+
+     ⚠️ The denominator, drawn. A score is a fraction and the line only shows the
+     numerator; without this, 66.7 in 2020 and 66.7 in 2015 are the same height
+     on the page and one of them is two matches. Kept out of the plot and under
+     the axis, because it is a different quantity — behind the lines it read as
+     a second series. */
+  out.push('<g class="scorestrip">');
+  /* Narrow, so a bar reads as a bar. At the width of its own height the tall
+     ones came out as squares and the strip stopped looking like a quantity. */
+  const bw = Math.max(3, Math.min(11, half * 0.7));
+  years.forEach((yr, i) => {
+    const s = seasons[i];
+    const h = thin.max ? (SC.stripH * s.total) / thin.max : 0;
+    const isThin = thin.set.has(yr) ? ' is-thin' : '';
+    out.push(`<rect class="sz${isThin}" x="${x(i) - bw / 2}"`
+      + ` y="${stripTop + SC.stripH - h}" width="${bw}"`
+      + ` height="${Math.max(h, s.total ? 1 : 0)}"></rect>`);
+    /* On every bar, not only the short ones. The number was the short seasons'
+       badge, which made a count look like a warning; it is just the size of the
+       season, and a reader comparing 2022 to 2023 wants both of them. */
+    out.push(`<text class="szn${isThin}" x="${x(i)}"`
+      + ` y="${stripTop + SC.stripH - h - 4}" text-anchor="middle">${s.total}</text>`);
+  });
+  out.push(`<text class="szlbl" x="${SC.l - 8}" y="${stripTop + SC.stripH}"`
+    + ' text-anchor="end">titles</text></g>');
+
+  // Lines first, then every marker over every line, so a face is never buried
+  // under somebody else's segment.
+  for (const p of shown) {
+    /* ⚠️ Runs **break at any gap in the seasons**, because a point means "won
+       something" and its absence means "not in the winners list" — which is not
+       the same claim as "entered and won nothing". Two dots four years apart
+       stay two dots. */
+    const runs = [];
+    for (const pt of p.pts) {
+      const last = runs[runs.length - 1];
+      if (last && pt.year === last[last.length - 1].year + 1) last.push(pt);
+      else runs.push([pt]);
+    }
+    /* ⚠️ Segment by segment rather than one polyline per run, so a leg touching
+       a short season can be **dashed**: a solid line across 2020 asserts a trend
+       through a year that was barely played. The legs are straight, so nothing
+       is lost by drawing them separately. */
+    for (const run of runs) {
+      for (let i = 1; i < run.length; i++) {
+        const a = run[i - 1], b = run[i];
+        const holed = thin.set.has(a.year) || thin.set.has(b.year) ? ' over-hole' : '';
+        out.push(`<path class="series${holed}${lit(p.id) ? '' : ' faded'}"`
+          + ` data-id="${esc(p.id)}" stroke="${p.colour}"`
+          + ` d="M${at(a.year)} ${y(a.score)} L${at(b.year)} ${y(b.score)}"></path>`);
+      }
+    }
+  }
+  /* ⚠️ **The marker is the face**, ringed in the player's colour. A dot needs a
+     legend and a face does not, and the whole point of a marker here is that
+     somebody who appears in one season only should still be *someone*. The ring
+     stays because the line has to be traceable between faces, and because a
+     photograph is not always there — no avatar falls back to a plain dot. */
+  for (const p of shown) {
+    for (const pt of p.pts) {
+      const hole = thin.set.has(pt.year) ? ' on-hole' : '';
+      out.push(`<g class="pt${hole}${lit(p.id) ? '' : ' faded'}"`
+        + ` data-id="${esc(p.id)}" data-year="${pt.year}"`
+        + ` transform="translate(${at(pt.year)} ${y(pt.score)})">`
+        + (p.who.a
+          ? `<image href="${esc(p.who.a)}" x="${-SC.face}" y="${-SC.face}"`
+            + ` width="${SC.face * 2}" height="${SC.face * 2}"`
+            + ' preserveAspectRatio="xMidYMid slice" clip-path="url(#scoreFace)"></image>'
+          : `<circle r="${SC.face - 1}" fill="${p.colour}"></circle>`)
+        + `<circle class="ring" r="${SC.face}" fill="none" stroke="${p.colour}"></circle></g>`);
+    }
+  }
+  // A fatter invisible target, because a 9px marker is a hard thing to hover.
+  for (const p of shown) {
+    for (const pt of p.pts) {
+      out.push(`<circle class="hit" data-id="${esc(p.id)}" data-year="${pt.year}"`
+        + ` cx="${at(pt.year)}" cy="${y(pt.score)}" r="13"></circle>`);
+    }
+  }
+
+  $('scoreChart').innerHTML = out.join('');
+}
+
+/**
+ * Everybody the bar admits, with whoever is not currently lit dimmed.
+ *
+ * ⚠️ The list must not shrink when a name is clicked. It did, which made picking
+ * somebody out a one-way door: the chips you would need to get back — or to put
+ * a second player beside the first — were the ones that had just disappeared.
+ * Off is a state, not an absence.
+ */
+function renderScoreLegend(model) {
+  const floor = win.floor / 100;
+  const lit = id => !win.only.size || win.only.has(id);
+  $('scoreLegend').innerHTML = model.people
+    .filter(p => p.peak >= floor)
+    .sort((a, b) => b.peak - a.peak)
+    .map(p => `<button type="button" class="lg${lit(p.id) ? '' : ' off'}"`
+      + ` data-id="${esc(p.id)}" aria-pressed="${lit(p.id)}">`
+      + `<i style="background:${p.colour || '#666'}"></i>`
+      + (p.who.a ? `<img src="${esc(p.who.a)}" alt="" width="18" height="18">` : '')
+      + `${esc(p.who.n)}<span class="pk">${scoreText(p.peak)}</span></button>`).join('');
+}
+
+function renderScoreTables(model) {
+  /* ⚠️ The **same rule the chart marks with**, not a second one. These tables
+     were left on a fixed "fewer than six" test when the chart moved to two
+     thirds of the median, so they called 2020 short and 2022 normal while the
+     axis above them said otherwise. */
+  const thin = thinSeasons(model.seasons);
+  const mark = yr => (thin.set.has(yr) ? '<i class="ast">*</i>' : '');
+
+  const rows = [];
+  for (const p of model.people) for (const pt of p.pts) rows.push({ p, pt });
+  rows.sort((a, b) => b.pt.score - a.pt.score);
+  $('scoreBest').innerHTML =
+    '<tr><th>Season</th><th>Player</th><th>Score</th><th>Titles</th></tr>'
+    + rows.slice(0, 14).map(r =>
+      `<tr${thin.set.has(r.pt.year) ? ' class="thin"' : ''}>`
+      + `<td class="n">${r.pt.year}${mark(r.pt.year)}</td>`
+      + `<td>${esc(r.p.who.n)}</td>`
+      + `<td class="n">${scoreText(r.pt.score)}</td>`
+      + `<td class="n">${r.pt.n} of ${r.pt.played}</td></tr>`).join('');
+
+  $('scoreYears').innerHTML =
+    '<tr><th>Year</th><th>Titles</th><th>Made of</th><th>Winners</th></tr>'
+    + model.seasons.map(s => {
+      const by = new Map();
+      for (const t of s.titles) by.set(t.tier, (by.get(t.tier) || 0) + 1);
+      const made = [...by.entries()]
+        .sort((a, b) => honourRung(a[0]) - honourRung(b[0]))
+        .map(([t, k]) => `${k}×${esc(levelLabel(t))}`).join(', ');
+      return `<tr${thin.set.has(s.year) ? ' class="thin"' : ''}>`
+        + `<td class="n">${s.year}${mark(s.year)}</td><td class="n">${s.total}</td>`
+        + `<td>${made || '—'}</td><td class="n">${s.by.size}</td></tr>`;
+    }).join('');
+}
+
+/** The clutter bar, and what it is currently hiding, said in words. */
+function renderScoreFloor() {
+  const r = $('winFloorRange');
+  if (Number(r.value) !== win.floor) r.value = String(win.floor);
+  $('winFloorTxt').textContent = (win.floor
+    ? `everyone who scored ${win.floor}+ in a season`
+    : 'everyone')
+    + (win.autoFloor ? ' · as high as it goes without dropping a season’s best' : '');
+}
+
+/** The ladder, written out, because a weight nobody can check is a magic number. */
+function renderScoreLadder() {
+  $('scoreLadder').innerHTML = SCORE_TIERS.map(t =>
+    `<span class="wt">${esc(levelLabel(t))}`
+    + `<b>${titleWeight(t).toFixed(3).replace(/0+$/, '').replace(/\.$/, '')}</b></span>`).join('');
+}
+
+/* The model the hover reads. Held rather than rebuilt per mousemove: it carries
+   every title in every season, which is not a thing to recompute at 60Hz. */
+let scoreCurrent = null;
+
+function renderScore(file) {
+  renderScoreLadder();
+  let model = scoreCurrent = dominationSeasons(file);
+  /* The default bar is derived from the data, so it moves with the discipline —
+     and stops moving the moment the reader touches the slider. */
+  if (win.autoFloor) win.floor = bestScoreFloor(model);
+  /* ⚠️ Only the bar, not the whole header. `renderWinnersControls` has already
+     run by the time we are here, and running it again would rebuild the buttons
+     under whichever one the reader just clicked. */
+  renderScoreFloor();
+  drawScore(model);
+  renderScoreLegend(model);
+  renderScoreTables(model);
+}
+
+function scoreTipFor(id, year) {
+  const p = scoreCurrent && scoreCurrent.people.find(q => q.id === id);
+  const pt = p && p.pts.find(q => q.year === year);
+  if (!pt) return null;
+  return `<span class="who">`
+    + (p.who.a ? `<img src="${esc(p.who.a)}" alt="">` : '')
+    + `<b>${esc(p.who.n)}</b></span>`
+    + `<span class="big">${scoreText(pt.score)}</span>`
+    + `<span class="k"> / 100 in ${year}</span>`
+    + `<span class="k">${pt.n} of ${pt.played} titles · `
+    + `${pt.weight.toFixed(2)} of ${pt.of.toFixed(2)} by weight</span>`
+    + '<ul>' + pt.titles.slice()
+      .sort((a, b) => honourRung(a.tier) - honourRung(b.tier))
+      .map(t => `<li>${esc(String(t.name).trim())}`
+        + ` <span class="k">${esc(levelLabel(t.tier))}</span></li>`).join('')
+    + '</ul>';
+}
+
+/* Hovering a marker names the player and lists what they actually won, because
+   the question a score always raises is "out of what?" and the answer is the
+   titles. */
+$('scoreChart').addEventListener('mousemove', e => {
+  const tip = $('scoreTip');
+  const hit = e.target.closest('.hit');
+  if (!hit) { tip.hidden = true; scoreHighlight(null); return; }
+  const html = scoreTipFor(hit.dataset.id, Number(hit.dataset.year));
+  if (!html) { tip.hidden = true; return; }
+  tip.innerHTML = html;
+  tip.hidden = false;
+  const box = $('scoreChart').getBoundingClientRect();
+  tip.style.left = Math.min(e.clientX - box.left + 16,
+    box.width - tip.offsetWidth - 8) + 'px';
+  tip.style.top = Math.max(4, e.clientY - box.top - 20) + 'px';
+  scoreHighlight(hit.dataset.id);
+});
+$('scoreChart').addEventListener('mouseleave', () => {
+  $('scoreTip').hidden = true;
+  scoreHighlight(null);
+});
+
+/** Everything that is not this player, pushed back — for the length of a hover. */
+function scoreHighlight(id) {
+  for (const el of $('scoreChart').querySelectorAll('path.series, .pt')) {
+    el.classList.toggle('dim', id != null && el.dataset.id !== id);
+  }
+}
+
+$('scoreLegend').addEventListener('click', e => {
+  const lg = e.target.closest('.lg');
+  if (!lg) return;
+  const id = lg.dataset.id;
+  if (win.only.has(id)) win.only.delete(id); else win.only.add(id);
+  renderWinners();
+  writeHash();
+});
+
+$('winFloorRange').addEventListener('input', e => {
+  const n = Math.max(0, Math.min(SCORE_FLOOR_MAX, Number(e.target.value) || 0));
+  if (n === win.floor && !win.autoFloor) return;
+  win.floor = n;
+  /* ⚠️ Touching the slider ends the derived default for good. Recomputing it on
+     the next redraw would snap the reader's choice back the moment they clicked
+     a name. */
+  win.autoFloor = false;
+  win.only.clear();
+  renderWinners();
+  writeHash();
+});
+
+/** Move the bar to a chosen point, the way the slider does. */
+function stepFloorTo(n) {
+  const want = Math.max(0, Math.min(SCORE_FLOOR_MAX,
+    Math.round(n / SCORE_FLOOR_STEP) * SCORE_FLOOR_STEP));
+  if (want === win.floor && !win.autoFloor) return false;
+  win.floor = want;
+  win.autoFloor = false;
+  win.only.clear();
+  renderWinners();
+  writeHash();
+  return true;
+}
+
+/** Up shows more, the same as the honours bar and the era bar. */
+function stepScoreFloor(dir) {
+  stepFloorTo(win.floor + dir * SCORE_FLOOR_STEP);
+  return true;
+}
+
+function setWinView(v) {
+  const next = WIN_VIEWS.includes(v) ? v : 'board';
+  if (next === win.view) return;
+  win.view = next;
+  win.only.clear();
+  renderWinners();
+  writeHash();
+}
+
+
 /* ---- saving a slice of the board ----
 
    ⚠️ The picture is drawn by `poster.js` onto a canvas, not scraped off the
@@ -1426,7 +1881,18 @@ $('expCopy').addEventListener('click', copyPoster);
    no button. */
 $('expCopy').hidden = typeof ClipboardItem === 'undefined' || !navigator.clipboard;
 
+const WIN_VIEW_LABEL = { board: 'Board', score: 'Score' };
+
 function renderWinnersControls() {
+  const scoring = win.view === 'score';
+
+  $('winView').innerHTML = WIN_VIEWS.map(v =>
+    `<button type="button" class="seg${v === win.view ? ' on' : ''}" data-view="${v}"`
+    + ` aria-pressed="${v === win.view}">${WIN_VIEW_LABEL[v]}</button>`).join('');
+  $('winView').querySelectorAll('[data-view]').forEach(btn => {
+    btn.onclick = () => setWinView(btn.dataset.view);
+  });
+
   $('winKind').innerHTML = WIN_KINDS.map(k =>
     `<button type="button" class="seg${k === win.kind ? ' on' : ''}" data-kind="${k}"
       aria-pressed="${k === win.kind}">${k}</button>`).join('');
@@ -1444,9 +1910,18 @@ function renderWinnersControls() {
   eras.setAttribute('aria-pressed', String(win.eras));
   eras.onclick = () => { win.eras = !win.eras; renderWinners(); writeHash(); };
 
+  /* ⚠️ Every control that belongs to one view is **hidden** in the other, never
+     disabled. A row of greyed-out buttons reads as a broken page to anybody who
+     never finds out what would enable them — measured on this project already,
+     with a ladder picker that was only ever seen dead. */
+  eras.hidden = scoring;
+  $('winZoomLbl').hidden = scoring;
+  $('winFloor').hidden = !scoring;
+  if (scoring) renderScoreFloor();
+
   /* Hidden rather than disabled when the band is off: a bar that sets something
      invisible is a control with nothing to control. */
-  $('winMin').hidden = !win.eras;
+  $('winMin').hidden = !win.eras || scoring;
   $('winMin').innerHTML = REIGN_STEPS.map(s =>
     `<button type="button" class="seg${s.key === win.reign ? ' on' : ''}"`
     + ` data-reign="${s.key}" aria-pressed="${s.key === win.reign}"`
@@ -2218,6 +2693,17 @@ function runHotkey(key) {
   if (page === 'winners') {
     if (key === 'm') { setWinKind('MS'); return true; }
     if (key === 'w') { setWinKind('WS'); return true; }
+    if (key === 'b') { setWinView('board'); return true; }
+    /* ⚠️ S rather than D. It is Superseries on the compare page and Starred on
+       the tournament page, which is fine — a letter may mean two things as long
+       as it never means both at once — and "score" is the word on the button. */
+    if (key === 's') { setWinView('score'); return true; }
+    if (win.view === 'score') {
+      // The same two keys as the honours bar and the era bar: up shows more.
+      if (key === 'ArrowUp') return stepScoreFloor(-1);
+      if (key === 'ArrowDown') return stepScoreFloor(1);
+      return false;
+    }
     if (key === 'e') { win.eras = !win.eras; renderWinners(); writeHash(); return true; }
     /* The same two keys as the honours bar, doing the same thing: up shows
        more. Only while the band is on — with nothing to move they are left to
@@ -3137,6 +3623,15 @@ function readHash() {
   win.eras = h.get('we') !== 'off';
   win.reign = h.has('we') && h.get('we') !== 'off'
     ? reignStep(h.get('we')).key : REIGN_DEFAULT;
+  win.view = WIN_VIEWS.includes(h.get('wv')) ? h.get('wv') : 'board';
+  /* ⚠️ The bar travels only when it was *chosen*. Absent, the link says "the
+     default" and the default is derived from the data — which is what a reader
+     opening somebody else's link should get, rather than a number frozen at
+     whatever the sender's copy of the harvest made of it. */
+  win.autoFloor = !h.has('wf');
+  win.floor = win.autoFloor
+    ? 0 : Math.max(0, Math.min(SCORE_FLOOR_MAX, Number(h.get('wf')) || 0));
+  win.only = new Set((h.get('wp') || '').split(',').filter(Boolean));
   // `g=1` is what the compare page was called when it was a modal, and links
   // carrying it are still out there.
   wantPage = h.get('pg') || (h.get('g') === '1' ? 'compare' : 'seasons');
@@ -3214,7 +3709,12 @@ function writeHash() {
   // Which discipline is what the page is *about*, so it travels. The tile size
   // is a viewing preference and stays in localStorage.
   if (page === 'winners' && win.kind !== 'MS') p.set('wk', win.kind);
-  if (page === 'winners' && !win.eras) p.set('we', 'off');
+  if (page === 'winners' && win.view !== 'board') p.set('wv', win.view);
+  if (page === 'winners' && win.view === 'score') {
+    // The bar and the pinned names are the whole of what a score link says.
+    if (!win.autoFloor) p.set('wf', String(win.floor));
+    if (win.only.size) p.set('wp', [...win.only].join(','));
+  } else if (page === 'winners' && !win.eras) p.set('we', 'off');
   else if (page === 'winners' && win.reign !== REIGN_DEFAULT) p.set('we', win.reign);
   const next = '#' + p.toString();
   if (location.hash !== next) history.replaceState(null, '', next);
@@ -3537,6 +4037,80 @@ window.BST = {
       return reignLanes(pyramidReigns(winnersSeasons(file), file.players || {},
         reignStep(win.reign).n));
     },
+  },
+
+  /* The domination score.
+
+     ⚠️ Read back off the **painted SVG**, not off the model that produced it.
+     Every one of the mistakes this view has made was a drawing mistake that the
+     numbers underneath were innocent of — a colour handed out over the wrong
+     set, an axis refitted to the selection, a legend that emptied itself — so
+     what the suite has to see is the picture. */
+  score: {
+    view: v => (v == null ? win.view : (setWinView(v), win.view)),
+    floor: n => (n == null ? win.floor : (stepFloorTo(n), win.floor)),
+    auto: () => win.autoFloor,
+    pinned: () => [...win.only],
+    pin: id => { $(`scoreLegend`).querySelector(`.lg[data-id="${id}"]`).click(); },
+    /** The model, for holding the drawing against. */
+    model: () => {
+      const m = scoreModel();
+      return m && {
+        years: m.years,
+        seasons: m.seasons.map(s => ({ year: s.year, total: s.total, winners: s.by.size })),
+        people: m.people.map(p => ({
+          id: p.id, who: p.who.n, peak: p.peak,
+          pts: p.pts.map(pt => ({ year: pt.year, score: pt.score, n: pt.n })),
+        })),
+      };
+    },
+    /** Every face on the chart, as drawn: who, when, where, and how it looks. */
+    marks: () => [...document.querySelectorAll('#scoreChart .pt')].map(g => {
+      const r = g.getBoundingClientRect();
+      const ring = g.querySelector('.ring');
+      return {
+        id: g.dataset.id,
+        year: Number(g.dataset.year),
+        colour: ring ? ring.getAttribute('stroke') : '',
+        face: !!g.querySelector('image'),
+        faded: g.classList.contains('faded'),
+        hole: g.classList.contains('on-hole'),
+        x: Math.round(r.left * 10) / 10,
+        y: Math.round(r.top * 10) / 10,
+      };
+    }),
+    /** Every leg of every line, so a run that should have broken can be seen. */
+    legs: () => [...document.querySelectorAll('#scoreChart path.series')].map(p => ({
+      id: p.dataset.id,
+      colour: p.getAttribute('stroke'),
+      dashed: p.classList.contains('over-hole'),
+      faded: p.classList.contains('faded'),
+      d: p.getAttribute('d'),
+    })),
+    legend: () => [...document.querySelectorAll('#scoreLegend .lg')].map(l => ({
+      id: l.dataset.id,
+      who: l.childNodes.length ? l.textContent.trim() : '',
+      colour: (l.querySelector('i') || {}).style
+        ? l.querySelector('i').style.background : '',
+      off: l.classList.contains('off'),
+    })),
+    /** The axis labels, which is where the footnote mark has to appear. */
+    axis: () => [...document.querySelectorAll('#scoreChart .scoreaxis text')]
+      .map(t => t.textContent),
+    /** The top of the y-axis, as a score — it must not move under the reader. */
+    top: () => scoreTop(),
+    /** What each season's strip bar says it held. */
+    strip: () => [...document.querySelectorAll('#scoreChart .scorestrip .szn')]
+      .map(t => ({ n: Number(t.textContent), thin: t.classList.contains('is-thin') })),
+    /** The reasons written inside the plot, in year order. */
+    why: () => [...document.querySelectorAll('#scoreChart .scorewhy')]
+      .map(t => t.textContent),
+    ladder: () => [...document.querySelectorAll('#scoreLadder .wt')]
+      .map(w => w.textContent.trim()),
+    rows: id => [...document.querySelectorAll('#' + id + ' tr')].slice(1).map(tr => ({
+      cells: [...tr.querySelectorAll('td')].map(td => td.textContent.trim()),
+      thin: tr.classList.contains('thin'),
+    })),
   },
 
   /* The honours board. Same principle: what the browser laid out, not what the

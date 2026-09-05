@@ -267,6 +267,13 @@
 <section id="winPage" class="page" hidden>
   <header class="pagehead">
     <h2 id="winTitle">Winners</h2>
+
+    <!-- Two readings of the same seasons: the board says who won what, the
+         score says how much of it. Beside the discipline because it is the same
+         kind of switch — neither changes a result, both change what you are
+         being shown of them. -->
+    <span id="winView" class="kindwrap" role="group" aria-label="view"></span>
+
     <span id="winKind" class="kindwrap" role="group" aria-label="discipline"></span>
     <span id="winSpan" class="tmtwhen"></span>
 
@@ -276,10 +283,19 @@
             title="the seasons somebody dominated">Eras</button>
     <span id="winMin" class="kindwrap" role="group" aria-label="titles a season"></span>
 
-    <label class="zoom" for="winZoom">Zoom
+    <label class="zoom" id="winZoomLbl" for="winZoom">Zoom
       <input type="range" id="winZoom" min="8" max="26" step="1" value="14"
              aria-label="photograph size">
     </label>
+
+    <!-- The score view's clutter bar. Not a filter on the data — every title is
+         still in every season's total — only on how many lines are drawn. -->
+    <span class="zoom" id="winFloor" hidden>
+      <label for="winFloorRange">Show</label>
+      <input type="range" id="winFloorRange" min="0" max="60" step="5" value="20"
+             aria-label="lowest career best to draw">
+      <span id="winFloorTxt" class="floortxt"></span>
+    </span>
 
     <!-- A range of seasons, drawn to a PNG. The years are a range rather than a
          filter because that is the shape of the claim somebody posts. -->
@@ -298,6 +314,67 @@
   </div>
 
   <div id="winBody" class="pyr"></div>
+
+  <!-- The same seasons as a quantity. One line per career, a point in every
+       season somebody won something, and the height is how much of that season
+       they took. -->
+  <div id="winScore" class="score" hidden>
+    <div class="chartwrap">
+      <svg id="scoreChart" viewBox="0 0 1180 510" preserveAspectRatio="xMidYMid meet"
+           role="img" aria-label="domination score by season"></svg>
+      <div id="scoreTip" hidden></div>
+    </div>
+    <div class="legend scorelegend" id="scoreLegend"></div>
+    <div class="scorecols">
+      <div>
+        <h3>Best single seasons</h3>
+        <table id="scoreBest"></table>
+      </div>
+      <div>
+        <h3>What each season held</h3>
+        <table id="scoreYears"></table>
+      </div>
+    </div>
+  </div>
+
+  <p class="legend note" id="scoreNote" hidden>
+    <b>A score of 100 is the whole season</b> — every title on the board that
+    year, and nobody else with one. It is a share, so one player's rise is
+    always somebody else's fall, and the seasons can be held against each other
+    however many titles each of them held.
+    <br>
+    <b>Not every title counts the same.</b> Each is worth what its rung on the
+    board is worth, and the rungs step by <b>φ, the golden ratio — 1.618</b>, the
+    same ladder the photographs above are sized by. So the score is not a second
+    ranking; it is the board's own ranking, added up. A Super 750 is the unit:
+    <span id="scoreLadder" class="ladder"></span>
+    Seven Super 750s to an Olympic gold, which is about the trade anybody who
+    has watched the sport would make.
+    <br>
+    ⚠️ <b>A player has a point only in the seasons they won something.</b> This
+    data says who won, not who entered, so &ldquo;nothing in 2013&rdquo; and
+    &ldquo;not on the tour in 2013&rdquo; cannot be told apart — and a line drawn
+    along the bottom would be claiming the first while knowing only the second.
+    Lines break at the gaps, and a lone season stays a lone face.
+    <br>
+    ⚠️ <b>An asterisk marks a season with a hole in it</b> — far fewer titles
+    than the ones around it, so a score built on one is built on less.
+    <b>2020</b> stopped in March. <b>2022</b> ran eight of these against a normal
+    twelve to fifteen, with not one tournament held in China and the Finals moved
+    out of Guangzhou. The last year is <b>ongoing</b>. The bars under the axis
+    are how many titles each season held, and a <b>dashed</b> leg is a line
+    crossing one of the marked years.
+    <br>
+    <b>Show</b> hides the crowd: it draws everybody whose best season clears the
+    bar. Its default is worked out from the data — as high as it will go without
+    dropping anybody who ever <i>led</i> a season — and the season being played
+    is left out of that sum, because a part-played year cannot say who led it.
+    Click a name to pin it; the others stay on the chart, dimmed, because a share
+    means nothing without the people it was taken from.
+    <span class="keys"><kbd>←</kbd><kbd>→</kbd> page · <kbd>B</kbd> board ·
+      <kbd>S</kbd> score · <kbd>M</kbd> men’s · <kbd>W</kbd> women’s ·
+      <kbd>↑</kbd><kbd>↓</kbd> the bar</span>
+  </p>
 
   <p class="legend note" id="winNote">
     Each square is a title, sized by what it was worth — the same ladder the
@@ -357,7 +434,8 @@
     band and all — to a PNG at twice the screen's density, with the link on it.
     It is drawn from the data rather than photographed off the page, so it comes
     out the same size whatever the zoom slider is on.
-    <span class="keys"><kbd>←</kbd><kbd>→</kbd> page · <kbd>M</kbd> men’s ·
+    <span class="keys"><kbd>←</kbd><kbd>→</kbd> page · <kbd>B</kbd> board ·
+      <kbd>S</kbd> score · <kbd>M</kbd> men’s ·
       <kbd>W</kbd> women’s · <kbd>E</kbd> eras · <kbd>↑</kbd><kbd>↓</kbd> the bar</span>
   </p>
 </section>

@@ -1450,6 +1450,127 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
    circle the same size as a face competes with it for the same job. */
 .erawho .flag { width: 14px; height: 14px; }
 
+/* ============================ the domination score ============================
+
+   The Winners page's second view. One line per career, a face at every season
+   they won something, and the height is how much of that season they took.
+
+   ⚠️ The chart is a `viewBox` with no fixed width, so it fits whatever the page
+   gives it and the geometry in `app.js` never has to know about a resize. The
+   board beside it scrolls sideways and this deliberately does not — which is the
+   whole reason the two are views rather than one page.
+   ==================================================================== */
+
+.chartwrap { position: relative; margin-top: 8px; }
+#scoreChart {
+  display: block; width: 100%; height: auto;
+  background: var(--surface-sunk);
+  border: 1px solid var(--border-soft); border-radius: 6px;
+}
+.scoregrid line { stroke: rgba(255, 255, 255, .07); }
+.scoreaxis text { fill: var(--text-muted); font: 400 10px var(--mono); }
+/* The footnote mark, and everything wearing it. */
+.scoreaxis .ast { fill: var(--warn); font-size: 13px; }
+.scorehole { fill: rgba(255, 188, 32, .07); }
+.scorewhy { fill: var(--warn); font: 400 10px var(--mono); opacity: .85; }
+
+.scorestrip .sz { fill: rgba(255, 255, 255, .14); }
+.scorestrip .sz.is-thin { fill: var(--warn); opacity: .75; }
+.scorestrip .szn { fill: var(--text-muted); font: 400 9.5px var(--mono); }
+.scorestrip .szn.is-thin { fill: var(--warn); }
+.scorestrip .szlbl { fill: var(--text-muted); font: 400 9px var(--mono); }
+
+#scoreChart path.series {
+  fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round;
+}
+/* A leg that touches a short season. A solid line across 2020 asserts a trend
+   through a year that was barely played. */
+#scoreChart path.series.over-hole { stroke-dasharray: 4 4; }
+#scoreChart .pt .ring { stroke-width: 2; }
+#scoreChart .pt.on-hole .ring { stroke-width: 2.5; }
+#scoreChart .pt.on-hole { filter: drop-shadow(0 0 3px rgba(255, 188, 32, .9)); }
+#scoreChart .pt image { pointer-events: none; }
+/* Pushed back for the length of a hover. */
+#scoreChart .dim { opacity: .13; }
+/* Pushed back until the pin is let go — see `drawScore` for why these are dimmed
+   rather than removed. */
+#scoreChart .faded { opacity: .16; }
+#scoreChart .faded .ring { stroke-width: 1.5; }
+#scoreChart .hit { fill: transparent; cursor: pointer; }
+
+#scoreTip {
+  position: absolute; pointer-events: none; z-index: 5;
+  min-width: 190px; max-width: 300px;
+  background: #101010ee; border: 1px solid var(--border); border-radius: 6px;
+  padding: 8px 10px; font-size: 12px; box-shadow: 0 6px 22px #0009;
+}
+#scoreTip .who { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
+#scoreTip img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover;
+  object-position: top center; }
+#scoreTip .big { font: 700 16px var(--mono); }
+#scoreTip .k { color: var(--text-muted); display: block; }
+#scoreTip .big + .k { display: inline; }
+#scoreTip ul { margin: 5px 0 0; padding-left: 15px; color: var(--text-dim); }
+#scoreTip li { font-size: 11.5px; }
+
+/* One chip per name the bar admits — never fewer, whatever is pinned. */
+.scorelegend { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.scorelegend .lg {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface-sunk);
+  border-radius: 999px; padding: 2px 10px 2px 3px;
+  font: 400 11.5px var(--font); color: var(--text-dim);
+}
+.scorelegend .lg:hover { border-color: var(--text-muted); }
+.scorelegend .lg img {
+  width: 18px; height: 18px; border-radius: 50%;
+  object-fit: cover; object-position: top center;
+}
+.scorelegend .lg i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.scorelegend .lg.off { opacity: .35; }
+.scorelegend .lg .pk { font: 400 10px var(--mono); color: var(--text-muted); }
+
+.scorecols { display: flex; gap: 40px; flex-wrap: wrap; align-items: flex-start;
+  margin-top: 18px; }
+.scorecols h3 {
+  font: 600 11px var(--mono); letter-spacing: .09em; text-transform: uppercase;
+  color: var(--text-muted); margin: 0 0 6px;
+}
+.scorecols table { border-collapse: collapse; font-size: 12px; }
+.scorecols th, .scorecols td { padding: 3px 12px 3px 0; text-align: left; white-space: nowrap; }
+.scorecols th {
+  color: var(--text-muted); font: 600 10.5px var(--font);
+  letter-spacing: .06em; text-transform: uppercase;
+}
+.scorecols td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+/* ⚠️ **Dimmed, not coloured.** These rows were amber, which is this palette's
+   attention colour — so the one season nobody should read at face value was the
+   brightest line in the table, and Anders ANTONSEN's two titles out of three
+   looked like the find of the chart. A footnote should recede. The mark stays
+   lit, because a mark is a pointer and not a highlight. */
+.scorecols tr.thin td { color: var(--text-muted); }
+.scorecols tr.thin td.n { color: #7a7a7a; }
+.scorecols .ast, #scoreNote .ast { font-style: normal; color: var(--warn); margin-left: 2px; }
+
+/* The ladder, in the note: five weights nobody has to take on trust. */
+#scoreNote .ladder { display: inline-flex; flex-wrap: wrap; gap: 4px 8px; margin: 0 4px; }
+#scoreNote .wt {
+  display: inline-flex; gap: 5px; align-items: baseline;
+  border: 1px solid var(--border-soft); border-radius: 4px; padding: 0 6px;
+  background: var(--surface-sunk);
+}
+#scoreNote .wt b { font: 600 11.5px var(--mono); color: var(--text); }
+
+/* The clutter bar, which needs room for the sentence that says what it is
+   hiding — so it is the one header control that may wrap. */
+#winFloor { flex-wrap: wrap; }
+#winFloor input[type=range] { width: 120px; }
+.floortxt {
+  font: 400 11px var(--font); text-transform: none; letter-spacing: 0;
+  color: var(--text-muted);
+}
+
+
 /* ⚠️ The player card belongs to the pages that are *about* a player. The
    tournament and winners pages are about the sport — whatever is on court this
    week, and who has won what — so a career sitting above them is answering a
