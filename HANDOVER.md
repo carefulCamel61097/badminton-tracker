@@ -1421,6 +1421,38 @@ name's width with the 12px font already set and drew it at 13px bold, so every l
 its peak printed through its last two letters.
 
 
+### 3.4m Exporting the compare page *(built 5 Sep 2026)*
+
+`drawGridPoster` and `drawHonoursPoster`, beside the two above, sharing `POSTER`, the 16384px
+density guard and `drawPosterFoot`.
+
+⚠️ **No range picker.** The Winners board exports a span of seasons because that is the shape
+of the claim posted from it; a career is not a span, so this draws what is on screen — era,
+level chips, round bar, and both players if there are two.
+
+⚠️ **The careers arrive as `careerRows` output.** That is where the Finals reattribution, the
+era translation and the junior and team exclusions all settle, and doing any of it twice is
+two chances for the picture and the page to disagree about what a career contains.
+
+⚠️⚠️ **`careers()` hands back a fresh object every call**, so the `c.rows` `renderGrid` hangs on
+one of them is not there on the next one. The first version of this exported nothing at all,
+from a page that was visibly full of squares. `careerGridRows` is now the single place rows
+are built, and the render, both exports and the test hook all go through it.
+
+⚠️ **The grid poster draws 20px cells**, not the 16 it started at: at 16 a one-slot block was
+narrower than the three letters naming it, and Olympics, Worlds, Tour Finals, Continental and
+Regional Games all lost their labels off the front of the band.
+
+⚠️ **`RESULT_COLOURS` is the third table that exists twice** — with `--res-*` in the
+stylesheet — for the same reason `TIER_RING` does. `test_season.mjs` reads the computed colour
+off a drawn cell and holds it against the table.
+
+⚠️⚠️ **BWF’s flag host does not answer CORS.** Photographs come from `img.bwfbadminton.com`,
+which does; flags come from `extranet.bwf.sport`, which does not — so every flag on this
+poster failed to load, drew nothing, and printed a CORS error that the suite’s console-hygiene
+check caught. Dropped, with the country left in the line under the name. The Winners board’s
+flags are on the photograph host and are unaffected.
+
 ### 3.4j The summit at one size *(built 4 Sep 2026)*
 
 `pyramidScale` is `honourScale` except that `OLY` is drawn at the Worlds size. They share a

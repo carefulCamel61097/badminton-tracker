@@ -132,6 +132,12 @@
              aria-label="cell size">
     </label>
 
+    <!-- Whichever of the two views is up, drawn to a PNG. No range picker: the
+         Winners board exports a span of seasons because that is the shape of the
+         claim posted from it, and a career is not a span. -->
+    <button type="button" id="gridSave" class="seg" aria-pressed="false"
+            title="save this view as an image">Export</button>
+
     <form id="cmpPick" class="ctl search cmp" autocomplete="off" role="search">
       <input type="search" id="cmpQ" placeholder="Compare with…"
              aria-label="compare with another player" role="combobox"
@@ -139,6 +145,12 @@
       <ul id="cmpSuggest" class="suggest" role="listbox" aria-label="player suggestions" hidden></ul>
     </form>
   </header>
+
+  <div class="chiprow exportbar" id="gridExport" hidden>
+    <button type="button" id="gexpSave" class="seg">Download PNG</button>
+    <button type="button" id="gexpCopy" class="seg">Copy</button>
+    <span id="gexpNote" class="note"></span>
+  </div>
 
   <div class="chiprow"><span class="lbl">Levels</span>
     <div id="gridGroups" class="chips" role="group" aria-label="levels shown"></div>
@@ -197,7 +209,13 @@
     block is as wide as the most anyone here played at that level in a single
     season, so the empty cells on the right of a block are events they did not
     enter that year. Hover any cell for the tournament and the result.
-  
+    <br>
+    <b>Export</b> draws whichever view is up to a PNG at twice the screen's
+    density, with the link on it. There is no range to pick, unlike the Winners
+    board: it draws <b>what is on screen</b> — the era, the level chips, the
+    round bar, and both players if there are two — so switching a level off takes
+    it out of the picture as well as off the page.
+
     <span class="keys"><kbd>←</kbd><kbd>→</kbd> page · <kbd>G</kbd> grid · <kbd>H</kbd> honours · <kbd>W</kbd> World Tour · <kbd>S</kbd> Superseries · <kbd>↑</kbd><kbd>↓</kbd> levels — up adds the highest that is off, down drops the lowest that is on</span>
   </p>
 
@@ -260,7 +278,11 @@
     hover it to see whether they never got that far or never entered. Comparing two
     players mirrors the board about the centre line, so the best results of each
     meet in the middle.
-  
+    <br>
+    <b>Export</b> draws the board as you have it — the bar included, so raising
+    it to <b>W</b> exports a board of titles only — to a PNG at twice the
+    screen's density, with the link on it.
+
     <span class="keys"><kbd>←</kbd><kbd>→</kbd> page · <kbd>G</kbd> grid · <kbd>H</kbd> honours · <kbd>W</kbd> World Tour · <kbd>S</kbd> Superseries · <kbd>↑</kbd><kbd>↓</kbd> the bar</span>
   </p>
 </section>

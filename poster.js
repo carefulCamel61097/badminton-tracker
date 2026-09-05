@@ -20,6 +20,7 @@ import {
   winnersSeasons, pyramidSeason, pyramidRowWidth, pyramidScale,
   pyramidReigns, reignLanes, reignStep,
   dominationSeasons, thinSeasons, shortSeasonWhy,
+  gridSections, sectionCells, gridYears, careerHonours, honourSections, honourStep,
 } from './model.js';
 
 /* ============================ the shared palette ============================
@@ -966,6 +967,381 @@ export async function drawScorePoster(file, opts) {
 
   drawPosterFoot(ctx, L.width, height, L.footH, avatar, L.legend);
 
+  return new Promise((resolve, reject) => {
+    try {
+      canvas.toBlob(blob => blob ? resolve(blob)
+        : reject(new Error('the browser would not encode the image')), 'image/png');
+    } catch (e) {
+      reject(new Error('the images would not come back readable (' + e.name + ')'));
+    }
+  });
+}
+
+/* ============================ the compare page ============================
+
+   The grid and the honours board, drawn by the same rules as the two above: from
+   the model, at a fixed size, with the link and a legend on it.
+
+   ⚠️ **The careers arrive as `careerRows` output, not as raw seasons.** The page
+   has already built them — the Finals reattribution, the era translation and the
+   junior and team exclusions all settle in `careerRows`, and doing that twice is
+   two chances for the picture and the page to disagree about what a career
+   contains. Everything below that is recomputed here, because it is geometry.
+   ==================================================================== */
+
+/* ⚠️ The result ramp, which is also in `styles.css` as `--res-*`. Same reason
+   `TIER_RING` is in both: the page paints with CSS and the export paints with
+   canvas, and there is no way to hand one to the other without a build step.
+   The suite reads the computed colour off a drawn cell and holds it against
+   this table, so the two cannot drift apart quietly. */
+export const RESULT_COLOURS = {
+  w: '#1a7f37', f: '#3fa34d', sf: '#7cb342', qf: '#c9a227',
+  r16: '#e07b39', r1: '#cf4b3f', q: '#8f5a55',
+  unk: '#6e6e6e', na: '#4a4a4a', off: '#292929',
+};
+
+export const CARD = {
+  /* ⚠️ 20, not the page default of 20-at-zoom or the 16 this started at. An
+     export is drawn at a size that reads rather than at the size the sender had
+     the slider on — and at 16 a one-slot block was narrower than the three
+     letters naming it, so Olympics, Worlds, Tour Finals, Continental and
+     Regional Games all lost their labels off the front of the band. */
+  cell: 20,            // one grid square
+  yearW: 42,           // the season label down the left of a grid
+  bandH: 18,           // the strip of level codes over the slots
+  profileH: 54,
+  cardGap: 30,
+  hbase: 12,           // the honours board's bottom rung
+  /* The same 0.09 the stylesheet uses between honours squares, kept here
+     because the width of the board is computed from it. */
+  hgap: 0.09,
+  hnW: 24,             // the count beside a row, fixed so the arithmetic is exact
+  spineW: 74,          // the level names down the middle of a comparison
+};
+
+/**
+ * The identity line over a card: photograph, name, and what the page says.
+ *
+ * ⚠️ **No flag here, unlike the era band's.** Measured 5 Sep 2026: BWF serves
+ * player photographs from `img.bwfbadminton.com`, which answers a CORS request,
+ * and country flags from `extranet.bwf.sport`, which does **not** — so every
+ * flag on this poster failed to load, printed a CORS error into the console and
+ * drew nothing. The Winners board's flags come out of the harvested file and are
+ * on the photograph host, which is why those are fine and these are not. The
+ * country is already in the line under the name, so what is lost is the picture
+ * of it and nothing else.
+ */
+function drawWho(ctx, who, x, y, w, faces, align) {
+  const im = who.avatar ? faces.get(who.avatar) : null;
+  const size = 38;
+  const right = align === 'right';
+  const ax = right ? x + w - size : x;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(ax + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+  ctx.clip();
+  if (im) drawCover(ctx, im, ax, y, size);
+  else {
+    ctx.fillStyle = 'rgba(255,255,255,.08)';
+    ctx.fillRect(ax, y, size, size);
+    ctx.fillStyle = POSTER.dim;
+    ctx.font = `700 ${Math.round(size * 0.34)}px "Segoe UI", Roboto, sans-serif`;
+    const ini = initialsOf(who.name);
+    ctx.fillText(ini, ax + (size - ctx.measureText(ini).width) / 2, y + size / 2 + size * 0.12);
+  }
+  ctx.restore();
+
+  const tx = right ? x + w - size - 10 : x + size + 10;
+  ctx.textAlign = right ? 'right' : 'left';
+  ctx.fillStyle = POSTER.ink;
+  ctx.font = '700 17px "Segoe UI", Roboto, system-ui, sans-serif';
+  ctx.fillText(who.name, tx, y + 17);
+  ctx.fillStyle = POSTER.dim;
+  ctx.font = '400 12px "Segoe UI", Roboto, system-ui, sans-serif';
+  ctx.fillText(who.meta, tx, y + 34);
+  ctx.textAlign = 'left';
+}
+
+/** Every photograph a card needs, loaded once. See `drawWho` about the flags. */
+async function facesFor(careers) {
+  const wants = new Set();
+  for (const c of careers) if (c.avatar) wants.add(c.avatar);
+  const urls = [...wants];
+  const loaded = await Promise.all(urls.map(u => loadImage(u, true)));
+  return new Map(urls.map((u, i) => [u, loaded[i]]));
+}
+
+/** A square, with the notch a translated result wears on the page. */
+function drawResultCell(ctx, x, y, side, tier, mapped) {
+  ctx.fillStyle = RESULT_COLOURS[tier] || RESULT_COLOURS.off;
+  ctx.beginPath();
+  if (mapped) {
+    /* ⚠️ The same notch out of the top-right corner the page cuts with
+       `clip-path`, and for the same reason: it costs no colour, survives every
+       tier in the ramp, and is legible at 8px as well as at 60. */
+    const n = Math.max(3, side * 0.34);
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + side - n, y);
+    ctx.lineTo(x + side, y + n);
+    ctx.lineTo(x + side, y + side);
+    ctx.lineTo(x, y + side);
+    ctx.closePath();
+  } else {
+    ctx.rect(x, y, side, side);
+  }
+  ctx.fill();
+
+  /* ⚠️ A win says so, and not only in green. `--res-w` and `--res-f` are one
+     step apart on the ramp, and for a reader with red-green colour vision
+     deficiency it carries almost nothing — so the same fact is said twice.
+     Gated on the square being big enough for the glyphs to be a word rather
+     than dirt, which is the page's rule too. */
+  if (tier === 'w' && side >= 16) {
+    ctx.fillStyle = '#000';
+    ctx.font = `700 ${(side * 0.44).toFixed(1)}px "Roboto Mono", Consolas, monospace`;
+    const m = ctx.measureText('#1');
+    ctx.fillText('#1', x + (side - m.width) / 2, y + side / 2 + side * 0.16);
+  }
+}
+
+/* ---- the career grid ---- */
+
+/**
+ * @param {Array<{id, name, meta, avatar, flag, rows}>} careers  `rows` from `careerRows`
+ * @param {{era, hidden}} opts  `hidden` is the set of level groups switched off
+ */
+export function gridPosterLayout(careers, opts) {
+  const P = POSTER, C = CARD;
+  const hidden = new Set([...(opts.hidden || [])].map(String));
+  const all = gridSections(careers.map(c => c.rows.map(r => r.by)), opts.era);
+  const sections = all.filter(s => !hidden.has(String(s.group)));
+  const years = gridYears(careers.map(c => c.rows));
+
+  const slots = sections.reduce((n, s) => n + s.n, 0);
+  const cardW = C.yearW + slots * C.cell;
+  const width = P.pad * 2 + cardW * careers.length
+    + C.cardGap * (careers.length - 1);
+  const top = P.headH + C.profileH + C.bandH;
+  const legend = [
+    'A block is one level; a season fills it best result first',
+    'Green is a title, red a first-round exit; grey is an event not played',
+    careers.some(c => c.rows.some(r => [...r.by.values()]
+      .some(list => list.some(t => t.from))))
+      ? 'A notched corner is a result drawn on the tier it maps to' : '',
+  ].filter(Boolean);
+  const footH = 24 + Math.max(2, legend.length) * 15;
+
+  return {
+    careers, sections, all, years, slots, cardW, top, width, legend, footH,
+    height: top + years.length * C.cell + 18 + footH,
+    title: careers.map(c => c.name).join('  ·  '),
+  };
+}
+
+export async function drawGridPoster(careers, opts) {
+  const P = POSTER, C = CARD;
+  const L = gridPosterLayout(careers, opts);
+  const faces = await facesFor(careers);
+  const avatar = await loadImage(opts.avatar || POSTER_AVATAR, false);
+
+  const canvas = document.createElement('canvas');
+  const density = L.width * P.scale > 16000 ? 1 : P.scale;
+  canvas.width = Math.round(L.width * density);
+  canvas.height = Math.round(L.height * density);
+  const ctx = canvas.getContext('2d');
+  ctx.scale(density, density);
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = P.bg;
+  ctx.fillRect(0, 0, L.width, L.height);
+
+  ctx.fillStyle = P.ink;
+  ctx.font = '700 20px "Segoe UI", Roboto, system-ui, sans-serif';
+  ctx.fillText('Career grid', P.pad, 28);
+
+  L.careers.forEach((c, n) => {
+    const x0 = P.pad + n * (L.cardW + C.cardGap);
+    drawWho(ctx, c, x0, P.headH, L.cardW, faces);
+
+    // The band of level codes over the slots each one owns.
+    let bx = x0 + C.yearW;
+    ctx.font = '600 9.5px "Roboto Mono", Consolas, monospace';
+    for (const s of L.sections) {
+      const w = s.n * C.cell;
+      ctx.fillStyle = 'rgba(255,255,255,.05)';
+      ctx.fillRect(bx, P.headH + C.profileH, w - 1, C.bandH - 3);
+      ctx.fillStyle = P.dim;
+      const code = String(s.code);
+      const tw = ctx.measureText(code).width;
+      /* Clipped to its own block rather than spilling into the next: a code
+         that overhangs its slots is pointing at the wrong level. */
+      if (tw < w - 2) ctx.fillText(code, bx + (w - tw) / 2, P.headH + C.profileH + 12);
+      bx += w;
+    }
+
+    const byYear = new Map(c.rows.map(r => [r.year, r.by]));
+    L.years.forEach((y, i) => {
+      const ry = L.top + i * C.cell;
+      ctx.fillStyle = P.dim;
+      ctx.font = '400 11px "Roboto Mono", Consolas, monospace';
+      ctx.fillText(String(y), x0 + 2, ry + C.cell - 4);
+      const cells = sectionCells(byYear.get(y), L.sections);
+      cells.forEach((cell, k) => {
+        const cx = x0 + C.yearW + k * C.cell;
+        drawResultCell(ctx, cx, ry, C.cell - 1, cell.tier, !!cell.from);
+        /* ⚠️ The tier boundary is drawn *into* the cell, as on the page, so the
+           run of colour on either side of it stays unbroken. */
+        if (cell.first && k) {
+          ctx.fillStyle = P.bg;
+          ctx.fillRect(cx, ry, 1, C.cell - 1);
+        }
+      });
+    });
+  });
+
+  drawPosterFoot(ctx, L.width, L.height, L.footH, avatar, L.legend);
+  return toPng(canvas);
+}
+
+/* ---- the honours board ---- */
+
+/**
+ * @param {Array<{id, name, meta, avatar, flag, rows}>} careers
+ * @param {{era, hidden, bar}} opts  `bar` is an `HONOUR_STEPS` key
+ */
+export function honoursPosterLayout(careers, opts) {
+  const P = POSTER, C = CARD;
+  const hidden = new Set([...(opts.hidden || [])].map(String));
+  const step = honourStep(opts.bar);
+  const list = careers.map(c => ({ ...c, honours: careerHonours(c.rows, step.rank) }));
+  const all = honourSections(list.map(c => c.honours), opts.era);
+  const sections = all.filter(s => !hidden.has(String(s.group)));
+  const two = list.length > 1;
+
+  /* The widest half any row needs — n squares carry n − 1 gaps between them and
+     one more out to the count, so a run of n is n × 1.09 squares wide. An empty
+     row still needs its ghost. */
+  let units = 0;
+  for (const s of sections) {
+    for (const c of list) {
+      const n = (c.honours.by.get(s.group) || []).length;
+      units = Math.max(units, s.scale * (n ? (1 + C.hgap) * n : 1));
+    }
+  }
+  const halfW = units * C.hbase + C.hnW;
+  const rowGap = 6;
+  const rows = sections.map(s => ({
+    section: s,
+    side: s.scale * C.hbase,
+    h: Math.max(s.scale * C.hbase, 14),
+  }));
+  const boardH = rows.reduce((n, r) => n + r.h + rowGap, 0);
+
+  const width = P.pad * 2 + (two ? halfW * 2 + C.spineW : halfW + C.spineW);
+  const top = P.headH + C.profileH;
+  const legend = [
+    `Every result at ${step.label} or better, one row per level`,
+    'A square’s area is what that level is worth — φ per rung',
+    two ? 'The two boards mirror, so their best results meet at the spine' : '',
+  ].filter(Boolean);
+  const footH = 24 + Math.max(2, legend.length) * 15;
+
+  return {
+    careers: list, sections, all, rows, halfW, two, rowGap, top, width, step,
+    legend, footH,
+    height: top + boardH + 14 + footH,
+    title: list.map(c => c.name).join('  ·  '),
+  };
+}
+
+export async function drawHonoursPoster(careers, opts) {
+  const P = POSTER, C = CARD;
+  const L = honoursPosterLayout(careers, opts);
+  const faces = await facesFor(careers);
+  const avatar = await loadImage(opts.avatar || POSTER_AVATAR, false);
+
+  const canvas = document.createElement('canvas');
+  const density = L.width * P.scale > 16000 ? 1 : P.scale;
+  canvas.width = Math.round(L.width * density);
+  canvas.height = Math.round(L.height * density);
+  const ctx = canvas.getContext('2d');
+  ctx.scale(density, density);
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = P.bg;
+  ctx.fillRect(0, 0, L.width, L.height);
+
+  ctx.fillStyle = P.ink;
+  ctx.font = '700 20px "Segoe UI", Roboto, system-ui, sans-serif';
+  ctx.fillText('Honours', P.pad, 28);
+
+  /* ⚠️ The left-hand player's results run **outward from the middle**, so the
+     two careers' *best* results are the ones meeting at the spine. Reading a
+     comparison means reading from the line outwards, and mirroring is what makes
+     the two halves the same shape rather than two lists pointing the same way. */
+  const leftEnd = P.pad + (L.two ? L.halfW : 0);
+  const rightStart = leftEnd + C.spineW;
+
+  if (L.two) drawWho(ctx, L.careers[0], P.pad, P.headH, L.halfW, faces, 'right');
+  drawWho(ctx, L.careers[L.two ? 1 : 0], rightStart, P.headH,
+    L.width - P.pad - rightStart, faces);
+
+  let y = L.top;
+  for (const row of L.rows) {
+    const s = row.section;
+    const side = row.side;
+
+    ctx.fillStyle = P.dim;
+    ctx.font = '400 11px "Segoe UI", Roboto, system-ui, sans-serif';
+    const label = String(s.short || s.label);
+    const lw = ctx.measureText(label).width;
+    ctx.fillText(label, leftEnd + (C.spineW - lw) / 2, y + row.h / 2 + 4);
+
+    L.careers.forEach((c, i) => {
+      const mirror = L.two && i === 0;
+      const list = c.honours.by.get(s.group) || [];
+      const entered = c.honours.entries.get(s.group) || 0;
+      const cy = y + (row.h - side) / 2;
+      const step = side * (1 + C.hgap);
+
+      // An empty row is not one thing: "entered twenty and never got there" and
+      // "never played at this level" are both worth saying. The ghost says which.
+      if (!list.length) {
+        ctx.fillStyle = entered ? 'rgba(255,255,255,.07)' : 'rgba(255,255,255,.03)';
+        const gx = mirror ? leftEnd - C.hnW - side : rightStart + C.hnW;
+        ctx.fillRect(gx, cy, side, side);
+        return;
+      }
+
+      ctx.fillStyle = P.dim;
+      ctx.font = `400 ${Math.min(12, Math.max(9, side * 0.6)).toFixed(0)}px `
+        + '"Roboto Mono", Consolas, monospace';
+      const n = String(list.length);
+      // The count sits on the inside: it is the one piece of text worth having
+      // and it should not be the first thing to fall off the end.
+      ctx.fillText(n, mirror ? leftEnd - 4 - ctx.measureText(n).width : rightStart + 4,
+        y + row.h / 2 + 4);
+
+      list.forEach((cell, k) => {
+        const x = mirror
+          ? leftEnd - C.hnW - side - k * step
+          : rightStart + C.hnW + k * step;
+        drawResultCell(ctx, x, cy, side, cell.tier, !!cell.from);
+      });
+    });
+
+    y += row.h + L.rowGap;
+  }
+
+  drawPosterFoot(ctx, L.width, L.height, L.footH, avatar, L.legend);
+  return toPng(canvas);
+}
+
+/**
+ * The last step, and the only one that can fail.
+ *
+ * ⚠️ A tainted canvas shows up here and nowhere earlier: every image will have
+ * drawn perfectly first. See the note at the top about `crossOrigin`.
+ */
+function toPng(canvas) {
   return new Promise((resolve, reject) => {
     try {
       canvas.toBlob(blob => blob ? resolve(blob)

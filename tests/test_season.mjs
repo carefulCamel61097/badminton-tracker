@@ -1528,6 +1528,144 @@ await b.ev(`document.querySelector('#pageNav [data-page="seasons"]').click()`);
    recorded on finals day 2026 answers the same way whenever this is run.
    ======================================================================== */
 
+console.log('\n=== the compare page: saving what is on screen ===');
+
+await b.ev(`location.hash = '#p=57945&pg=compare&c=87442&now=2026-08-23'`);
+check('two careers are up',
+  await b.until(`window.BST.grid.cards().length === 2`, { timeout: 240000 }));
+await b.until(`window.BST.grid.ready()`, { timeout: 240000 });
+
+check('the bar is out of the way until it is asked for',
+  await b.ev(`document.getElementById('gridExport').hidden`));
+await b.ev(`document.getElementById('gridSave').click()`);
+check('the export button opens it',
+  !await b.ev(`document.getElementById('gridExport').hidden`));
+
+/* ⚠️ Named for the people in it, not for the view alone — a comparison and a
+   single career would otherwise land in a downloads folder as the same file and
+   the second one would silently become `(1)`. */
+eq('the file is named for who is in it and which view it is',
+  await b.ev(`window.BST.grid.exportName()`),
+  'badminton-grid-shi-v-an.png');
+
+const gridPoster = await b.ev(`window.BST.grid.poster()`);
+eq('the grid poster knows it is the grid', gridPoster.view, 'grid');
+/* The grid sets no spine — that is the board's arrangement — so what says both
+   careers are in the picture is the title. */
+eq('and that both careers are in it',
+  gridPoster.title, 'SHI Yu Qi  ·  AN Se Young');
+eq('over the same seasons the page draws',
+  gridPoster.years.join(','),
+  (await b.ev(`window.BST.grid.years()`)).join(','));
+eq('and the same levels',
+  gridPoster.sections.join(','),
+  (await b.ev(`window.BST.grid.sections().map(s => String(s.group))`)).join(','));
+
+/* ⚠️ The picture is **what is on screen**, chips included. The Winners board
+   exports a range of seasons because that is the shape of the claim posted from
+   it; a career is not a range, so this one has to follow the controls instead. */
+const wideGrid = gridPoster.width;
+await b.ev(`document.querySelector('#gridGroups [data-group="25"]').click()`);
+await b.wait(200);
+const narrowGrid = await b.ev(`window.BST.grid.poster()`);
+check('switching a level off narrows the picture too',
+  narrowGrid.width < wideGrid, `${narrowGrid.width} against ${wideGrid}`);
+eq('and the level is gone from it',
+  narrowGrid.sections.includes('25'), false);
+eq('though the chip row still offers it',
+  narrowGrid.all.includes('25'), true);
+await b.ev(`document.querySelector('#gridGroups [data-group="25"]').click()`);
+await b.wait(200);
+
+const gridPng = await b.ev(`window.BST.grid.png()`);
+check('a grid poster comes back as a real PNG',
+  gridPng && gridPng.type === 'image/png', JSON.stringify(gridPng && gridPng.type));
+check('with the photographs in it', gridPng && gridPng.bytes > 20000, gridPng && gridPng.bytes);
+check('and it decodes to the size the layout asked for',
+  await b.ev(`(async () => {
+    const L = window.BST.grid.poster();
+    const out = await window.BST.grid.png();
+    const im = new Image();
+    await new Promise(r => { im.onload = r; im.onerror = r; im.src = out.url; });
+    return im.naturalWidth === Math.round(L.width * 2)
+      && im.naturalHeight === Math.round(L.height * 2)
+      ? true : im.naturalWidth + 'x' + im.naturalHeight
+        + ' want ' + Math.round(L.width * 2) + 'x' + Math.round(L.height * 2);
+  })()`), true);
+
+/* ---- and the board ---- */
+
+await b.ev(`window.BST.honours.view('honours')`);
+await b.until(`document.querySelectorAll('#honBody .hrow').length > 3`, { timeout: 60000 });
+
+eq('the button follows the view it is on',
+  await b.ev(`window.BST.grid.exportName()`),
+  'badminton-honours-shi-v-an.png');
+const honPoster = await b.ev(`window.BST.grid.poster()`);
+eq('the honours poster knows it is the board', honPoster.view, 'honours');
+/* ⚠️ Two careers mirror about a spine; one does not, and the layout has to say
+   which, because it is what decides the width. */
+eq('and that there are two of them to mirror', honPoster.two, true);
+eq('with a row for every level on screen',
+  honPoster.sections.length,
+  await b.ev(`document.querySelectorAll('#honBody .hrow').length`));
+
+/* The round bar is part of what the board argues, so it is part of the picture. */
+await b.ev(`window.BST.honours.bar('w')`);
+await b.wait(200);
+const titlesOnly = await b.ev(`window.BST.grid.poster()`);
+check('raising the bar to titles only shrinks the board',
+  titlesOnly.width < honPoster.width, `${titlesOnly.width} against ${honPoster.width}`);
+check('and the legend says which bar it was drawn at',
+  titlesOnly.legend[0].includes('W'), titlesOnly.legend[0]);
+await b.ev(`window.BST.honours.bar('sf')`);
+await b.wait(200);
+
+const honPng = await b.ev(`window.BST.grid.png()`);
+check('a board poster comes back as a real PNG',
+  honPng && honPng.type === 'image/png', JSON.stringify(honPng && honPng.type));
+check('and it decodes to the size the layout asked for',
+  await b.ev(`(async () => {
+    const L = window.BST.grid.poster();
+    const out = await window.BST.grid.png();
+    const im = new Image();
+    await new Promise(r => { im.onload = r; im.onerror = r; im.src = out.url; });
+    return im.naturalWidth === Math.round(L.width * 2)
+      && im.naturalHeight === Math.round(L.height * 2)
+      ? true : im.naturalWidth + 'x' + im.naturalHeight
+        + ' want ' + Math.round(L.width * 2) + 'x' + Math.round(L.height * 2);
+  })()`), true);
+
+/* ⚠️⚠️ The result ramp exists twice — as `--res-*` in the stylesheet for the
+   page and as `RESULT_COLOURS` in `poster.js` for the canvas — because there is
+   no way to hand one to the other without a build step. This is the check that
+   stops them drifting: the *computed* colour off a drawn cell, not the
+   declaration, held against the table the export paints from. */
+const ramp = await b.ev(`window.BST.grid.results()`);
+const paintedRamp = await b.ev(`(() => {
+  const out = {};
+  for (const c of document.querySelectorAll('#honBody .cell')) {
+    const t = (c.className.match(/r-([\\w]+)/) || [])[1];
+    if (t && !out[t]) out[t] = getComputedStyle(c).backgroundColor;
+  }
+  return out;
+})()`);
+const rampHex = c => '#' + (c.match(/\d+/g) || []).slice(0, 3)
+  .map(n => Number(n).toString(16).padStart(2, '0')).join('');
+for (const [tier, colour] of Object.entries(paintedRamp)) {
+  eq(`the ${tier} cell the page paints is the one the export paints`,
+    rampHex(colour), ramp[tier]);
+}
+check('and every tier the export knows is one the page has a rule for',
+  Object.keys(ramp).length >= Object.keys(paintedRamp).length,
+  Object.keys(ramp).join(' '));
+
+await b.ev(`document.getElementById('gridSave').click()`);
+check('and the bar closes again',
+  await b.ev(`document.getElementById('gridExport').hidden`));
+await b.ev(`window.BST.honours.view('grid')`);
+
+
 console.log('\n=== the tournament page: whatever is on ===');
 
 /** The tournament page has no player, so `BST.ready` is the wrong thing to wait on. */

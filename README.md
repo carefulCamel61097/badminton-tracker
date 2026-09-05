@@ -165,6 +165,43 @@ and it collapses for everyone else — a working professional at world #22 is se
 and eight empty rows, which is true and looks like a bug. The strip is the only view that
 always has something to say, so that is the one a player opens on.
 
+### Exporting a comparison
+
+**Export**, beside the zoom, draws whichever of the two views is up — the grid or the board,
+one career or two — to a PNG at twice the screen's density, with the link and a legend on it.
+Download it, or **Copy** it straight to the clipboard where the browser allows that.
+
+⚠️ **No range picker here, unlike the Winners board.** That one exports a span of seasons
+because "2011 to 2016" is the shape of the claim somebody posts from it. A career is not a
+span, so this one draws **what is on screen**: the era switch, the level chips, the round bar
+and both players if there are two. Switch Super 500 off and it leaves the picture; raise the
+board to **W** and the picture is titles only.
+
+Drawn from the model like every other export, at its own fixed size rather than at the zoom
+slider's. The grid's squares are 20px in a poster — bigger than the file started at, because
+at 16 a one-slot block was narrower than the three letters naming it and Olympics, Worlds,
+Tour Finals, Continental and Regional Games all lost their labels off the front of the band.
+
+⚠️ **The result ramp exists twice** — as `--res-*` in `styles.css` for the page and as
+`RESULT_COLOURS` in `poster.js` for the canvas — because the page paints with CSS and the
+export paints with canvas and there is no way to hand one to the other without a build step.
+The suite reads the *computed* colour off a drawn cell and holds it against the table, so the
+two cannot drift quietly. The `#1` on a title and the notch on a translated square are drawn
+too, by the same rules and at the same gates: the mark only appears once the square is 16px,
+because below that the glyphs stop being a word and start looking like dirt.
+
+⚠️ **No flags on this one.** Measured: BWF serves player photographs from
+`img.bwfbadminton.com`, which answers a CORS request, and country flags from
+`extranet.bwf.sport`, which does not — so every flag failed to load, printed a CORS error and
+drew nothing. The Winners board's flags come out of the harvested file and are on the
+photograph host, which is why those are fine and these are not. The country is in the line
+under the name anyway.
+
+The file is named for the people in it — `badminton-grid-shi-v-an.png` — because a comparison
+and a single career would otherwise land in a downloads folder as the same file and the second
+one would silently become `(1)`.
+
+
 ## The tournament
 
 Whatever is on, without picking it. **No player card sits above it**, the same as the

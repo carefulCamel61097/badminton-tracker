@@ -40,7 +40,8 @@ import {
   bestScoreFloor, SCORE_FLOOR_STEP,
 } from '../model.js';
 import {
-  posterLayout, scorePosterLayout, tileSlot, POSTER, REIGN_COLOURS, SCORE_COLOURS, TIER_RING,
+  posterLayout, scorePosterLayout, gridPosterLayout, honoursPosterLayout,
+  tileSlot, POSTER, REIGN_COLOURS, SCORE_COLOURS, RESULT_COLOURS, TIER_RING,
 } from '../poster.js';
 import { check, eq, near, report } from './check.mjs';
 
@@ -2872,6 +2873,107 @@ eq('and folded to them, one slot apart',
 
 eq('nothing to draw is nothing, not a crash', bracketLayout(null, 'all').cards.length, 0);
 eq('and it asks for no canvas', bracketLayout(parseDraw({}), 'all').width, 0);
+
+
+console.log('\n=== the compare page, laid out for export ===');
+
+/** A career as the compare exports want it: an identity, and the rows. */
+const asPoster = (name, seasons) => ({
+  id: name, name, meta: '', avatar: '', rows: rowsOf(seasons),
+});
+const shiPost = asPoster('SHI Yu Qi', shi);
+const anPost = asPoster('AN Se Young', anSeYoung);
+
+/* ---- the grid ---- */
+
+const gOne = gridPosterLayout([shiPost], { era: 'wt', hidden: [] });
+const gTwo = gridPosterLayout([shiPost, anPost], { era: 'wt', hidden: [] });
+
+eq('one card per career', gTwo.careers.length, 2);
+check('two careers make a wider picture than one',
+  gTwo.width > gOne.width * 1.8, `${gTwo.width} against ${gOne.width}`);
+
+/* ⚠️ The widths and the seasons are measured across **both** careers, exactly as
+   the page measures them, so the two grids line up in the picture the way they
+   line up on screen. Measured separately they would not. */
+eq('and both are drawn over one set of seasons',
+  gTwo.years.join(','), gridYears([shiPost.rows, anPost.rows]).join(','));
+eq('on one set of blocks',
+  gTwo.sections.map(s => String(s.group)).join(','),
+  gridSections([shiPost.rows, anPost.rows].map(rows => rows.map(r => r.by)), 'wt')
+    .map(s => String(s.group)).join(','));
+
+/* ⚠️ The picture is what is on screen, chips included — the Winners board
+   exports a range of seasons because that is the shape of the claim posted from
+   it, and a career is not a range. */
+const gHidden = gridPosterLayout([shiPost, anPost], { era: 'wt', hidden: ['25', '26', '27'] });
+eq('a switched-off level is out of the picture',
+  gHidden.sections.some(s => String(s.group) === '25'), false);
+eq('but still in the row it was switched off from',
+  gHidden.all.some(s => String(s.group) === '25'), true);
+check('so the picture is narrower', gHidden.width < gTwo.width,
+  `${gHidden.width} against ${gTwo.width}`);
+
+/* The era switch renames the blocks and re-marks the translated squares, and it
+   is a property of the view — so it has to reach the picture. */
+const gSS = gridPosterLayout([shiPost, anPost], { era: 'ss', hidden: [] });
+check('the era switch reaches the picture',
+  gSS.sections.map(s => s.code).join(',')
+    !== gTwo.sections.map(s => s.code).join(','),
+  gSS.sections.map(s => s.code).join(' '));
+
+eq('nothing to draw is a picture of nothing, not a crash',
+  gridPosterLayout([], { era: 'wt', hidden: [] }).careers.length, 0);
+
+/* ---- the honours board ---- */
+
+const hTwo = honoursPosterLayout([shiPost, anPost], { era: 'wt', hidden: [], bar: 'sf' });
+const hOne = honoursPosterLayout([shiPost], { era: 'wt', hidden: [], bar: 'sf' });
+
+/* ⚠️ Two careers mirror about a spine and one does not, which is what decides
+   the width — so the layout has to know which it is drawing. */
+eq('two careers mirror', hTwo.two, true);
+eq('one does not', hOne.two, false);
+check('and the mirrored board is the wider of the two',
+  hTwo.width > hOne.width, `${hTwo.width} against ${hOne.width}`);
+
+/* Every row is sized by what its level is worth, on the ladder the page uses —
+   the whole claim of the view, so it must not be redrawn here from something
+   else. */
+const hRow = g => hTwo.rows.find(r => String(r.section.group) === String(g));
+check('a Super 1000 row is φ taller in area than a Super 750 one',
+  Math.abs((hRow(23).side / hRow(24).side) ** 2 - PHI_) < 1e-6,
+  `${hRow(23).side} / ${hRow(24).side}`);
+check('and the Worlds row towers over the Super 100 one',
+  hRow(20).side > hRow(27).side * 3,
+  `${hRow(20).side} vs ${hRow(27).side}`);
+
+/* The round bar is what the board is *about*, so raising it is not a filter on
+   the picture, it is a different picture. */
+const hTitles = honoursPosterLayout([shiPost, anPost], { era: 'wt', hidden: [], bar: 'w' });
+check('titles only is a narrower board than semi-finals and up',
+  hTitles.width < hTwo.width, `${hTitles.width} against ${hTwo.width}`);
+check('and the legend says which bar it was drawn at',
+  hTitles.legend[0].includes(honourStep('w').label), hTitles.legend[0]);
+
+eq('a switched-off level is out of this picture too',
+  honoursPosterLayout([shiPost, anPost],
+    { era: 'wt', hidden: ['27'], bar: 'sf' }).sections
+    .some(s => String(s.group) === '27'), false);
+
+/* ---- the ramp ----
+
+   ⚠️ These ten colours are also in `styles.css` as `--res-*`, because the page
+   paints with CSS and the export paints with canvas. `test_season.mjs` reads
+   the computed colour off a drawn cell and holds it against this table; here we
+   only check that the table covers every result the model can produce, so a new
+   rank cannot arrive with no colour and be drawn as "did not play". */
+const everyTier = new Set([...cellsOf(shiPost.rows), ...cellsOf(anPost.rows)]
+  .map(c => c.tier));
+for (const t of everyTier) {
+  check(`the ramp has a colour for ${t}`, !!RESULT_COLOURS[t], RESULT_COLOURS[t]);
+}
+eq('and one for a slot nobody played', RESULT_COLOURS.off, '#292929');
 
 console.log('\n=== a slice of the score, laid out for export ===');
 

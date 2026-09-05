@@ -38,6 +38,7 @@ import {
 } from './model.js';
 import {
   drawPoster, posterLayout, drawScorePoster, scorePosterLayout, POSTER, TIER_RING,
+  drawGridPoster, gridPosterLayout, drawHonoursPoster, honoursPosterLayout, RESULT_COLOURS,
   REIGN_COLOURS, SCORE_COLOURS, CUP_PATHS, CUP_BOX, RING_AT, RING_COLOURS, RING_BOX,
 } from './poster.js';
 
@@ -588,6 +589,9 @@ const grid = {
      and it changes no career. See "the two eras" in the model. */
   era: ERA_DEFAULT,
   pending: null,                 // a compare id from the hash, waiting to load
+  // Whether the export bar is open. A view of the page, not part of what it
+  // argues, so it never reaches the hash — the same split the Winners page makes.
+  exporting: false,
 };
 
 /* The second career, held well apart from `state`. A comparison is a view of
@@ -617,6 +621,20 @@ function careers() {
     ranks: cmp.ranks, loading: cmp.loading, error: cmp.error, second: true,
   });
   return list;
+}
+
+/**
+ * One career, bucketed by season and section, in the vocabulary now on screen.
+ *
+ * The single place this is built. The Finals reattribution, the era translation
+ * and the junior and team exclusions all settle inside `careerRows`, and the
+ * grid, the honours board and both exports have to be looking at the same thing
+ * or they can disagree about what a career contains.
+ */
+function careerGridRows(career) {
+  const kind = gridKindFor(career.seasons);
+  const preferred = dominantDraw(career.seasons.flatMap(s => s.tournaments), kind);
+  return careerRows(career.seasons, kind, preferred, grid.era);
 }
 
 /**
@@ -658,8 +676,13 @@ function cellHtml(cell, year) {
       + (cell.from ? `\n${cell.from}, drawn as ${gridGroupLabel(cell.group, grid.era)}` : ''))}"></i>`;
 }
 
-/** Who the grid belongs to: the same identity block as the page's heading. */
-function gridProfile(career) {
+/**
+ * The line under a name: country, age, ranking, discipline, seasons.
+ *
+ * Its own function because the export prints the same line, and an identity
+ * assembled twice is an identity that can disagree with itself.
+ */
+function careerMeta(career) {
   const p = career.player;
   const r = career.ranks;
   const kind = gridKindFor(career.seasons);
@@ -675,6 +698,13 @@ function gridProfile(career) {
   // it has arrived as well as that more is coming.
   if (n) bits.push(`${n} season${n === 1 ? '' : 's'}`);
   if (career.loading) bits.push('loading…');
+  return bits;
+}
+
+/** Who the grid belongs to: the same identity block as the page's heading. */
+function gridProfile(career) {
+  const p = career.player;
+  const bits = careerMeta(career);
 
   return '<header class="gprofile">'
     + (p && p.avatar ? `<img class="avatar" src="${esc(p.avatar)}" alt="">` : '<span class="avatar"></span>')
@@ -954,15 +984,12 @@ function renderGrid() {
   // Both the widths and the cells are read off this, so a row cannot be laid
   // out against widths that were measured from something else — and the two
   // views cannot disagree about what a career contains.
-  for (const c of list) {
-    const kind = gridKindFor(c.seasons);
-    const preferred = dominantDraw(c.seasons.flatMap(s => s.tournaments), kind);
-    c.rows = careerRows(c.seasons, kind, preferred, grid.era);
-  }
+  for (const c of list) c.rows = careerGridRows(c);
 
   renderGridKinds();
   renderEraSwitch();
   renderViewSwitch();
+  renderCompareExport();
 
   const honours = grid.view === 'honours';
   $('gridBody').hidden = honours;
@@ -984,6 +1011,121 @@ function renderGrid() {
 
   if (honours) renderHonoursBody(list); else renderGridBody(list);
 }
+/* ---- saving the compare page ----
+
+   Both views, on the same button. The Winners board asks for a *range* of
+   seasons, because that is the shape of the claim somebody posts from it; a
+   career is not a range, so this one draws **what is on screen** — the era, the
+   level chips, the round bar, and both players if there are two.
+
+   ⚠️ The careers are handed over as `careerRows` output, not as raw seasons.
+   That is where the Finals reattribution, the era translation and the junior and
+   team exclusions all settle, and doing any of it twice is two chances for the
+   picture and the page to disagree about what a career contains.
+   ==================================================================== */
+
+/** The careers as the poster wants them: an identity, and the rows. */
+function posterCareers() {
+  /* ⚠️ The rows are **rebuilt** here rather than read off `c.rows`. `careers()`
+     hands back a fresh object every call, so the `c.rows` the render hangs on
+     one of them is not on the next one — the first version of this drew nothing
+     at all, on a page that was plainly full of squares. */
+  return careers().map(c => ({ c, rows: careerGridRows(c) }))
+    .filter(({ rows }) => rows.length)
+    .map(({ c, rows }) => ({
+      id: String(c.id),
+      name: (c.player && c.player.name) || `Player ${c.id}`,
+      meta: careerMeta(c).join(' · '),
+      avatar: (c.player && c.player.avatar) || '',
+      rows,
+    }));
+}
+
+function comparePosterOpts() {
+  return {
+    era: grid.era,
+    hidden: [...grid.hiddenGroups],
+    bar: grid.threshold,
+  };
+}
+
+/** What the file is called when it lands in somebody's downloads. */
+function compareExportName() {
+  /* ⚠️ Named for the people in it, not for the view alone: a comparison and a
+     single career would otherwise land in a downloads folder as the same file,
+     and the second one would silently be `(1)`. */
+  const who = posterCareers().map(c => surnameOf(c.name).toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')).filter(Boolean);
+  return `badminton-${grid.view}-${who.join('-v-') || 'career'}.png`;
+}
+
+async function makeComparePoster() {
+  const list = posterCareers();
+  if (!list.length) return null;
+  const opts = comparePosterOpts();
+  return grid.view === 'honours'
+    ? drawHonoursPoster(list, opts) : drawGridPoster(list, opts);
+}
+
+function compareSaying(msg, bad) {
+  const el = $('gexpNote');
+  el.textContent = msg || '';
+  el.classList.toggle('is-bad', !!bad);
+}
+
+function renderCompareExport() {
+  const box = $('gridExport');
+  box.hidden = !grid.exporting;
+  $('gridSave').classList.toggle('on', grid.exporting);
+  $('gridSave').setAttribute('aria-pressed', String(grid.exporting));
+}
+
+async function saveComparePoster() {
+  compareSaying('Drawing…');
+  try {
+    const blob = await makeComparePoster();
+    if (!blob) return compareSaying('Nothing to draw yet.', true);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = compareExportName();
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // Revoked on a timer: revoking in the same tick as the click races the
+    // download in Chrome and lands a zero-byte file.
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    compareSaying(`Saved ${compareExportName()}`);
+  } catch (e) {
+    compareSaying(e.message || String(e), true);
+  }
+}
+
+async function copyComparePoster() {
+  compareSaying('Drawing…');
+  try {
+    const blob = await makeComparePoster();
+    if (!blob) return compareSaying('Nothing to draw yet.', true);
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    compareSaying('Copied — paste it anywhere.');
+  } catch (e) {
+    compareSaying('Could not copy (' + (e.message || e.name) + '). Save it instead.', true);
+  }
+}
+
+$('gridSave').addEventListener('click', () => {
+  grid.exporting = !grid.exporting;
+  compareSaying('');
+  renderCompareExport();
+});
+$('gexpSave').addEventListener('click', saveComparePoster);
+$('gexpCopy').addEventListener('click', copyComparePoster);
+/* Only offered where it can work: `ClipboardItem` is missing on Firefox and on
+   any page not served over https, and a button that always fails is worse than
+   no button. */
+$('gexpCopy').hidden = typeof ClipboardItem === 'undefined' || !navigator.clipboard;
+
+
 
 /* ============================ the winners' pyramid ============================
 
@@ -3879,11 +4021,7 @@ window.BST = {
     close: closeGrid,
     isOpen: () => grid.open && !$('comparePage').hidden && $('seasonsPage').hidden,
     /** The sections and their widths, as the render would compute them. */
-    rows: () => careers().map(c => {
-      const kind = gridKindFor(c.seasons);
-      return careerRows(c.seasons, kind,
-        dominantDraw(c.seasons.flatMap(s => s.tournaments), kind), grid.era);
-    }),
+    rows: () => careers().map(careerGridRows),
     sections: () => gridSections(
       window.BST.grid.rows().map(rows => rows.map(r => r.by)), grid.era),
     years: () => gridYears(window.BST.grid.rows()),
@@ -3893,6 +4031,42 @@ window.BST = {
     kindFor: i => gridKindFor((careers()[i] || { seasons: [] }).seasons),
     compareWith: id => loadCompare({ id: String(id), name: '' }),
     drop: removeCompare,
+
+    /* ---- the export ----
+       The layout as numbers so the suite can check where things land without
+       decoding a picture, and a real encoded image because a tainted canvas
+       only shows up at `toBlob`, after everything has drawn perfectly. */
+    export: on => (on == null ? grid.exporting
+      : (grid.exporting = !!on, renderCompareExport(), grid.exporting)),
+    exportName: compareExportName,
+    /* ⚠️ Handed back so the suite can hold the stylesheet's `--res-*` against
+       the table the canvas paints from — the one place the two can drift. */
+    results: () => RESULT_COLOURS,
+    poster: () => {
+      const list = posterCareers();
+      if (!list.length) return null;
+      const opts = comparePosterOpts();
+      const L = grid.view === 'honours'
+        ? honoursPosterLayout(list, opts) : gridPosterLayout(list, opts);
+      return {
+        view: grid.view, width: L.width, height: L.height,
+        title: L.title, legend: L.legend,
+        sections: L.sections.map(s => String(s.group)),
+        all: L.all.map(s => String(s.group)),
+        years: L.years ? L.years.slice() : null,
+        two: !!L.two,
+      };
+    },
+    png: async () => {
+      const blob = await makeComparePoster();
+      if (!blob) return null;
+      const url = await new Promise(res => {
+        const r = new FileReader();
+        r.onload = () => res(r.result);
+        r.readAsDataURL(blob);
+      });
+      return { bytes: blob.size, type: blob.type, url };
+    },
     zoom: px => (px == null ? Number($('gridZoom').value) : (setZoom(px), Number($('gridZoom').value))),
     /** Every card on screen, as cells with their laid-out geometry. */
     /* `:not(.empty)` — the seat waiting for a second player is not a career and
