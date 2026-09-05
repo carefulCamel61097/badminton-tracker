@@ -754,24 +754,37 @@ column.
 
 ⚠️ **The pandemic seasons have three readings**, chosen by the `2020–22` chips.
 
-**Set aside** is the default. **As played** counts them as they happened, which puts Viktor
-AXELSEN top of *both* orderings on **184 of his 315 points** and TAI Tzu Ying top of the
-women's peak on an 81 taken in a season that held three titles. Set aside, the men's singles
-reads LEE Chong Wei, LIN Dan, CHEN Long — the answer most people would give, now given by the
-arithmetic. It is a judgement, so it is a chip rather than a silent rule.
+**Full season** is the default. What is most obviously wrong with 2020 is arithmetic before it
+is competition: three titles were played, so one of them is a third of the year. This weighs
+those seasons against **what a full season of the era was worth** — 19.33 by weight, twelve
+titles, read off the seasons in the file rather than typed in — and never downward. Viktor
+AXELSEN reads **269** here, against 315 as played and 131 with the seasons dropped.
 
-**Full season** is the middle reading, and it exists because setting a season aside throws away
-titles that were genuinely won — from everybody, ZHENG / HUANG included, who lose 59 points of
-mixed-doubles total to the very seasons China's absence defined. What is most obviously wrong
-with 2020 is arithmetic before it is competition: three titles were played, so one of them is a
-third of the year. This weighs those seasons against **what a full season of the era was
-worth** — 19.33 by weight, twelve titles, read off the seasons in the file rather than typed
-in — and never downward. AXELSEN goes 315 → **269** rather than 315 → 131.
+It is the default because it is the reading that changes the arithmetic **without discarding a
+result**. Setting a season aside is a claim about the *competition* — that the field was too
+thin to count — and it is a claim this data cannot check season by season. Weighing a short
+season against a full one is a claim about the *calendar*, which the file can check and does.
+
+**Set aside** is the stronger claim and one click away: the men's singles then reads LEE Chong
+Wei, LIN Dan, CHEN Long, the answer most people would give. It costs something — it throws away
+titles that were genuinely won, from everybody, ZHENG / HUANG included, who lose 59 points of
+mixed-doubles total to the very seasons China's absence defined. **As played** is the record as
+it stands, which puts AXELSEN top of *both* orderings on **184 of his 315 points** and TAI Tzu
+Ying top of the women's peak on an 81 taken in a season that held three titles.
 
 ⚠️ **Only `full` moves the chart, and it has to.** It changes what a score is a share of, so
 the lines, the hovers, the strip (`3/12`, the way the running year reads) and the exported PNG
 all follow it. `aside` is not a denominator at all: the chart goes on drawing what happened and
 the ranking leaves those seasons out.
+
+⚠️ **The Show bar follows too, being derived from the scores.** The men's singles opens at 15
+rather than 40, because 2020's best season is a 17 once it is weighed against a whole year
+rather than a 69, and the bar's rule is not to drop a season's leader. Twelve lines instead of
+seven; the other four boards barely move.
+
+⚠️ **A link with no `wc` means "the current default"**, the way `wf` means "the derived bar".
+Links written before this change carried no `wc` and meant *set aside*; they now open on *full
+season*. `wc=1`, from before there were three readings, still means *as played*.
 
 ⚠⚠ **`full` is a calendar correction and cannot see a field.** Two things were wrong with these
 years — fewer events, and a thinner draw at the ones that ran — and it fixes the first only.
@@ -841,10 +854,10 @@ the better denominator: the bar is set from *who led each season*, and nobody ha
 that is still being played, however fairly it is weighed.
 
 ⚠️ **The Show bar does not reach this table**, and that is not an oversight. The bar filters on
-*peak*, so a total ranking cut by it is a different claim: at the men's singles default of 40
-it would leave seven names, and it drops BOE / MOGENSEN — eight seasons, seventh on total —
-for a best season of 25.5. The bar declutters the chart; the ranking is the whole board. The
-top twenty are shown, and one click shows every competitor.
+*peak*, so a total ranking cut by it is a different claim: at the men's singles default it
+draws twelve of the forty-five careers listed, and it drops Jan O JORGENSEN — four seasons,
+twelfth on total — for a best season of 7.4. The bar declutters the chart; the ranking is the
+whole board. The top twenty are shown, and one click shows every competitor.
 
 ⚠️ Clicking a row picks that competitor everywhere, like clicking a square or a marker or a
 chip. **And if the bar was hiding them, the bar comes down to fit** — the table lists everybody

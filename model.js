@@ -3462,13 +3462,15 @@ export function isCovidSeason(year) {
 /* ---- what to divide a pandemic season by ----
 
    Setting the pandemic seasons aside answers "who dominated when the game was
-   itself", and it is the default. But it throws away titles that were genuinely
-   won, and it throws them away from everybody — ZHENG / HUANG lose 59 points of
-   mixed-doubles total to it, and they are Chinese, so the seasons it removes are
-   the ones their own federation's absence defined.
+   itself", and it was the default until the middle reading existed. But it
+   throws away titles that were genuinely won, and it throws them away from
+   everybody — ZHENG / HUANG lose 59 points of mixed-doubles total to it, and
+   they are Chinese, so the seasons it removes are the ones their own
+   federation's absence defined.
 
-   The middle reading is this one. A domination score is a share, and 2020's
-   share is monstrous for an arithmetical reason before it is a competitive one:
+   **The middle reading is the default, and this is it.** A domination score is a
+   share, and 2020's share is monstrous for an arithmetical reason before it is a
+   competitive one:
    three titles were played, so one of them is a third of the year. Weigh those
    seasons against **what a full season of the era was worth** instead and the
    arithmetic stops shouting: Viktor AXELSEN's 2020 falls to about a quarter of
@@ -3485,15 +3487,31 @@ export function isCovidSeason(year) {
    patched; it is what the option means, and it is why all three readings are
    offered rather than one.
 
-   ⚠️ **Only ever upward.** See `dominationSeasons`. */
+   ⚠️ **Only ever upward.** See `dominationSeasons`.
 
-/** The three readings of the pandemic seasons, and their order is the chip row. */
+   ⚠️ **Why this one and not `aside`.** It is the reading that changes the
+   arithmetic without discarding a result. Setting a season aside is a claim
+   about the *competition* — that the field was too thin to count — and it is a
+   claim this data cannot check season by season; weighing a short season against
+   a full one is a claim about the *calendar*, which the file can check and does.
+   The stronger claim is still one click away, and the rows it under-counts say
+   so with an asterisk. Chosen by the user on 5 September 2026, after all three
+   were built and measured side by side. */
+
+/**
+ * The three readings of the pandemic seasons, and their order is the chip row.
+ *
+ * ⚠️ **Ordered least-counted to most, so the default is in the middle rather
+ * than first.** It is a spectrum — dropped, grown, as they stand — and reading
+ * left to right tells the reader what the row is *for*. Promoting the default to
+ * the front would make it three unrelated buttons.
+ */
 export const COVID_MODES = [
   { key: 'aside', label: 'Set aside', of: 'not counted at all' },
   { key: 'full', label: 'Full season', of: 'weighed against a whole year' },
   { key: 'played', label: 'As played', of: 'weighed against what was played' },
 ];
-export const COVID_DEFAULT = 'aside';
+export const COVID_DEFAULT = 'full';
 
 /** A mode key, or the default. Tolerates `wc=1` from links written before this. */
 export function covidMode(key) {

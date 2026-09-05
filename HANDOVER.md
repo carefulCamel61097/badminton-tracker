@@ -1649,9 +1649,10 @@ look reasonable to whoever reads this next.
 
 ⚠️⚠️ **The Show bar must not govern this table, and it took a measurement to see why.** The bar
 filters on *peak*. A total ranking cut by a peak filter is a different claim: at the men's
-singles default of 40 the table would hold seven names, and BOE / MOGENSEN — eight seasons and
-seventh on total — are dropped for a best season of 25.5. The bar declutters the chart; the
-ranking is the whole board. Top twenty by default, one click for all of them.
+singles default the chart holds twelve of the forty-five careers the table does, and
+Jan O JORGENSEN — four seasons and twelfth on total — is dropped for a best season of 7.4.
+The bar declutters the chart; the ranking is the whole board. Top twenty by default, one
+click for all of them.
 
 ⚠️ Ranks are **shared on a tie** and the next rank skips, as ranks do. The *order* within a tie
 is settled by the other number and then by name, so it does not depend on the order the seasons
@@ -1686,6 +1687,9 @@ and printed straight over the link beside it, and `white-space: nowrap` alone on
 overlap longer.
 
 ### 3.4s The pandemic seasons, and the year still running *(built 5 Sep 2026)*
+
+**Which seasons and why.** What is *done* with them is 3.4u — three readings, `full` by
+default — and this section is only the argument for the set.
 
 ⚠⚠ **`COVID_SEASONS` is 2020, 2021 and 2022, and the test is participation — not the
 calendar.** A domination score is a share, so what flatters a winner is a thinner field, not a
@@ -1758,7 +1762,14 @@ ladder at the moment it was written.
 
 Set aside or counted was a switch, and the user asked the question a switch cannot answer:
 *what if 2020–22 were divided by a full schedule instead?* `COVID_MODES` is now three —
-`aside` (the default), `full`, `played` — and the chip became a row.
+`aside`, **`full` (the default)**, `played` — and the chip became a row.
+
+⚠️ **`full` is the default, chosen by the user after all three were built and measured.** The
+argument for it: it is the reading that changes the arithmetic **without discarding a result**.
+Setting a season aside is a claim about the *competition* — that the field was too thin to
+count — and it is a claim this data cannot check season by season. Weighing a short season
+against a full one is a claim about the *calendar*, which the file can check and does. The
+stronger claim is one click away and the rows it under-counts say so with an asterisk.
 
 ⚠️ **What "a full season" is, and where it comes from.** The median mass and title count of
 the **finished, non-pandemic seasons of the same era**, era being `SS_LAST_SEASON` — a
@@ -1798,6 +1809,28 @@ so the lines, hovers, strip and poster all follow — a table quoting numbers th
 never drew would be worse than either. `aside` is not a denominator: the chart draws what
 happened and the ranking omits it. Two of three modes therefore produce an identical chart, and
 that asymmetry is deliberate and is said out loud in `#rankWhat`.
+
+⚠️ **The Show bar moves with the default**, being derived: the men's singles opens at 15
+rather than 40, because 2020's best season is a 17 once weighed against a whole year rather
+than a 69, and the bar's rule is not to drop a season's leader. Twelve lines instead of seven.
+Measured across all five boards before the default changed: WS 20 → 20, WD 30 → 20 (same twelve
+lines), XD 20 → 20, MD 30 → 20. Only the men's singles moves much, and twelve lines is well
+inside what the women's singles already draws at nineteen.
+
+⚠️ **A link with no `wc` means "the current default"**, the same contract `wf` has — absence is
+"the derived default", not a frozen value. So links written between 5 September's two commits
+carried no `wc`, meant *set aside*, and now open on *full season*. Accepted deliberately: `wc`
+records the argument, and a reader opening somebody's link should get the page's current reading
+of the seasons rather than one pinned to whatever the sender's build thought.
+
+⚠️ **The model suite's `domMS` and `domWS` are pinned to `{ covid: 'played' }`, said out loud.**
+Everything from the ladder to the Show bar's rule to how a ranking is built reads clearest on
+the seasons exactly as they happened, and the pandemic reading is a claim laid on top of that
+with its own block and its own models. Left implicit, changing the default silently rewrote
+fourteen of those checks into questions nobody had asked — including "every finished season adds
+to one", which is *false by design* under `full` and had to be generalised to "adds to one, or
+to less of one where the season is weighed against more than it held". The remainder is the
+feature: it is the part of the year nobody owns.
 
 ⚠️ `scoreTop` moves with the mode. Its comment forbids the axis moving *under the reader*, and
 that is about selection: `full` is a different measurement, and holding the axis at 90 for a

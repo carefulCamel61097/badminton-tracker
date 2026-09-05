@@ -1194,13 +1194,14 @@ const win = {
   /* Which ordering the dominators' table is in, and whether it is showing the
      whole board or the head of it. See `dominationRanking`. */
   rank: RANK_DEFAULT, rankAll: false,
-  /* ⚠️ **The pandemic seasons are out of the ranking by default.** A share of a
-     three-tournament calendar is not the same quantity as a share of a fifteen-
-     tournament one, and leaving them in put Viktor AXELSEN top of both
-     orderings on 184 of his 315 points — and TAI Tzu Ying top of the women's on
-     an 81 taken in a season that held three titles. Out by default, and one
-     click puts them back — or weighs them against a whole year instead, which
-     is the third reading. See `COVID_MODES`. */
+  /* ⚠️ **The pandemic seasons are weighed against a whole year by default.** A
+     share of a three-tournament calendar is not the same quantity as a share of
+     a fifteen-tournament one: read as played they put Viktor AXELSEN top of both
+     orderings on 184 of his 315 points, and TAI Tzu Ying top of the women's on
+     an 81 taken in a season that held three titles. The default divides those
+     seasons by what a full season of the era was worth instead, which fixes the
+     arithmetic without discarding a title anybody won; setting them aside
+     entirely is one click away. See `COVID_MODES`. */
   covid: COVID_DEFAULT,
 };
 
@@ -1947,10 +1948,10 @@ function renderScoreTables(model) {
    Two separate tables would have hidden exactly that.
 
    ⚠️ **The Show bar does not govern this table.** It filters on *peak*, so a
-   total ranking cut by it is a different claim: at the men's singles default of
-   40 it leaves seven people, and it drops BOE / MOGENSEN — eight seasons and
-   seventh on total — for a peak of 25.5. The bar declutters the chart; the
-   ranking is the whole board. */
+   total ranking cut by it is a different claim: at the men's singles default it
+   draws twelve of the forty-five careers here, and it drops Jan O JORGENSEN —
+   four seasons and twelfth on total — for a best season of 7.4. The bar
+   declutters the chart; the ranking is the whole board. */
 
 const RANK_TOP = 20;
 
@@ -2071,8 +2072,12 @@ ${r.first}–${r.last}`
   /* What the sort means, and — when they are out — what is not being counted.
      A number that has quietly had three seasons taken out of it has to say so
      where the number is, not only in the note at the foot of the page. */
+  /* ⚠️ The chart line is on the reading itself, not on having just clicked it:
+     `full` is where the page opens, so "the chart above follows" as a *change*
+     notice would be describing something the reader never saw happen. It says
+     what is true of the picture in front of them. */
   $('rankWhat').textContent = `${mode.of} · ${covidSpan()} ${cv.of}`
-    + (cv.key === 'full' ? ' — the chart above follows' : '');
+    + (cv.key === 'full' ? ', the chart above included' : '');
 }
 
 /**

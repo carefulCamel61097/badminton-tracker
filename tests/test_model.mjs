@@ -2422,13 +2422,22 @@ if (fs.existsSync(mdPath)) {
       const pt = p.pts.find(q => q.year === s.year);
       if (pt) n += pt.score;
     }
-    /* ⚠️ A **finished** season adds to exactly one. The season being played
-       does not, and must not: it is weighed against the whole year, so the
-       titles still to come are the part nobody owns yet. */
-    if (s.forecast) { if (n > 1 + 1e-9) sums++; }
+    /* ⚠️ A season adds to exactly one **unless it is being weighed against more
+       than it held**, and there are two ways to be in that state: it is still
+       being played, or — on the page's default reading — it was cut short and is
+       divided by a full season anyway. Both leave a remainder, and the remainder
+       is the point: it is the part of the year nobody owns. Left as a flat
+       "always one", this failed on 2020 and 2022 the day the default changed,
+       and it would have been reporting the feature as a bug. */
+    if (s.planned > s.played) { if (n > 1 + 1e-9) sums++; }
     else if (Math.abs(n - 1) > 1e-9) sums++;
   }
-  eq('and a doubles season still adds up to one whole season', sums, 0);
+  eq('and a doubles season adds up to one whole season, or to less of one', sums, 0);
+  /* Said the other way round, so "no season sums to more than one" cannot pass
+     by every season summing to nothing. */
+  check('and the seasons weighed against a whole year keep a remainder',
+    dom.seasons.filter(s => s.whole).length > 0,
+    dom.seasons.filter(s => s.whole).map(s => s.year).join(','));
 
   check('every line on the chart is named for a pair',
     dom.people.every(p => p.who.people.length === 2 && / \/ /.test(p.who.n)),
@@ -2700,7 +2709,14 @@ check('and every rung is the same step',
 
 console.log('\n=== a season as a share of itself ===');
 
-const domMS = dominationSeasons(winMS);
+/* ⚠️ **`played`, said out loud, and not the page's default.** Everything from
+   here to the pandemic block is about the mechanics — a share of its own season,
+   the ladder, the Show bar's rule, how a ranking is built — and those read
+   clearest on the seasons exactly as they happened. The default reading
+   (`full`, which grows two denominators) is a claim laid on top of that, and it
+   gets its own block with its own model. Left implicit, changing the default
+   silently rewrote fourteen of these into questions nobody had asked. */
+const domMS = dominationSeasons(winMS, { covid: 'played' });
 
 eq('the same seasons the board draws', domMS.years.length, winSeasons.years.length);
 check('every season is a full one', domMS.seasons.every(s =>
@@ -2798,10 +2814,17 @@ console.log('\n=== the default clutter bar ===');
    wrongly put the women's default at 35 and drew CHEN Yu Fei not at all. */
 const floorMS = bestScoreFloor(domMS, 2026);
 const domWS = dominationSeasons(JSON.parse(fs.readFileSync(
-  path.join(HERE, '..', 'data', 'winners-WS.json'), 'utf8')));
+  path.join(HERE, '..', 'data', 'winners-WS.json'), 'utf8')), { covid: 'played' });
 const floorWS = bestScoreFloor(domWS, 2026);
 eq('the men’s board settles at 40', floorMS, 40);
 eq('the women’s at 20', floorWS, 20);
+/* ⚠️ **The bar follows the reading, because it is derived from the scores.** On
+   the page's default the men's board opens at 15, not 40: 2020's best season is
+   a 17 once it is weighed against a whole year rather than a 69, and the rule is
+   not to drop a season's leader. The women's does not move — nothing in it was
+   being held up by a pandemic season. */
+eq('and on the page’s own reading the men’s board opens lower',
+  bestScoreFloor(dominationSeasons(winMS, { covid: COVID_DEFAULT }), 2026), 15);
 
 /** Whoever led each finished season, and whether the bar still draws them. */
 function leadersHeld(model, floor, now) {
@@ -2988,12 +3011,19 @@ check('and 2018 is not, though it held ten as well', !isCovidSeason(2018),
    instead. See `COVID_MODES`. */
 const domFull = dominationSeasons(winMS, { now: 2026, covid: 'full' });
 const seasonOf = (m, y) => m.seasons.find(s => s.year === y);
-const asPlayed = dominationSeasons(winMS, { now: 2026 });
+/* Said out loud: `full` is the default now, so an omitted mode would make this
+   pair of models identical and every comparison below vacuously true. */
+const asPlayed = dominationSeasons(winMS, { now: 2026, covid: 'played' });
 
 eq('the three readings are set aside, full season and as played',
   COVID_MODES.map(m => m.key).join(','), 'aside,full,played');
-eq('and the default is to set them aside', COVID_DEFAULT, 'aside');
-eq('an unknown key falls back to the default', covidMode('nonsense').key, 'aside');
+/* ⚠️ **The middle one is the default.** It is the reading that changes the
+   arithmetic without discarding a result: setting a season aside is a claim
+   about the field, which this data cannot check season by season, while weighing
+   a short season against a full one is a claim about the calendar, which it
+   can. */
+eq('and the default is to weigh them against a whole year', COVID_DEFAULT, 'full');
+eq('an unknown key falls back to the default', covidMode('nonsense').key, 'full');
 /* ⚠️ Links written before there were three readings carry `wc=1`, and it meant
    "count them" — which is now a named mode rather than a boolean. */
 eq('wc=1 from an older link still means what it was written to mean',
@@ -3059,8 +3089,10 @@ eq('nobody leaves the table on the full-season reading',
   rankFull.length, dominationRanking(asPlayed, 'total').length);
 check('the leader is the leader on total', rankMS[0].who.n, rankMS[0].who.n);
 /* ⚠️ The bar filters on **peak**, so a total ranking cut by it is a different
-   claim: at the men's singles default of 40 it would leave seven names. This is
-   why the table is not governed by it. */
+   claim: on the as-played reading these models are pinned to, the men's bar
+   settles at 40 and would leave seven names of forty-five. This is why the table
+   is not governed by it. On the page's own reading the bar is lower and the cut
+   is smaller, but it is still a cut, which is the point. */
 const msFloor = bestScoreFloor(domMS) / 100;
 check('and the bar would have cut most of them',
   rankMS.filter(r => r.peak >= msFloor).length < rankMS.length / 2,
