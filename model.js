@@ -3291,13 +3291,38 @@ export const SCORE_TIERS = ['OLY', 20, 22, 23, 24];
  *   a hover can show the fraction it was made of; `people` are sorted by the
  *   season a career opens, which is the order the era bands already use.
  */
-export function dominationSeasons(file) {
+export function dominationSeasons(file, opts = {}) {
   const { years, byYear } = winnersSeasons(file);
   const players = (file && file.players) || {};
+  const now = opts.now || new Date().getUTCFullYear();
+  const plannedAll = (file && file.planned) || {};
 
   const seasons = years.map(year => {
     const list = byYear.get(year) || [];
-    const mass = list.reduce((n, t) => n + titleWeight(t.tier), 0);
+    const played = list.reduce((n, t) => n + titleWeight(t.tier), 0);
+    /* ⚠️⚠️ **The season being played is weighed against the whole year**, not
+       against the part of it that has happened. A share of what has been played
+       so far makes the first winner of January a 100, and in September 2026 it
+       inflated every score on the board by half again — eight of the twelve
+       played, 13.71 of 19.33 by weight. Against the *planned* year the
+       numerator only grows and the denominator stands still, so the number is a
+       **lower bound** on what the season will finish at: it cannot overstate
+       anybody, and a peak, being a maximum, cannot be dragged down by it.
+
+       ⚠️ **Finished seasons keep what was actually played.** 2020's denominator
+       is the three titles that happened, not the nine still on the calendar when
+       it was abandoned — 2021 was planned at fifteen and played ten. Weighing a
+       cancelled season against its plan would rank everybody as having failed to
+       win events that never took place.
+
+       ⚠️ `Math.max`, so a calendar that has gone stale — an event added since the
+       last harvest — cannot put a score above 100. */
+    const ongoing = year >= now;
+    const plan = plannedAll[year];
+    const forecast = ongoing && Array.isArray(plan) && plan.length > 0;
+    const plannedMass = forecast
+      ? plan.reduce((n, t) => n + titleWeight(t), 0) : 0;
+    const mass = forecast ? Math.max(played, plannedMass) : played;
     const by = new Map();
     for (const t of list) {
       // The competitor, which is a pair in the doubles draws. See `winnerOf`.
@@ -3309,7 +3334,15 @@ export function dominationSeasons(file) {
       cur.titles.push(t);
       by.set(id, cur);
     }
-    return { year, total: list.length, mass, by, titles: list };
+    return {
+      year, total: list.length, mass, by, titles: list,
+      /* What the strip under the axis draws, and what the hover says: how many
+         have been played, and — while a season is still running — how many
+         there are to play. */
+      played: list.length,
+      planned: forecast ? Math.max(plan.length, list.length) : list.length,
+      ongoing, forecast,
+    };
   });
 
   const people = new Map();
@@ -3324,7 +3357,12 @@ export function dominationSeasons(file) {
         year: s.year,
         score: s.mass ? got.w / s.mass : 0,
         weight: got.w, of: s.mass,
-        n: got.n, played: s.total,
+        /* ⚠️ `planned`, not `total`. For a finished season they are the same
+           number; for the one being played, the weight below is out of the
+           whole year and a count out of what has been played so far would have
+           the hover saying "2 of 8" beside "3.24 of 19.33". Two denominators in
+           one sentence is a sentence nobody can read. */
+        n: got.n, played: s.planned,
         titles: got.titles,
       });
     }
@@ -3337,6 +3375,54 @@ export function dominationSeasons(file) {
   return { years, seasons, people: list };
 }
 
+
+
+/* ---- the pandemic seasons ----
+
+   ⚠️⚠️ **2020, 2021 and 2022 — and 2021 is the one that hides.** These are not
+   guessed from a count; they are read off the tournament list itself, and the
+   clearest single signal is China. This board's Chinese events are the China
+   Open and, since 2023, the China Masters (before that the Fuzhou China Open):
+
+     2019   VICTOR China Open · Fuzhou China Open
+     2020   none          2021   none          2022   none
+     2023   VICTOR China Open · LI-NING China Masters
+     2024   VICTOR China Open · LI-NING China Masters
+
+   Three consecutive seasons with no Chinese event on a tour that had held two
+   a year for a decade, and both back the moment the border reopened. That is
+   the boundary, and it is in the data rather than in anybody's memory.
+
+   The rest of the evidence, season by season, all of it from the harvested
+   names and dates:
+
+   **2020** — three events on this board. The All England in March, one Denmark
+   Open in October, and the season's own World Tour Finals *played on 27 January
+   2021*, which is why the file still carries it under "(New Dates)".
+
+   **2021** — ten events, which is why a count-based rule misses it, and not one
+   of them a normal calendar. Two Super 1000s in consecutive weeks in January
+   (YONEX Thailand Open, TOYOTA Thailand Open) — one bio-bubble in Bangkok
+   standing in for the whole Asian swing. The Olympics in July, a year late,
+   still named "Tokyo 2020". Four events carrying "(New dates)" in the name
+   BWF gave them. And the World Championships in **December** rather than
+   August. No Malaysia, no Singapore, no India, no Japan, no China.
+
+   **2022** — eight events. The Asian swing still gone apart from Indonesia,
+   Malaysia and Japan; no Chinese event; and the World Tour Finals moved out of
+   Guangzhou to Bangkok.
+
+   ⚠️ **Not 2018 or 2019**, which also hold ten. That is the World Tour
+   restructure, which cut how many events sit on these five rungs — a change to
+   the ladder, not to whether the season was played. Counting alone cannot tell
+   the two apart, which is the whole reason this set is written down rather than
+   derived. */
+export const COVID_SEASONS = new Set([2020, 2021, 2022]);
+
+/** True if a season was played under the pandemic. See `COVID_SEASONS`. */
+export function isCovidSeason(year) {
+  return COVID_SEASONS.has(Number(year));
+}
 
 /* ---- the dominators, ranked ----
 
@@ -3380,27 +3466,66 @@ export function rankMode(key) {
  * and three quarter seasons' worth" — which is why it is printed with no
  * denominator and never as a percentage.
  *
+ * ⚠️ **`skip` leaves seasons out of the arithmetic, not out of the board.**
+ * It exists for the pandemic seasons — see `COVID_SEASONS` — where a share of
+ * a three-tournament calendar is not the same quantity as a share of a
+ * fifteen-tournament one, however honestly it was won. The chart above still
+ * draws them, because they happened; these numbers are a *ranking of careers*
+ * and that is a different question.
+ *
+ * ⚠️ A competitor whose every season is skipped is **dropped**, not shown at
+ * zero. A row saying somebody dominated nothing is worse than no row: they did
+ * win, in a season this ranking has decided not to weigh.
+ *
  * @param {object} model  a `dominationSeasons` result
  * @param {string} mode  'total' or 'peak'
+ * ⚠⚠ **The season in progress counts only when it has a whole-year
+ * denominator.** With one — `dominationSeasons` marks the season `forecast` —
+ * a part-played year is a *lower bound*: the numerator grows, the denominator
+ * stands still, so it can never overstate a total and can never lower a peak,
+ * which is a maximum. Without one it is a share of however much has been played,
+ * and in January that is one tournament and a score of 100, so it is left out.
+ * The judgement lives in `dominationSeasons`, which is the only place that knows
+ * what a season's denominator is.
+ *
+ * @param {{skip?: Set<number>}} opts  seasons to leave out of the arithmetic
  * @returns {Array} the people, ordered, each with `total`, `peak`, `peakYear`,
  *   `seasons`, and `rank` — which is **shared on a tie**, so two equal careers
  *   are not put in an order the numbers do not support.
  */
-export function dominationRanking(model, mode) {
+export function dominationRanking(model, mode, opts = {}) {
   const key = rankMode(mode).key;
+  const skip = opts.skip || new Set();
+  const bare = new Set(((model && model.seasons) || [])
+    .filter(s => s.ongoing && !s.forecast).map(s => Number(s.year)));
+  const out = year => bare.has(Number(year)) || skip.has(Number(year));
   const rows = ((model && model.people) || []).map(p => {
-    const best = p.pts.reduce((a, b) => (b.score > a.score ? b : a), p.pts[0]);
+    const pts = p.pts.filter(pt => !out(pt.year));
+    if (!pts.length) return null;
+    const best = pts.reduce((a, b) => (b.score > a.score ? b : a), pts[0]);
     return {
       id: p.id, who: p.who, colour: p.colour || '',
-      total: p.pts.reduce((n, pt) => n + pt.score, 0),
-      peak: p.peak,
+      total: pts.reduce((n, pt) => n + pt.score, 0),
+      /* Recomputed rather than taken from `p.peak`, which is the peak over
+         *every* season the competitor won in. With seasons skipped the two are
+         different numbers and the table must show the one it ranked on. */
+      peak: Math.max(...pts.map(pt => pt.score)),
       peakYear: best ? best.year : null,
-      seasons: p.pts.length,
-      titles: p.pts.reduce((n, pt) => n + pt.n, 0),
-      first: p.pts.length ? p.pts[0].year : null,
-      last: p.pts.length ? p.pts[p.pts.length - 1].year : null,
+      /* ⚠️ The peak season's **own** numbers, because a career total is the
+         wrong fact next to a peak. "8 of 12" is what a peak of 76 actually
+         means, and the count of everything they ever won says nothing about
+         the season being ranked. */
+      peakTitles: best ? best.n : 0,
+      peakPlayed: best ? best.played : 0,
+      seasons: pts.length,
+      titles: pts.reduce((n, pt) => n + pt.n, 0),
+      /* How much of this career the ranking is not looking at, so the page can
+         say so rather than quietly showing a smaller number. */
+      dropped: p.pts.length - pts.length,
+      first: pts[0].year,
+      last: pts[pts.length - 1].year,
     };
-  });
+  }).filter(Boolean);
   /* ⚠️ The *other* number breaks a tie, and the name breaks that — so the order
      is fixed by the data rather than by whatever order the seasons happened to
      be read in. Two careers that tie on both are still given the same rank. */
@@ -3435,10 +3560,17 @@ export function thinSeasons(seasons) {
   };
 }
 
-/** Why a season was short, where that is a fact rather than an inference. */
+/**
+ * Why a season should not be read at face value, where that is a fact rather
+ * than an inference.
+ *
+ * ⚠️ The pandemic set is named rather than guessed from a count — see
+ * `COVID_SEASONS` for the evidence, and for why 2021 belongs to it and 2018
+ * does not, though both held ten of these titles.
+ */
 export function shortSeasonWhy(year, now) {
   if (year >= (now || new Date().getUTCFullYear())) return 'ongoing';
-  return (year >= 2020 && year <= 2022) ? 'Covid' : '';
+  return isCovidSeason(year) ? 'Covid' : '';
 }
 
 /* The clutter bar's steps. A slider rather than a row of chips because it is a

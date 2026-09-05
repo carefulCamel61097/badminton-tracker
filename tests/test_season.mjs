@@ -2901,7 +2901,17 @@ check('a leg touching a short season is dashed',
 const stripMS = await b.ev(`window.BST.score.strip()`);
 eq('the strip says how many titles each season held',
   stripMS.map(s => s.n).join(','),
-  scoreModelMS.seasons.map(s => s.total).join(','));
+  scoreModelMS.seasons.map(s => s.played).join(','));
+/* ⚠️ And the season being played says **both** numbers — "8/12", played over
+   planned. Its scores are shares of the whole year, so a strip reading 8 under a
+   column weighed against twelve is the one place a reader could not see why the
+   line sits low. */
+const stripRunning = scoreModelMS.seasons.find(s => s.forecast);
+if (stripRunning) {
+  eq('and the one still being played says how many the year holds',
+    stripMS[stripMS.length - 1].text,
+    `${stripRunning.played}/${stripRunning.planned}`);
+}
 /* ⚠️ The number is on **every** bar, not only the short ones. It was the short
    seasons' badge, which made a count look like a warning; it is just the size
    of the season, and a reader comparing 2022 to 2023 wants both. */
@@ -2916,8 +2926,13 @@ for (const yr of [2020, 2022]) {
   check(`${yr} keeps its label, and its mark`,
     axisMS.includes(String(yr) + '*'), axisMS.join(' '));
 }
+/* ⚠️ **Three Covid columns, not two.** The asterisk is a *count* — far fewer
+   titles than the seasons around it — and it finds 2020 and 2022. It cannot find
+   2021, which held ten, the same as 2018 and 2019: what was wrong with 2021 was
+   not how many but which. The pandemic set is named from the tournament list
+   instead (`COVID_SEASONS`), and the faint columns are the union of the two. */
 eq('and the reasons are written where the line goes strange',
-  (await b.ev(`window.BST.score.why()`)).join(','), 'Covid,Covid,ongoing');
+  (await b.ev(`window.BST.score.why()`)).join(','), 'Covid,Covid,Covid,ongoing');
 
 /* ⚠️ The axis is scaled to the best season in **either** draw, and never to the
    selection. Fitted to what was on screen it rescaled every time a name was
@@ -3044,9 +3059,154 @@ await b.wait(200);
 const allRows = await b.ev(`window.BST.score.ranks()`);
 check('every competitor can be shown', allRows.length > headCount,
   `${headCount} -> ${allRows.length}`);
-eq('and that is all of them', allRows.length, rankModel.people.length);
+/* ⚠️ Not everybody on the chart: the pandemic seasons are set aside by
+   default, so a career made only of them has nothing left to rank and is
+   dropped rather than shown at zero. */
+check('and that is all of them there are to rank',
+  allRows.length > 0 && allRows.length <= rankModel.people.length,
+  `${allRows.length} of ${rankModel.people.length} on the chart`);
 await b.ev(`window.BST.score.rankAll(false)`);
 await b.wait(200);
+
+
+console.log('\n=== the winners page: the pandemic seasons, and the year still running ===');
+
+/* ⚠️ Off by default. Left in, they put Viktor AXELSEN top of *both* orderings on
+   184 of his 315 points, and TAI Tzu Ying top of the women's peak on an 81 taken
+   in a season that held three titles. */
+eq('the pandemic seasons are set aside to begin with',
+  await b.ev(`window.BST.score.covid()`), false);
+eq('and the chip says so by not being lit',
+  await b.ev(`document.getElementById('rankCovid').classList.contains('on')`), false);
+const covidOut = await b.ev(`window.BST.score.ranks()`);
+eq('so the men’s singles reads the way anybody would expect',
+  covidOut.slice(0, 3).map(r => r.who).join(', '),
+  'LEE Chong Wei, LIN Dan, CHEN Long');
+check('and the caption says which seasons are not being counted',
+  /2020.{0,3}22 set aside/.test(await b.ev(`document.getElementById('rankWhat').textContent`)),
+  await b.ev(`document.getElementById('rankWhat').textContent`));
+
+await b.ev(`window.BST.score.covid(true)`);
+await b.wait(200);
+const covidIn = await b.ev(`window.BST.score.ranks()`);
+eq('putting them back changes who leads', covidIn[0].who, 'Viktor AXELSEN');
+check('and it is most of his total that they were',
+  covidIn.find(r => /AXELSEN/.test(r.who)).total
+    > 2 * covidOut.find(r => /AXELSEN/.test(r.who)).total,
+  `${covidOut.find(r => /AXELSEN/.test(r.who)).total} -> `
+  + `${covidIn.find(r => /AXELSEN/.test(r.who)).total}`);
+check('the chip lights when they are in',
+  await b.ev(`document.getElementById('rankCovid').classList.contains('on')`));
+/* ⚠️ **Red, and by the same rule as every other chip on the site.** This was
+   five hand-written ids, and two bars had been missed — this one and the draw
+   filter on the tournament page. */
+const chipRed = await b.ev(`(() => {
+  const on = document.querySelector('#rankMode .chip.on');
+  const off = document.querySelector('#rankMode .chip:not(.on)');
+  const acc = getComputedStyle(document.documentElement)
+    .getPropertyValue('--accent').trim();
+  return { on: getComputedStyle(on).backgroundColor,
+    off: getComputedStyle(off).backgroundColor,
+    covid: getComputedStyle(document.getElementById('rankCovid')).backgroundColor,
+    accent: acc };
+})()`);
+const rgbOf = hex => {
+  const n = parseInt(hex.replace('#', ''), 16);
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
+};
+eq('the chosen sort is drawn in the accent', chipRed.on, rgbOf(chipRed.accent));
+eq('and the pandemic chip too, when it is on', chipRed.covid, rgbOf(chipRed.accent));
+check('while an unchosen one is not', chipRed.off !== rgbOf(chipRed.accent), chipRed.off);
+/* The same rule, on a bar that had been left out of the old list. */
+check('and the tournament page’s draw chips answer to it as well',
+  await b.ev(`(() => {
+    const c = document.querySelector('#tmtDraws .chip.on');
+    if (!c) return 'not drawn';
+    return getComputedStyle(c).backgroundColor;
+  })()`) !== 'not drawn');
+
+check('putting them back is in the link', await b.ev(`location.hash.includes('wc=1')`),
+  await b.ev(`location.hash`));
+await b.ev(`window.BST.score.covid(false)`);
+await b.wait(200);
+eq('and taking them out again leaves the link alone',
+  await b.ev(`location.hash.includes('wc=')`), false);
+
+/* ⚠️ The chart keeps drawing them either way — they happened. What the toggle
+   decides is whether they are *weighed*. */
+const covidMarks = await b.ev(`window.BST.score.marks()`);
+check('the pandemic seasons are still on the chart',
+  [2020, 2021, 2022].every(y => covidMarks.some(m => m.year === y)),
+  covidMarks.map(m => m.year).join(','));
+/* ⚠️ And all three are marked, which a count could not do: 2021 held ten, the
+   same as 2018 and 2019. What was wrong with it was not how many but which. */
+const why = await b.ev(`window.BST.score.why()`);
+eq('all three are named at the foot of the plot',
+  why.filter(t => /covid/i.test(t)).length, 3);
+
+console.log('\n=== the winners page: the year still being played ===');
+
+/* ⚠️⚠️ **Weighed against the whole year, not against the part of it played.**
+   Otherwise whoever won January's first tournament has taken 100 of the season.
+   The calendar comes from the harvested file, not a live call — see
+   `tools/harvest-calendar.mjs`. */
+const model = await b.ev(`window.BST.score.model()`);
+const running = model.seasons.filter(s => s.ongoing);
+check('there is a season still being played', running.length === 1,
+  JSON.stringify(model.seasons.slice(-2)));
+check('and it knows how many titles the whole year holds',
+  running[0].forecast && running[0].planned > running[0].played,
+  `${running[0].played} played of ${running[0].planned}`);
+/* The one place a reader could otherwise not see why the line sits low. */
+const strip = await b.ev(`[...document.querySelectorAll('#scoreChart .scorestrip .szn')]
+  .map(t => t.textContent)`);
+check('the strip under the axis says both numbers',
+  strip[strip.length - 1] === `${running[0].played}/${running[0].planned}`,
+  strip.slice(-3).join(' '));
+/* ⚠️ A share of the whole year, so the running season adds up to *less* than a
+   whole one — the titles still to come belong to nobody yet. That is exactly
+   what makes it safe to rank on: it can only go up. */
+const sum = model.people.reduce((n, p) => {
+  const pt = p.pts.find(q => q.year === running[0].year);
+  return n + (pt ? pt.score : 0);
+}, 0);
+check('and its scores add up to less than a whole season',
+  sum > 0 && sum < 0.999, sum.toFixed(3));
+check('while a finished one adds up to exactly one',
+  Math.abs(model.people.reduce((n, p) => {
+    const pt = p.pts.find(q => q.year === running[0].year - 1);
+    return n + (pt ? pt.score : 0);
+  }, 0) - 1) < 1e-9);
+/* The point of counting it at all: a career still being made is on the board. */
+await b.ev(`window.BST.score.rankAll(true)`);
+await b.wait(200);
+const withRunning = await b.ev(`window.BST.score.ranks()`);
+check('and somebody ranked has won in the year being played',
+  withRunning.some(r => r.seasons > 0),
+  `${withRunning.length} ranked`);
+await b.ev(`window.BST.score.rankAll(false)`);
+await b.wait(150);
+
+console.log('\n=== the winners page: what a peak is made of ===');
+
+/* ⚠️ Ranked on peak, a career total is the wrong fact beside it: what a peak of
+   78 *means* is "7 of the 10 titles there were that year". */
+await b.ev(`window.BST.score.rank('peak')`);
+await b.wait(200);
+eq('the columns change with the sort',
+  (await b.ev(`[...document.querySelectorAll('#scoreRank th')].map(t => t.textContent)`))
+    .join(','), '#,Competitor,Total,Peak,Season,Titles');
+const peakRows = await b.ev(`[...document.querySelectorAll('#scoreRank .rankrow')]
+  .slice(0, 3).map(r => [...r.children].map(c => c.textContent.trim()))`);
+check('the season column is the year the peak was taken in',
+  peakRows.every(r => /^\d{4}$/.test(r[4])), JSON.stringify(peakRows[0]));
+check('and the titles column is that season’s, not the career’s',
+  peakRows.every(r => /^\d+\s*of \d+$/.test(r[5])), JSON.stringify(peakRows[0]));
+await b.ev(`window.BST.score.rank('total')`);
+await b.wait(200);
+eq('and back again for a total',
+  (await b.ev(`[...document.querySelectorAll('#scoreRank th')].map(t => t.textContent)`))
+    .join(','), '#,Competitor,Total,Peak,Seasons,Titles');
 
 console.log('\n=== the winners page: picking out of the ranking ===');
 
@@ -3369,9 +3529,12 @@ const mdScore = await b.ev(`window.BST.score.model()`);
 check('the chart draws pairs, not people',
   mdScore.people.every(p => / \/ /.test(p.who)), mdScore.people[0].who);
 /* A season's shares still add to a whole season, which is the property that
-   would break the moment a title were split between two half-competitors. */
-check('and a doubles season is still one whole season',
-  mdScore.seasons.filter(s => s.total).every(s => {
+   would break the moment a title were split between two half-competitors.
+   ⚠️ **Finished seasons only.** The one still being played is weighed against
+   the whole year, so what it adds to is how much of the year has been won so
+   far — the titles to come belong to nobody yet. */
+check('and a finished doubles season is still one whole season',
+  mdScore.seasons.filter(s => s.total && !s.forecast).every(s => {
     const n = mdScore.people.reduce((sum, p) => {
       const pt = p.pts.find(q => q.year === s.year);
       return sum + (pt ? pt.score : 0);

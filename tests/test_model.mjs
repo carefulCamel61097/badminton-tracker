@@ -41,6 +41,7 @@ import {
   titleWeight, dominationSeasons, thinSeasons, shortSeasonWhy,
   bestScoreFloor, SCORE_FLOOR_STEP,
   dominationRanking, rankMode, RANK_MODES, RANK_DEFAULT,
+  COVID_SEASONS, isCovidSeason,
 } from '../model.js';
 import {
   posterLayout, scorePosterLayout, gridPosterLayout, honoursPosterLayout,
@@ -2421,7 +2422,11 @@ if (fs.existsSync(mdPath)) {
       const pt = p.pts.find(q => q.year === s.year);
       if (pt) n += pt.score;
     }
-    if (Math.abs(n - 1) > 1e-9) sums++;
+    /* ⚠️ A **finished** season adds to exactly one. The season being played
+       does not, and must not: it is weighed against the whole year, so the
+       titles still to come are the part nobody owns yet. */
+    if (s.forecast) { if (n > 1 + 1e-9) sums++; }
+    else if (Math.abs(n - 1) > 1e-9) sums++;
   }
   eq('and a doubles season still adds up to one whole season', sums, 0);
 
@@ -2704,6 +2709,7 @@ check('every season is a full one', domMS.seasons.every(s =>
 /* The definition, checked directly: a season's scores are shares of that season
    and nothing else, so they add to one wherever anybody won anything. */
 let sums = 0;
+let msRunning = null;
 for (const s of domMS.seasons) {
   if (!s.total) continue;
   let n = 0;
@@ -2711,9 +2717,18 @@ for (const s of domMS.seasons) {
     const pt = p.pts.find(q => q.year === s.year);
     if (pt) n += pt.score;
   }
-  if (Math.abs(n - 1) > 1e-9) sums++;
+  /* ⚠⚠ A **finished** season adds to exactly one — a share is a share of
+     something. The season still being played is weighed against the *whole*
+     year instead, so what it adds to is how much of the year has been won so
+     far: everything still to come belongs to nobody yet. That is the property
+     that makes a part-played season safe to rank on — it can only go up. */
+  if (s.forecast) msRunning = n;
+  else if (Math.abs(n - 1) > 1e-9) sums++;
 }
-eq('every season’s scores add up to a whole season', sums, 0);
+eq('every finished season’s scores add up to a whole season', sums, 0);
+check('and the season being played adds up to less, with more to come',
+  msRunning === null || (msRunning > 0 && msRunning < 1),
+  msRunning === null ? 'no season in progress' : msRunning.toFixed(3));
 
 /* ⚠️ A player has a point only in the seasons they *won* something. There is no
    column in this data saying who entered, so a zero would be a claim the model
@@ -2892,8 +2907,78 @@ check('and a mean is not one of them',
 /* ---- over a real board ---- */
 
 const rankMS = dominationRanking(domMS, 'total');
-eq('every competitor on the board is ranked, not just the ones the bar shows',
+eq('every competitor on the board is ranked, whatever the bar above is set to',
   rankMS.length, domMS.people.length);
+
+/* ⚠⚠ **The season being played counts only because it has a whole-year
+   denominator.** With one it is a *lower bound* — the numerator grows, the
+   denominator stands still — so it can never overstate a total and, a peak
+   being a maximum, can never lower one either. Without one it is a share of
+   however much has happened, which in January is one tournament and a score of
+   100, and it is left out instead. */
+const running = domMS.seasons.filter(s => s.ongoing);
+check('the board has a season still being played', running.length === 1,
+  JSON.stringify(running.map(s => s.year)));
+check('and it is weighed against the whole year', running[0].forecast,
+  `${running[0].played} played of ${running[0].planned} planned`);
+check('which is more than has been played', running[0].planned > running[0].played,
+  `${running[0].played} / ${running[0].planned}`);
+check('so somebody ranked has their last season in it',
+  rankMS.some(r => r.last === running[0].year),
+  JSON.stringify(rankMS.filter(r => r.last === running[0].year).map(r => r.who.n)));
+
+/* Strip the calendar out and the same season stops counting, because now it is
+   a share of a part-played year. This is the guard, not the timetable. */
+const noPlan = dominationSeasons({ ...winMS, planned: undefined });
+const rankNoPlan = dominationRanking(noPlan, 'total');
+check('with no calendar in the file the running season is left out',
+  rankNoPlan.length < rankMS.length, `${rankMS.length} → ${rankNoPlan.length}`);
+check('and nobody ranked is dated in it',
+  rankNoPlan.every(r => r.last < running[0].year),
+  JSON.stringify(rankNoPlan.filter(r => r.last >= running[0].year).map(r => r.who.n)));
+
+/* ---- the pandemic seasons ---- */
+
+/* ⚠️ Off by default on the page, and this is why: leaving them in put Viktor
+   AXELSEN top of *both* orderings, on 184 of his 315 points — and TAI Tzu Ying
+   top of the women's peak on an 81 taken in a season that held three titles. */
+const rankNoCovid = dominationRanking(domMS, 'total', { skip: COVID_SEASONS });
+eq('with the pandemic seasons out, LEE Chong Wei leads the men on total',
+  rankNoCovid[0].who.n, 'LEE Chong Wei');
+eq('and LIN Dan is second', rankNoCovid[1].who.n, 'LIN Dan');
+eq('with them in, it is Viktor AXELSEN', rankMS[0].who.n, 'Viktor AXELSEN');
+const axeIn = rankMS.find(r => /AXELSEN/.test(r.who.n));
+const axeOut = rankNoCovid.find(r => /AXELSEN/.test(r.who.n));
+check('most of whose total came from them',
+  axeIn.total - axeOut.total > axeOut.total,
+  `${(axeIn.total * 100).toFixed(0)} → ${(axeOut.total * 100).toFixed(0)}`);
+eq('and the three seasons are counted as dropped', axeOut.dropped, 3);
+/* ⚠️ A career that exists only inside the skipped seasons is dropped, not
+   shown at zero: a row saying somebody dominated nothing is worse than no row. */
+check('a career made only of skipped seasons leaves the table',
+  rankNoCovid.length < rankMS.length,
+  `${rankMS.length} → ${rankNoCovid.length}`);
+check('and nobody is left in it with nothing to rank',
+  rankNoCovid.every(r => r.total > 0 && r.seasons > 0));
+/* The peak season's own numbers, because a career total is the wrong fact
+   beside a peak: what a peak *means* is how much of that year it took. */
+const peakNoCovid = dominationRanking(domMS, 'peak', { skip: COVID_SEASONS });
+check('a peak carries the season it was taken in and what it held',
+  peakNoCovid[0].peakTitles > 0 && peakNoCovid[0].peakPlayed > peakNoCovid[0].peakTitles,
+  `${peakNoCovid[0].who.n}: ${peakNoCovid[0].peakTitles} of ${peakNoCovid[0].peakPlayed}`
+  + ` in ${peakNoCovid[0].peakYear}`);
+eq('and the peak is recomputed over what is left, not taken from the career',
+  peakNoCovid.find(r => /AXELSEN/.test(r.who.n)).peak,
+  Math.max(...domMS.people.find(p => /AXELSEN/.test(p.who.n)).pts
+    .filter(pt => !COVID_SEASONS.has(pt.year)).map(pt => pt.score)));
+
+/* The set itself: named from the tournament list, not from a count. */
+eq('the pandemic seasons are 2020, 2021 and 2022',
+  [...COVID_SEASONS].sort().join(','), '2020,2021,2022');
+check('2021 is one of them though it held as many titles as 2019',
+  isCovidSeason(2021), 'no Chinese event, a Bangkok bubble, an Olympics a year late');
+check('and 2018 is not, though it held ten as well', !isCovidSeason(2018),
+  'the World Tour restructure is a change to the ladder, not to the season');
 check('the leader is the leader on total', rankMS[0].who.n, rankMS[0].who.n);
 /* ⚠️ The bar filters on **peak**, so a total ranking cut by it is a different
    claim: at the men's singles default of 40 it would leave seven names. This is

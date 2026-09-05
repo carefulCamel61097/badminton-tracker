@@ -306,14 +306,28 @@ input::placeholder { color: var(--text-muted); }
    individual position, off by default — and it stays a dashed outline so that
    "on, but a different sort of thing" survives being surrounded by filled pills.
    Filling it would have hidden the dashed border inside its own colour. */
-#tmtDrawPick .chip.on, #tmtRounds .chip.on,
-#years .chip.on, #levels .chip.on:not(.team), #gridGroups .chip.on {
+/* ⚠️ **Every chip, rather than a list of the bars that have one.** This was
+   written as five ids — `#tmtDrawPick`, `#tmtRounds`, `#years`, `#levels`,
+   `#gridGroups` — so every new chip bar had to remember to join the list, and
+   the ranking's sort did not: it was grey for no reason anybody had decided. A
+   rule whose own argument is "the same affordance has to look the same
+   everywhere" should not be a list to keep up to date. `.seg.on` has always been
+   the accent; this makes the pills agree with the segmented buttons.
+
+   ⚠️ **Two exceptions, both deliberate.** A `.team` chip stays a dashed
+   outline: it is not just another level — no individual position, off by
+   default — and filling it would hide the dashed border inside its own colour.
+   And `#tmtDraws`, the day's draw *filter*, stays neutral because it sits
+   directly above `#tmtDrawPick`, which is red: a bar of red above a bar of red
+   is two controls that look like one. That one was pinned by a check before this
+   rule was generalised, which is the only reason generalising it did not quietly
+   undo the decision. */
+.chip.on:not(.team):not(#tmtDraws .chip) {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-fg);
 }
-#tmtDrawPick .chip.on:hover, #tmtRounds .chip.on:hover,
-#years .chip.on:hover, #levels .chip.on:not(.team):hover, #gridGroups .chip.on:hover {
+.chip.on:not(.team):not(#tmtDraws .chip):hover {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
 }
@@ -1685,6 +1699,11 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
 /* The year a peak was taken in. 76 in a season nobody remembers is a different
    sentence from 76 in 2024, and the number alone cannot say which. */
 .ranktable .yr { font-size: 10px; color: var(--text-muted); margin-left: 5px; }
+/* "8 of 12" — the denominator is what makes a peak mean something, and it is
+   the quieter half of the fact. */
+.ranktable .of, .scorecols .of {
+  font-size: 10px; color: var(--text-muted); margin-left: 4px;
+}
 
 .ranktable tr.rankrow { cursor: pointer; }
 .ranktable tr.rankrow:hover td { background: rgba(255, 255, 255, .04); }

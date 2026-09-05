@@ -363,6 +363,9 @@
       <div class="chiprow">
         <h3>Dominators</h3>
         <div id="rankMode" class="chips" role="group" aria-label="rank by"></div>
+        <!-- Off by default: the pandemic seasons are not weighed. Reads the same
+             way a level chip does — off means it is not being counted. -->
+        <button type="button" id="rankCovid" class="chip" aria-pressed="false"></button>
         <span class="lbl" id="rankWhat"></span>
         <button type="button" class="linkish" id="rankMore" hidden></button>
       </div>
@@ -409,13 +412,33 @@
     two identical lines and make the chart describe people rather than teams. So
     a partner change ends one line and starts another — which is what happened.
     <br>
-    ⚠️ <b>An asterisk marks a season with a hole in it</b> — far fewer titles
-    than the ones around it, so a score built on one is built on less.
-    <b>2020</b> stopped in March. <b>2022</b> ran eight of these against a normal
-    twelve to fifteen, with not one tournament held in China and the Finals moved
-    out of Guangzhou. The last year is <b>ongoing</b>. The bars under the axis
-    are how many titles each season held, and a <b>dashed</b> leg is a line
-    crossing one of the marked years.
+    ⚠️ <b>A faint column is a season not to read at face value</b>, named at its
+    foot. Two different things put one there. An <b>asterisk</b> on the year
+    means far fewer titles than the seasons around it — <b>2020</b>, which
+    stopped in March and held three, and <b>2022</b>, which held eight. And the
+    <b>pandemic seasons</b> are marked whether or not they were short:
+    <b>2020, 2021 and 2022</b>. 2021 is the one a count cannot find — it held
+    ten, the same as 2018 and 2019, and what was wrong with it was not how many
+    but <i>which</i>. Not one tournament in China, three years running, on a tour
+    that had held two a year for a decade and had both back in 2023. Two Super
+    1000s in consecutive January weeks in a single Bangkok bubble standing in for
+    the whole Asian swing. An Olympics in July, a year late, still called Tokyo
+    2020. Four events carrying <i>(new dates)</i> in the name BWF gave them, and
+    the World Championships in December. It was planned at fifteen and played
+    ten.
+    <br>
+    ⚠️ <b>The season being played is weighed against the whole year</b>, not
+    against the part of it that has happened. Otherwise whoever won the first
+    tournament of January would have taken 100 of the season — and the strip
+    below the axis says <b>8/12</b> rather than 8 so you can see it. The titles
+    still to come belong to nobody yet, so the column adds up to less than a
+    whole season and will only rise: it cannot flatter anyone, which is what
+    makes it safe to count. Finished seasons keep the titles that were
+    <i>actually played</i> — 2020 is a share of three, not of the nine still on
+    the calendar when it was abandoned.
+    <br>
+    The bars under the axis are how many titles each season held, and a
+    <b>dashed</b> leg is a line crossing one of the marked years.
     <br>
     <b>Show</b> hides the crowd: it draws everybody whose best season clears the
     bar. Its default is worked out from the data — as high as it will go without
@@ -441,6 +464,14 @@
     rather than the players. It is the same fact that makes the lines above
     break at a gap instead of running along the bottom.
     <br>
+    ⚠️ <b>The pandemic seasons are set aside by default</b>, and the
+    <b>2020–22</b> chip puts them back. Left in, they put Viktor AXELSEN top of
+    <i>both</i> orderings on 184 of his 315 points, and TAI Tzu Ying top of the
+    women's peak on an 81 taken in a season that held three titles. Out, the
+    men's singles reads LEE Chong Wei, LIN Dan, CHEN Long — which is the answer
+    most people would give, and now the numbers give it too. It is a judgement
+    and it is yours to overrule; the seasons are still on the chart either way.
+    <br>
     ⚠️ <b>The Show bar does not reach this table.</b> The bar filters on peak,
     and a total ranking cut by peak is a different claim: at the men's singles
     default it would leave seven names, and it drops BOE / MOGENSEN — eight
@@ -461,7 +492,8 @@
     <span class="keys"><kbd>←</kbd><kbd>→</kbd> page · <kbd>B</kbd> board ·
       <kbd>S</kbd> score · <kbd>M</kbd><kbd>W</kbd><kbd>X</kbd> discipline, twice for
       the doubles · <kbd>↑</kbd><kbd>↓</kbd> the bar · <kbd>T</kbd> total ·
-      <kbd>P</kbd> peak · <kbd>Esc</kbd> unpick</span>
+      <kbd>P</kbd> peak · <kbd>C</kbd> the pandemic seasons ·
+      <kbd>Esc</kbd> unpick</span>
   </p>
 
   <p class="legend note" id="winNote">

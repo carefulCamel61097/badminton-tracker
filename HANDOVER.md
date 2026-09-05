@@ -1685,6 +1685,89 @@ other chip row has ("Levels", "Day", "Draws"), wrong for a sentence. Left at 58 
 and printed straight over the link beside it, and `white-space: nowrap` alone only made the
 overlap longer.
 
+### 3.4s The pandemic seasons, and the year still running *(built 5 Sep 2026)*
+
+⚠⚠ **`COVID_SEASONS` is 2020, 2021 and 2022, and it is named rather than counted.** A
+count-based rule (`thinSeasons`, two thirds of the median) finds 2020 and 2022 and misses
+2021, which held ten — the same as 2018 and 2019. What was wrong with 2021 was not how many
+but *which*. The evidence is in the harvested tournament list, which is why the set is written
+down there with it:
+
+| season | China Open | China Masters / Fuzhou | planned | played |
+|---|---|---|---|---|
+| 2019 | ✓ | ✓ | 10 | 10 |
+| 2020 | — | — | 9 | **3** |
+| 2021 | — | — | 15 | **10** |
+| 2022 | — | — | 10 | **8** |
+| 2023 | ✓ | ✓ | 12 | 12 |
+
+Plus: 2020's own World Tour Finals played in **January 2021**; 2021's two Super 1000s in
+consecutive January weeks in one Bangkok bubble, an Olympics a year late still named Tokyo
+2020, four events carrying *(new dates)*, and the Worlds in December.
+
+⚠️ **2018 and 2019 hold ten as well and are deliberately not in the set** — the World Tour
+restructure changed how many events sit on these five rungs, which is a change to the ladder
+and not to whether the season was played. No count can tell those two apart, and that is the
+whole argument for a written-down set.
+
+⚠️ Out of the ranking by **default**, because leaving them in put Viktor AXELSEN top of both
+orderings on 184 of his 315 points and TAI Tzu Ying top of the women's peak on an 81 taken in
+a three-title season. It is a judgement, so it is a chip and not a silent rule, and the chart
+draws those seasons either way — the toggle decides whether they are *weighed*.
+
+#### The season being played
+
+⚠⚠ **Weighed against the whole year, not against the part of it played.** A share of what has
+happened so far makes January's first winner a 100, and in September 2026 it inflated every
+score on the board by half again (eight of twelve played, 13.71 of 19.33 by weight). Against
+the planned year the numerator grows and the denominator stands still, so a part-played season
+is a **lower bound**: it cannot overstate a total, and a peak, being a maximum, cannot be
+lowered by it. That property is the whole reason the running year is allowed to count — an
+earlier cut left it out entirely, which was the right call *without* a real denominator and
+the wrong one with it.
+
+⚠️ **Finished seasons keep what was actually played.** 2020 is a share of three, not of the
+nine still on the calendar when it was abandoned; 2021 was planned at fifteen and played ten.
+Weighing a cancelled season against its plan would rank everybody as having failed to win
+events that never took place. `dominationSeasons` marks a season `forecast` only when it is
+both `ongoing` and has a calendar, and that flag — not a `now` argument — is what
+`dominationRanking` reads. One place decides what a denominator is.
+
+⚠️ `Math.max(played, plannedMass)`, so a calendar gone stale (an event added since the last
+harvest) cannot put a score above 100.
+
+⚠️ **`pt.played` is the planned count, not the played one.** The hover would otherwise read
+"2 of 8" beside "3.24 of 19.33 by weight" — two denominators in one sentence. The strip under
+the axis says **8/12** for the same reason: it is the one place a reader could not otherwise
+see why the line sits low.
+
+⚠️ **The Show bar keeps leaving the running season out of its derivation.** That survives the
+better denominator, because the bar is set from *who led each season* and nobody has led a
+season still being played, however fairly it is weighed.
+
+⚠️ `tools/harvest-calendar.mjs` writes `planned` into all five files — one call per season,
+seconds. **Not a live call**: the score view reads one static file and must keep doing so, or
+its numbers would depend on whether a request succeeded. Tiers are stored, not weights: what a
+title is worth is `titleWeight`'s decision, and a file holding the arithmetic would freeze the
+ladder at the moment it was written.
+
+### 3.4t A chosen chip is red — everywhere *(fixed 5 Sep 2026)*
+
+The rule already existed and was written as a **list of five ids**: `#tmtDrawPick`,
+`#tmtRounds`, `#years`, `#levels`, `#gridGroups`. Every new chip bar had to remember to join
+it, and the ranking's sort did not — it was grey because nobody had added it, not because
+anybody had decided. A rule whose own comment argues that "the same affordance has to look the
+same everywhere" should not be a list to keep up to date. Now `.chip.on`, agreeing with
+`.seg.on`, which has always been the accent.
+
+⚠️ **Two deliberate exceptions survive it, and one of them nearly did not.** `.team` stays a
+dashed outline — filling it would hide the dashed border inside its own colour. And
+`#tmtDraws`, the day's draw *filter*, stays neutral because it sits directly above the red
+`#tmtDrawPick`: a bar of red above a bar of red reads as one control. Generalising the rule
+turned that one red, and the only thing that caught it was the check pinning it — written when
+the asymmetry was decided, precisely so it would have to be changed on purpose. Worth
+remembering the next time a rule here looks like an oversight: this one was not.
+
 ### 3.4r Every season named on the axis *(fixed 5 Sep 2026)*
 
 The score chart labelled every *other* year above fourteen seasons, on both the page and the

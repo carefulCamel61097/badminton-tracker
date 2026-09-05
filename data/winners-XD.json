@@ -1,1 +1,3256 @@
-{"generated":"2026-09-05","discipline":"XD","players":{"4253":{"n":"Robert MATEUSIAK","c":"POL","a":"https://img.bwfbadminton.com/image/upload/v1604896796/assets/players/thumbnail/4253.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/POL.png"},"4425":{"n":"Debby SUSANTO","c":"INA","a":"https://img.bwfbadminton.com/image/upload/v1604894795/assets/players/thumbnail/4425.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"},"5612":{"n":"Flandy LIMPELE","c":"INA","a":"https://img.bwfbadminton.com/image/upload/v1604894799/assets/players/thumbnail/5612.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"},"7065":{"n":"Saralee THOUNGTHONGKAM","c":"THA","a":"https://img.bwfbadminton.com/image/upload/v1604894283/assets/players/thumbnail/7065.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/THA.png"},"7934":{"n":"Nova WIDIANTO","c":"INA","a":"https://img.bwfbadminton.com/image/upload/v1604894901/assets/players/thumbnail/7934.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"},"7944":{"n":"WIRATAMA Yohan Hadikusumo","c":"HKG","a":"https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/HKG.png"},"9706":{"n":"GAO Ling","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/v1604899162/assets/players/thumbnail/9706.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"10360":{"n":"Vita MARISSA","c":"INA","a":"https://img.bwfbadminton.com/image/upload/v1604894909/assets/players/thumbnail/10360.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"},"10513":{"n":"Joachim FISCHER NIELSEN","c":"DEN","a":"https://img.bwfbadminton.com/image/upload/v1604895039/assets/players/thumbnail/10513.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/DEN.png"},"10650":{"n":"Sudket PRAPAKAMOL","c":"THA","a":"https://img.bwfbadminton.com/image/upload/v1604894308/assets/players/thumbnail/10650.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/THA.png"},"10947":{"n":"CHENG Wen Hsing","c":"TPE","a":"https://img.bwfbadminton.com/image/upload/v1694999194/assets/players/thumbnail/10947.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/TPE.png"},"11935":{"n":"Thomas LAYBOURN","c":"DEN","a":"https://img.bwfbadminton.com/image/upload/v1604894640/assets/players/thumbnail/11935.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/DEN.png"},"12193":{"n":"LEE Hyo Jung","c":"KOR","a":"https://img.bwfbadminton.com/image/upload/v1604896867/assets/players/thumbnail/12193.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/KOR.png"},"14393":{"n":"WANG Xiaoli","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/v1604894314/assets/players/thumbnail/14393.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"14722":{"n":"Muhammad RIJAL","c":"INA","a":"https://img.bwfbadminton.com/image/upload/v1604896178/assets/players/thumbnail/14722.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"},"14727":{"n":"Liliyana NATSIR","c":"INA","a":"https://img.bwfbadminton.com/image/upload/v1604895051/assets/players/thumbnail/14727.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"},"20865":{"n":"JIAMING Tao","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"28549":{"n":"LU Kai","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/v1604895076/assets/players/thumbnail/28549.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"33261":{"n":"Irfan FADHILAH","c":"INA","a":"https://img.bwfbadminton.com/image/upload/v1604895082/assets/players/thumbnail/33261.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"},"35357":{"n":"ZHANG Nan","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/v1604894328/assets/players/thumbnail/35357.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"50054":{"n":"Nadiezda ZIEBA","c":"POL","a":"https://img.bwfbadminton.com/image/upload/v1604897045/assets/players/thumbnail/50054.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/POL.png"},"50469":{"n":"CHEN Fang Hui","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/v1690357071/assets/players/thumbnail/50469.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"50736":{"n":"Songphon ANUGRITAYAWON","c":"THA","a":"https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/THA.png"},"50739":{"n":"Kunchala VORAVICHITCHAIKUL","c":"THA","a":"https://img.bwfbadminton.com/image/upload/v1604894343/assets/players/thumbnail/50739.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/THA.png"},"50915":{"n":"ZHANG Yawen","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/v1604894345/assets/players/thumbnail/50915.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"50919":{"n":"XIE Zhongbo","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/v1604894347/assets/players/thumbnail/50919.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"51282":{"n":"ZHENG Bo","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/v1604894359/assets/players/thumbnail/51282.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"51436":{"n":"Kamilla Rytter JUHL","c":"DEN","a":"https://img.bwfbadminton.com/image/upload/v1604895110/assets/players/thumbnail/51436.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/DEN.png"},"51620":{"n":"XU Chen","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/v1604893646/assets/players/thumbnail/51620.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"51667":{"n":"YU Yang (F)","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/v1604894367/assets/players/thumbnail/51667.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"52066":{"n":"TIAN Qing","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/v1604894371/assets/players/thumbnail/52066.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"52774":{"n":"LEE Yong Dae","c":"KOR","a":"https://img.bwfbadminton.com/image/upload/v1590501421/assets/players/thumbnail/52774.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/KOR.png"},"52781":{"n":"KIM Min Seo","c":"KOR","a":"https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_female.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/KOR.png"},"53142":{"n":"CHAN Peng Soon","c":"MAS","a":"https://img.bwfbadminton.com/image/upload/v1590501425/assets/players/thumbnail/53142.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/MAS.png"},"53159":{"n":"GOH Liu Ying","c":"MAS","a":"https://img.bwfbadminton.com/image/upload/v1590501420/assets/players/thumbnail/53159.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/MAS.png"},"53613":{"n":"CHEN Hung Ling","c":"TPE","a":"https://img.bwfbadminton.com/image/upload/v1604895124/assets/players/thumbnail/53613.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/TPE.png"},"53759":{"n":"Christinna PEDERSEN","c":"DEN","a":"https://img.bwfbadminton.com/image/upload/v1604895128/assets/players/thumbnail/53759.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/DEN.png"},"53940":{"n":"HE Hanbin","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/v1604894487/assets/players/thumbnail/53940.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"54267":{"n":"Tontowi AHMAD","c":"INA","a":"https://img.bwfbadminton.com/image/upload/v1604895134/assets/players/thumbnail/54267.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"},"54345":{"n":"CHO Gun Woo","c":"KOR","a":"https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/KOR.png"},"54522":{"n":"ZHAO Yunlei","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/v1604894493/assets/players/thumbnail/54522.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"55285":{"n":"CHAU Hoi Wah","c":"HKG","a":"https://img.bwfbadminton.com/image/upload/v1604897253/assets/players/thumbnail/55285.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/HKG.png"},"57246":{"n":"WEI Ya Xin","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/v1604896551/assets/players/thumbnail/57246.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"58240":{"n":"Yuta WATANABE","c":"JPN","a":"https://img.bwfbadminton.com/image/upload/v1627952995/assets/players/thumbnail/58240.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/JPN.png"},"59621":{"n":"TOH Ee Wei","c":"MAS","a":"https://img.bwfbadminton.com/image/upload/v1604896515/assets/players/thumbnail/59621.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/MAS.png"},"61435":{"n":"TSE Ying Suet","c":"HKG","a":"https://img.bwfbadminton.com/image/upload/v1658733507/assets/players/thumbnail/61435.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/HKG.png"},"61731":{"n":"Dechapol PUAVARANUKROH","c":"THA","a":"https://img.bwfbadminton.com/image/upload/v1636447436/assets/players/thumbnail/61731.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/THA.png"},"62713":{"n":"Nicole Gonzales CHAN","c":"TPE","a":"https://img.bwfbadminton.com/image/upload/v1784100449/assets/players/thumbnail/62713.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/TPE.png"},"62844":{"n":"Gabrielle ADCOCK","c":"ENG","a":"https://img.bwfbadminton.com/image/upload/v1604895367/assets/players/thumbnail/62844.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/ENG.png"},"63029":{"n":"JIANG Zhen Bang","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/v1604897791/assets/players/thumbnail/63029.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"63168":{"n":"HUANG Ya Qiong","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/v1627952652/assets/players/thumbnail/63168.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"65267":{"n":"FENG Yan Zhe","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/v1697420441/assets/players/thumbnail/65267.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"66513":{"n":"SEO Seung Jae","c":"KOR","a":"https://img.bwfbadminton.com/image/upload/v1604895418/assets/players/thumbnail/66513.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/KOR.png"},"67158":{"n":"Sapsiree TAERATTANACHAI","c":"THA","a":"https://img.bwfbadminton.com/image/upload/v1636447113/assets/players/thumbnail/67158.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/THA.png"},"68045":{"n":"Mark LAMSFUSS","c":"GER","a":"https://img.bwfbadminton.com/image/upload/v1719992008/assets/players/thumbnail/68045.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/GER.png"},"68544":{"n":"Thom GICQUEL","c":"FRA","a":"https://img.bwfbadminton.com/image/upload/v1604895451/assets/players/thumbnail/68544.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/FRA.png"},"70333":{"n":"Chris ADCOCK","c":"ENG","a":"https://img.bwfbadminton.com/image/upload/v1604895468/assets/players/thumbnail/70333.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/ENG.png"},"70762":{"n":"Delphine DELRUE","c":"FRA","a":"https://img.bwfbadminton.com/image/upload/v1604895480/assets/players/thumbnail/70762.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/FRA.png"},"73982":{"n":"KIM Ha Na","c":"KOR","a":"https://img.bwfbadminton.com/image/upload/v1604897528/assets/players/thumbnail/73982.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/KOR.png"},"74980":{"n":"Supissara PAEWSAMPRAN","c":"THA","a":"https://img.bwfbadminton.com/image/upload/v1784100613/assets/players/thumbnail/74980.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/THA.png"},"77689":{"n":"TANG Chun Man","c":"HKG","a":"https://img.bwfbadminton.com/image/upload/v1658733477/assets/players/thumbnail/77689.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/HKG.png"},"79558":{"n":"Arisa IGARASHI","c":"JPN","a":"https://img.bwfbadminton.com/image/upload/v1627952966/assets/players/thumbnail/79558.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/JPN.png"},"80939":{"n":"BAO Yixin","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/v1604894528/assets/players/thumbnail/80939.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"81108":{"n":"YE Hong Wei","c":"TPE","a":"https://img.bwfbadminton.com/image/upload/v1670203491/assets/players/thumbnail/81108.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/TPE.png"},"81844":{"n":"GUO Xin Wa","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/v1604896470/assets/players/thumbnail/81844.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"82061":{"n":"Melati Daeva OKTAVIANTI","c":"INA","a":"https://img.bwfbadminton.com/image/upload/v1636509501/assets/players/thumbnail/82061.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"},"83046":{"n":"ZHENG Si Wei","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/v1627952937/assets/players/thumbnail/83046.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"88094":{"n":"KO Sung Hyun","c":"KOR","a":"https://img.bwfbadminton.com/image/upload/v1637048793/assets/players/thumbnail/88094.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/KOR.png"},"88699":{"n":"Weni ANGGRAINI","c":"INA","a":"https://img.bwfbadminton.com/image/upload/v1604895656/assets/players/thumbnail/88699.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"},"88779":{"n":"Alexandra BØJE","c":"DEN","a":"https://img.bwfbadminton.com/image/upload/v1635909299/assets/players/thumbnail/88779.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/DEN.png"},"89426":{"n":"HUANG Dong Ping","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/v1697424201/assets/players/thumbnail/89426.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"89916":{"n":"Praveen JORDAN","c":"INA","a":"https://img.bwfbadminton.com/image/upload/v1636509976/assets/players/thumbnail/89916.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"},"91090":{"n":"CHEN Tang Jie","c":"MAS","a":"https://img.bwfbadminton.com/image/upload/v1604896192/assets/players/thumbnail/91090.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/MAS.png"},"92609":{"n":"LEE Chun Hei Reginald","c":"HKG","a":"https://img.bwfbadminton.com/image/upload/v1604897358/assets/players/thumbnail/92609.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/HKG.png"},"93074":{"n":"CHAE Yu Jung","c":"KOR","a":"https://img.bwfbadminton.com/image/upload/v1634022922/assets/players/thumbnail/93074.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/KOR.png"},"94125":{"n":"CHEN Qing Chen","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/v1657779828/assets/players/thumbnail/94125.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"95281":{"n":"MA Jin","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/v1604893710/assets/players/thumbnail/95281.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"95396":{"n":"LIU Cheng","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/v1604893712/assets/players/thumbnail/95396.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"98052":{"n":"Isabel LOHAU","c":"GER","a":"https://img.bwfbadminton.com/image/upload/v1637132670/assets/players/thumbnail/98052.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/GER.png"},"99452":{"n":"WANG Yi Lyu","c":"CHN","a":"https://img.bwfbadminton.com/image/upload/v1658820694/assets/players/thumbnail/99452.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"},"99521":{"n":"Mathias CHRISTIANSEN","c":"DEN","a":"https://img.bwfbadminton.com/image/upload/v1604896070/assets/players/thumbnail/99521.jpg","f":"https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/DEN.png"}},"seasons":{"2007":[{"tier":24,"id":1876,"name":"Proton Malaysia Super Series 2007","date":"2007-01-16","w":[9706,51282]},{"tier":24,"id":77,"name":"Yonex Korea Open Super Series 2007","date":"2007-01-23","w":[9706,51282]},{"tier":24,"id":20,"name":"Yonex All England Open 2007","date":"2007-03-06","w":[9706,51282]},{"tier":24,"id":1879,"name":"Wilson Badminton Swiss Open 07","date":"2007-03-12","w":[12193,52774]},{"tier":24,"id":1882,"name":"Aviva Open Singapore Super Series 2007","date":"2007-05-01","w":[5612,10360]},{"tier":24,"id":23,"name":"Djarum Indonesia Open Super Series  2007","date":"2007-05-07","w":[51282,9706]},{"tier":24,"id":1884,"name":"China Masters SS  2007","date":"2007-07-10","w":[9706,51282]},{"tier":20,"id":477,"name":"BWF World Championships 2007","date":"2007-08-13","w":[7934,14727]},{"tier":24,"id":25,"name":"YONEX OPEN JAPAN SUPER SERIES 2007","date":"2007-09-11","w":[51282,9706]},{"tier":24,"id":2163,"name":"DENMARK SUPER SERIES 2007","date":"2007-10-23","w":[53940,51667]},{"tier":24,"id":1888,"name":"FRENCH SUPER SERIES 2007","date":"2007-10-30","w":[5612,10360]},{"tier":24,"id":28,"name":"CHINA OPEN SUPER SERIES 2007","date":"2007-11-20","w":[7934,14727]},{"tier":24,"id":1889,"name":"HONG KONG SUPER SERIES 2007","date":"2007-11-26","w":[7934,14727]}],"2008":[{"tier":24,"id":1859,"name":"PROTON MALAYSIA OPEN SUPER SERIES 2008","date":"2008-01-15","w":[53940,51667]},{"tier":24,"id":1860,"name":"YONEX KOREA SUPER SERIES 2008","date":"2008-01-22","w":[52774,12193]},{"tier":24,"id":53,"name":"Yonex All England Open Super Series 2008","date":"2008-03-04","w":[51282,9706]},{"tier":24,"id":33,"name":"WILSON SWISS SUPER SERIES 2008","date":"2008-03-11","w":[53940,51667]},{"tier":24,"id":34,"name":"AVIVA SINGAPORE SUPER SERIES 2008","date":"2008-06-10","w":[7934,14727]},{"tier":24,"id":2150,"name":"DJARUM INDONESIA SUPER SERIES 2008","date":"2008-06-17","w":[51282,9706]},{"tier":"OLY","id":2723,"name":"Beijing 2008 Olympic Games","date":"2008-08-09","w":[52774,12193]},{"tier":24,"id":1869,"name":"Yonex Japan Super Series 2008","date":"2008-09-16","w":[14722,10360]},{"tier":24,"id":37,"name":"CHINA MASTERS SUPER SERIES 2008","date":"2008-09-23","w":[50919,50915]},{"tier":24,"id":1872,"name":"Denmark Open Super Series 2008","date":"2008-10-21","w":[10513,53759]},{"tier":24,"id":1873,"name":"FRENCH SUPER SERIES 2008","date":"2008-10-28","w":[53940,51667]},{"tier":24,"id":40,"name":"LI NING CHINA OPEN SUPER SERIES 08","date":"2008-11-18","w":[52774,12193]},{"tier":24,"id":2155,"name":"YONEX SUNRISE HONG KONG SUPER SERIES 2008","date":"2008-11-24","w":[50919,50915]},{"tier":22,"id":1875,"name":"World Super Series Masters Finals 2008","date":"2008-12-18","w":[11935,51436]}],"2009":[{"tier":24,"id":1832,"name":"MALAYSIA SUPER SERIES 2009","date":"2009-01-06","w":[7934,14727]},{"tier":24,"id":1833,"name":"YONEX KOREA SUPER SERIES 2009","date":"2009-01-13","w":[52774,12193]},{"tier":24,"id":1835,"name":"Yonex All England Open Super Series 2009","date":"2009-03-03","w":[53940,51667]},{"tier":24,"id":45,"name":"WILSON SWISS SUPER SERIES 2009","date":"2009-03-10","w":[51282,95281]},{"tier":24,"id":110,"name":"AVIVA SINGAPORE SUPER SERIES 2009","date":"2009-06-09","w":[51282,95281]},{"tier":24,"id":47,"name":"DJARUM INDONESIA SUPER SERIES 2009","date":"2009-06-16","w":[51282,95281]},{"tier":24,"id":126,"name":"2009 YONEX Australian Open","date":"2009-07-22","w":[7944,55285]},{"tier":20,"id":1842,"name":"Yonex Sunrise BWF World Championships 2009","date":"2009-08-10","w":[11935,51436]},{"tier":24,"id":35,"name":"LI NING CHINA MASTERS SUPER SERIES 2009","date":"2009-09-15","w":[20865,14393]},{"tier":24,"id":2139,"name":"YONEX OPEN JAPAN SUPER SERIES 2009","date":"2009-09-22","w":[50736,50739]},{"tier":24,"id":51,"name":"YONEX FRENCH SUPER SERIES 2009","date":"2009-10-27","w":[7934,14727]},{"tier":24,"id":1852,"name":"YONEX SUNRISE HONG KONG OPEN SUPER SERIES 2009","date":"2009-11-09","w":[4253,50054]},{"tier":24,"id":2144,"name":"CHINA SUPER SERIES 2009","date":"2009-11-17","w":[52774,12193]},{"tier":22,"id":1853,"name":"YONEX-SUNRISE BWF WORLD SUPER SERIES MASTERS FINALS 2009","date":"2009-12-02","w":[10513,53759]}],"2010":[{"tier":24,"id":54,"name":"KOREA SUPER SERIES 2010","date":"2010-01-12","w":[53940,51667]},{"tier":24,"id":1794,"name":"PROTON MALAYSIA OPEN SUPER SERIES 2010","date":"2010-01-19","w":[20865,50915]},{"tier":24,"id":1801,"name":"ALL ENGLAND SUPER SERIES 2010","date":"2010-03-09","w":[35357,54522]},{"tier":24,"id":1802,"name":"SWISS SUPER SERIES 2010","date":"2010-03-16","w":[52774,12193]},{"tier":24,"id":1812,"name":"LI-NING SINGAPORE OPEN SUPER SERIES 2010","date":"2010-06-15","w":[11935,51436]},{"tier":24,"id":59,"name":"DJARUM INDONESIA OPEN SUPER SERIES 2010","date":"2010-06-22","w":[4253,50054]},{"tier":24,"id":138,"name":"2010 Yonex Australian Open","date":"2010-07-13","w":[54345,52781]},{"tier":20,"id":14,"name":"YONEX BWF WORLD CHAMPIONSHIPS 2010","date":"2010-08-23","w":[51282,95281]},{"tier":24,"id":617,"name":"CHINA MASTERS SUPER SERIES 2010","date":"2010-09-14","w":[20865,52066]},{"tier":24,"id":1818,"name":"JAPAN SUPER SERIES 2010","date":"2010-09-21","w":[35357,54522]},{"tier":24,"id":1827,"name":"DENMARK SUPER SERIES 2010","date":"2010-10-26","w":[11935,51436]},{"tier":24,"id":1828,"name":"FRENCH_SUPER_SERIES_2010","date":"2010-11-02","w":[10650,7065]},{"tier":24,"id":2132,"name":"China Open Super Series 2010","date":"2010-11-30","w":[20865,52066]},{"tier":24,"id":65,"name":"YONEX-SUNRISE Hong Kong Open Super Series 2010","date":"2010-12-06","w":[10513,53759]}],"2011":[{"tier":22,"id":1456,"name":"VICTOR- BWF Superseries Finals 2010","date":"2011-01-05","w":[35357,54522]},{"tier":24,"id":1734,"name":"PROTON Malaysia Open ","date":"2011-01-18","w":[53940,95281]},{"tier":23,"id":1457,"name":"VICTOR Korea Open 2011","date":"2011-01-25","w":[35357,54522]},{"tier":23,"id":1458,"name":"YONEX  All England Open","date":"2011-03-08","w":[51620,95281]},{"tier":24,"id":107,"name":"YONEX Australian Open 2011","date":"2011-04-05","w":[50736,50739]},{"tier":24,"id":67,"name":"YONEX-SUNRISE  India Open ","date":"2011-04-26","w":[54267,14727]},{"tier":24,"id":68,"name":"LI NING Singapore Open","date":"2011-06-14","w":[54267,14727]},{"tier":23,"id":1459,"name":"DJARUM Indonesia Open 2011","date":"2011-06-21","w":[35357,54522]},{"tier":20,"id":1750,"name":"YONEX BWF World Championships 2011","date":"2011-08-08","w":[35357,54522]},{"tier":24,"id":69,"name":"Li Ning China Masters","date":"2011-09-13","w":[51620,95281]},{"tier":24,"id":70,"name":"YONEX Open Japan","date":"2011-09-20","w":[53613,10947]},{"tier":23,"id":1460,"name":"Yonex Denmark Open 2011","date":"2011-10-18","w":[10513,53759]},{"tier":24,"id":71,"name":"Yonex Badminton French Open 2011","date":"2011-10-25","w":[10513,53759]},{"tier":24,"id":72,"name":"Yonex Sunrise Hong Kong Open 2011","date":"2011-11-15","w":[35357,54522]},{"tier":23,"id":1461,"name":"Li Ning  China Open 2011","date":"2011-11-22","w":[35357,54522]},{"tier":22,"id":1791,"name":"Li Ning BWF World Superseries Finals 2011","date":"2011-12-14","w":[35357,54522]}],"2012":[{"tier":23,"id":1452,"name":"Victor Korea  Open  2012","date":"2012-01-03","w":[51620,95281]},{"tier":24,"id":2051,"name":"MAYBANK Malaysia Open Presented by PROTON","date":"2012-01-10","w":[35357,54522]},{"tier":23,"id":1453,"name":"YONEX All England Open Badminton Championships  2012","date":"2012-03-06","w":[54267,14727]},{"tier":24,"id":115,"name":"2012 Yonex Australian  Open","date":"2012-04-03","w":[53613,10947]},{"tier":24,"id":2064,"name":"Yonex Sunrise India Open 2012","date":"2012-04-24","w":[54267,14727]},{"tier":23,"id":1454,"name":"Djarum Indonesia Open 2012","date":"2012-06-12","w":[10650,7065]},{"tier":24,"id":1922,"name":"Li Ning Singapore Open 2012","date":"2012-06-19","w":[53613,10947]},{"tier":"OLY","id":2077,"name":"London 2012 Olympic Games","date":"2012-07-28","w":[35357,54522]},{"tier":24,"id":1923,"name":"Li Ning China Masters 2012","date":"2012-09-11","w":[51620,95281]},{"tier":24,"id":1699,"name":"YONEX Open Japan 2012","date":"2012-09-18","w":[53142,53159]},{"tier":23,"id":1455,"name":"YONEX Denmark Open 2012","date":"2012-10-16","w":[51620,95281]},{"tier":24,"id":715,"name":"Yonex French Badminton Open 2012","date":"2012-10-23","w":[51620,95281]},{"tier":23,"id":80,"name":"Li Ning China Open 2012","date":"2012-11-13","w":[51620,95281]},{"tier":24,"id":81,"name":"Yonex Sunrise Hong Kong Open 2012","date":"2012-11-20","w":[35357,54522]},{"tier":22,"id":82,"name":"BWF Superseries Finals 2012","date":"2012-12-12","w":[10513,53759]}],"2013":[{"tier":23,"id":83,"name":"VICTOR Korea Open 2013","date":"2013-01-08","w":[35357,54522]},{"tier":24,"id":84,"name":"MAYBANK Malaysia Open 2013","date":"2013-01-15","w":[10513,53759]},{"tier":23,"id":1451,"name":"Yonex All England Open Badminton Championships 2013","date":"2013-03-05","w":[54267,14727]},{"tier":24,"id":2001,"name":"Yonex Australian Badminton Open 2013","date":"2013-04-02","w":[33261,88699]},{"tier":24,"id":85,"name":"Yonex Sunrise India Open 2013","date":"2013-04-23","w":[54267,14727]},{"tier":23,"id":1569,"name":"Djarum  Indonesia Open 2013","date":"2013-06-10","w":[35357,54522]},{"tier":24,"id":2013,"name":"Li Ning Singapore Open 2013","date":"2013-06-18","w":[54267,14727]},{"tier":20,"id":1586,"name":"BWF World Championships 2013","date":"2013-08-05","w":[54267,14727]},{"tier":24,"id":1594,"name":"Adidas China Masters  2013","date":"2013-09-10","w":[35357,54522]},{"tier":24,"id":2028,"name":"Yonex Open  Japan 2013","date":"2013-09-17","w":[35357,54522]},{"tier":23,"id":2035,"name":"Yonex Denmark Open 2013","date":"2013-10-15","w":[35357,54522]},{"tier":24,"id":1607,"name":"Yonex French Open 2013","date":"2013-10-22","w":[35357,54522]},{"tier":23,"id":31,"name":"VICTOR China Open 2013","date":"2013-11-12","w":[54267,14727]},{"tier":24,"id":1622,"name":"Yonex  Sunrise Hong Kong Open 2013","date":"2013-11-19","w":[70333,62844]},{"tier":22,"id":1630,"name":"BWF World Superseries Finals 2013","date":"2013-12-11","w":[10513,53759]}],"2014":[{"tier":24,"id":1462,"name":"Victor Korea Open","date":"2014-01-07","w":[35357,54522]},{"tier":23,"id":1934,"name":"Maybank Malaysia Open","date":"2014-01-14","w":[51620,95281]},{"tier":23,"id":1942,"name":"Yonex All England Open","date":"2014-03-04","w":[54267,14727]},{"tier":24,"id":1486,"name":"Yonex- Sunrise India Open","date":"2014-04-01","w":[10513,53759]},{"tier":24,"id":1946,"name":"OUE Singapore Open","date":"2014-04-08","w":[54267,14727]},{"tier":24,"id":1507,"name":"Yonex Japan Open","date":"2014-06-10","w":[35357,54522]},{"tier":23,"id":957,"name":"BCA Indonesian Open","date":"2014-06-17","w":[10513,53759]},{"tier":24,"id":1954,"name":"The Star Australian Badminton Open 2014","date":"2014-06-24","w":[88094,73982]},{"tier":20,"id":1964,"name":"Li Ning BWF World Championships 2014","date":"2014-08-25","w":[35357,54522]},{"tier":23,"id":1971,"name":"Yonex Denmark Open","date":"2014-10-14","w":[51620,95281]},{"tier":24,"id":1972,"name":"Yonex French Open","date":"2014-10-21","w":[54267,14727]},{"tier":23,"id":1920,"name":"THAIHOT CHINA OPEN","date":"2014-11-11","w":[35357,54522]},{"tier":24,"id":1984,"name":"Yonex-Sunrise Hong Kong Open","date":"2014-11-18","w":[35357,54522]},{"tier":22,"id":1987,"name":"BWF Destination Dubai World Superseries Finals","date":"2014-12-17","w":[35357,54522]}],"2015":[{"tier":23,"id":2270,"name":"Yonex All England Open","date":"2015-03-03","w":[35357,54522]},{"tier":24,"id":2272,"name":"Yonex Sunrise India Open","date":"2015-03-24","w":[95396,80939]},{"tier":23,"id":2274,"name":"Maybank Malaysia Open","date":"2015-03-31","w":[35357,54522]},{"tier":24,"id":2278,"name":"OUE Singapore Open","date":"2015-04-07","w":[35357,54522]},{"tier":24,"id":2279,"name":"The Star Australian Open","date":"2015-05-26","w":[92609,55285]},{"tier":23,"id":2280,"name":"BCA Indonesia Open","date":"2015-06-02","w":[51620,95281]},{"tier":20,"id":2463,"name":"TOTAL BWF World Championships 2015","date":"2015-08-10","w":[35357,54522]},{"tier":24,"id":2281,"name":"Yonex Open Japan","date":"2015-09-08","w":[10513,53759]},{"tier":24,"id":2282,"name":"Victor Korea Open","date":"2015-09-15","w":[35357,54522]},{"tier":23,"id":2283,"name":"Yonex Denmark Open","date":"2015-10-13","w":[88094,73982]},{"tier":24,"id":2284,"name":"Yonex French Open","date":"2015-10-20","w":[88094,73982]},{"tier":23,"id":2285,"name":"Thaihot China Open","date":"2015-11-10","w":[35357,54522]},{"tier":24,"id":2286,"name":"YONEX-SUNRISE Hong Kong Open","date":"2015-11-17","w":[35357,54522]},{"tier":22,"id":2294,"name":"Dubai World Superseries Finals 2015","date":"2015-12-09","w":[70333,62844]}],"2016":[{"tier":23,"id":2335,"name":"YONEX All England Open","date":"2016-03-08","w":[89916,4425]},{"tier":24,"id":2337,"name":"YONEX SUNRISE India Open","date":"2016-03-29","w":[28549,63168]},{"tier":23,"id":2338,"name":"CELCOM AXIATA Malaysia Open","date":"2016-04-05","w":[54267,14727]},{"tier":24,"id":2454,"name":"OUE Singapore Open","date":"2016-04-12","w":[88094,73982]},{"tier":23,"id":2569,"name":"BCA Indonesia Open","date":"2016-05-30","w":[51620,95281]},{"tier":24,"id":2455,"name":"XIAMENAIR Australian Badminton Open","date":"2016-06-07","w":[28549,63168]},{"tier":"OLY","id":2595,"name":"Rio 2016 Olympic Games","date":"2016-08-11","w":[54267,14727]},{"tier":24,"id":2469,"name":"YONEX Open Japan","date":"2016-09-20","w":[83046,94125]},{"tier":24,"id":2574,"name":"VICTOR Korea Open","date":"2016-09-27","w":[88094,73982]},{"tier":23,"id":2457,"name":"YONEX Denmark Open","date":"2016-10-18","w":[10513,53759]},{"tier":24,"id":2459,"name":"YONEX French Open","date":"2016-10-25","w":[83046,94125]},{"tier":23,"id":2471,"name":"THAIHOT China Open","date":"2016-11-15","w":[54267,14727]},{"tier":24,"id":2460,"name":"YONEX SUNRISE Hong Kong Open","date":"2016-11-22","w":[54267,14727]},{"tier":22,"id":2462,"name":"Dubai World Superseries Finals","date":"2016-12-14","w":[83046,94125]}],"2017":[{"tier":23,"id":2650,"name":"YONEX All England Open","date":"2017-03-07","w":[28549,63168]},{"tier":24,"id":2940,"name":"YONEX SUNRISE India Open","date":"2017-03-28","w":[28549,63168]},{"tier":23,"id":2654,"name":"CELCOM AXIATA Malaysia Open","date":"2017-04-04","w":[83046,94125]},{"tier":24,"id":2655,"name":"OUE Singapore Open","date":"2017-04-11","w":[28549,63168]},{"tier":23,"id":2658,"name":"BCA Indonesia Open","date":"2017-06-12","w":[54267,14727]},{"tier":24,"id":2659,"name":"CROWN GROUP Australian Open","date":"2017-06-20","w":[83046,94125]},{"tier":20,"id":2663,"name":"TOTAL BWF World Championships 2017","date":"2017-08-21","w":[54267,14727]},{"tier":24,"id":2668,"name":"VICTOR Korea Open","date":"2017-09-12","w":[89916,4425]},{"tier":24,"id":2669,"name":"DAIHATSU YONEX Japan Open","date":"2017-09-19","w":[99452,89426]},{"tier":23,"id":2676,"name":"DANISA Denmark Open","date":"2017-10-17","w":[77689,61435]},{"tier":24,"id":2677,"name":"YONEX French Open","date":"2017-10-24","w":[54267,14727]},{"tier":23,"id":2680,"name":"TAHOE China Open","date":"2017-11-14","w":[83046,63168]},{"tier":24,"id":3060,"name":"YONEX-SUNRISE Hong Kong Open","date":"2017-11-21","w":[83046,63168]},{"tier":22,"id":3020,"name":"Dubai World Superseries Finals 2017","date":"2017-12-13","w":[83046,94125]}],"2018":[{"tier":23,"id":3141,"name":"YONEX All England Open 2018","date":"2018-03-14","w":[58240,79558]},{"tier":24,"id":3142,"name":"CELCOM AXIATA Malaysia Open 2018","date":"2018-06-26","w":[83046,63168]},{"tier":23,"id":3149,"name":"BLIBLI Indonesia Open 2018","date":"2018-07-03","w":[54267,14727]},{"tier":20,"id":3213,"name":"TOTAL BWF World Championships 2018","date":"2018-07-30","w":[83046,63168]},{"tier":24,"id":3152,"name":"DAIHATSU YONEX Japan Open 2018","date":"2018-09-11","w":[83046,63168]},{"tier":23,"id":3153,"name":"VICTOR China Open 2018","date":"2018-09-18","w":[83046,63168]},{"tier":24,"id":3156,"name":"DANISA Denmark Open 2018","date":"2018-10-16","w":[83046,63168]},{"tier":24,"id":3157,"name":"YONEX French Open 2018","date":"2018-10-23","w":[83046,63168]},{"tier":24,"id":3159,"name":"Fuzhou China Open 2018","date":"2018-11-06","w":[83046,63168]},{"tier":22,"id":3317,"name":"HSBC BWF World Tour Finals 2018","date":"2018-12-12","w":[99452,89426]}],"2019":[{"tier":23,"id":3376,"name":"YONEX All England Open Badminton Championships 2019","date":"2019-03-06","w":[83046,63168]},{"tier":24,"id":3355,"name":"CELCOM AXIATA Malaysia Open 2019","date":"2019-04-02","w":[83046,63168]},{"tier":23,"id":3394,"name":"BLIBLI Indonesia Open  2019","date":"2019-07-16","w":[83046,63168]},{"tier":24,"id":3359,"name":"DAIHATSU YONEX Japan Open 2019","date":"2019-07-23","w":[99452,89426]},{"tier":20,"id":3447,"name":"TOTAL BWF World Championships 2019","date":"2019-08-19","w":[83046,63168]},{"tier":23,"id":3364,"name":"VICTOR China Open 2019","date":"2019-09-17","w":[83046,63168]},{"tier":24,"id":3367,"name":"DANISA Denmark Open 2019","date":"2019-10-15","w":[89916,82061]},{"tier":24,"id":3368,"name":"YONEX French Open 2019","date":"2019-10-22","w":[89916,82061]},{"tier":24,"id":3519,"name":"Fuzhou China Open 2019","date":"2019-11-05","w":[99452,89426]},{"tier":22,"id":3754,"name":"HSBC BWF World Tour Finals 2019","date":"2019-12-11","w":[83046,63168]}],"2020":[{"tier":23,"id":3690,"name":"YONEX All England Open 2020","date":"2020-03-11","w":[89916,82061]},{"tier":24,"id":3801,"name":"DANISA Denmark Open I 2020","date":"2020-10-13","w":[68045,98052]}],"2021":[{"tier":23,"id":4108,"name":"YONEX Thailand Open","date":"2021-01-12","w":[61731,67158]},{"tier":23,"id":4109,"name":"TOYOTA Thailand Open","date":"2021-01-19","w":[61731,67158]},{"tier":22,"id":3520,"name":"HSBC BWF World Tour Finals 2020 (New Dates)","date":"2021-01-27","w":[61731,67158]},{"tier":23,"id":3982,"name":"YONEX All England Open Badminton Championships 2021","date":"2021-03-17","w":[58240,79558]},{"tier":"OLY","id":4027,"name":"Tokyo 2020 Olympic Games Badminton","date":"2021-07-24","w":[99452,89426]},{"tier":23,"id":3971,"name":"VICTOR Denmark Open 2021","date":"2021-10-19","w":[58240,79558]},{"tier":24,"id":3972,"name":"YONEX French Open 2021","date":"2021-10-26","w":[58240,79558]},{"tier":24,"id":4036,"name":"DAIHATSU Indonesia Masters 2021(New dates)","date":"2021-11-16","w":[61731,67158]},{"tier":23,"id":4039,"name":"SimInvest Indonesia Open 2021(New dates)","date":"2021-11-23","w":[61731,67158]},{"tier":22,"id":4044,"name":"HSBC BWF World Tour Finals 2021(New dates)","date":"2021-12-01","w":[61731,67158]},{"tier":20,"id":3996,"name":"TotalEnergies BWF World Championships 2021","date":"2021-12-12","w":[61731,67158]}],"2022":[{"tier":23,"id":4431,"name":"YONEX All England Open Badminton Championships 2022","date":"2022-03-16","w":[58240,79558]},{"tier":23,"id":4438,"name":"EAST VENTURES Indonesia Open 2022","date":"2022-06-14","w":[83046,63168]},{"tier":24,"id":4439,"name":"PETRONAS Malaysia Open 2022","date":"2022-06-28","w":[83046,63168]},{"tier":20,"id":4524,"name":"TotalEnergies BWF World Championships 2022","date":"2022-08-22","w":[83046,63168]},{"tier":24,"id":4444,"name":"DAIHATSU YONEX Japan Open 2022","date":"2022-08-30","w":[61731,67158]},{"tier":24,"id":4475,"name":"Denmark Open 2022 presented by VICTOR","date":"2022-10-18","w":[83046,63168]},{"tier":24,"id":4446,"name":"YONEX French Open 2022","date":"2022-10-25","w":[83046,63168]},{"tier":22,"id":4618,"name":"HSBC BWF World Tour Finals 2022","date":"2022-12-07","w":[83046,63168]}],"2023":[{"tier":23,"id":4699,"name":"PETRONAS Malaysia Open 2023","date":"2023-01-10","w":[83046,63168]},{"tier":24,"id":4700,"name":"YONEX SUNRISE India Open 2023","date":"2023-01-17","w":[58240,79558]},{"tier":23,"id":4704,"name":"YONEX All England Open Badminton Championships 2023","date":"2023-03-14","w":[83046,63168]},{"tier":24,"id":4711,"name":"Singapore Open 2023","date":"2023-06-06","w":[99521,88779]},{"tier":23,"id":4712,"name":"KAPAL API GROUP Indonesia Open 2023","date":"2023-06-13","w":[83046,63168]},{"tier":24,"id":4717,"name":"DAIHATSU Japan Open 2023","date":"2023-07-25","w":[58240,79558]},{"tier":20,"id":4720,"name":"TotalEnergies BWF World Championships 2023","date":"2023-08-21","w":[66513,93074]},{"tier":23,"id":4721,"name":"VICTOR China Open 2023","date":"2023-09-05","w":[66513,93074]},{"tier":24,"id":4727,"name":"VICTOR Denmark Open 2023","date":"2023-10-17","w":[65267,89426]},{"tier":24,"id":4728,"name":"YONEX French Open 2023","date":"2023-10-24","w":[63029,57246]},{"tier":24,"id":4732,"name":"LI-NING China Masters 2023","date":"2023-11-21","w":[83046,63168]},{"tier":22,"id":4734,"name":"HSBC BWF World Tour Finals 2023","date":"2023-12-13","w":[83046,63168]}],"2024":[{"tier":23,"id":4735,"name":"PETRONAS Malaysia Open 2024","date":"2024-01-09","w":[58240,79558]},{"tier":24,"id":4736,"name":"YONEX SUNRISE India Open 2024","date":"2024-01-16","w":[61731,67158]},{"tier":24,"id":4762,"name":"YONEX French Open 2024","date":"2024-03-05","w":[65267,89426]},{"tier":23,"id":4741,"name":"YONEX All England Open Badminton Championships 2024","date":"2024-03-12","w":[83046,63168]},{"tier":24,"id":4747,"name":"KFF Singapore Badminton Open 2024","date":"2024-05-28","w":[83046,63168]},{"tier":23,"id":4748,"name":"KAPAL API Indonesia Open 2024","date":"2024-06-04","w":[63029,57246]},{"tier":"OLY","id":4752,"name":"Paris 2024 Olympic Games Badminton Competition","date":"2024-07-27","w":[83046,63168]},{"tier":24,"id":4753,"name":"DAIHATSU Japan Open 2024","date":"2024-08-20","w":[63029,57246]},{"tier":23,"id":4757,"name":"VICTOR China Open 2024","date":"2024-09-17","w":[65267,89426]},{"tier":24,"id":4761,"name":"VICTOR Denmark Open 2024","date":"2024-10-15","w":[65267,89426]},{"tier":24,"id":4766,"name":"LI-NING China Masters 2024","date":"2024-11-19","w":[65267,89426]},{"tier":22,"id":4768,"name":"HSBC BWF World Tour Finals 2024","date":"2024-12-11","w":[83046,63168]}],"2025":[{"tier":23,"id":5222,"name":"PETRONAS Malaysia Open 2025","date":"2025-01-07","w":[61731,74980]},{"tier":24,"id":5268,"name":"YONEX-SUNRISE India Open 2025","date":"2025-01-14","w":[63029,57246]},{"tier":23,"id":5238,"name":"YONEX All England Open Badminton Championships 2025","date":"2025-03-11","w":[81844,50469]},{"tier":24,"id":5282,"name":"KFF Singapore Badminton Open 2025","date":"2025-05-27","w":[61731,74980]},{"tier":23,"id":5236,"name":"KAPAL API Indonesia Open 2025","date":"2025-06-03","w":[68544,70762]},{"tier":24,"id":5198,"name":"DAIHATSU Japan Open 2025","date":"2025-07-15","w":[63029,57246]},{"tier":23,"id":5281,"name":"VICTOR China Open 2025","date":"2025-07-22","w":[65267,89426]},{"tier":20,"id":5261,"name":"TotalEnergies BWF World Championships 2025","date":"2025-08-25","w":[91090,59621]},{"tier":24,"id":5280,"name":"LI-NING China Masters 2025","date":"2025-09-16","w":[61731,74980]},{"tier":24,"id":5207,"name":"VICTOR Denmark Open 2025","date":"2025-10-14","w":[65267,89426]},{"tier":24,"id":5257,"name":"YONEX French Open 2025","date":"2025-10-21","w":[65267,89426]},{"tier":22,"id":5259,"name":"HSBC BWF World Tour Finals 2025","date":"2025-12-17","w":[65267,89426]}],"2026":[{"tier":23,"id":5227,"name":"PETRONAS Malaysia Open 2026","date":"2026-01-06","w":[65267,89426]},{"tier":24,"id":5269,"name":"YONEX-SUNRISE India Open 2026","date":"2026-01-13","w":[61731,74980]},{"tier":23,"id":5515,"name":"All England Open Badminton Championships 2026","date":"2026-03-03","w":[81108,62713]},{"tier":24,"id":5649,"name":"KFF Singapore Badminton Open 2026","date":"2026-05-26","w":[99521,88779]},{"tier":23,"id":5528,"name":"POLYTRON Indonesia Open 2026","date":"2026-06-02","w":[99521,88779]},{"tier":24,"id":5213,"name":"DAIHATSU Japan Open 2026","date":"2026-07-14","w":[65267,89426]},{"tier":23,"id":5622,"name":"VICTOR China Open 2026","date":"2026-07-21","w":[81844,50469]},{"tier":20,"id":5601,"name":"BWF World Championships 2026","date":"2026-08-17","w":[68544,70762]}]}}
+{
+ "generated": "2026-09-05",
+ "discipline": "XD",
+ "players": {
+  "4253": {
+   "n": "Robert MATEUSIAK",
+   "c": "POL",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604896796/assets/players/thumbnail/4253.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/POL.png"
+  },
+  "4425": {
+   "n": "Debby SUSANTO",
+   "c": "INA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604894795/assets/players/thumbnail/4425.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"
+  },
+  "5612": {
+   "n": "Flandy LIMPELE",
+   "c": "INA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604894799/assets/players/thumbnail/5612.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"
+  },
+  "7065": {
+   "n": "Saralee THOUNGTHONGKAM",
+   "c": "THA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604894283/assets/players/thumbnail/7065.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/THA.png"
+  },
+  "7934": {
+   "n": "Nova WIDIANTO",
+   "c": "INA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604894901/assets/players/thumbnail/7934.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"
+  },
+  "7944": {
+   "n": "WIRATAMA Yohan Hadikusumo",
+   "c": "HKG",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/HKG.png"
+  },
+  "9706": {
+   "n": "GAO Ling",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604899162/assets/players/thumbnail/9706.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "10360": {
+   "n": "Vita MARISSA",
+   "c": "INA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604894909/assets/players/thumbnail/10360.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"
+  },
+  "10513": {
+   "n": "Joachim FISCHER NIELSEN",
+   "c": "DEN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604895039/assets/players/thumbnail/10513.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/DEN.png"
+  },
+  "10650": {
+   "n": "Sudket PRAPAKAMOL",
+   "c": "THA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604894308/assets/players/thumbnail/10650.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/THA.png"
+  },
+  "10947": {
+   "n": "CHENG Wen Hsing",
+   "c": "TPE",
+   "a": "https://img.bwfbadminton.com/image/upload/v1694999194/assets/players/thumbnail/10947.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/TPE.png"
+  },
+  "11935": {
+   "n": "Thomas LAYBOURN",
+   "c": "DEN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604894640/assets/players/thumbnail/11935.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/DEN.png"
+  },
+  "12193": {
+   "n": "LEE Hyo Jung",
+   "c": "KOR",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604896867/assets/players/thumbnail/12193.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/KOR.png"
+  },
+  "14393": {
+   "n": "WANG Xiaoli",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604894314/assets/players/thumbnail/14393.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "14722": {
+   "n": "Muhammad RIJAL",
+   "c": "INA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604896178/assets/players/thumbnail/14722.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"
+  },
+  "14727": {
+   "n": "Liliyana NATSIR",
+   "c": "INA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604895051/assets/players/thumbnail/14727.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"
+  },
+  "20865": {
+   "n": "JIAMING Tao",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "28549": {
+   "n": "LU Kai",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604895076/assets/players/thumbnail/28549.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "33261": {
+   "n": "Irfan FADHILAH",
+   "c": "INA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604895082/assets/players/thumbnail/33261.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"
+  },
+  "35357": {
+   "n": "ZHANG Nan",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604894328/assets/players/thumbnail/35357.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "50054": {
+   "n": "Nadiezda ZIEBA",
+   "c": "POL",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604897045/assets/players/thumbnail/50054.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/POL.png"
+  },
+  "50469": {
+   "n": "CHEN Fang Hui",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1690357071/assets/players/thumbnail/50469.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "50736": {
+   "n": "Songphon ANUGRITAYAWON",
+   "c": "THA",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/THA.png"
+  },
+  "50739": {
+   "n": "Kunchala VORAVICHITCHAIKUL",
+   "c": "THA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604894343/assets/players/thumbnail/50739.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/THA.png"
+  },
+  "50915": {
+   "n": "ZHANG Yawen",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604894345/assets/players/thumbnail/50915.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "50919": {
+   "n": "XIE Zhongbo",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604894347/assets/players/thumbnail/50919.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "51282": {
+   "n": "ZHENG Bo",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604894359/assets/players/thumbnail/51282.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "51436": {
+   "n": "Kamilla Rytter JUHL",
+   "c": "DEN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604895110/assets/players/thumbnail/51436.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/DEN.png"
+  },
+  "51620": {
+   "n": "XU Chen",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604893646/assets/players/thumbnail/51620.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "51667": {
+   "n": "YU Yang (F)",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604894367/assets/players/thumbnail/51667.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "52066": {
+   "n": "TIAN Qing",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604894371/assets/players/thumbnail/52066.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "52774": {
+   "n": "LEE Yong Dae",
+   "c": "KOR",
+   "a": "https://img.bwfbadminton.com/image/upload/v1590501421/assets/players/thumbnail/52774.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/KOR.png"
+  },
+  "52781": {
+   "n": "KIM Min Seo",
+   "c": "KOR",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_female.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/KOR.png"
+  },
+  "53142": {
+   "n": "CHAN Peng Soon",
+   "c": "MAS",
+   "a": "https://img.bwfbadminton.com/image/upload/v1590501425/assets/players/thumbnail/53142.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/MAS.png"
+  },
+  "53159": {
+   "n": "GOH Liu Ying",
+   "c": "MAS",
+   "a": "https://img.bwfbadminton.com/image/upload/v1590501420/assets/players/thumbnail/53159.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/MAS.png"
+  },
+  "53613": {
+   "n": "CHEN Hung Ling",
+   "c": "TPE",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604895124/assets/players/thumbnail/53613.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/TPE.png"
+  },
+  "53759": {
+   "n": "Christinna PEDERSEN",
+   "c": "DEN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604895128/assets/players/thumbnail/53759.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/DEN.png"
+  },
+  "53940": {
+   "n": "HE Hanbin",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604894487/assets/players/thumbnail/53940.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "54267": {
+   "n": "Tontowi AHMAD",
+   "c": "INA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604895134/assets/players/thumbnail/54267.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"
+  },
+  "54345": {
+   "n": "CHO Gun Woo",
+   "c": "KOR",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/KOR.png"
+  },
+  "54522": {
+   "n": "ZHAO Yunlei",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604894493/assets/players/thumbnail/54522.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "55285": {
+   "n": "CHAU Hoi Wah",
+   "c": "HKG",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604897253/assets/players/thumbnail/55285.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/HKG.png"
+  },
+  "57246": {
+   "n": "WEI Ya Xin",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604896551/assets/players/thumbnail/57246.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "58240": {
+   "n": "Yuta WATANABE",
+   "c": "JPN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1627952995/assets/players/thumbnail/58240.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/JPN.png"
+  },
+  "59621": {
+   "n": "TOH Ee Wei",
+   "c": "MAS",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604896515/assets/players/thumbnail/59621.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/MAS.png"
+  },
+  "61435": {
+   "n": "TSE Ying Suet",
+   "c": "HKG",
+   "a": "https://img.bwfbadminton.com/image/upload/v1658733507/assets/players/thumbnail/61435.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/HKG.png"
+  },
+  "61731": {
+   "n": "Dechapol PUAVARANUKROH",
+   "c": "THA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1636447436/assets/players/thumbnail/61731.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/THA.png"
+  },
+  "62713": {
+   "n": "Nicole Gonzales CHAN",
+   "c": "TPE",
+   "a": "https://img.bwfbadminton.com/image/upload/v1784100449/assets/players/thumbnail/62713.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/TPE.png"
+  },
+  "62844": {
+   "n": "Gabrielle ADCOCK",
+   "c": "ENG",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604895367/assets/players/thumbnail/62844.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/ENG.png"
+  },
+  "63029": {
+   "n": "JIANG Zhen Bang",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604897791/assets/players/thumbnail/63029.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "63168": {
+   "n": "HUANG Ya Qiong",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1627952652/assets/players/thumbnail/63168.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "65267": {
+   "n": "FENG Yan Zhe",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1697420441/assets/players/thumbnail/65267.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "66513": {
+   "n": "SEO Seung Jae",
+   "c": "KOR",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604895418/assets/players/thumbnail/66513.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/KOR.png"
+  },
+  "67158": {
+   "n": "Sapsiree TAERATTANACHAI",
+   "c": "THA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1636447113/assets/players/thumbnail/67158.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/THA.png"
+  },
+  "68045": {
+   "n": "Mark LAMSFUSS",
+   "c": "GER",
+   "a": "https://img.bwfbadminton.com/image/upload/v1719992008/assets/players/thumbnail/68045.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/GER.png"
+  },
+  "68544": {
+   "n": "Thom GICQUEL",
+   "c": "FRA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604895451/assets/players/thumbnail/68544.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/FRA.png"
+  },
+  "70333": {
+   "n": "Chris ADCOCK",
+   "c": "ENG",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604895468/assets/players/thumbnail/70333.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/ENG.png"
+  },
+  "70762": {
+   "n": "Delphine DELRUE",
+   "c": "FRA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604895480/assets/players/thumbnail/70762.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/FRA.png"
+  },
+  "73982": {
+   "n": "KIM Ha Na",
+   "c": "KOR",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604897528/assets/players/thumbnail/73982.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/KOR.png"
+  },
+  "74980": {
+   "n": "Supissara PAEWSAMPRAN",
+   "c": "THA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1784100613/assets/players/thumbnail/74980.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/THA.png"
+  },
+  "77689": {
+   "n": "TANG Chun Man",
+   "c": "HKG",
+   "a": "https://img.bwfbadminton.com/image/upload/v1658733477/assets/players/thumbnail/77689.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/HKG.png"
+  },
+  "79558": {
+   "n": "Arisa IGARASHI",
+   "c": "JPN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1627952966/assets/players/thumbnail/79558.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/JPN.png"
+  },
+  "80939": {
+   "n": "BAO Yixin",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604894528/assets/players/thumbnail/80939.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "81108": {
+   "n": "YE Hong Wei",
+   "c": "TPE",
+   "a": "https://img.bwfbadminton.com/image/upload/v1670203491/assets/players/thumbnail/81108.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/TPE.png"
+  },
+  "81844": {
+   "n": "GUO Xin Wa",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604896470/assets/players/thumbnail/81844.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "82061": {
+   "n": "Melati Daeva OKTAVIANTI",
+   "c": "INA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1636509501/assets/players/thumbnail/82061.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"
+  },
+  "83046": {
+   "n": "ZHENG Si Wei",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1627952937/assets/players/thumbnail/83046.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "88094": {
+   "n": "KO Sung Hyun",
+   "c": "KOR",
+   "a": "https://img.bwfbadminton.com/image/upload/v1637048793/assets/players/thumbnail/88094.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/KOR.png"
+  },
+  "88699": {
+   "n": "Weni ANGGRAINI",
+   "c": "INA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604895656/assets/players/thumbnail/88699.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"
+  },
+  "88779": {
+   "n": "Alexandra BØJE",
+   "c": "DEN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1635909299/assets/players/thumbnail/88779.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/DEN.png"
+  },
+  "89426": {
+   "n": "HUANG Dong Ping",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1697424201/assets/players/thumbnail/89426.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "89916": {
+   "n": "Praveen JORDAN",
+   "c": "INA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1636509976/assets/players/thumbnail/89916.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"
+  },
+  "91090": {
+   "n": "CHEN Tang Jie",
+   "c": "MAS",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604896192/assets/players/thumbnail/91090.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/MAS.png"
+  },
+  "92609": {
+   "n": "LEE Chun Hei Reginald",
+   "c": "HKG",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604897358/assets/players/thumbnail/92609.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/HKG.png"
+  },
+  "93074": {
+   "n": "CHAE Yu Jung",
+   "c": "KOR",
+   "a": "https://img.bwfbadminton.com/image/upload/v1634022922/assets/players/thumbnail/93074.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/KOR.png"
+  },
+  "94125": {
+   "n": "CHEN Qing Chen",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1657779828/assets/players/thumbnail/94125.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "95281": {
+   "n": "MA Jin",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604893710/assets/players/thumbnail/95281.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "95396": {
+   "n": "LIU Cheng",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604893712/assets/players/thumbnail/95396.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "98052": {
+   "n": "Isabel LOHAU",
+   "c": "GER",
+   "a": "https://img.bwfbadminton.com/image/upload/v1637132670/assets/players/thumbnail/98052.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/GER.png"
+  },
+  "99452": {
+   "n": "WANG Yi Lyu",
+   "c": "CHN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1658820694/assets/players/thumbnail/99452.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "99521": {
+   "n": "Mathias CHRISTIANSEN",
+   "c": "DEN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604896070/assets/players/thumbnail/99521.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/DEN.png"
+  }
+ },
+ "seasons": {
+  "2007": [
+   {
+    "tier": 24,
+    "id": 1876,
+    "name": "Proton Malaysia Super Series 2007",
+    "date": "2007-01-16",
+    "w": [
+     9706,
+     51282
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 77,
+    "name": "Yonex Korea Open Super Series 2007",
+    "date": "2007-01-23",
+    "w": [
+     9706,
+     51282
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 20,
+    "name": "Yonex All England Open 2007",
+    "date": "2007-03-06",
+    "w": [
+     9706,
+     51282
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1879,
+    "name": "Wilson Badminton Swiss Open 07",
+    "date": "2007-03-12",
+    "w": [
+     12193,
+     52774
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1882,
+    "name": "Aviva Open Singapore Super Series 2007",
+    "date": "2007-05-01",
+    "w": [
+     5612,
+     10360
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 23,
+    "name": "Djarum Indonesia Open Super Series  2007",
+    "date": "2007-05-07",
+    "w": [
+     51282,
+     9706
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1884,
+    "name": "China Masters SS  2007",
+    "date": "2007-07-10",
+    "w": [
+     9706,
+     51282
+    ]
+   },
+   {
+    "tier": 20,
+    "id": 477,
+    "name": "BWF World Championships 2007",
+    "date": "2007-08-13",
+    "w": [
+     7934,
+     14727
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 25,
+    "name": "YONEX OPEN JAPAN SUPER SERIES 2007",
+    "date": "2007-09-11",
+    "w": [
+     51282,
+     9706
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2163,
+    "name": "DENMARK SUPER SERIES 2007",
+    "date": "2007-10-23",
+    "w": [
+     53940,
+     51667
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1888,
+    "name": "FRENCH SUPER SERIES 2007",
+    "date": "2007-10-30",
+    "w": [
+     5612,
+     10360
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 28,
+    "name": "CHINA OPEN SUPER SERIES 2007",
+    "date": "2007-11-20",
+    "w": [
+     7934,
+     14727
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1889,
+    "name": "HONG KONG SUPER SERIES 2007",
+    "date": "2007-11-26",
+    "w": [
+     7934,
+     14727
+    ]
+   }
+  ],
+  "2008": [
+   {
+    "tier": 24,
+    "id": 1859,
+    "name": "PROTON MALAYSIA OPEN SUPER SERIES 2008",
+    "date": "2008-01-15",
+    "w": [
+     53940,
+     51667
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1860,
+    "name": "YONEX KOREA SUPER SERIES 2008",
+    "date": "2008-01-22",
+    "w": [
+     52774,
+     12193
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 53,
+    "name": "Yonex All England Open Super Series 2008",
+    "date": "2008-03-04",
+    "w": [
+     51282,
+     9706
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 33,
+    "name": "WILSON SWISS SUPER SERIES 2008",
+    "date": "2008-03-11",
+    "w": [
+     53940,
+     51667
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 34,
+    "name": "AVIVA SINGAPORE SUPER SERIES 2008",
+    "date": "2008-06-10",
+    "w": [
+     7934,
+     14727
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2150,
+    "name": "DJARUM INDONESIA SUPER SERIES 2008",
+    "date": "2008-06-17",
+    "w": [
+     51282,
+     9706
+    ]
+   },
+   {
+    "tier": "OLY",
+    "id": 2723,
+    "name": "Beijing 2008 Olympic Games",
+    "date": "2008-08-09",
+    "w": [
+     52774,
+     12193
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1869,
+    "name": "Yonex Japan Super Series 2008",
+    "date": "2008-09-16",
+    "w": [
+     14722,
+     10360
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 37,
+    "name": "CHINA MASTERS SUPER SERIES 2008",
+    "date": "2008-09-23",
+    "w": [
+     50919,
+     50915
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1872,
+    "name": "Denmark Open Super Series 2008",
+    "date": "2008-10-21",
+    "w": [
+     10513,
+     53759
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1873,
+    "name": "FRENCH SUPER SERIES 2008",
+    "date": "2008-10-28",
+    "w": [
+     53940,
+     51667
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 40,
+    "name": "LI NING CHINA OPEN SUPER SERIES 08",
+    "date": "2008-11-18",
+    "w": [
+     52774,
+     12193
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2155,
+    "name": "YONEX SUNRISE HONG KONG SUPER SERIES 2008",
+    "date": "2008-11-24",
+    "w": [
+     50919,
+     50915
+    ]
+   },
+   {
+    "tier": 22,
+    "id": 1875,
+    "name": "World Super Series Masters Finals 2008",
+    "date": "2008-12-18",
+    "w": [
+     11935,
+     51436
+    ]
+   }
+  ],
+  "2009": [
+   {
+    "tier": 24,
+    "id": 1832,
+    "name": "MALAYSIA SUPER SERIES 2009",
+    "date": "2009-01-06",
+    "w": [
+     7934,
+     14727
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1833,
+    "name": "YONEX KOREA SUPER SERIES 2009",
+    "date": "2009-01-13",
+    "w": [
+     52774,
+     12193
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1835,
+    "name": "Yonex All England Open Super Series 2009",
+    "date": "2009-03-03",
+    "w": [
+     53940,
+     51667
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 45,
+    "name": "WILSON SWISS SUPER SERIES 2009",
+    "date": "2009-03-10",
+    "w": [
+     51282,
+     95281
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 110,
+    "name": "AVIVA SINGAPORE SUPER SERIES 2009",
+    "date": "2009-06-09",
+    "w": [
+     51282,
+     95281
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 47,
+    "name": "DJARUM INDONESIA SUPER SERIES 2009",
+    "date": "2009-06-16",
+    "w": [
+     51282,
+     95281
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 126,
+    "name": "2009 YONEX Australian Open",
+    "date": "2009-07-22",
+    "w": [
+     7944,
+     55285
+    ]
+   },
+   {
+    "tier": 20,
+    "id": 1842,
+    "name": "Yonex Sunrise BWF World Championships 2009",
+    "date": "2009-08-10",
+    "w": [
+     11935,
+     51436
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 35,
+    "name": "LI NING CHINA MASTERS SUPER SERIES 2009",
+    "date": "2009-09-15",
+    "w": [
+     20865,
+     14393
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2139,
+    "name": "YONEX OPEN JAPAN SUPER SERIES 2009",
+    "date": "2009-09-22",
+    "w": [
+     50736,
+     50739
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 51,
+    "name": "YONEX FRENCH SUPER SERIES 2009",
+    "date": "2009-10-27",
+    "w": [
+     7934,
+     14727
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1852,
+    "name": "YONEX SUNRISE HONG KONG OPEN SUPER SERIES 2009",
+    "date": "2009-11-09",
+    "w": [
+     4253,
+     50054
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2144,
+    "name": "CHINA SUPER SERIES 2009",
+    "date": "2009-11-17",
+    "w": [
+     52774,
+     12193
+    ]
+   },
+   {
+    "tier": 22,
+    "id": 1853,
+    "name": "YONEX-SUNRISE BWF WORLD SUPER SERIES MASTERS FINALS 2009",
+    "date": "2009-12-02",
+    "w": [
+     10513,
+     53759
+    ]
+   }
+  ],
+  "2010": [
+   {
+    "tier": 24,
+    "id": 54,
+    "name": "KOREA SUPER SERIES 2010",
+    "date": "2010-01-12",
+    "w": [
+     53940,
+     51667
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1794,
+    "name": "PROTON MALAYSIA OPEN SUPER SERIES 2010",
+    "date": "2010-01-19",
+    "w": [
+     20865,
+     50915
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1801,
+    "name": "ALL ENGLAND SUPER SERIES 2010",
+    "date": "2010-03-09",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1802,
+    "name": "SWISS SUPER SERIES 2010",
+    "date": "2010-03-16",
+    "w": [
+     52774,
+     12193
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1812,
+    "name": "LI-NING SINGAPORE OPEN SUPER SERIES 2010",
+    "date": "2010-06-15",
+    "w": [
+     11935,
+     51436
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 59,
+    "name": "DJARUM INDONESIA OPEN SUPER SERIES 2010",
+    "date": "2010-06-22",
+    "w": [
+     4253,
+     50054
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 138,
+    "name": "2010 Yonex Australian Open",
+    "date": "2010-07-13",
+    "w": [
+     54345,
+     52781
+    ]
+   },
+   {
+    "tier": 20,
+    "id": 14,
+    "name": "YONEX BWF WORLD CHAMPIONSHIPS 2010",
+    "date": "2010-08-23",
+    "w": [
+     51282,
+     95281
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 617,
+    "name": "CHINA MASTERS SUPER SERIES 2010",
+    "date": "2010-09-14",
+    "w": [
+     20865,
+     52066
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1818,
+    "name": "JAPAN SUPER SERIES 2010",
+    "date": "2010-09-21",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1827,
+    "name": "DENMARK SUPER SERIES 2010",
+    "date": "2010-10-26",
+    "w": [
+     11935,
+     51436
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1828,
+    "name": "FRENCH_SUPER_SERIES_2010",
+    "date": "2010-11-02",
+    "w": [
+     10650,
+     7065
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2132,
+    "name": "China Open Super Series 2010",
+    "date": "2010-11-30",
+    "w": [
+     20865,
+     52066
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 65,
+    "name": "YONEX-SUNRISE Hong Kong Open Super Series 2010",
+    "date": "2010-12-06",
+    "w": [
+     10513,
+     53759
+    ]
+   }
+  ],
+  "2011": [
+   {
+    "tier": 22,
+    "id": 1456,
+    "name": "VICTOR- BWF Superseries Finals 2010",
+    "date": "2011-01-05",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1734,
+    "name": "PROTON Malaysia Open ",
+    "date": "2011-01-18",
+    "w": [
+     53940,
+     95281
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 1457,
+    "name": "VICTOR Korea Open 2011",
+    "date": "2011-01-25",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 1458,
+    "name": "YONEX  All England Open",
+    "date": "2011-03-08",
+    "w": [
+     51620,
+     95281
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 107,
+    "name": "YONEX Australian Open 2011",
+    "date": "2011-04-05",
+    "w": [
+     50736,
+     50739
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 67,
+    "name": "YONEX-SUNRISE  India Open ",
+    "date": "2011-04-26",
+    "w": [
+     54267,
+     14727
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 68,
+    "name": "LI NING Singapore Open",
+    "date": "2011-06-14",
+    "w": [
+     54267,
+     14727
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 1459,
+    "name": "DJARUM Indonesia Open 2011",
+    "date": "2011-06-21",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 20,
+    "id": 1750,
+    "name": "YONEX BWF World Championships 2011",
+    "date": "2011-08-08",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 69,
+    "name": "Li Ning China Masters",
+    "date": "2011-09-13",
+    "w": [
+     51620,
+     95281
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 70,
+    "name": "YONEX Open Japan",
+    "date": "2011-09-20",
+    "w": [
+     53613,
+     10947
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 1460,
+    "name": "Yonex Denmark Open 2011",
+    "date": "2011-10-18",
+    "w": [
+     10513,
+     53759
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 71,
+    "name": "Yonex Badminton French Open 2011",
+    "date": "2011-10-25",
+    "w": [
+     10513,
+     53759
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 72,
+    "name": "Yonex Sunrise Hong Kong Open 2011",
+    "date": "2011-11-15",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 1461,
+    "name": "Li Ning  China Open 2011",
+    "date": "2011-11-22",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 22,
+    "id": 1791,
+    "name": "Li Ning BWF World Superseries Finals 2011",
+    "date": "2011-12-14",
+    "w": [
+     35357,
+     54522
+    ]
+   }
+  ],
+  "2012": [
+   {
+    "tier": 23,
+    "id": 1452,
+    "name": "Victor Korea  Open  2012",
+    "date": "2012-01-03",
+    "w": [
+     51620,
+     95281
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2051,
+    "name": "MAYBANK Malaysia Open Presented by PROTON",
+    "date": "2012-01-10",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 1453,
+    "name": "YONEX All England Open Badminton Championships  2012",
+    "date": "2012-03-06",
+    "w": [
+     54267,
+     14727
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 115,
+    "name": "2012 Yonex Australian  Open",
+    "date": "2012-04-03",
+    "w": [
+     53613,
+     10947
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2064,
+    "name": "Yonex Sunrise India Open 2012",
+    "date": "2012-04-24",
+    "w": [
+     54267,
+     14727
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 1454,
+    "name": "Djarum Indonesia Open 2012",
+    "date": "2012-06-12",
+    "w": [
+     10650,
+     7065
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1922,
+    "name": "Li Ning Singapore Open 2012",
+    "date": "2012-06-19",
+    "w": [
+     53613,
+     10947
+    ]
+   },
+   {
+    "tier": "OLY",
+    "id": 2077,
+    "name": "London 2012 Olympic Games",
+    "date": "2012-07-28",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1923,
+    "name": "Li Ning China Masters 2012",
+    "date": "2012-09-11",
+    "w": [
+     51620,
+     95281
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1699,
+    "name": "YONEX Open Japan 2012",
+    "date": "2012-09-18",
+    "w": [
+     53142,
+     53159
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 1455,
+    "name": "YONEX Denmark Open 2012",
+    "date": "2012-10-16",
+    "w": [
+     51620,
+     95281
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 715,
+    "name": "Yonex French Badminton Open 2012",
+    "date": "2012-10-23",
+    "w": [
+     51620,
+     95281
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 80,
+    "name": "Li Ning China Open 2012",
+    "date": "2012-11-13",
+    "w": [
+     51620,
+     95281
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 81,
+    "name": "Yonex Sunrise Hong Kong Open 2012",
+    "date": "2012-11-20",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 22,
+    "id": 82,
+    "name": "BWF Superseries Finals 2012",
+    "date": "2012-12-12",
+    "w": [
+     10513,
+     53759
+    ]
+   }
+  ],
+  "2013": [
+   {
+    "tier": 23,
+    "id": 83,
+    "name": "VICTOR Korea Open 2013",
+    "date": "2013-01-08",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 84,
+    "name": "MAYBANK Malaysia Open 2013",
+    "date": "2013-01-15",
+    "w": [
+     10513,
+     53759
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 1451,
+    "name": "Yonex All England Open Badminton Championships 2013",
+    "date": "2013-03-05",
+    "w": [
+     54267,
+     14727
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2001,
+    "name": "Yonex Australian Badminton Open 2013",
+    "date": "2013-04-02",
+    "w": [
+     33261,
+     88699
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 85,
+    "name": "Yonex Sunrise India Open 2013",
+    "date": "2013-04-23",
+    "w": [
+     54267,
+     14727
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 1569,
+    "name": "Djarum  Indonesia Open 2013",
+    "date": "2013-06-10",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2013,
+    "name": "Li Ning Singapore Open 2013",
+    "date": "2013-06-18",
+    "w": [
+     54267,
+     14727
+    ]
+   },
+   {
+    "tier": 20,
+    "id": 1586,
+    "name": "BWF World Championships 2013",
+    "date": "2013-08-05",
+    "w": [
+     54267,
+     14727
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1594,
+    "name": "Adidas China Masters  2013",
+    "date": "2013-09-10",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2028,
+    "name": "Yonex Open  Japan 2013",
+    "date": "2013-09-17",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 2035,
+    "name": "Yonex Denmark Open 2013",
+    "date": "2013-10-15",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1607,
+    "name": "Yonex French Open 2013",
+    "date": "2013-10-22",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 31,
+    "name": "VICTOR China Open 2013",
+    "date": "2013-11-12",
+    "w": [
+     54267,
+     14727
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1622,
+    "name": "Yonex  Sunrise Hong Kong Open 2013",
+    "date": "2013-11-19",
+    "w": [
+     70333,
+     62844
+    ]
+   },
+   {
+    "tier": 22,
+    "id": 1630,
+    "name": "BWF World Superseries Finals 2013",
+    "date": "2013-12-11",
+    "w": [
+     10513,
+     53759
+    ]
+   }
+  ],
+  "2014": [
+   {
+    "tier": 24,
+    "id": 1462,
+    "name": "Victor Korea Open",
+    "date": "2014-01-07",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 1934,
+    "name": "Maybank Malaysia Open",
+    "date": "2014-01-14",
+    "w": [
+     51620,
+     95281
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 1942,
+    "name": "Yonex All England Open",
+    "date": "2014-03-04",
+    "w": [
+     54267,
+     14727
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1486,
+    "name": "Yonex- Sunrise India Open",
+    "date": "2014-04-01",
+    "w": [
+     10513,
+     53759
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1946,
+    "name": "OUE Singapore Open",
+    "date": "2014-04-08",
+    "w": [
+     54267,
+     14727
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1507,
+    "name": "Yonex Japan Open",
+    "date": "2014-06-10",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 957,
+    "name": "BCA Indonesian Open",
+    "date": "2014-06-17",
+    "w": [
+     10513,
+     53759
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1954,
+    "name": "The Star Australian Badminton Open 2014",
+    "date": "2014-06-24",
+    "w": [
+     88094,
+     73982
+    ]
+   },
+   {
+    "tier": 20,
+    "id": 1964,
+    "name": "Li Ning BWF World Championships 2014",
+    "date": "2014-08-25",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 1971,
+    "name": "Yonex Denmark Open",
+    "date": "2014-10-14",
+    "w": [
+     51620,
+     95281
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1972,
+    "name": "Yonex French Open",
+    "date": "2014-10-21",
+    "w": [
+     54267,
+     14727
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 1920,
+    "name": "THAIHOT CHINA OPEN",
+    "date": "2014-11-11",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 1984,
+    "name": "Yonex-Sunrise Hong Kong Open",
+    "date": "2014-11-18",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 22,
+    "id": 1987,
+    "name": "BWF Destination Dubai World Superseries Finals",
+    "date": "2014-12-17",
+    "w": [
+     35357,
+     54522
+    ]
+   }
+  ],
+  "2015": [
+   {
+    "tier": 23,
+    "id": 2270,
+    "name": "Yonex All England Open",
+    "date": "2015-03-03",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2272,
+    "name": "Yonex Sunrise India Open",
+    "date": "2015-03-24",
+    "w": [
+     95396,
+     80939
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 2274,
+    "name": "Maybank Malaysia Open",
+    "date": "2015-03-31",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2278,
+    "name": "OUE Singapore Open",
+    "date": "2015-04-07",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2279,
+    "name": "The Star Australian Open",
+    "date": "2015-05-26",
+    "w": [
+     92609,
+     55285
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 2280,
+    "name": "BCA Indonesia Open",
+    "date": "2015-06-02",
+    "w": [
+     51620,
+     95281
+    ]
+   },
+   {
+    "tier": 20,
+    "id": 2463,
+    "name": "TOTAL BWF World Championships 2015",
+    "date": "2015-08-10",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2281,
+    "name": "Yonex Open Japan",
+    "date": "2015-09-08",
+    "w": [
+     10513,
+     53759
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2282,
+    "name": "Victor Korea Open",
+    "date": "2015-09-15",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 2283,
+    "name": "Yonex Denmark Open",
+    "date": "2015-10-13",
+    "w": [
+     88094,
+     73982
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2284,
+    "name": "Yonex French Open",
+    "date": "2015-10-20",
+    "w": [
+     88094,
+     73982
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 2285,
+    "name": "Thaihot China Open",
+    "date": "2015-11-10",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2286,
+    "name": "YONEX-SUNRISE Hong Kong Open",
+    "date": "2015-11-17",
+    "w": [
+     35357,
+     54522
+    ]
+   },
+   {
+    "tier": 22,
+    "id": 2294,
+    "name": "Dubai World Superseries Finals 2015",
+    "date": "2015-12-09",
+    "w": [
+     70333,
+     62844
+    ]
+   }
+  ],
+  "2016": [
+   {
+    "tier": 23,
+    "id": 2335,
+    "name": "YONEX All England Open",
+    "date": "2016-03-08",
+    "w": [
+     89916,
+     4425
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2337,
+    "name": "YONEX SUNRISE India Open",
+    "date": "2016-03-29",
+    "w": [
+     28549,
+     63168
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 2338,
+    "name": "CELCOM AXIATA Malaysia Open",
+    "date": "2016-04-05",
+    "w": [
+     54267,
+     14727
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2454,
+    "name": "OUE Singapore Open",
+    "date": "2016-04-12",
+    "w": [
+     88094,
+     73982
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 2569,
+    "name": "BCA Indonesia Open",
+    "date": "2016-05-30",
+    "w": [
+     51620,
+     95281
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2455,
+    "name": "XIAMENAIR Australian Badminton Open",
+    "date": "2016-06-07",
+    "w": [
+     28549,
+     63168
+    ]
+   },
+   {
+    "tier": "OLY",
+    "id": 2595,
+    "name": "Rio 2016 Olympic Games",
+    "date": "2016-08-11",
+    "w": [
+     54267,
+     14727
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2469,
+    "name": "YONEX Open Japan",
+    "date": "2016-09-20",
+    "w": [
+     83046,
+     94125
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2574,
+    "name": "VICTOR Korea Open",
+    "date": "2016-09-27",
+    "w": [
+     88094,
+     73982
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 2457,
+    "name": "YONEX Denmark Open",
+    "date": "2016-10-18",
+    "w": [
+     10513,
+     53759
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2459,
+    "name": "YONEX French Open",
+    "date": "2016-10-25",
+    "w": [
+     83046,
+     94125
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 2471,
+    "name": "THAIHOT China Open",
+    "date": "2016-11-15",
+    "w": [
+     54267,
+     14727
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2460,
+    "name": "YONEX SUNRISE Hong Kong Open",
+    "date": "2016-11-22",
+    "w": [
+     54267,
+     14727
+    ]
+   },
+   {
+    "tier": 22,
+    "id": 2462,
+    "name": "Dubai World Superseries Finals",
+    "date": "2016-12-14",
+    "w": [
+     83046,
+     94125
+    ]
+   }
+  ],
+  "2017": [
+   {
+    "tier": 23,
+    "id": 2650,
+    "name": "YONEX All England Open",
+    "date": "2017-03-07",
+    "w": [
+     28549,
+     63168
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2940,
+    "name": "YONEX SUNRISE India Open",
+    "date": "2017-03-28",
+    "w": [
+     28549,
+     63168
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 2654,
+    "name": "CELCOM AXIATA Malaysia Open",
+    "date": "2017-04-04",
+    "w": [
+     83046,
+     94125
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2655,
+    "name": "OUE Singapore Open",
+    "date": "2017-04-11",
+    "w": [
+     28549,
+     63168
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 2658,
+    "name": "BCA Indonesia Open",
+    "date": "2017-06-12",
+    "w": [
+     54267,
+     14727
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2659,
+    "name": "CROWN GROUP Australian Open",
+    "date": "2017-06-20",
+    "w": [
+     83046,
+     94125
+    ]
+   },
+   {
+    "tier": 20,
+    "id": 2663,
+    "name": "TOTAL BWF World Championships 2017",
+    "date": "2017-08-21",
+    "w": [
+     54267,
+     14727
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2668,
+    "name": "VICTOR Korea Open",
+    "date": "2017-09-12",
+    "w": [
+     89916,
+     4425
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2669,
+    "name": "DAIHATSU YONEX Japan Open",
+    "date": "2017-09-19",
+    "w": [
+     99452,
+     89426
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 2676,
+    "name": "DANISA Denmark Open",
+    "date": "2017-10-17",
+    "w": [
+     77689,
+     61435
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 2677,
+    "name": "YONEX French Open",
+    "date": "2017-10-24",
+    "w": [
+     54267,
+     14727
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 2680,
+    "name": "TAHOE China Open",
+    "date": "2017-11-14",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 3060,
+    "name": "YONEX-SUNRISE Hong Kong Open",
+    "date": "2017-11-21",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 22,
+    "id": 3020,
+    "name": "Dubai World Superseries Finals 2017",
+    "date": "2017-12-13",
+    "w": [
+     83046,
+     94125
+    ]
+   }
+  ],
+  "2018": [
+   {
+    "tier": 23,
+    "id": 3141,
+    "name": "YONEX All England Open 2018",
+    "date": "2018-03-14",
+    "w": [
+     58240,
+     79558
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 3142,
+    "name": "CELCOM AXIATA Malaysia Open 2018",
+    "date": "2018-06-26",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 3149,
+    "name": "BLIBLI Indonesia Open 2018",
+    "date": "2018-07-03",
+    "w": [
+     54267,
+     14727
+    ]
+   },
+   {
+    "tier": 20,
+    "id": 3213,
+    "name": "TOTAL BWF World Championships 2018",
+    "date": "2018-07-30",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 3152,
+    "name": "DAIHATSU YONEX Japan Open 2018",
+    "date": "2018-09-11",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 3153,
+    "name": "VICTOR China Open 2018",
+    "date": "2018-09-18",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 3156,
+    "name": "DANISA Denmark Open 2018",
+    "date": "2018-10-16",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 3157,
+    "name": "YONEX French Open 2018",
+    "date": "2018-10-23",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 3159,
+    "name": "Fuzhou China Open 2018",
+    "date": "2018-11-06",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 22,
+    "id": 3317,
+    "name": "HSBC BWF World Tour Finals 2018",
+    "date": "2018-12-12",
+    "w": [
+     99452,
+     89426
+    ]
+   }
+  ],
+  "2019": [
+   {
+    "tier": 23,
+    "id": 3376,
+    "name": "YONEX All England Open Badminton Championships 2019",
+    "date": "2019-03-06",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 3355,
+    "name": "CELCOM AXIATA Malaysia Open 2019",
+    "date": "2019-04-02",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 3394,
+    "name": "BLIBLI Indonesia Open  2019",
+    "date": "2019-07-16",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 3359,
+    "name": "DAIHATSU YONEX Japan Open 2019",
+    "date": "2019-07-23",
+    "w": [
+     99452,
+     89426
+    ]
+   },
+   {
+    "tier": 20,
+    "id": 3447,
+    "name": "TOTAL BWF World Championships 2019",
+    "date": "2019-08-19",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 3364,
+    "name": "VICTOR China Open 2019",
+    "date": "2019-09-17",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 3367,
+    "name": "DANISA Denmark Open 2019",
+    "date": "2019-10-15",
+    "w": [
+     89916,
+     82061
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 3368,
+    "name": "YONEX French Open 2019",
+    "date": "2019-10-22",
+    "w": [
+     89916,
+     82061
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 3519,
+    "name": "Fuzhou China Open 2019",
+    "date": "2019-11-05",
+    "w": [
+     99452,
+     89426
+    ]
+   },
+   {
+    "tier": 22,
+    "id": 3754,
+    "name": "HSBC BWF World Tour Finals 2019",
+    "date": "2019-12-11",
+    "w": [
+     83046,
+     63168
+    ]
+   }
+  ],
+  "2020": [
+   {
+    "tier": 23,
+    "id": 3690,
+    "name": "YONEX All England Open 2020",
+    "date": "2020-03-11",
+    "w": [
+     89916,
+     82061
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 3801,
+    "name": "DANISA Denmark Open I 2020",
+    "date": "2020-10-13",
+    "w": [
+     68045,
+     98052
+    ]
+   }
+  ],
+  "2021": [
+   {
+    "tier": 23,
+    "id": 4108,
+    "name": "YONEX Thailand Open",
+    "date": "2021-01-12",
+    "w": [
+     61731,
+     67158
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 4109,
+    "name": "TOYOTA Thailand Open",
+    "date": "2021-01-19",
+    "w": [
+     61731,
+     67158
+    ]
+   },
+   {
+    "tier": 22,
+    "id": 3520,
+    "name": "HSBC BWF World Tour Finals 2020 (New Dates)",
+    "date": "2021-01-27",
+    "w": [
+     61731,
+     67158
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 3982,
+    "name": "YONEX All England Open Badminton Championships 2021",
+    "date": "2021-03-17",
+    "w": [
+     58240,
+     79558
+    ]
+   },
+   {
+    "tier": "OLY",
+    "id": 4027,
+    "name": "Tokyo 2020 Olympic Games Badminton",
+    "date": "2021-07-24",
+    "w": [
+     99452,
+     89426
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 3971,
+    "name": "VICTOR Denmark Open 2021",
+    "date": "2021-10-19",
+    "w": [
+     58240,
+     79558
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 3972,
+    "name": "YONEX French Open 2021",
+    "date": "2021-10-26",
+    "w": [
+     58240,
+     79558
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 4036,
+    "name": "DAIHATSU Indonesia Masters 2021(New dates)",
+    "date": "2021-11-16",
+    "w": [
+     61731,
+     67158
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 4039,
+    "name": "SimInvest Indonesia Open 2021(New dates)",
+    "date": "2021-11-23",
+    "w": [
+     61731,
+     67158
+    ]
+   },
+   {
+    "tier": 22,
+    "id": 4044,
+    "name": "HSBC BWF World Tour Finals 2021(New dates)",
+    "date": "2021-12-01",
+    "w": [
+     61731,
+     67158
+    ]
+   },
+   {
+    "tier": 20,
+    "id": 3996,
+    "name": "TotalEnergies BWF World Championships 2021",
+    "date": "2021-12-12",
+    "w": [
+     61731,
+     67158
+    ]
+   }
+  ],
+  "2022": [
+   {
+    "tier": 23,
+    "id": 4431,
+    "name": "YONEX All England Open Badminton Championships 2022",
+    "date": "2022-03-16",
+    "w": [
+     58240,
+     79558
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 4438,
+    "name": "EAST VENTURES Indonesia Open 2022",
+    "date": "2022-06-14",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 4439,
+    "name": "PETRONAS Malaysia Open 2022",
+    "date": "2022-06-28",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 20,
+    "id": 4524,
+    "name": "TotalEnergies BWF World Championships 2022",
+    "date": "2022-08-22",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 4444,
+    "name": "DAIHATSU YONEX Japan Open 2022",
+    "date": "2022-08-30",
+    "w": [
+     61731,
+     67158
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 4475,
+    "name": "Denmark Open 2022 presented by VICTOR",
+    "date": "2022-10-18",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 4446,
+    "name": "YONEX French Open 2022",
+    "date": "2022-10-25",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 22,
+    "id": 4618,
+    "name": "HSBC BWF World Tour Finals 2022",
+    "date": "2022-12-07",
+    "w": [
+     83046,
+     63168
+    ]
+   }
+  ],
+  "2023": [
+   {
+    "tier": 23,
+    "id": 4699,
+    "name": "PETRONAS Malaysia Open 2023",
+    "date": "2023-01-10",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 4700,
+    "name": "YONEX SUNRISE India Open 2023",
+    "date": "2023-01-17",
+    "w": [
+     58240,
+     79558
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 4704,
+    "name": "YONEX All England Open Badminton Championships 2023",
+    "date": "2023-03-14",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 4711,
+    "name": "Singapore Open 2023",
+    "date": "2023-06-06",
+    "w": [
+     99521,
+     88779
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 4712,
+    "name": "KAPAL API GROUP Indonesia Open 2023",
+    "date": "2023-06-13",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 4717,
+    "name": "DAIHATSU Japan Open 2023",
+    "date": "2023-07-25",
+    "w": [
+     58240,
+     79558
+    ]
+   },
+   {
+    "tier": 20,
+    "id": 4720,
+    "name": "TotalEnergies BWF World Championships 2023",
+    "date": "2023-08-21",
+    "w": [
+     66513,
+     93074
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 4721,
+    "name": "VICTOR China Open 2023",
+    "date": "2023-09-05",
+    "w": [
+     66513,
+     93074
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 4727,
+    "name": "VICTOR Denmark Open 2023",
+    "date": "2023-10-17",
+    "w": [
+     65267,
+     89426
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 4728,
+    "name": "YONEX French Open 2023",
+    "date": "2023-10-24",
+    "w": [
+     63029,
+     57246
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 4732,
+    "name": "LI-NING China Masters 2023",
+    "date": "2023-11-21",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 22,
+    "id": 4734,
+    "name": "HSBC BWF World Tour Finals 2023",
+    "date": "2023-12-13",
+    "w": [
+     83046,
+     63168
+    ]
+   }
+  ],
+  "2024": [
+   {
+    "tier": 23,
+    "id": 4735,
+    "name": "PETRONAS Malaysia Open 2024",
+    "date": "2024-01-09",
+    "w": [
+     58240,
+     79558
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 4736,
+    "name": "YONEX SUNRISE India Open 2024",
+    "date": "2024-01-16",
+    "w": [
+     61731,
+     67158
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 4762,
+    "name": "YONEX French Open 2024",
+    "date": "2024-03-05",
+    "w": [
+     65267,
+     89426
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 4741,
+    "name": "YONEX All England Open Badminton Championships 2024",
+    "date": "2024-03-12",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 4747,
+    "name": "KFF Singapore Badminton Open 2024",
+    "date": "2024-05-28",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 4748,
+    "name": "KAPAL API Indonesia Open 2024",
+    "date": "2024-06-04",
+    "w": [
+     63029,
+     57246
+    ]
+   },
+   {
+    "tier": "OLY",
+    "id": 4752,
+    "name": "Paris 2024 Olympic Games Badminton Competition",
+    "date": "2024-07-27",
+    "w": [
+     83046,
+     63168
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 4753,
+    "name": "DAIHATSU Japan Open 2024",
+    "date": "2024-08-20",
+    "w": [
+     63029,
+     57246
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 4757,
+    "name": "VICTOR China Open 2024",
+    "date": "2024-09-17",
+    "w": [
+     65267,
+     89426
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 4761,
+    "name": "VICTOR Denmark Open 2024",
+    "date": "2024-10-15",
+    "w": [
+     65267,
+     89426
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 4766,
+    "name": "LI-NING China Masters 2024",
+    "date": "2024-11-19",
+    "w": [
+     65267,
+     89426
+    ]
+   },
+   {
+    "tier": 22,
+    "id": 4768,
+    "name": "HSBC BWF World Tour Finals 2024",
+    "date": "2024-12-11",
+    "w": [
+     83046,
+     63168
+    ]
+   }
+  ],
+  "2025": [
+   {
+    "tier": 23,
+    "id": 5222,
+    "name": "PETRONAS Malaysia Open 2025",
+    "date": "2025-01-07",
+    "w": [
+     61731,
+     74980
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 5268,
+    "name": "YONEX-SUNRISE India Open 2025",
+    "date": "2025-01-14",
+    "w": [
+     63029,
+     57246
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 5238,
+    "name": "YONEX All England Open Badminton Championships 2025",
+    "date": "2025-03-11",
+    "w": [
+     81844,
+     50469
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 5282,
+    "name": "KFF Singapore Badminton Open 2025",
+    "date": "2025-05-27",
+    "w": [
+     61731,
+     74980
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 5236,
+    "name": "KAPAL API Indonesia Open 2025",
+    "date": "2025-06-03",
+    "w": [
+     68544,
+     70762
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 5198,
+    "name": "DAIHATSU Japan Open 2025",
+    "date": "2025-07-15",
+    "w": [
+     63029,
+     57246
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 5281,
+    "name": "VICTOR China Open 2025",
+    "date": "2025-07-22",
+    "w": [
+     65267,
+     89426
+    ]
+   },
+   {
+    "tier": 20,
+    "id": 5261,
+    "name": "TotalEnergies BWF World Championships 2025",
+    "date": "2025-08-25",
+    "w": [
+     91090,
+     59621
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 5280,
+    "name": "LI-NING China Masters 2025",
+    "date": "2025-09-16",
+    "w": [
+     61731,
+     74980
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 5207,
+    "name": "VICTOR Denmark Open 2025",
+    "date": "2025-10-14",
+    "w": [
+     65267,
+     89426
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 5257,
+    "name": "YONEX French Open 2025",
+    "date": "2025-10-21",
+    "w": [
+     65267,
+     89426
+    ]
+   },
+   {
+    "tier": 22,
+    "id": 5259,
+    "name": "HSBC BWF World Tour Finals 2025",
+    "date": "2025-12-17",
+    "w": [
+     65267,
+     89426
+    ]
+   }
+  ],
+  "2026": [
+   {
+    "tier": 23,
+    "id": 5227,
+    "name": "PETRONAS Malaysia Open 2026",
+    "date": "2026-01-06",
+    "w": [
+     65267,
+     89426
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 5269,
+    "name": "YONEX-SUNRISE India Open 2026",
+    "date": "2026-01-13",
+    "w": [
+     61731,
+     74980
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 5515,
+    "name": "All England Open Badminton Championships 2026",
+    "date": "2026-03-03",
+    "w": [
+     81108,
+     62713
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 5649,
+    "name": "KFF Singapore Badminton Open 2026",
+    "date": "2026-05-26",
+    "w": [
+     99521,
+     88779
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 5528,
+    "name": "POLYTRON Indonesia Open 2026",
+    "date": "2026-06-02",
+    "w": [
+     99521,
+     88779
+    ]
+   },
+   {
+    "tier": 24,
+    "id": 5213,
+    "name": "DAIHATSU Japan Open 2026",
+    "date": "2026-07-14",
+    "w": [
+     65267,
+     89426
+    ]
+   },
+   {
+    "tier": 23,
+    "id": 5622,
+    "name": "VICTOR China Open 2026",
+    "date": "2026-07-21",
+    "w": [
+     81844,
+     50469
+    ]
+   },
+   {
+    "tier": 20,
+    "id": 5601,
+    "name": "BWF World Championships 2026",
+    "date": "2026-08-17",
+    "w": [
+     68544,
+     70762
+    ]
+   }
+  ]
+ },
+ "planned": {
+  "2007": [
+   24,
+   24,
+   24,
+   24,
+   24,
+   24,
+   24,
+   20,
+   24,
+   24,
+   24,
+   24,
+   24
+  ],
+  "2008": [
+   24,
+   24,
+   24,
+   24,
+   24,
+   24,
+   "OLY",
+   24,
+   24,
+   24,
+   24,
+   24,
+   24,
+   22
+  ],
+  "2009": [
+   24,
+   24,
+   24,
+   24,
+   24,
+   24,
+   24,
+   20,
+   24,
+   24,
+   24,
+   24,
+   24,
+   24,
+   22
+  ],
+  "2010": [
+   24,
+   24,
+   24,
+   24,
+   24,
+   24,
+   24,
+   20,
+   24,
+   24,
+   24,
+   24,
+   24,
+   24
+  ],
+  "2011": [
+   22,
+   24,
+   23,
+   23,
+   24,
+   24,
+   24,
+   23,
+   20,
+   24,
+   24,
+   23,
+   24,
+   24,
+   23,
+   22
+  ],
+  "2012": [
+   23,
+   24,
+   23,
+   24,
+   24,
+   23,
+   24,
+   "OLY",
+   24,
+   24,
+   23,
+   24,
+   23,
+   24,
+   22
+  ],
+  "2013": [
+   23,
+   24,
+   23,
+   24,
+   24,
+   23,
+   24,
+   20,
+   24,
+   24,
+   23,
+   24,
+   23,
+   24,
+   22
+  ],
+  "2014": [
+   24,
+   23,
+   23,
+   24,
+   24,
+   24,
+   23,
+   24,
+   20,
+   23,
+   24,
+   23,
+   24,
+   22
+  ],
+  "2015": [
+   23,
+   24,
+   23,
+   24,
+   24,
+   23,
+   20,
+   24,
+   24,
+   23,
+   24,
+   23,
+   24,
+   22
+  ],
+  "2016": [
+   23,
+   24,
+   23,
+   24,
+   23,
+   24,
+   "OLY",
+   24,
+   24,
+   23,
+   24,
+   23,
+   24,
+   22
+  ],
+  "2017": [
+   23,
+   24,
+   23,
+   24,
+   23,
+   24,
+   20,
+   24,
+   24,
+   23,
+   24,
+   23,
+   24,
+   22
+  ],
+  "2018": [
+   23,
+   24,
+   23,
+   20,
+   24,
+   23,
+   24,
+   24,
+   24,
+   22
+  ],
+  "2019": [
+   23,
+   24,
+   23,
+   24,
+   20,
+   23,
+   24,
+   24,
+   24,
+   22
+  ],
+  "2020": [
+   23,
+   23,
+   24,
+   24,
+   24,
+   24,
+   24,
+   23,
+   24
+  ],
+  "2021": [
+   23,
+   23,
+   22,
+   23,
+   24,
+   "OLY",
+   23,
+   24,
+   23,
+   24,
+   24,
+   24,
+   23,
+   22,
+   20
+  ],
+  "2022": [
+   23,
+   23,
+   24,
+   20,
+   24,
+   24,
+   24,
+   23,
+   24,
+   22
+  ],
+  "2023": [
+   23,
+   24,
+   23,
+   24,
+   23,
+   24,
+   20,
+   23,
+   24,
+   24,
+   24,
+   22
+  ],
+  "2024": [
+   23,
+   24,
+   24,
+   23,
+   24,
+   23,
+   "OLY",
+   24,
+   23,
+   24,
+   24,
+   22
+  ],
+  "2025": [
+   23,
+   24,
+   23,
+   24,
+   23,
+   24,
+   23,
+   20,
+   24,
+   24,
+   24,
+   22
+  ],
+  "2026": [
+   23,
+   24,
+   23,
+   24,
+   23,
+   24,
+   23,
+   20,
+   24,
+   24,
+   24,
+   22
+  ]
+ }
+}

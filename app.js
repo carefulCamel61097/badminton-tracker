@@ -35,6 +35,7 @@ import {
   pyramidScale,
   dominationSeasons, thinSeasons, shortSeasonWhy, titleWeight, SCORE_TIERS,
   dominationRanking, rankMode, RANK_MODES, RANK_DEFAULT,
+  COVID_SEASONS, isCovidSeason,
   bestScoreFloor, SCORE_FLOOR_MAX, SCORE_FLOOR_STEP,
 } from './model.js';
 import {
@@ -1193,6 +1194,13 @@ const win = {
   /* Which ordering the dominators' table is in, and whether it is showing the
      whole board or the head of it. See `dominationRanking`. */
   rank: RANK_DEFAULT, rankAll: false,
+  /* ⚠️ **The pandemic seasons are out of the ranking by default.** A share of a
+     three-tournament calendar is not the same quantity as a share of a fifteen-
+     tournament one, and leaving them in put Viktor AXELSEN top of both
+     orderings on 184 of his 315 points — and TAI Tzu Ying top of the women's on
+     an 81 taken in a season that held three titles. Out by default, and one
+     click puts them back. See `COVID_SEASONS`. */
+  covid: false,
 };
 
 const winFile = () => win.files[win.kind] || null;
@@ -1683,11 +1691,22 @@ function drawScore(model) {
   const thin = thinSeasons(seasons);
   const now = new Date().getUTCFullYear();
 
-  /* A faint column for a season with a hole in it, named at the foot of it. The
-     strip under the axis says *how* short; this says *why*, and puts it where
-     the line does something strange rather than in a caption. */
+  /* A faint column for a season the reader should not take at face value, named
+     at the foot of it. The strip under the axis says *how* short; this says
+     *why*, and puts it where the line does something strange rather than in a
+     caption.
+
+     ⚠️ **Two different reasons, and 2021 has only the second one.** `thin` is a
+     count — far fewer titles than the seasons around it — and it catches 2020
+     and 2022. It does not catch 2021, which held ten, the same as 2018 and
+     2019: what was wrong with 2021 was not how many but *which*, and no count
+     can see that. The pandemic set is written down instead, from the tournament
+     list; see `COVID_SEASONS`. The union is marked, because the reason a column
+     is faint is "do not read this as a normal season" either way. */
   const half = (SC.w - SC.l - SC.r) / Math.max(1, n - 1) / 2;
-  for (const yr of thin.set) {
+  /* In year order, not set order: these are drawn into the document and read
+     left to right, and the union came out 2020, 2022, 2026, 2021. */
+  for (const yr of [...new Set([...thin.set, ...COVID_SEASONS])].sort((a, b) => a - b)) {
     const i = years.indexOf(yr);
     if (i < 0) continue;
     out.push(`<rect class="scorehole" x="${x(i) - half * 0.75}" y="${SC.t}"`
@@ -1750,8 +1769,13 @@ function drawScore(model) {
     /* On every bar, not only the short ones. The number was the short seasons'
        badge, which made a count look like a warning; it is just the size of the
        season, and a reader comparing 2022 to 2023 wants both of them. */
+    /* ⚠️ The season being played says **both** numbers. Its scores are shares
+       of the whole year, so a strip reading "8" under a column weighed against
+       twelve is the one place a reader could not see why the line sits low. */
+    const label = s.forecast && s.planned > s.played
+      ? `${s.played}/${s.planned}` : s.total;
     out.push(`<text class="szn${isThin}" x="${x(i)}"`
-      + ` y="${stripTop + SC.stripH - h - 4}" text-anchor="middle">${s.total}</text>`);
+      + ` y="${stripTop + SC.stripH - h - 4}" text-anchor="middle">${label}</text>`);
   });
   out.push(`<text class="szlbl" x="${SC.l - 8}" y="${stripTop + SC.stripH}"`
     + ' text-anchor="end">titles</text></g>');
@@ -1879,8 +1903,10 @@ function renderScoreTables(model) {
            switch for it; naming everything in the modern vocabulary here had the
            two views of one board disagreeing about what a title was. */
         .map(([t, k]) => `${k}×${esc(pyramidLabel(t, s.year))}`).join(', ');
+      const held = s.forecast && s.planned > s.played
+        ? `${s.played} <span class="of">of ${s.planned}</span>` : s.total;
       return `<tr${thin.set.has(s.year) ? ' class="thin"' : ''}>`
-        + `<td class="n">${s.year}${mark(s.year)}</td><td class="n">${s.total}</td>`
+        + `<td class="n">${s.year}${mark(s.year)}</td><td class="n">${held}</td>`
         + `<td>${made || '—'}</td><td class="n">${s.by.size}</td></tr>`;
     }).join('');
 }
@@ -1901,13 +1927,20 @@ function renderScoreTables(model) {
 
 const RANK_TOP = 20;
 
+/** "2020–22" — written once, so the chip and the caption cannot disagree. */
+function covidSpan() {
+  const years = [...COVID_SEASONS].sort((a, b) => a - b);
+  return `${years[0]}–${String(years[years.length - 1]).slice(2)}`;
+}
+
 /** How many rows to draw, and the words under them saying so. */
 function rankRows(rows) {
   return win.rankAll ? rows : rows.slice(0, RANK_TOP);
 }
 
 function renderScoreRanking(model) {
-  const rows = dominationRanking(model, win.rank);
+  const skip = win.covid ? new Set() : COVID_SEASONS;
+  const rows = dominationRanking(model, win.rank, { skip });
   const mode = rankMode(win.rank);
 
   $('rankMode').innerHTML = RANK_MODES.map(m =>
@@ -1915,38 +1948,69 @@ function renderScoreRanking(model) {
     + ` data-mode="${esc(m.key)}" aria-pressed="${m.key === mode.key}">`
     + `${esc(m.label)}</button>`).join('');
 
+  /* ⚠️ Off by default, and the *off* state is the one that needs no
+     explanation: a level chip that is off means that level is not counted, and
+     this reads the same way. On means the pandemic seasons are back in. */
+  $('rankCovid').className = 'chip' + (win.covid ? ' on' : '');
+  $('rankCovid').setAttribute('aria-pressed', String(win.covid));
+  $('rankCovid').textContent = covidSpan();
+  $('rankCovid').title = win.covid
+    ? 'The pandemic seasons are being counted. Click to set them aside.'
+    : 'The pandemic seasons are set aside. Click to count them.';
+
   /* ⚠️ Lit against the **ranking's own** set, not the chart's. Every competitor
      is in this table, so a pick is always one of these rows — unlike the chart
      above, where the bar may have hidden it. */
   const lit = id => !win.only.size || win.only.has(id);
   const num = x => scoreText(x);
 
+  /* ⚠️ **The last two columns follow the sort, because a career total is the
+     wrong fact beside a peak.** Ranked on total, what matters is how long it
+     took and how much of it there was: seasons, and titles. Ranked on peak, the
+     career count says nothing about the season being ranked — what a peak of 76
+     *means* is "8 of the 12 titles there were that year", and which year it
+     was. */
+  const byPeak = win.rank === 'peak';
+  const tail = byPeak
+    ? { a: 'Season', b: 'Titles', va: r => r.peakYear,
+      vb: r => `${r.peakTitles}<span class="of">of ${r.peakPlayed}</span>` }
+    : { a: 'Seasons', b: 'Titles', va: r => r.seasons, vb: r => r.titles };
+
   $('scoreRank').innerHTML =
     '<tr><th class="n">#</th><th>Competitor</th>'
-    + `<th class="n${win.rank === 'total' ? ' by' : ''}">Total</th>`
-    + `<th class="n${win.rank === 'peak' ? ' by' : ''}">Peak</th>`
-    + '<th class="n">Seasons</th><th class="n">Titles</th></tr>'
+    + `<th class="n${byPeak ? '' : ' by'}">Total</th>`
+    + `<th class="n${byPeak ? ' by' : ''}">Peak</th>`
+    + `<th class="n">${tail.a}</th><th class="n">${tail.b}</th></tr>`
     + rankRows(rows).map(r =>
       `<tr class="rankrow${lit(r.id) ? '' : ' faded'}" data-id="${esc(String(r.id))}"`
-      + ` tabindex="0" title="${esc(`${r.who.n}\n${r.first}–${r.last}`
-        + ` · ${r.titles} titles in ${r.seasons} seasons`)}">`
+      + ` tabindex="0" title="${esc(`${r.who.n}
+${r.first}–${r.last}`
+        + ` · ${r.titles} titles in ${r.seasons} seasons`
+        + ` · best ${scoreText(r.peak)} in ${r.peakYear},`
+        + ` ${r.peakTitles} of ${r.peakPlayed}`)}">`
       + `<td class="n rk">${r.rank}</td>`
       + `<td><span class="rkwho">${legendFace(r.who) || '<i class="noface"></i>'}`
       + `${esc(r.who.n)}</span></td>`
-      + `<td class="n${win.rank === 'total' ? ' by' : ''}">${num(r.total)}</td>`
+      + `<td class="n${byPeak ? '' : ' by'}">${num(r.total)}</td>`
       /* The year is what makes a peak a claim rather than a number — 76 in a
-         season nobody remembers is a different sentence from 76 in 2024. */
-      + `<td class="n${win.rank === 'peak' ? ' by' : ''}">${num(r.peak)}`
-      + `<span class="yr">${r.peakYear}</span></td>`
-      + `<td class="n">${r.seasons}</td>`
-      + `<td class="n">${r.titles}</td></tr>`).join('');
+         season nobody remembers is a different sentence from 76 in 2025. It is
+         a suffix here only when the sort is *not* peak; ranked on peak it has a
+         column of its own, and printing it twice reads as two facts. */
+      + `<td class="n${byPeak ? ' by' : ''}">${num(r.peak)}`
+      + (byPeak ? '' : `<span class="yr">${r.peakYear}</span>`) + '</td>'
+      + `<td class="n">${tail.va(r)}</td>`
+      + `<td class="n">${tail.vb(r)}</td></tr>`).join('');
 
   const shown = rankRows(rows).length;
   $('rankMore').hidden = rows.length <= RANK_TOP;
   $('rankMore').textContent = win.rankAll
     ? `all ${rows.length} — show the top ${RANK_TOP}`
     : `${shown} of ${rows.length} — show them all`;
-  $('rankWhat').textContent = mode.of;
+  /* What the sort means, and — when they are out — what is not being counted.
+     A number that has quietly had three seasons taken out of it has to say so
+     where the number is, not only in the note at the foot of the page. */
+  $('rankWhat').textContent = mode.of
+    + (win.covid ? '' : ` · ${covidSpan()} set aside`);
 }
 
 /**
@@ -1992,6 +2056,17 @@ $('rankMore').addEventListener('click', () => {
   win.rankAll = !win.rankAll;
   renderWinners();
 });
+
+$('rankCovid').addEventListener('click', () => setCovid(!win.covid));
+
+/** Whether the pandemic seasons are weighed. See `COVID_SEASONS`. */
+function setCovid(on) {
+  if (!!on === win.covid) return false;
+  win.covid = !!on;
+  renderWinners();
+  writeHash();
+  return true;
+}
 
 function setRankMode(key) {
   const next = rankMode(key).key;
@@ -3274,6 +3349,8 @@ function runHotkey(key) {
          doing anything else on this page. */
       if (key === 't') return setRankMode('total') || true;
       if (key === 'p') return setRankMode('peak') || true;
+      // The pandemic seasons, in or out of the ranking.
+      if (key === 'c') return setCovid(!win.covid) || true;
       return false;
     }
     if (key === 'e') { win.eras = !win.eras; renderWinners(); writeHash(); return true; }
@@ -4210,6 +4287,7 @@ function readHash() {
     ? 0 : Math.max(0, Math.min(SCORE_FLOOR_MAX, Number(h.get('wf')) || 0));
   win.only = new Set((h.get('wp') || '').split(',').filter(Boolean));
   win.rank = rankMode(h.get('wr') || RANK_DEFAULT).key;
+  win.covid = h.get('wc') === '1';
   // `g=1` is what the compare page was called when it was a modal, and links
   // carrying it are still out there.
   wantPage = h.get('pg') || (h.get('g') === '1' ? 'compare' : 'seasons');
@@ -4302,6 +4380,9 @@ function writeHash() {
          rows are on screen does not: that is a reader looking further down a
          list, not a different claim. */
       if (win.rank !== RANK_DEFAULT) p.set('wr', win.rank);
+      /* Only when it is on, because off is the default and a link should carry
+         the argument rather than the absence of one. */
+      if (win.covid) p.set('wc', '1');
     } else if (!win.eras) p.set('we', 'off');
     else if (win.reign !== REIGN_DEFAULT) p.set('we', win.reign);
   }
@@ -4719,7 +4800,13 @@ window.BST = {
       const m = scoreModel();
       return m && {
         years: m.years,
-        seasons: m.seasons.map(s => ({ year: s.year, total: s.total, winners: s.by.size })),
+        seasons: m.seasons.map(s => ({
+          year: s.year, total: s.total, winners: s.by.size,
+          /* What the season's denominator is, which is the whole question for
+             the year still being played. See `dominationSeasons`. */
+          played: s.played, planned: s.planned,
+          ongoing: s.ongoing, forecast: s.forecast,
+        })),
         people: m.people.map(p => ({
           id: p.id, who: p.who.n, peak: p.peak,
           pts: p.pts.map(pt => ({ year: pt.year, score: pt.score, n: pt.n })),
@@ -4772,6 +4859,11 @@ window.BST = {
       if (on != null && win.rankAll !== !!on) $('rankMore').click();
       return win.rankAll;
     },
+    /* Through the chip, so the suite exercises the control the reader has. */
+    covid: on => {
+      if (on != null && win.covid !== !!on) $('rankCovid').click();
+      return win.covid;
+    },
     ranks: () => [...document.querySelectorAll('#scoreRank .rankrow')].map(r => {
       const cell = i => r.children[i];
       return {
@@ -4804,8 +4896,15 @@ window.BST = {
     /** The top of the y-axis, as a score — it must not move under the reader. */
     top: () => scoreTop(),
     /** What each season's strip bar says it held. */
+    /* ⚠️ `text`, not only `n`. The season being played reads "8/12" — played over
+       planned — and `Number()` of that is `NaN`, which came back as a hole in
+       the list and read as a missing bar rather than a different label. */
     strip: () => [...document.querySelectorAll('#scoreChart .scorestrip .szn')]
-      .map(t => ({ n: Number(t.textContent), thin: t.classList.contains('is-thin') })),
+      .map(t => ({
+        text: t.textContent,
+        n: Number(String(t.textContent).split('/')[0]),
+        thin: t.classList.contains('is-thin'),
+      })),
     /** The reasons written inside the plot, in year order. */
     why: () => [...document.querySelectorAll('#scoreChart .scorewhy')]
       .map(t => t.textContent),

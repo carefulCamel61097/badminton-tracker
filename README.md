@@ -752,6 +752,60 @@ out-rank a fifteen-year career, and the number would be describing the hole in t
 than the players. A third column that cannot be computed honestly is worse than no third
 column.
 
+⚠️ **The pandemic seasons are set aside by default**, and the `2020–22` chip puts them
+back. Left in, they put Viktor AXELSEN top of *both* orderings on **184 of his 315 points**,
+and TAI Tzu Ying top of the women's peak on an 81 taken in a season that held three titles.
+Set aside, the men's singles reads LEE Chong Wei, LIN Dan, CHEN Long — the answer most people
+would give, now given by the arithmetic. It is a judgement, so it is a chip rather than a
+silent rule, and the seasons stay on the chart either way.
+
+⚠⚠ **Which seasons, and why 2021 is one of them.** Not a count — 2021 held ten of these
+titles, the same as 2018 and 2019, and what was wrong with it was not how many but *which*.
+The clearest signal is China:
+
+| season | China Open | China Masters / Fuzhou | planned | played |
+|---|---|---|---|---|
+| 2019 | ✓ | ✓ | 10 | 10 |
+| 2020 | — | — | 9 | **3** |
+| 2021 | — | — | 15 | **10** |
+| 2022 | — | — | 10 | **8** |
+| 2023 | ✓ | ✓ | 12 | 12 |
+
+Three consecutive seasons with no Chinese event on a tour that had held two a year for a
+decade, and both back the moment the border reopened. On top of that: 2020 stopped in March
+and played its own World Tour Finals in **January 2021**; 2021 ran two Super 1000s in
+consecutive January weeks in one Bangkok bubble, held an Olympics a year late still called
+Tokyo 2020, carried *(new dates)* in four event names and put the World Championships in
+December; 2022 lost the Asian swing bar Indonesia, Malaysia and Japan. **2018 and 2019 also
+hold ten and are not in the set** — that is the World Tour restructure, a change to the ladder
+rather than to whether the season was played, and no count can tell the two apart. Which is
+why the set is written down with its evidence in `COVID_SEASONS` rather than derived.
+
+⚠⚠ **The season being played is weighed against the whole year.** A share of the titles
+played *so far* makes whoever wins the first tournament of January a 100, and in September
+2026 it inflated every score on the board by half again — eight of the twelve played, 13.71 of
+19.33 by weight. Against the planned year the numerator only grows while the denominator
+stands still, so a part-played season is a **lower bound** on what it will finish at: it
+cannot overstate a total, and a peak, being a maximum, cannot be dragged down by it. That is
+the property that makes the running year safe to count at all, and it is why it does count.
+The strip under the axis reads **8/12** rather than 8 so the reader can see it, and the
+column adds up to less than a whole season on purpose — the titles still to come belong to
+nobody yet.
+
+⚠️ **Finished seasons keep the titles actually played.** 2020's denominator is the three
+that happened, not the nine still on the calendar when it was abandoned. Weighing a cancelled
+season against its plan would rank everybody as having failed to win events that never took
+place.
+
+⚠️ The calendar is **harvested into the same static file**, by `tools/harvest-calendar.mjs` —
+one call per season, seconds rather than minutes. Not a live call: the score view reads one
+file and must keep doing so, or the numbers would depend on whether a request succeeded. It
+is the one thing in these files that goes stale, and it can be topped up on its own.
+
+⚠️ **The Show bar still leaves the running season out of its derivation**, and that survives
+the better denominator: the bar is set from *who led each season*, and nobody has led a season
+that is still being played, however fairly it is weighed.
+
 ⚠️ **The Show bar does not reach this table**, and that is not an oversight. The bar filters on
 *peak*, so a total ranking cut by it is a different claim: at the men's singles default of 40
 it would leave seven names, and it drops BOE / MOGENSEN — eight seasons, seventh on total —
