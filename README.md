@@ -752,12 +752,34 @@ out-rank a fifteen-year career, and the number would be describing the hole in t
 than the players. A third column that cannot be computed honestly is worse than no third
 column.
 
-⚠️ **The pandemic seasons are set aside by default**, and the `2020–22` chip puts them
-back. Left in, they put Viktor AXELSEN top of *both* orderings on **184 of his 315 points**,
-and TAI Tzu Ying top of the women's peak on an 81 taken in a season that held three titles.
-Set aside, the men's singles reads LEE Chong Wei, LIN Dan, CHEN Long — the answer most people
-would give, now given by the arithmetic. It is a judgement, so it is a chip rather than a
-silent rule, and the seasons stay on the chart either way.
+⚠️ **The pandemic seasons have three readings**, chosen by the `2020–22` chips.
+
+**Set aside** is the default. **As played** counts them as they happened, which puts Viktor
+AXELSEN top of *both* orderings on **184 of his 315 points** and TAI Tzu Ying top of the
+women's peak on an 81 taken in a season that held three titles. Set aside, the men's singles
+reads LEE Chong Wei, LIN Dan, CHEN Long — the answer most people would give, now given by the
+arithmetic. It is a judgement, so it is a chip rather than a silent rule.
+
+**Full season** is the middle reading, and it exists because setting a season aside throws away
+titles that were genuinely won — from everybody, ZHENG / HUANG included, who lose 59 points of
+mixed-doubles total to the very seasons China's absence defined. What is most obviously wrong
+with 2020 is arithmetic before it is competition: three titles were played, so one of them is a
+third of the year. This weighs those seasons against **what a full season of the era was
+worth** — 19.33 by weight, twelve titles, read off the seasons in the file rather than typed
+in — and never downward. AXELSEN goes 315 → **269** rather than 315 → 131.
+
+⚠️ **Only `full` moves the chart, and it has to.** It changes what a score is a share of, so
+the lines, the hovers, the strip (`3/12`, the way the running year reads) and the exported PNG
+all follow it. `aside` is not a denominator at all: the chart goes on drawing what happened and
+the ranking leaves those seasons out.
+
+⚠⚠ **`full` is a calendar correction and cannot see a field.** Two things were wrong with these
+years — fewer events, and a thinner draw at the ones that ran — and it fixes the first only.
+**2021 is the proof**: it held *more* than a normal season by weight (23.80 against 19.33 — an
+Olympics, a Worlds and two World Tour Finals), so `full` leaves it untouched, and 2021 is the
+most compromised season on the board. AXELSEN's peak duly moves off 2022 and onto 2021, which
+this reading has nothing to say about. That is what the reading means, and it is why all three
+are offered.
 
 ⚠⚠ **Which seasons, and why on participation rather than on the calendar.** A domination
 score is a *share*, so what flatters a winner is not where the tour went — it is a thinner

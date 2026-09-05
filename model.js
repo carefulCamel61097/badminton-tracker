@@ -3296,8 +3296,16 @@ export function dominationSeasons(file, opts = {}) {
   const players = (file && file.players) || {};
   const now = opts.now || new Date().getUTCFullYear();
   const plannedAll = (file && file.planned) || {};
+  /* Only `full` changes anything here. `aside` is not a denominator — it is a
+     decision the *ranking* makes about which seasons to count, and the chart
+     under it goes on drawing what happened. See `COVID_MODES`. */
+  const whole = covidMode(opts.covid).key === 'full';
 
-  const seasons = years.map(year => {
+  /* ⚠️ **Two passes, because a pandemic season is weighed against the others.**
+     What a full season of the era is worth cannot be known until every season
+     has been counted, so the first pass is what each one actually held and the
+     second is what to divide by. */
+  const rows = years.map(year => {
     const list = byYear.get(year) || [];
     const played = list.reduce((n, t) => n + titleWeight(t.tier), 0);
     /* ⚠️⚠️ **The season being played is weighed against the whole year**, not
@@ -3334,14 +3342,34 @@ export function dominationSeasons(file, opts = {}) {
       cur.titles.push(t);
       by.set(id, cur);
     }
+    return { year, total: list.length, mass, by, titles: list, ongoing, forecast, plan };
+  });
+
+  /* ---- pass two: what a season that was cut short is weighed against ---- */
+  const seasons = rows.map(r => {
+    /* ⚠️ **Never smaller than what was played.** 2021 held more than a normal
+       season — the Olympics, the Worlds and two World Tour Finals, 23.80 against
+       19.33 — and substituting the normal figure there would *raise* every 2021
+       score, which is the opposite of what this option is for. `full` can only
+       ever make a denominator bigger. */
+    const norm = whole && isCovidSeason(r.year) && !r.ongoing
+      ? normalSeason(rows, r.year) : null;
+    const grown = norm && norm.mass > r.mass ? norm : null;
+    const plan = r.plan;
     return {
-      year, total: list.length, mass, by, titles: list,
+      year: r.year, total: r.total, by: r.by, titles: r.titles,
+      mass: grown ? grown.mass : r.mass,
       /* What the strip under the axis draws, and what the hover says: how many
-         have been played, and — while a season is still running — how many
-         there are to play. */
-      played: list.length,
-      planned: forecast ? Math.max(plan.length, list.length) : list.length,
-      ongoing, forecast,
+         have been played, and — where the denominator is bigger than that — how
+         many the season is being weighed against. One rule for both reasons a
+         season can be short of its own denominator: it is still being played,
+         or it was cut short and is being read as if it had not been. */
+      played: r.total,
+      planned: grown ? Math.max(Math.round(grown.count), r.total)
+        : r.forecast ? Math.max(plan.length, r.total) : r.total,
+      ongoing: r.ongoing, forecast: r.forecast,
+      // Whether this season's denominator is a whole year it did not hold.
+      whole: !!grown,
     };
   });
 
@@ -3429,6 +3457,78 @@ export const COVID_SEASONS = new Set([2020, 2021, 2022]);
 /** True if a season was played under the pandemic. See `COVID_SEASONS`. */
 export function isCovidSeason(year) {
   return COVID_SEASONS.has(Number(year));
+}
+
+/* ---- what to divide a pandemic season by ----
+
+   Setting the pandemic seasons aside answers "who dominated when the game was
+   itself", and it is the default. But it throws away titles that were genuinely
+   won, and it throws them away from everybody — ZHENG / HUANG lose 59 points of
+   mixed-doubles total to it, and they are Chinese, so the seasons it removes are
+   the ones their own federation's absence defined.
+
+   The middle reading is this one. A domination score is a share, and 2020's
+   share is monstrous for an arithmetical reason before it is a competitive one:
+   three titles were played, so one of them is a third of the year. Weigh those
+   seasons against **what a full season of the era was worth** instead and the
+   arithmetic stops shouting: Viktor AXELSEN's 2020 falls to about a quarter of
+   what it reads as played, and his career total goes 315 → 269 rather than
+   315 → 131.
+
+   ⚠️ **It is a calendar correction and it cannot see a field.** The two things
+   wrong with these seasons are that fewer events were played and that the
+   players who did play met a thinner draw, and this fixes only the first. 2021
+   is the proof: it held *more* than a normal season by weight, so `full` leaves
+   it exactly as it is — and 2021 is the most compromised season on the board,
+   eight of its eleven events with no Chinese player in the draw at all. Anybody
+   whose peak is a 2021 peak is untouched by this option. That is not a bug to be
+   patched; it is what the option means, and it is why all three readings are
+   offered rather than one.
+
+   ⚠️ **Only ever upward.** See `dominationSeasons`. */
+
+/** The three readings of the pandemic seasons, and their order is the chip row. */
+export const COVID_MODES = [
+  { key: 'aside', label: 'Set aside', of: 'not counted at all' },
+  { key: 'full', label: 'Full season', of: 'weighed against a whole year' },
+  { key: 'played', label: 'As played', of: 'weighed against what was played' },
+];
+export const COVID_DEFAULT = 'aside';
+
+/** A mode key, or the default. Tolerates `wc=1` from links written before this. */
+export function covidMode(key) {
+  const k = key === '1' ? 'played' : String(key || '');
+  return COVID_MODES.find(m => m.key === k)
+    || COVID_MODES.find(m => m.key === COVID_DEFAULT);
+}
+
+/** The upper median, which is `thinSeasons`' convention — see it for why. */
+function midOf(xs) {
+  const s = xs.slice().sort((a, b) => a - b);
+  return s.length ? s[Math.floor(s.length / 2)] : 0;
+}
+
+/**
+ * What a full season of one season's own era held, and was worth.
+ *
+ * ⚠️ **The era matters and the boundary is `SS_LAST_SEASON`.** A Superseries
+ * season carried thirteen to fifteen of these titles and a World Tour season ten
+ * to twelve, so a single figure for the whole file would weigh 2020 against a
+ * calendar that had not existed for three years. Nothing here is hard-coded: the
+ * figure is read off the seasons the file holds.
+ *
+ * ⚠️ The pandemic seasons and the season being played are **kept out of the
+ * pool**, because both of them are the thing being measured against it.
+ *
+ * @param {Array} seasons  season rows carrying `year`, `mass`, `total`, `ongoing`
+ * @returns {{mass:number,count:number}|null}  null if there is nothing to compare
+ */
+export function normalSeason(seasons, year) {
+  const modern = y => Number(y) > SS_LAST_SEASON;
+  const pool = (seasons || []).filter(s => modern(s.year) === modern(year)
+    && !isCovidSeason(s.year) && !s.ongoing && s.total > 0);
+  if (!pool.length) return null;
+  return { mass: midOf(pool.map(s => s.mass)), count: midOf(pool.map(s => s.total)) };
 }
 
 /* ---- the dominators, ranked ----

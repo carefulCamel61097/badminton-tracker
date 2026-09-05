@@ -3081,9 +3081,12 @@ console.log('\n=== the winners page: the pandemic seasons, and the year still ru
    184 of his 315 points, and TAI Tzu Ying top of the women's peak on an 81 taken
    in a season that held three titles. */
 eq('the pandemic seasons are set aside to begin with',
-  await b.ev(`window.BST.score.covid()`), false);
-eq('and the chip says so by not being lit',
-  await b.ev(`document.getElementById('rankCovid').classList.contains('on')`), false);
+  await b.ev(`window.BST.score.covid()`), 'aside');
+eq('and it is that chip of the three that is lit',
+  await b.ev(`document.querySelector('#rankCovid .chip.on').dataset.covid`), 'aside');
+eq('there are three readings offered, not a switch',
+  await b.ev(`[...document.querySelectorAll('#rankCovid .chip')]
+    .map(c => c.dataset.covid).join(',')`), 'aside,full,played');
 const covidOut = await b.ev(`window.BST.score.ranks()`);
 eq('so the men’s singles reads the way anybody would expect',
   covidOut.slice(0, 3).map(r => r.who).join(', '),
@@ -3118,10 +3121,10 @@ if (axeRow) {
 }
 
 check('and the caption says which seasons are not being counted',
-  /2020.{0,3}22 set aside/.test(await b.ev(`document.getElementById('rankWhat').textContent`)),
+  /2020.{0,3}22 not counted/.test(await b.ev(`document.getElementById('rankWhat').textContent`)),
   await b.ev(`document.getElementById('rankWhat').textContent`));
 
-await b.ev(`window.BST.score.covid(true)`);
+await b.ev(`window.BST.score.covid('played')`);
 await b.wait(200);
 const covidIn = await b.ev(`window.BST.score.ranks()`);
 eq('putting them back changes who leads', covidIn[0].who, 'Viktor AXELSEN');
@@ -3135,8 +3138,8 @@ check('and it is most of his total that they were',
 check('and with them counted, no career is marked as under-counted',
   await b.ev(`document.querySelectorAll('#scoreRank .rankrow .ast').length`) === 0,
   await b.ev(`document.querySelectorAll('#scoreRank .rankrow .ast').length`));
-check('the chip lights when they are in',
-  await b.ev(`document.getElementById('rankCovid').classList.contains('on')`));
+eq('the chip that is lit is the one that was clicked',
+  await b.ev(`document.querySelector('#rankCovid .chip.on').dataset.covid`), 'played');
 /* ⚠️ **Red, and by the same rule as every other chip on the site.** This was
    five hand-written ids, and two bars had been missed — this one and the draw
    filter on the tournament page. */
@@ -3147,7 +3150,8 @@ const chipRed = await b.ev(`(() => {
     .getPropertyValue('--accent').trim();
   return { on: getComputedStyle(on).backgroundColor,
     off: getComputedStyle(off).backgroundColor,
-    covid: getComputedStyle(document.getElementById('rankCovid')).backgroundColor,
+    covid: getComputedStyle(document.querySelector('#rankCovid .chip.on'))
+      .backgroundColor,
     accent: acc };
 })()`);
 const rgbOf = hex => {
@@ -3165,12 +3169,54 @@ check('and the tournament page’s draw chips answer to it as well',
     return getComputedStyle(c).backgroundColor;
   })()`) !== 'not drawn');
 
-check('putting them back is in the link', await b.ev(`location.hash.includes('wc=1')`),
+check('putting them back is in the link',
+  await b.ev(`location.hash.includes('wc=played')`), await b.ev(`location.hash`));
+
+/* ---- the third reading, and what it does to the picture ---- */
+
+/* ⚠️ **This one changes the chart, not only the table.** It changes what a score
+   is a share of, so the lines have to move with it — a ranking quoting numbers
+   the plot above it never drew would be the worst thing this page could do. */
+await b.ev(`window.BST.score.covid('full')`);
+await b.wait(250);
+const fullModel = await b.ev(`window.BST.score.model()`);
+const fullSeason = y => fullModel.seasons.find(s => s.year === y);
+/* 5.24 as it was played — three titles — against 19.33 for a full World Tour
+   season, which is where the whole difference between the readings comes from. */
+check('2020 is now weighed against a full season it never held',
+  fullSeason(2020).whole && fullSeason(2020).mass > 15,
+  `mass ${fullSeason(2020).mass.toFixed(2)}, ${fullSeason(2020).played}`
+  + ` of ${fullSeason(2020).planned}`);
+/* The strip is one bar per season in year order, so the year picks the index. */
+const fullStrip = await b.ev(`window.BST.score.strip()`);
+eq('and the strip under the axis says both numbers',
+  fullStrip[fullModel.years.indexOf(2020)].text, '3/12');
+/* ⚠️ 2021 held more than a normal season, so there is nothing to grow. It is
+   also the most compromised season on the board — which this reading, being a
+   calendar correction, cannot see. */
+check('2021 is left exactly as it was played', !fullSeason(2021).whole,
+  `mass ${fullSeason(2021).mass.toFixed(2)}`);
+const fullRanks = await b.ev(`window.BST.score.ranks()`);
+const axeFullRow = fullRanks.find(r => /AXELSEN/.test(r.who));
+const axeAside = covidOut.find(r => /AXELSEN/.test(r.who));
+const axeCounted = covidIn.find(r => /AXELSEN/.test(r.who));
+check('and Viktor AXELSEN reads between the other two readings',
+  axeFullRow.total > axeAside.total && axeFullRow.total < axeCounted.total,
+  `${axeAside.total} < ${axeFullRow.total} < ${axeCounted.total}`);
+check('with no career marked as under-counted, because none is',
+  await b.ev(`document.querySelectorAll('#scoreRank .rankrow .ast').length`) === 0);
+check('the caption says the chart above has followed',
+  /chart above/.test(await b.ev(`document.getElementById('rankWhat').textContent`)),
+  await b.ev(`document.getElementById('rankWhat').textContent`));
+check('and it is in the link', await b.ev(`location.hash.includes('wc=full')`),
   await b.ev(`location.hash`));
-await b.ev(`window.BST.score.covid(false)`);
+
+await b.ev(`window.BST.score.covid('aside')`);
 await b.wait(200);
-eq('and taking them out again leaves the link alone',
+eq('and going back to the default leaves the link alone',
   await b.ev(`location.hash.includes('wc=')`), false);
+eq('the seasons are weighed as they were played again',
+  (await b.ev(`window.BST.score.model()`)).seasons.filter(s => s.whole).length, 0);
 
 /* ⚠️ The chart keeps drawing them either way — they happened. What the toggle
    decides is whether they are *weighed*. */

@@ -1657,6 +1657,11 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
    own only made the overlap longer. */
 .ranks .chiprow > .lbl { width: auto; flex: 0 1 auto; }
 .ranks .chiprow .lbl, .ranks .chiprow .linkish { white-space: nowrap; }
+/* The pandemic span labels the three chips after it rather than being a chip
+   itself — "2020–22" is not a thing to switch on, it is what the switches are
+   about. A little air before it so the row reads as two groups of controls and
+   not five loose buttons. */
+.ranks .chiprow .covidlbl { margin-left: 6px; }
 .ranks h3 {
   font: 600 11px var(--mono); letter-spacing: .09em; text-transform: uppercase;
   color: var(--text-muted); margin: 0;

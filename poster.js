@@ -19,7 +19,7 @@
 import {
   winnersSeasons, pyramidSeason, pyramidRowWidth, pyramidScale,
   pyramidReigns, reignLanes, reignStep,
-  dominationSeasons, thinSeasons, shortSeasonWhy,
+  dominationSeasons, thinSeasons, shortSeasonWhy, covidMode, isCovidSeason,
   gridSections, sectionCells, gridYears, careerHonours, honourSections, honourStep,
 } from './model.js';
 
@@ -763,7 +763,10 @@ export const SCORE_POSTER = {
  */
 export function scorePosterLayout(file, opts) {
   const P = POSTER, S = SCORE_POSTER;
-  const model = dominationSeasons(file);
+  /* ⚠️ The page's reading of the pandemic seasons travels with the export, or
+     an exported chart quotes different numbers from the one on screen that made
+     it. See `COVID_MODES`. */
+  const model = dominationSeasons(file, { covid: opts.covid });
   const all = model.years;
   const from = Math.max(opts.from, all[0]);
   const to = Math.min(opts.to, all[all.length - 1]);
@@ -803,10 +806,23 @@ export function scorePosterLayout(file, opts) {
     'A score of 100 is every title of that season, and nobody else with one',
     'Weighted by the board’s own ladder: each tier is φ (1.618) the one below',
     thin.set.size ? 'A * marks a season with far fewer titles than the ones around it' : '',
+    /* Said out loud on the picture, because the numbers on it are not the ones a
+       reader would get by opening the page — and a chart that quietly used a
+       different denominator would be the worst thing this file could ship. */
+    model.seasons.some(s => s.whole)
+      ? 'The pandemic seasons are weighed against a full season, not what they held'
+      : '',
   ].filter(Boolean);
 
+  /* ⚠️ **The union, exactly as the page draws it.** A season is marked for
+     either of two reasons — far fewer titles than its neighbours, or the
+     pandemic — and 2021 has only the second: it held ten, the same as 2018. On
+     `thin` alone the poster left 2021 unmarked and unshaded while the page beside
+     it showed a column and the word "Covid". One set, three drawings. */
+  const marked = new Set([...thin.set, ...years.filter(isCovidSeason)]);
+
   return {
-    model, years, from, to, thin, top, shown, lit, chips,
+    model, years, from, to, thin, marked, top, shown, lit, chips,
     x, y, left, plotW, plotTop, stripTop, legendTop,
     width,
     title: `${KIND_NAME[opts.kind] || opts.kind} · ${from}–${to}`,
@@ -895,7 +911,7 @@ export async function drawScorePoster(file, opts) {
     ? (L.plotW - S.edge * 2) / (L.years.length - 1) / 2 : 20;
   const now = new Date().getUTCFullYear();
   for (const yr of L.years) {
-    if (!L.thin.set.has(yr)) continue;
+    if (!L.marked.has(yr)) continue;
     ctx.fillStyle = 'rgba(255,188,32,.07)';
     ctx.fillRect(L.x(yr) - half * 0.75, L.plotTop, half * 1.5, S.plotH);
     const why = shortSeasonWhy(yr, now);
@@ -930,7 +946,7 @@ export async function drawScorePoster(file, opts) {
      from the thinning by hand. */
   ctx.font = '400 12px "Segoe UI", Roboto, system-ui, sans-serif';
   L.years.forEach(yr => {
-    const marked = L.thin.set.has(yr);
+    const marked = L.marked.has(yr);
     const lab = String(yr);
     const w = ctx.measureText(lab).width + (marked ? 6 : 0);
     ctx.fillStyle = P.dim;
@@ -949,12 +965,19 @@ export async function drawScorePoster(file, opts) {
   for (const yr of L.years) {
     const s = L.model.seasons.find(q => q.year === yr);
     const h = L.thin.max ? (S.stripH * s.total) / L.thin.max : 0;
-    const marked = L.thin.set.has(yr);
-    ctx.fillStyle = marked ? 'rgba(255,188,32,.75)' : 'rgba(255,255,255,.14)';
+    ctx.fillStyle = L.thin.set.has(yr) ? 'rgba(255,188,32,.75)' : 'rgba(255,255,255,.14)';
     ctx.fillRect(L.x(yr) - bw / 2, L.stripTop + S.stripH - h, bw,
       Math.max(h, s.total ? 1 : 0));
-    ctx.fillStyle = marked ? '#ffbc20' : P.dim;
-    const n = String(s.total);
+    /* ⚠️ The **thin** set here and not the union, because this is the page's
+       rule: the strip is a count, and what it warns about is a count. 2021 held
+       ten titles and its bar is an ordinary bar; what was wrong with 2021 shows
+       up in the column behind the plot and the mark beside the year. */
+    ctx.fillStyle = L.thin.set.has(yr) ? '#ffbc20' : P.dim;
+    /* ⚠️ **Both numbers when the season is weighed against more than it held**,
+       which the page has always done and this had not: an exported 2026 column
+       said "8" beside a line drawn as a share of twelve, and under `full` a 2020
+       column saying "3" is a share of a full season. Same rule as the page. */
+    const n = s.planned > s.played ? `${s.played}/${s.planned}` : String(s.total);
     ctx.fillText(n, L.x(yr) - ctx.measureText(n).width / 2,
       L.stripTop + S.stripH - h - 4);
   }

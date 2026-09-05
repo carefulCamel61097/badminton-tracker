@@ -1754,6 +1754,73 @@ its numbers would depend on whether a request succeeded. Tiers are stored, not w
 title is worth is `titleWeight`'s decision, and a file holding the arithmetic would freeze the
 ladder at the moment it was written.
 
+### 3.4u The third reading: a pandemic season out of a whole year *(built 5 Sep 2026)*
+
+Set aside or counted was a switch, and the user asked the question a switch cannot answer:
+*what if 2020–22 were divided by a full schedule instead?* `COVID_MODES` is now three —
+`aside` (the default), `full`, `played` — and the chip became a row.
+
+⚠️ **What "a full season" is, and where it comes from.** The median mass and title count of
+the **finished, non-pandemic seasons of the same era**, era being `SS_LAST_SEASON` — a
+Superseries season carried 13–15 of these titles and a World Tour season 10–12, so one figure
+for the whole file would weigh 2020 against a calendar that had not existed for three years.
+For 2020–22 the pool is 2018, 2019, 2023, 2024, 2025 and the answer is **19.33 by weight,
+twelve titles**. Nothing is typed in; `normalSeason` reads it off the file, so it moves if the
+board does.
+
+⚠️ **`Math.max`, never downward.** 2021 held 23.80 against a normal 19.33 — an Olympics, a
+Worlds and *two* World Tour Finals, the 2020 one having been pushed to January. Substituting
+the normal figure there would *raise* every 2021 score, which is the opposite of the point. So
+`full` marks 2020 and 2022 and leaves 2021 alone.
+
+⚠⚠ **It is a calendar correction and it cannot see a field, and 2021 is the proof.** The two
+things wrong with these seasons are *how many events ran* and *who was in the draw at the ones
+that did*; this fixes the first. 2021 — the season with 2.3% Chinese participation, eight of
+eleven events with literally nobody — is the one it cannot touch. Measured: AXELSEN's peak
+moves off 2022 (85.8) and onto **2021 (67.0)**, a season this option has nothing to say about.
+Not a fault to patch. It is why three readings are offered rather than a better single one, and
+it is written into `COVID_MODES`' comment so the next person does not "fix" it.
+
+**What it does, measured across all five boards:**
+
+| | set aside | full season | as played |
+|---|---|---|---|
+| MS total | LCW 285, LIN 276, CHEN 207, … AXELSEN **131** (5th) | LCW 285, LIN 276, **AXELSEN 269** (3rd) | **AXELSEN 315** (1st) |
+| MS peak | MOMOTA 78.3 (2019) | MOMOTA 78.3, AXELSEN 67.0 (2021) | AXELSEN 85.8 (2022), ANTONSEN 69.1 (2020) |
+| WS peak | AN 64.5 (2025) | AN 64.5; TAI drops to 31.3 (2018) | **TAI 80.9 (2020)** — a three-title season |
+| XD total | ZHANG/ZHAO 255, ZHENG/HUANG 252 | **ZHENG/HUANG 311** | ZHENG/HUANG 333 |
+
+That XD row is the argument against `aside` being the only alternative: ZHENG / HUANG are
+Chinese, and setting the seasons aside costs *them* 59 points.
+
+⚠️ **`full` moves the chart, and `aside` does not.** `full` changes what a score is a share of,
+so the lines, hovers, strip and poster all follow — a table quoting numbers the plot above it
+never drew would be worse than either. `aside` is not a denominator: the chart draws what
+happened and the ranking omits it. Two of three modes therefore produce an identical chart, and
+that asymmetry is deliberate and is said out loud in `#rankWhat`.
+
+⚠️ `scoreTop` moves with the mode. Its comment forbids the axis moving *under the reader*, and
+that is about selection: `full` is a different measurement, and holding the axis at 90 for a
+board whose tallest season is now 78 leaves a tenth of the plot empty.
+
+⚠️ **The calendar was the obvious source for "a full schedule" and it does not work.** BWF's
+`vue-grouped-year-tournaments` keeps cancelled events, so the 2020 calendar with them left in
+looks like the answer. Measured, it is **nine board events worth 10.85** — against 2019's
+16.71 — because the record was rewritten after the fact: the Olympics were moved to 2021 rather
+than cancelled, the Aarhus Worlds is not listed at all, and the Finals sit in the 2021
+calendar. Reconstructing "what 2020 was meant to be" from that means trusting a document edited
+by the thing being measured. The median of the seasons around it is the honest figure.
+
+⚠️ **`wc=1` still parses.** It was the two-state link and it meant *count them*, which is now
+`played`; `covidMode` translates it, so old links say what they were written to say.
+
+⚠️ Two poster bugs fell out of this and are fixed here. The score poster marked and shaded on
+`thin` alone, so **2021 got no faint column and no asterisk** while the page beside it drew
+both — the same union bug fixed on the page's axis one commit earlier, in the other renderer.
+And its strip printed `s.total` flat, so an exported 2026 column said "8" beside a line drawn
+as a share of twelve. Both now read the page's rule: the union for the column and the year
+mark, `thin` for the strip's colour, `played/planned` for its label.
+
 ### 3.4t A chosen chip is red — everywhere *(fixed 5 Sep 2026)*
 
 The rule already existed and was written as a **list of five ids**: `#tmtDrawPick`,

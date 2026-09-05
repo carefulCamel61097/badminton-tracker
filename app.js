@@ -35,7 +35,7 @@ import {
   pyramidScale,
   dominationSeasons, thinSeasons, shortSeasonWhy, titleWeight, SCORE_TIERS,
   dominationRanking, rankMode, RANK_MODES, RANK_DEFAULT,
-  COVID_SEASONS, isCovidSeason,
+  COVID_SEASONS, isCovidSeason, COVID_MODES, COVID_DEFAULT, covidMode,
   bestScoreFloor, SCORE_FLOOR_MAX, SCORE_FLOOR_STEP,
 } from './model.js';
 import {
@@ -1199,9 +1199,19 @@ const win = {
      tournament one, and leaving them in put Viktor AXELSEN top of both
      orderings on 184 of his 315 points — and TAI Tzu Ying top of the women's on
      an 81 taken in a season that held three titles. Out by default, and one
-     click puts them back. See `COVID_SEASONS`. */
-  covid: false,
+     click puts them back — or weighs them against a whole year instead, which
+     is the third reading. See `COVID_MODES`. */
+  covid: COVID_DEFAULT,
 };
+
+/* ⚠️ **The chart follows this too, not only the ranking.** `full` changes what a
+   pandemic season is divided by, so it changes the score itself — the lines, the
+   hovers, the strip and the poster all move with it, and they have to, or the
+   table underneath would be quoting numbers the picture above it never showed.
+   `aside` is the exception and is not a denominator at all: the chart goes on
+   drawing what happened and the ranking leaves those seasons out. */
+const covidNow = () => covidMode(win.covid);
+const scoreOpts = () => ({ covid: win.covid });
 
 const winFile = () => win.files[win.kind] || null;
 
@@ -1594,7 +1604,7 @@ function scoreText(x) {
 /** The model for whatever discipline is up, or null. */
 function scoreModel() {
   const file = winFile();
-  return file ? dominationSeasons(file) : null;
+  return file ? dominationSeasons(file, scoreOpts()) : null;
 }
 
 /**
@@ -1619,6 +1629,10 @@ function scorePaint(shown) {
  * The top of the y-axis, which must **not** move under the reader.
  *
  * ⚠️ Scaled to the best season in *either* draw, and never to the selection.
+ * It does move when the pandemic denominator changes, and that is the one thing
+ * that should move it: `full` is a different measurement, not a different view
+ * of the same one, and holding the axis at 90 for a board whose tallest season
+ * is now 78 would leave a tenth of the plot permanently empty.
  * Fitted to what was on screen it rescaled every time a name was clicked — so
  * isolating somebody made their line climb the page, which is the chart lying
  * about the one thing it was asked to show — and the men's and women's boards
@@ -1630,7 +1644,9 @@ function scoreTop() {
   for (const kind of WIN_KINDS) {
     const file = win.files[kind];
     if (!file) continue;
-    for (const p of dominationSeasons(file).people) if (p.peak > best) best = p.peak;
+    for (const p of dominationSeasons(file, scoreOpts()).people) {
+      if (p.peak > best) best = p.peak;
+    }
   }
   return Math.min(1, Math.max(0.25, Math.ceil(best * 10) / 10));
 }
@@ -1777,11 +1793,14 @@ function drawScore(model) {
     /* On every bar, not only the short ones. The number was the short seasons'
        badge, which made a count look like a warning; it is just the size of the
        season, and a reader comparing 2022 to 2023 wants both of them. */
-    /* ⚠️ The season being played says **both** numbers. Its scores are shares
-       of the whole year, so a strip reading "8" under a column weighed against
-       twelve is the one place a reader could not see why the line sits low. */
-    const label = s.forecast && s.planned > s.played
-      ? `${s.played}/${s.planned}` : s.total;
+    /* ⚠️ A season says **both** numbers whenever it is weighed against more
+       than it held. Its scores are shares of the larger figure, so a strip
+       reading "8" under a column divided by twelve is the one place a reader
+       could not see why the line sits low. Two seasons can be in that state and
+       the strip does not distinguish them, because the reader's question is the
+       same either way: the year still being played, and — under `full` — a
+       pandemic year being read as though it had run its course. */
+    const label = s.planned > s.played ? `${s.played}/${s.planned}` : s.total;
     out.push(`<text class="szn${isThin}" x="${x(i)}"`
       + ` y="${stripTop + SC.stripH - h - 4}" text-anchor="middle">${label}</text>`);
   });
@@ -1911,7 +1930,7 @@ function renderScoreTables(model) {
            switch for it; naming everything in the modern vocabulary here had the
            two views of one board disagreeing about what a title was. */
         .map(([t, k]) => `${k}×${esc(pyramidLabel(t, s.year))}`).join(', ');
-      const held = s.forecast && s.planned > s.played
+      const held = s.planned > s.played
         ? `${s.played} <span class="of">of ${s.planned}</span>` : s.total;
       return `<tr${thin.set.has(s.year) ? ' class="thin"' : ''}>`
         + `<td class="n">${s.year}${mark(s.year)}</td><td class="n">${held}</td>`
@@ -1947,7 +1966,9 @@ function rankRows(rows) {
 }
 
 function renderScoreRanking(model) {
-  const skip = win.covid ? new Set() : COVID_SEASONS;
+  const cv = covidNow();
+  const aside = cv.key === 'aside';
+  const skip = aside ? COVID_SEASONS : new Set();
   const rows = dominationRanking(model, win.rank, { skip });
   const mode = rankMode(win.rank);
 
@@ -1956,15 +1977,16 @@ function renderScoreRanking(model) {
     + ` data-mode="${esc(m.key)}" aria-pressed="${m.key === mode.key}">`
     + `${esc(m.label)}</button>`).join('');
 
-  /* ⚠️ Off by default, and the *off* state is the one that needs no
-     explanation: a level chip that is off means that level is not counted, and
-     this reads the same way. On means the pandemic seasons are back in. */
-  $('rankCovid').className = 'chip' + (win.covid ? ' on' : '');
-  $('rankCovid').setAttribute('aria-pressed', String(win.covid));
-  $('rankCovid').textContent = covidSpan();
-  $('rankCovid').title = win.covid
-    ? 'The pandemic seasons are being counted. Click to set them aside.'
-    : 'The pandemic seasons are set aside. Click to count them.';
+  /* ⚠️ **A row of three, not a switch.** It began as one chip that was on or
+     off, and the third reading has no place on that line: "weighed against a
+     whole year" is neither counting the seasons nor dropping them. Three chips
+     that each say what they do, with the pandemic span labelling the group, so
+     the reader is never asked what the on state of a chip called "2020–22"
+     might mean. */
+  $('rankCovid').innerHTML = COVID_MODES.map(m =>
+    `<button type="button" class="chip${m.key === cv.key ? ' on' : ''}"`
+    + ` data-covid="${esc(m.key)}" aria-pressed="${m.key === cv.key}"`
+    + ` title="${esc(`${covidSpan()} ${m.of}`)}">${esc(m.label)}</button>`).join('');
 
   /* ⚠️ Lit against the **ranking's own** set, not the chart's. Every competitor
      is in this table, so a pick is always one of these rows — unlike the chart
@@ -1988,8 +2010,8 @@ function renderScoreRanking(model) {
      calendar to weigh it against — and an asterisk that meant either would be
      an asterisk that meant neither. Here it means one thing: counting the
      pandemic seasons would make this number bigger. */
-  const withCovid = new Map(win.covid ? []
-    : dominationRanking(model, win.rank).map(r => [r.id, r]));
+  const withCovid = new Map(aside
+    ? dominationRanking(model, win.rank).map(r => [r.id, r]) : []);
   const under = r => {
     const w = withCovid.get(r.id);
     return w && w.total > r.total + 1e-9 ? w : null;
@@ -2049,8 +2071,8 @@ ${r.first}–${r.last}`
   /* What the sort means, and — when they are out — what is not being counted.
      A number that has quietly had three seasons taken out of it has to say so
      where the number is, not only in the note at the foot of the page. */
-  $('rankWhat').textContent = mode.of
-    + (win.covid ? '' : ` · ${covidSpan()} set aside`);
+  $('rankWhat').textContent = `${mode.of} · ${covidSpan()} ${cv.of}`
+    + (cv.key === 'full' ? ' — the chart above follows' : '');
 }
 
 /**
@@ -2097,15 +2119,33 @@ $('rankMore').addEventListener('click', () => {
   renderWinners();
 });
 
-$('rankCovid').addEventListener('click', () => setCovid(!win.covid));
+$('rankCovid').addEventListener('click', e => {
+  const chip = e.target.closest('[data-covid]');
+  if (chip) setCovid(chip.dataset.covid);
+});
 
-/** Whether the pandemic seasons are weighed. See `COVID_SEASONS`. */
-function setCovid(on) {
-  if (!!on === win.covid) return false;
-  win.covid = !!on;
+/** How the pandemic seasons are weighed. See `COVID_MODES`. */
+function setCovid(key) {
+  const next = covidMode(key).key;
+  if (next === win.covid) return false;
+  win.covid = next;
+  /* ⚠️ The Show bar is **derived from the scores**, so while it is still on its
+     default it follows: the men's singles default drops 40 → 15 under `full`,
+     because 2020's best season is now a 17 rather than a 69 and the bar's rule
+     is not to drop a season's winner. The chart gets busier, and that is the
+     honest consequence of the reading rather than a thing to pin against. A
+     reader who has already moved the slider keeps their number, and under `full`
+     it admits fewer people — which is what a lower set of scores against a fixed
+     bar means. */
   renderWinners();
   writeHash();
   return true;
+}
+
+/** The chip row's order, so the hotkey walks it the way the eye does. */
+function nextCovid() {
+  const keys = COVID_MODES.map(m => m.key);
+  return keys[(keys.indexOf(covidNow().key) + 1) % keys.length];
 }
 
 function setRankMode(key) {
@@ -2147,7 +2187,7 @@ let scoreCurrent = null;
 
 function renderScore(file) {
   renderScoreLadder();
-  let model = scoreCurrent = dominationSeasons(file);
+  let model = scoreCurrent = dominationSeasons(file, scoreOpts());
   /* The default bar is derived from the data, so it moves with the discipline —
      and stops moving the moment the reader touches the slider. */
   if (win.autoFloor) win.floor = bestScoreFloor(model);
@@ -2404,7 +2444,7 @@ function posterOpts(range) {
   return win.view === 'score'
     ? {
       from: range.from, to: range.to, kind: win.kind,
-      floor: win.floor, only: [...win.only],
+      floor: win.floor, only: [...win.only], covid: win.covid,
       /* ⚠️ The axis height is handed in, because the page scales it across
          **both** draws and `poster.js` is given one file. Without this a men's
          export and a women's export of the same seasons come back at two
@@ -3389,8 +3429,8 @@ function runHotkey(key) {
          doing anything else on this page. */
       if (key === 't') return setRankMode('total') || true;
       if (key === 'p') return setRankMode('peak') || true;
-      // The pandemic seasons, in or out of the ranking.
-      if (key === 'c') return setCovid(!win.covid) || true;
+      // The pandemic seasons: aside, against a whole year, or as they were.
+      if (key === 'c') return setCovid(nextCovid()) || true;
       return false;
     }
     if (key === 'e') { win.eras = !win.eras; renderWinners(); writeHash(); return true; }
@@ -4327,7 +4367,10 @@ function readHash() {
     ? 0 : Math.max(0, Math.min(SCORE_FLOOR_MAX, Number(h.get('wf')) || 0));
   win.only = new Set((h.get('wp') || '').split(',').filter(Boolean));
   win.rank = rankMode(h.get('wr') || RANK_DEFAULT).key;
-  win.covid = h.get('wc') === '1';
+  /* ⚠️ `wc=1` is what this was before there were three readings, and it meant
+     "count them" — which is `played`. `covidMode` translates it, so links
+     written by the two-state version still say what they were written to say. */
+  win.covid = covidMode(h.get('wc')).key;
   // `g=1` is what the compare page was called when it was a modal, and links
   // carrying it are still out there.
   wantPage = h.get('pg') || (h.get('g') === '1' ? 'compare' : 'seasons');
@@ -4420,9 +4463,9 @@ function writeHash() {
          rows are on screen does not: that is a reader looking further down a
          list, not a different claim. */
       if (win.rank !== RANK_DEFAULT) p.set('wr', win.rank);
-      /* Only when it is on, because off is the default and a link should carry
-         the argument rather than the absence of one. */
-      if (win.covid) p.set('wc', '1');
+      /* Only when it is not the default, because a link should carry the
+         argument rather than the absence of one. */
+      if (win.covid !== COVID_DEFAULT) p.set('wc', win.covid);
     } else if (!win.eras) p.set('we', 'off');
     else if (win.reign !== REIGN_DEFAULT) p.set('we', win.reign);
   }
@@ -4845,7 +4888,8 @@ window.BST = {
           /* What the season's denominator is, which is the whole question for
              the year still being played. See `dominationSeasons`. */
           played: s.played, planned: s.planned,
-          ongoing: s.ongoing, forecast: s.forecast,
+          ongoing: s.ongoing, forecast: s.forecast, whole: !!s.whole,
+          mass: s.mass,
         })),
         people: m.people.map(p => ({
           id: p.id, who: p.who.n, peak: p.peak,
@@ -4900,8 +4944,11 @@ window.BST = {
       return win.rankAll;
     },
     /* Through the chip, so the suite exercises the control the reader has. */
-    covid: on => {
-      if (on != null && win.covid !== !!on) $('rankCovid').click();
+    covid: k => {
+      if (k != null) {
+        const chip = document.querySelector(`#rankCovid .chip[data-covid="${k}"]`);
+        if (chip) chip.click();
+      }
       return win.covid;
     },
     ranks: () => [...document.querySelectorAll('#scoreRank .rankrow')].map(r => {

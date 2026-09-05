@@ -41,7 +41,7 @@ import {
   titleWeight, dominationSeasons, thinSeasons, shortSeasonWhy,
   bestScoreFloor, SCORE_FLOOR_STEP,
   dominationRanking, rankMode, RANK_MODES, RANK_DEFAULT,
-  COVID_SEASONS, isCovidSeason,
+  COVID_SEASONS, isCovidSeason, COVID_MODES, COVID_DEFAULT, covidMode, normalSeason,
 } from '../model.js';
 import {
   posterLayout, scorePosterLayout, gridPosterLayout, honoursPosterLayout,
@@ -2979,6 +2979,84 @@ check('2021 is one of them though it held as many titles as 2019',
   isCovidSeason(2021), 'no Chinese event, a Bangkok bubble, an Olympics a year late');
 check('and 2018 is not, though it held ten as well', !isCovidSeason(2018),
   'the World Tour restructure is a change to the ladder, not to the season');
+
+/* ---- the third reading: weighed against a full season ---- */
+
+/* ⚠️ Neither counting them nor dropping them. 2020 held three of these titles,
+   so one of them is a third of the year for a reason that is arithmetical before
+   it is competitive; `full` divides by what a season of the era was worth
+   instead. See `COVID_MODES`. */
+const domFull = dominationSeasons(winMS, { now: 2026, covid: 'full' });
+const seasonOf = (m, y) => m.seasons.find(s => s.year === y);
+const asPlayed = dominationSeasons(winMS, { now: 2026 });
+
+eq('the three readings are set aside, full season and as played',
+  COVID_MODES.map(m => m.key).join(','), 'aside,full,played');
+eq('and the default is to set them aside', COVID_DEFAULT, 'aside');
+eq('an unknown key falls back to the default', covidMode('nonsense').key, 'aside');
+/* ⚠️ Links written before there were three readings carry `wc=1`, and it meant
+   "count them" — which is now a named mode rather than a boolean. */
+eq('wc=1 from an older link still means what it was written to mean',
+  covidMode('1').key, 'played');
+
+near('2020 was worth 5.24 as it was played', seasonOf(asPlayed, 2020).mass, 5.24, 0.01);
+near('and is weighed against 19.33 — a full World Tour season',
+  seasonOf(domFull, 2020).mass, 19.33, 0.01);
+check('which the season says of itself', seasonOf(domFull, 2020).whole);
+eq('and the strip says both numbers, three of a notional twelve',
+  `${seasonOf(domFull, 2020).played}/${seasonOf(domFull, 2020).planned}`, '3/12');
+/* ⚠️ **Never downward.** 2021 held the Olympics, the Worlds and two World Tour
+   Finals — 23.80 against a normal 19.33 — and substituting the normal figure
+   would *raise* every 2021 score, which is the opposite of the point. */
+near('2021 held more than a normal season and is left exactly alone',
+  seasonOf(domFull, 2021).mass, seasonOf(asPlayed, 2021).mass, 1e-9);
+check('so it is not marked as weighed against a whole year',
+  !seasonOf(domFull, 2021).whole, '23.80 against a normal 19.33');
+eq('and no season outside the pandemic is touched either',
+  domFull.seasons.filter(s => s.whole).map(s => s.year).join(','), '2020,2022');
+/* ⚠️ The season being played keeps its own denominator, which comes from the
+   harvested calendar — a different mechanism for a different reason. */
+check('the running season is still weighed against its calendar',
+  seasonOf(domFull, 2026).forecast && !seasonOf(domFull, 2026).whole);
+
+/* ⚠️ **The era matters.** A Superseries season carried thirteen to fifteen of
+   these titles and a World Tour season ten to twelve, so one figure for the
+   whole file would weigh 2020 against a calendar that had not existed for three
+   years. Nothing is hard-coded: it is read off the seasons the file holds. */
+const normModern = normalSeason(asPlayed.seasons, 2020);
+const normOld = normalSeason(asPlayed.seasons, 2012);
+near('a full World Tour season is worth 19.33', normModern.mass, 19.33, 0.01);
+eq('and holds twelve titles', normModern.count, 12);
+check('a Superseries season was worth more', normOld.mass > normModern.mass,
+  `${normOld.mass.toFixed(2)} against ${normModern.mass.toFixed(2)}`);
+check('and held more of them', normOld.count > normModern.count,
+  `${normOld.count} against ${normModern.count}`);
+
+/* What it does to the argument, which is the whole reason it exists. */
+const rankFull = dominationRanking(domFull, 'total');
+eq('on the full-season reading LEE Chong Wei still leads', rankFull[0].who.n, 'LEE Chong Wei');
+const axeFull = rankFull.find(r => /AXELSEN/.test(r.who.n));
+check('and Viktor AXELSEN lands between the two other readings',
+  axeFull.total > axeOut.total && axeFull.total < axeIn.total,
+  `${(axeOut.total * 100).toFixed(0)} < ${(axeFull.total * 100).toFixed(0)}`
+  + ` < ${(axeIn.total * 100).toFixed(0)}`);
+eq('with nothing dropped from his career', axeFull.dropped, 0);
+/* ⚠️ **A calendar correction cannot see a field.** 2021 is untouched by `full`,
+   and 2021 is the most compromised season on the board — eight of its eleven
+   events with no Chinese player in the draw. So his peak moves off 2022 and onto
+   a season this option has nothing to say about. That is what the option means,
+   and it is why all three are offered rather than one. */
+const peakFull = dominationRanking(domFull, 'peak').find(r => /AXELSEN/.test(r.who.n));
+eq('his peak moves to the season the full-season reading cannot touch',
+  peakFull.peakYear, 2021);
+const peakPlayedAxe = dominationRanking(asPlayed, 'peak').find(r => /AXELSEN/.test(r.who.n));
+eq('where as played it was 2022', peakPlayedAxe.peakYear, 2022);
+check('and it is lower than the as-played peak', peakFull.peak < peakPlayedAxe.peak,
+  `${(peakFull.peak * 100).toFixed(1)} against ${(peakPlayedAxe.peak * 100).toFixed(1)}`);
+/* ⚠️ A career that lives only inside those seasons is kept, not dropped: `full`
+   counts them. Only `aside` removes anybody. */
+eq('nobody leaves the table on the full-season reading',
+  rankFull.length, dominationRanking(asPlayed, 'total').length);
 check('the leader is the leader on total', rankMS[0].who.n, rankMS[0].who.n);
 /* ⚠️ The bar filters on **peak**, so a total ranking cut by it is a different
    claim: at the men's singles default of 40 it would leave seven names. This is
