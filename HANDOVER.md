@@ -1323,7 +1323,8 @@ it against the table, so they cannot drift quietly.
 
 The Winners page's second view — **Board** and **Score** beside the discipline, the same split
 the Compare page makes between its grid and its honours board. Prototyped first as
-`tools/share.html`, a dummy tool nothing linked to, and promoted once the arguments below had
+`tools/share.html` — a dummy tool nothing linked to, deleted in the same commit that shipped
+this and recoverable from `2c50601..154d9d6` — and promoted once the arguments below had
 been settled by looking at it rather than by reasoning about it.
 
 `dominationSeasons(file)` in `model.js` returns `{years, seasons, people}`; `app.js` draws the
