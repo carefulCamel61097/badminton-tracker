@@ -33,6 +33,15 @@
   Finals back into the season it concludes — so the numbers cannot drift from
   the board they are meant to describe.
 
+  ⚠️ There was a Super 500 toggle here and it is gone. `harvest-winners.mjs
+  --tier 25` still collects those winners if anybody wants to try again, but the
+  answer was no on both sides: **nothing lands on Super 500 before 2018** — four
+  old tiers became five and that is the one nothing maps to — so it left
+  2007–17 untouched at 13–15 titles a season while taking 2023–25 from 12 to 21,
+  and every early season was then scored against a smaller field than every late
+  one. After 2018 it changed the ranking of the top seasons hardly at all, so it
+  cost comparability and bought nothing.
+
   Run it:  node serve.mjs   then open  http://localhost:8090/tools/share.html
   (It fetches ../data/*.json, so file:// will not work.)
 -->
@@ -91,9 +100,14 @@
   .strip .szn { fill: var(--warn); font: 400 9.5px var(--mono); }
   .strip .szlbl { fill: var(--text-muted); font: 400 9px var(--mono); }
   path.series.over-hole { stroke-dasharray: 4 4; }
-  circle.pt.on-hole { stroke: var(--warn); stroke-width: 2; }
+  .strip .sz.is-thin { fill: var(--warn); opacity: .75; }
+  .hole { fill: rgba(255,188,32,.07); }
+  .why { fill: var(--warn); font: 400 10px var(--mono); opacity: .85; }
+  .pt .ring { stroke-width: 2; }
+  .pt.on-hole .ring { stroke-width: 2.5; }
+  .pt.on-hole { filter: drop-shadow(0 0 3px rgba(255,188,32,.9)); }
   path.series { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-  circle.pt { stroke: var(--bg); stroke-width: 1.5; }
+  .pt image { pointer-events: none; }
   .dim { opacity: .13; }
   .hit { fill: transparent; cursor: pointer; }
 
@@ -141,13 +155,11 @@
   <span class="seg" id="kindSeg"></span>
   <span class="lbl" style="margin-left:14px">Metric</span>
   <span class="seg" id="metricSeg"></span>
-  <span class="lbl" style="margin-left:14px">Weights</span>
+  <span class="lbl" style="margin-left:14px" id="basisLbl">Ladder</span>
   <span class="seg" id="basisSeg"></span>
 </div>
 <div class="bar">
-  <span class="lbl">Net</span>
-  <span class="seg" id="netSeg"></span>
-  <span class="lbl" style="margin-left:14px">Show</span>
+  <span class="lbl">Show</span>
   <input type="range" id="floor" min="0" max="60" step="5" value="20">
   <span id="floorTxt" class="lbl" style="text-transform:none;letter-spacing:0"></span>
 </div>
@@ -173,16 +185,35 @@
 
 <script type="module">
 import { winnersSeasons, honourRung, PHI } from '../model.js';
-import { REIGN_COLOURS } from '../poster.js';
 
-/* ⚠️ The band's eight hues, then six more. Eight is right for the era bands —
-   two bars of one colour are far apart in time there — but a line chart puts a
-   dozen series on top of each other, and at eight LEE Chong Wei and Kunlavut
-   VITIDSARN came out the same green. Extended here rather than in `poster.js`,
-   because the extra hues are only right for this chart. */
-const PALETTE = REIGN_COLOURS.concat([
-  '#e8734a', '#8ad35b', '#ff9ad5', '#5bc0de', '#d4b483', '#b98cff',
-]);
+/* The era band's idea — one colour per career, handed out in the order careers
+ * open, so a repeat only happens with many years between — with two changes the
+ * bands do not need.
+ *
+ * ⚠️ **Adjacent entries have to be unconfusable**, because the players who open
+ * in neighbouring seasons are the ones drawn on top of each other here.
+ * `REIGN_COLOURS` holds `#4f9dff` and `#a3a3ff`, two blues, which is fine for
+ * bars lying in different parts of the page and not fine on a line chart: it put
+ * Viktor AXELSEN and KIDAMBI Srikanth in near-identical blue a season apart. The
+ * order below walks the colour wheel rather than the band's palette.
+ *
+ * ⚠️ And twelve rather than eight, because a chart shows a dozen careers at once
+ * where a band shows one per lane. Kept here and not in `poster.js`: the extra
+ * hues are only right for this. */
+const PALETTE = [
+  '#4f9dff', // blue
+  '#f2994a', // orange
+  '#57c98a', // green
+  '#ff6b8b', // pink
+  '#f6d34a', // yellow
+  '#c77dff', // purple
+  '#12b5a5', // teal
+  '#e8734a', // rust
+  '#8ad35b', // lime
+  '#ff9ad5', // rose
+  '#d4b483', // sand
+  '#7fd4d0', // ice
+];
 
 /* ---------- the ladder ---------- */
 
@@ -195,10 +226,22 @@ const BASE_RUNG = honourRung(24);
    *area* step by phi. Area is what the eye actually compares on the pyramid, so
    phi-per-rung is the default and sqrt(phi)-per-rung is offered beside it. */
 const BASIS = {
-  area: { label: 'φ per rung', step: PHI,
-    why: 'what a square’s area does on the pyramid' },
-  side: { label: '√φ per rung', step: Math.sqrt(PHI),
-    why: 'what a square’s side does — a flatter ladder' },
+  area: {
+    label: 'Steep', step: PHI,
+    /* ⚠️ Named by what it *does*, not by the constant behind it. The buttons
+       said "φ per rung" and "√φ per rung", which is precise and unreadable: a
+       reader who does not already know what φ is cannot guess which button is
+       the bigger one, and a reader who does know still has to work out whether
+       a rung is a tier. The provenance is in the sentence underneath. */
+    why: 'a title is worth <b>1.6×</b> the tier below it, so an Olympic gold is '
+      + 'nearly seven Super 750s. The step a square’s <i>area</i> takes on the '
+      + 'pyramid',
+  },
+  side: {
+    label: 'Gentle', step: Math.sqrt(PHI),
+    why: 'a title is worth <b>1.27×</b> the tier below it, so an Olympic gold is '
+      + 'about two and a half Super 750s. The step a square’s <i>side</i> takes',
+  },
 };
 
 const weightOf = (tier, basis) =>
@@ -209,8 +252,8 @@ const TIER_NAME = { OLY: 'Olympics', 20: 'World Champs', 22: 'Tour Finals',
 
 /* ---------- state ---------- */
 
-const view = { kind: 'MS', metric: 'share', basis: 'area', net: 'core', floor: 20 };
-const files = {};           // 'MS' -> base file, 'MS+500' -> the wider net
+const view = { kind: 'MS', metric: 'share', basis: 'area', floor: 20, autoFloor: true };
+const files = {};
 const only = new Set();     // legend pins; empty means "everybody who clears the floor"
 
 const $ = id => document.getElementById(id);
@@ -227,26 +270,7 @@ async function grab(url) {
 
 async function load(kind) {
   if (!files[kind]) files[kind] = await grab(`../data/winners-${kind}.json`);
-  if (files[kind + '+500'] === undefined) {
-    /* The wider net is harvested separately and may simply not be there —
-       `--tier 25` is an extra run. Absent is a state, not a failure. */
-    try { files[kind + '+500'] = await grab(`../data/winners-${kind}-s25.json`); }
-    catch { files[kind + '+500'] = null; }
-  }
   return files[kind];
-}
-
-/** The base file, with the Super 500 seasons folded in when the net is wide. */
-function merged() {
-  const base = files[view.kind];
-  const extra = files[view.kind + '+500'];
-  if (view.net === 'core' || !extra) return base;
-  const seasons = {};
-  for (const [y, list] of Object.entries(base.seasons)) seasons[y] = list.slice();
-  for (const [y, list] of Object.entries(extra.seasons)) {
-    seasons[y] = (seasons[y] || []).concat(list);
-  }
-  return { ...base, players: { ...extra.players, ...base.players }, seasons };
 }
 
 /* ---------- the numbers ---------- */
@@ -261,7 +285,7 @@ function merged() {
  * two dots four years apart stay two dots.
  */
 function build() {
-  const file = merged();
+  const file = files[view.kind];
   const { years, byYear } = winnersSeasons(file);
   const basis = view.basis;
 
@@ -294,23 +318,13 @@ function build() {
   }
 
   const list = [...people.values()];
-  for (const p of list) {
-    p.peak = Math.max(...p.pts.map(pt => pt[view.metric]));
-    /* ⚠️ Ranked on the **count** share whatever is being drawn, so a player does
-       not change colour when the metric toggles. */
-    p.rank = Math.max(...p.pts.map(pt => pt.share));
-  }
+  for (const p of list) p.peak = Math.max(...p.pts.map(pt => pt[view.metric]));
 
-  /* ⚠️ Coloured **strongest first**, not in the order careers open, which is how
-     the era bands on the real page do it. Eight hues over forty-four players
-     collide whatever the order; the bands get away with it because two bars of
-     one colour are far apart in time, and a line chart does not — the first
-     draft gave Viktor AXELSEN and Anders ANTONSEN the same teal and put three
-     purples on top of each other. Handing the palette out by peak means the
-     players anybody is looking at are always the eight distinct ones, and a
-     repeat only happens down in the tail. */
-  list.sort((a, b) => (b.rank - a.rank) || (a.id - b.id));
-  list.forEach((p, i) => { p.colour = PALETTE[i % PALETTE.length]; });
+  /* Ordered the way the era bands order their lanes — by the season a career
+     opens — so the two views tell the same story in the same sequence. The
+     colours themselves are handed out later, over the players actually drawn:
+     see `paint`. */
+  list.sort((a, b) => (a.pts[0].year - b.pts[0].year) || (a.id - b.id));
   return { years, seasons, people: list };
 }
 
@@ -321,13 +335,24 @@ function build() {
 const PAD = { l: 46, r: 16, t: 14, b: 74 };
 const W = 1180, H = 510;
 const STRIP = { top: H - 44, h: 32 };
+/* Big enough to be a face rather than a smudge, small enough that a crowded
+   stretch of the chart is still a set of separate marks. */
+const FACE = 9;
 
 /* ⚠️ **A season with a hole in it, relative to the seasons around it.** Not a
-   fixed count: the calendar has been 15 titles and 8, and with the Super 500s
-   folded in it is 21, so "fewer than six" would mean different things in
-   different views. Two thirds of the median is the line, which catches 2020
+   fixed count: the calendar has been 15 titles in a season and 8, so "fewer
+   than six" means different things in different decades. Two thirds of the
+   median is the line, which catches 2020
    (three titles played), 2022 (eight, the Asian swing still cancelled) and the
    season currently being played. */
+/* Why a season was short, where it is a fact rather than an inference. Drawn
+   inside the plot against that year, because "2020 was a hole" is a thing the
+   reader either already knows or wants told at the point of confusion. */
+const WHY_SHORT = {
+  2020: 'Covid', 2021: 'Covid', 2022: 'Covid',
+  [new Date().getUTCFullYear()]: 'still on',
+};
+
 function thinYears(seasons) {
   const sizes = seasons.map(s => s.total).filter(n => n > 0).sort((a, b) => a - b);
   if (!sizes.length) return { set: new Set(), median: 0, max: 0 };
@@ -338,11 +363,29 @@ function thinYears(seasons) {
   };
 }
 
+/**
+ * Hand the palette out to the careers on screen, in the order they opened.
+ *
+ * ⚠️ Over the **shown** players and not all forty-four. The era bands can afford
+ * to colour every career from a fixed cycle because two bars of one colour are
+ * far apart on the page; a line chart draws them through each other, and at one
+ * colour per career LEE Chong Wei, SHI Yu Qi and KIDAMBI Srikanth all came out
+ * green. Colouring what is drawn means the set on screen is always distinct.
+ *
+ * The cost is that a ring changes colour when the filter moves, and it is a cost
+ * worth paying now that the marker is a photograph: the face says who it is and
+ * the ring only has to make the line followable.
+ */
+function paint(shown) {
+  shown.forEach((p, i) => { p.colour = PALETTE[i % PALETTE.length]; });
+  return shown;
+}
+
 function draw(model) {
   const { years, seasons, people } = model;
   const svg = $('chart');
   const floor = view.floor / 100;
-  const shown = people.filter(p => p.peak >= floor && (!only.size || only.has(p.id)));
+  const shown = paint(people.filter(p => p.peak >= floor && (!only.size || only.has(p.id))));
 
   const top = Math.min(1, Math.max(0.25,
     Math.ceil(Math.max(0.01, ...shown.map(p => p.peak)) * 10) / 10));
@@ -350,9 +393,28 @@ function draw(model) {
   const y = v => H - PAD.b - (H - PAD.t - PAD.b) * (v / top);
   const at = year => x(years.indexOf(year));
 
-  const out = [];
+  const out = [`<defs><clipPath id="face"><circle r="${FACE}"></circle></clipPath></defs>`];
 
   const thin = thinYears(seasons);
+
+  /* A faint column inside the plot for a season with a hole in it, named at the
+     foot of it. The strip under the axis says *how* short; this says *why*, and
+     puts it where the line does something strange rather than in a caption. */
+  const colHalf = (W - PAD.l - PAD.r) / Math.max(1, years.length - 1) / 2;
+  for (const yr of thin.set) {
+    const i = years.indexOf(yr);
+    if (i < 0) continue;
+    out.push(`<rect class="hole" x="${x(i) - colHalf * 0.75}" y="${PAD.t}"`
+      + ` width="${colHalf * 1.5}" height="${H - PAD.t - PAD.b}"></rect>`);
+    if (WHY_SHORT[yr]) {
+      /* The season in progress is the last column, and a centred label there
+         runs off the plot. Anchored to whichever edge it is against. */
+      const last = i === years.length - 1;
+      out.push(`<text class="why" x="${last ? W - PAD.r - 4 : x(i)}"`
+        + ` y="${H - PAD.b - 7}" text-anchor="${last ? 'end' : 'middle'}">`
+        + `${WHY_SHORT[yr]}</text>`);
+    }
+  }
 
   out.push('<g class="grid">');
   const step = top > 0.6 ? 0.2 : top > 0.3 ? 0.1 : 0.05;
@@ -434,18 +496,31 @@ function draw(model) {
       }
     }
   }
+  /* ⚠️ **The marker is the face**, ringed in the player's colour. A dot needs a
+     legend and a face does not, and the whole point of a marker here was that a
+     player who appears in one season only should still be *someone*. The ring
+     stays because the line has to be traceable between faces, and because a
+     photograph is not always there — no avatar falls back to a plain dot. */
   for (const p of shown) {
     for (const pt of p.pts) {
-      out.push(`<circle class="pt${thin.set.has(pt.year) ? ' on-hole' : ''}"`
-        + ` data-id="${p.id}" data-year="${pt.year}"`
-        + ` cx="${at(pt.year)}" cy="${y(pt[view.metric])}" r="4" fill="${p.colour}"></circle>`);
+      const cx = at(pt.year), cy = y(pt[view.metric]);
+      const hole = thin.set.has(pt.year) ? ' on-hole' : '';
+      out.push(`<g class="pt${hole}" data-id="${p.id}" data-year="${pt.year}"`
+        + ` transform="translate(${cx} ${cy})">`
+        + (p.who.a
+          ? `<image href="${p.who.a}" x="${-FACE}" y="${-FACE}"`
+            + ` width="${FACE * 2}" height="${FACE * 2}"`
+            + ' preserveAspectRatio="xMidYMid slice" clip-path="url(#face)"></image>'
+          : `<circle r="${FACE - 1}" fill="${p.colour}"></circle>`)
+        + `<circle class="ring" r="${FACE}" fill="none" stroke="${p.colour}"></circle>`
+        + '</g>');
     }
   }
-  /* A fatter invisible target, because a 4px dot is a hard thing to hover. */
+  /* A fatter invisible target, because a marker is a hard thing to hover. */
   for (const p of shown) {
     for (const pt of p.pts) {
       out.push(`<circle class="hit" data-id="${p.id}" data-year="${pt.year}"`
-        + ` cx="${at(pt.year)}" cy="${y(pt[view.metric])}" r="11"></circle>`);
+        + ` cx="${at(pt.year)}" cy="${y(pt[view.metric])}" r="13"></circle>`);
     }
   }
 
@@ -458,7 +533,7 @@ function draw(model) {
 function renderLegend(model, shown) {
   const ids = new Set(shown.map(p => p.id));
   $('legend').innerHTML = model.people
-    .filter(p => p.peak >= view.floor / 100 || only.has(p.id))
+    .filter(p => ids.has(p.id))
     .sort((a, b) => b.peak - a.peak)
     .map(p => `<span class="lg${ids.has(p.id) ? '' : ' off'}" data-id="${p.id}">`
       + `<i style="background:${p.colour}"></i>`
@@ -499,10 +574,11 @@ function renderWeights() {
     .join(' · ');
   $('weightNote').innerHTML =
     `<b>A score of 100 is the whole season</b> — every title on the board, and `
-    + `nobody else with one. <b>Titles</b> counts them; <b>Weighted</b> asks what `
-    + `they were worth, ${b.label} — ${b.why}. Super 750 is 1 and everything is measured `
-    + `against it: ${line}. The rungs are <code>honourRung</code> from the app, `
-    + `so this is the ladder the photographs are already sized with.`;
+    + `nobody else with one. <b>Titles</b> counts them and treats them all alike. `
+    + `<b>Weighted</b> asks what they were worth, on a <b>${b.label.toLowerCase()}</b> `
+    + `ladder: ${b.why}. Super 750 is the unit — ${line} — and the steps are the `
+    + `golden ratio, the same one the photographs on the Winners board are sized `
+    + `by (<code>honourRung</code>), so nothing here invents a second ranking.`;
 }
 
 function renderControls() {
@@ -520,15 +596,34 @@ function renderControls() {
   };
   seg('kindSeg', [['MS', 'Men’s'], ['WS', 'Women’s']], 'kind');
   seg('metricSeg', [['share', 'Titles'], ['weighted', 'Weighted']], 'metric');
-  seg('basisSeg', Object.entries(BASIS).map(([k, v]) => [k, v.label]), 'basis');
-  const has500 = !!files[view.kind + '+500'];
-  seg('netSeg', [
-    ['core', 'Super 750 +'],
-    ['wide', 'Super 500 +', !has500],
-  ], 'net');
-  $('floorTxt').textContent = view.floor
+  /* Greyed out under *Titles*, where it changes nothing — a control that is
+     live and inert is a question the reader has to answer twice. */
+  const flat = view.metric === 'share';
+  seg('basisSeg', Object.entries(BASIS).map(([k, v]) => [k, v.label, flat]), 'basis');
+  $('basisLbl').style.opacity = flat ? '.4' : '';
+  $('floor').value = String(view.floor);
+  $('floorTxt').textContent = (view.floor
     ? `players who scored ${view.floor} or better in some year`
-    : 'everybody';
+    : 'everybody')
+    + (view.autoFloor ? ' · the most it can hide and still show every season' : '');
+}
+
+/**
+ * The highest bar that still leaves **somebody on screen in every season**.
+ *
+ * ⚠️ The slider is a clutter control and the interesting default is not "show
+ * everyone" — forty-four careers is a scribble — but it must not be so high that a
+ * season empties out. A year with nobody in it reads as a year nobody won
+ * anything, which is the one thing this chart must never say. Walked upwards in
+ * the slider's own steps and stopped one short of the first gap.
+ */
+function bestFloor(model) {
+  const covered = f => model.years.every(yr =>
+    !(model.seasons.find(s => s.year === yr) || {}).total
+    || model.people.some(p => p.peak >= f && p.pts.some(pt => pt.year === yr)));
+  let best = 0;
+  for (let f = 0; f <= 60; f += 5) { if (covered(f / 100)) best = f; else break; }
+  return best;
 }
 
 /* ---------- wiring ---------- */
@@ -536,24 +631,25 @@ function renderControls() {
 let current = null;
 
 function go() {
-  renderControls();
   renderWeights();
-  const model = current = build();
+  let model = current = build();
+  /* The default is derived from the data, so it moves with the draw and the
+     metric — and stops moving the moment the reader touches the slider. */
+  if (view.autoFloor) {
+    const want = bestFloor(model);
+    if (want !== view.floor) { view.floor = want; model = current = build(); }
+  }
+  renderControls();
   const shown = draw(model);
   renderLegend(model, shown);
   renderTables(model);
 
-  const file = merged();
+  const file = files[view.kind];
   const n = model.seasons.reduce((a, s) => a + s.total, 0);
-  const wide = view.net === 'wide' && files[view.kind + '+500'];
   $('sub').innerHTML =
     `<b>${model.years[0]}–${model.years[model.years.length - 1]}</b> · `
     + `${n} titles · ${model.people.length} different winners · `
     + `harvested ${file.generated}. `
-    + (wide ? '<span class="warnline">⚠️ The wider net only widens 2018 onwards — '
-        + 'nothing landed on Super 500 before the World Tour, so the earlier '
-        + 'seasons are unchanged and the two halves are no longer like for like.</span> '
-      : '')
     + '<span class="warnline">* marks a season with a hole in it — far fewer '
     + 'titles than the ones around it, so a score built on them is built on less. '
     + '2020 played three; 2022 still had the Asian swing cancelled; the last year '
@@ -561,7 +657,12 @@ function go() {
     + 'and a dashed leg is a line crossing one of those years.</span>';
 }
 
-$('floor').oninput = e => { view.floor = Number(e.target.value); only.clear(); go(); };
+$('floor').oninput = e => {
+  view.floor = Number(e.target.value);
+  view.autoFloor = false;
+  only.clear();
+  go();
+};
 
 $('legend').onclick = e => {
   const lg = e.target.closest('.lg');
@@ -606,7 +707,7 @@ $('chart').addEventListener('mousemove', e => {
 $('chart').addEventListener('mouseleave', () => { tip.hidden = true; unhighlight(); });
 
 function highlight(id) {
-  for (const el of $('chart').querySelectorAll('path.series, circle.pt')) {
+  for (const el of $('chart').querySelectorAll('path.series, .pt')) {
     el.classList.toggle('dim', Number(el.dataset.id) !== id);
   }
 }
