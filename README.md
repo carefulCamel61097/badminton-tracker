@@ -530,6 +530,20 @@ lets the gold ring carry the difference. That is a decision about a row of faces
 a claim about worth, and `honourRung` — which is what these weights read — has always ranked
 them apart.
 
+⚠️ **No era switch here, unlike the Compare page — and none is needed.** That page holds two
+careers and the useful question is which vocabulary you want to read *both* of them in. A
+whole-board view cannot ask it: this one spans 2007 to 2026 at once, so "call everything
+Superseries" is wrong for 2023 and "call everything Super 1000" is wrong for 2013. Each title
+is named for **its own season** instead, by the same `pyramidLabel` the board above uses — 2013
+reads `12×Superseries` and 2023 reads `6×Super 750`. The ladder in the note keeps the modern
+names, because those are the *rungs* rather than any particular title, and a rung has no
+season to be named for.
+
+The switch would also be an empty control: it changes no *size* anywhere in this project by
+design — `SHARES_RUNG` exists to keep an Olympic square identical in both readings — and the
+score is weights over `honourRung`, so every line on the chart would be in exactly the same
+place in either era.
+
 ### Reading the chart
 
 ⚠️ **A player has a point only in the seasons they won something.** There is no column in this

@@ -30,7 +30,7 @@ import {
   courtGrid, drawsPresent, dayOf, matchSignature, prettyDay, tidyTmtName,
   parseDrawList, parseDraw, bracketLayout, bracketRounds, resolvedRound, surnameOf,
   rosterMatches, mergeSuggestions,
-  pyramidSeason, pyramidBulges, pyramidRowWidth, pyramidSeasonMarks,
+  pyramidSeason, pyramidBulges, pyramidRowWidth, pyramidSeasonMarks, pyramidLabel,
   winnersSeasons, pyramidReigns, reignLanes, REIGN_STEPS, REIGN_DEFAULT, reignStep,
   pyramidScale,
   dominationSeasons, thinSeasons, shortSeasonWhy, titleWeight, SCORE_TIERS,
@@ -1765,7 +1765,12 @@ function renderScoreTables(model) {
       for (const t of s.titles) by.set(t.tier, (by.get(t.tier) || 0) + 1);
       const made = [...by.entries()]
         .sort((a, b) => honourRung(a[0]) - honourRung(b[0]))
-        .map(([t, k]) => `${k}×${esc(levelLabel(t))}`).join(', ');
+        /* ⚠️ `pyramidLabel`, not `levelLabel`: a title is named for what it was
+           called **in its own season**, so 2013 reads 12×Superseries Premier and
+           2023 reads 4×Super 1000. The board above does this and needs no era
+           switch for it; naming everything in the modern vocabulary here had the
+           two views of one board disagreeing about what a title was. */
+        .map(([t, k]) => `${k}×${esc(pyramidLabel(t, s.year))}`).join(', ');
       return `<tr${thin.set.has(s.year) ? ' class="thin"' : ''}>`
         + `<td class="n">${s.year}${mark(s.year)}</td><td class="n">${s.total}</td>`
         + `<td>${made || '—'}</td><td class="n">${s.by.size}</td></tr>`;
@@ -1782,7 +1787,14 @@ function renderScoreFloor() {
     + (win.autoFloor ? ' · as high as it goes without dropping a season’s best' : '');
 }
 
-/** The ladder, written out, because a weight nobody can check is a magic number. */
+/**
+ * The ladder, written out, because a weight nobody can check is a magic number.
+ *
+ * ⚠️ Modern names here, deliberately, where the tables and the hover use the
+ * season's own. These are the **rungs** rather than any particular title, and a
+ * rung has no season to be named for — the note says in words that an older
+ * season is weighed on the same five.
+ */
 function renderScoreLadder() {
   $('scoreLadder').innerHTML = SCORE_TIERS.map(t =>
     `<span class="wt">${esc(levelLabel(t))}`
@@ -1822,7 +1834,7 @@ function scoreTipFor(id, year) {
     + '<ul>' + pt.titles.slice()
       .sort((a, b) => honourRung(a.tier) - honourRung(b.tier))
       .map(t => `<li>${esc(String(t.name).trim())}`
-        + ` <span class="k">${esc(levelLabel(t.tier))}</span></li>`).join('')
+        + ` <span class="k">${esc(pyramidLabel(t.tier, year))}</span></li>`).join('')
     + '</ul>';
 }
 

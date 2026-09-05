@@ -3040,6 +3040,30 @@ eq('the note says what every tier is worth',
    line in the table. A footnote should recede. */
 const yearRows = await b.ev(`window.BST.score.rows('scoreYears')`);
 eq('every season is in the table', yearRows.length, boardYears.length);
+
+/* ⚠️ A title is named for what it was called **in its own season**, the same
+   rule the board above uses — and the reason neither view needs an era switch
+   the way the compare page does: a board spanning 2007 to 2026 cannot pick one
+   vocabulary for all of it. Naming everything modern here had the two views of
+   one board disagreeing about what a title was. */
+const madeOf = y => (yearRows.find(r => r.cells[0].replace('*', '') === String(y)) || {}).cells;
+check('a Superseries-era season is named in Superseries words',
+  madeOf(2013)[2].includes('Superseries'), madeOf(2013)[2]);
+check('and never in World Tour ones',
+  !/Super \d/.test(madeOf(2013)[2]), madeOf(2013)[2]);
+check('a World Tour season is named in World Tour words',
+  /Super \d/.test(madeOf(2023)[2]), madeOf(2023)[2]);
+check('and never in Superseries ones',
+  !madeOf(2023)[2].includes('Superseries'), madeOf(2023)[2]);
+/* The majors are called the same thing in both, which is why they are the pair
+   worth checking: it is the tiers *below* them that were renamed. */
+check('the Worlds is the Worlds in either era',
+  madeOf(2013)[2].includes('Worlds') && madeOf(2023)[2].includes('Worlds'));
+
+/* ⚠️ The ladder in the note keeps the modern names, because those are the
+   **rungs** rather than any title, and a rung has no season to be named for. */
+check('but the ladder itself is still stated in modern rungs',
+  (await b.ev(`window.BST.score.ladder()`)).some(w => w.startsWith('Super 750')));
 eq('and the short ones are the ones the axis marked',
   yearRows.filter(r => r.thin).map(r => r.cells[0].replace('*', '')).join(','),
   '2020,2022,' + new Date().getUTCFullYear());

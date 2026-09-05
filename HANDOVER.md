@@ -1356,6 +1356,17 @@ nothing maps to — so it left 2007–17 at 13–15 titles a season while taking
 21, and every early season was then scored against a smaller field than every late one. After
 2018 it barely reordered the top seasons. It cost comparability and bought nothing.
 
+⚠️ **No era switch, and it would be an empty control twice over.** The compare page needs one
+because it holds two careers and the question is which vocabulary to read both in; a view
+spanning 2007–2026 cannot pick one. Titles are named per season by `pyramidLabel`, as on the
+board. And the switch changes no size anywhere by design (`SHARES_RUNG`), so with the score
+being weights over `honourRung` every line would be in exactly the same place in either era.
+
+⚠️ The first port used `levelLabel` and named every title in the modern vocabulary, so hovering
+a 2013 China Open on the Score said *Super 1000* while the Board one click away said
+*Superseries Premier* — two views of one board disagreeing about what a title was. The ladder
+in the note is the one thing that stays modern: those are rungs, not titles.
+
 **The drawing rules, each of which was a bug first.**
 
 ⚠️ **A point only where somebody won something, runs broken at every gap.** This data says who
