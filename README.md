@@ -434,6 +434,174 @@ The honours board's zoom will not go below 7 for exactly this reason: a Super 75
 `7 × 2.618 = 18.3px`, just clear of the gate. At 6 it is 15.7px and every Super 750 title
 silently drops back to being nothing but a darker green.
 
+
+## The domination score
+
+The Winners page has a second view. **Board** is the pyramid above; **Score** is the same
+seasons read as a quantity — one line per career, and the height is how much of that season
+they took. It answers the question the board raises and cannot settle: the faces say a name
+over and over, and this says how much of the year that name actually was.
+
+**A score of 100 is the whole season** — every title on the board that year, and nobody else
+with one. It is a percentage underneath and deliberately not called one: "75% of 2022" invites
+"per cent of what?" every single time it is read, and a score out of 100 carries its own
+scale. Being a share, one player's rise is always somebody else's fall, and two seasons can be
+held against each other however many titles each of them held.
+
+### The ladder, and why it is steep
+
+Not every title counts the same. Each is worth what its rung on the board is worth, and the
+rungs step by **φ, the golden ratio — 1.618**:
+
+| | Olympics | Worlds | Tour Finals | Super 1000 | Super 750 |
+|---|---|---|---|---|---|
+| worth | 6.854 | 4.236 | 2.618 | 1.618 | 1 |
+
+Seven Super 750s to an Olympic gold, which is about the trade anybody who has watched the
+sport would make. The rungs come from `honourRung` — the same ladder the photographs on the
+board are sized by — so **the score is not a second ranking; it is the board's own ranking,
+added up**. All five weights are printed in the page's own note, because a weight nobody can
+check is a magic number.
+
+⚠️ **There is no toggle for any of this, and both absences were argued.**
+
+**Counting titles alike** was the other reading and it is gone. It makes an Olympic year look
+like a Super 750 year, which is the one thing this project's whole ladder exists to deny.
+
+**A gentler step** was the harder call, and it was settled by measurement rather than taste.
+The photographs step by √φ on the *side* of a square, which steps their *area* by φ — both are
+"the golden ratio" and they are not the same ladder. Held against the one comparison everybody
+already has an opinion about:
+
+| ladder | LEE Chong Wei | LIN Dan |
+|---|---|---|
+| titles counted alike | 333 | 202 |
+| √φ per rung | 316 | 230 |
+| **φ per rung** | **287** | **276** |
+
+φ is the reading the eye already has — LCW won more of them, LIN Dan won the big ones — and it
+is area that the eye compares on the pyramid. Under it Lin Dan's 2007 is 56.9 against LCW's
+best season of 45.7.
+
+A half-step variant, where an Olympic gold is √φ above a world title rather than a full rung,
+was built and dropped: it changes **nothing** in three years out of four, and in the fourth it
+moves Beijing from 41 to 37 — not worth a second ladder to explain.
+
+⚠️ **The Olympics has always outranked the World Championships here**, 6.854 to 4.236. What
+makes them look equal is `pyramidScale`, which draws an Olympic square at the Worlds size and
+lets the gold ring carry the difference. That is a decision about a row of faces; it was never
+a claim about worth, and `honourRung` — which is what these weights read — has always ranked
+them apart.
+
+### Reading the chart
+
+⚠️ **A player has a point only in the seasons they won something.** There is no column in this
+data saying who *entered*, so "nothing in 2013" and "not on the tour in 2013" cannot be told
+apart — and a line drawn along the bottom would be asserting the first while knowing only the
+second. Runs break at every gap, and somebody who appears in one season stays a single face.
+
+**The marker is the photograph**, ringed in the player's colour. A dot needs a legend and a
+face does not, and the whole point of a marker here was that a one-season winner should still
+be *someone*. The ring stays because the line has to be traceable between faces, and because a
+photograph is not always there — no avatar falls back to a plain dot.
+
+⚠️ **The colours are handed out over the players actually drawn**, not over all forty-four. The
+era bands can colour every career from a fixed cycle because two bars of one colour lie far
+apart on the page; a line chart draws them through each other, and at one colour per career LEE
+Chong Wei, SHI Yu Qi and KIDAMBI Srikanth all came out green. The palette is also its own —
+twelve hues walking the colour wheel rather than `REIGN_COLOURS`, which holds two blues and put
+Viktor AXELSEN and KIDAMBI Srikanth in near-identical shades a season apart.
+
+⚠️ **The y-axis never moves under the reader.** It is scaled to the best season in *either*
+draw. Fitted to what was on screen it rescaled every time a name was clicked — so isolating
+somebody made their line climb the page, which is the chart lying about the one thing it was
+asked to show — and the men's and women's boards came out at two different heights, so
+switching between them compared two pictures at two scales.
+
+⚠️ **Clicking a name dims the rest; it does not remove them.** Drawing only the pinned player
+re-ran the palette over a set of one, so the act of picking somebody out *changed their
+colour* — and it threw away the context that makes a share chart worth reading at all, which
+is who else was in the season. Clicking a second name adds to the selection, and the legend
+keeps every name the bar admits: off is a state, not an absence.
+
+### Seasons with a hole in them
+
+An asterisk on the axis marks a season with far fewer titles than the ones around it, so a
+score built on one is built on less. **2020** stopped in March; **2022** ran eight of these
+against a normal twelve to fifteen, with not one tournament held in China and the Finals moved
+out of Guangzhou; and the last year is **ongoing**. Each marked year gets a faint column with
+the reason written at its foot, inside the plot, where the line does something strange rather
+than in a caption. A leg touching one is **dashed**: a solid line across 2020 asserts a trend
+through a year that was barely played.
+
+⚠️ **Short is two thirds of the median, not a fixed count.** The calendar has held fifteen of
+these titles and it has held eight, so "fewer than six" means one thing in 2013 and another in
+2022 — and the fixed rule called 2022 a normal season while the axis above it said otherwise.
+
+⚠️ **The tables under the chart dim those rows rather than colouring them.** They were amber,
+which is this palette's attention colour, so the one season nobody should read at face value
+was the brightest line in the table and Anders ANTONSEN's two titles out of three looked like
+the find of the chart. A footnote should recede. The mark stays lit, because a mark is a
+pointer and not a highlight.
+
+**Under the axis, a bar per season with its title count on it** — the denominator, drawn. A
+score is a fraction and the line only shows the numerator; without this, 66.7 in 2020 and 66.7
+in 2015 are the same height on the page and one of them is two matches. The count is on
+*every* bar, not only the short ones: it was the short seasons' badge, which made a count look
+like a warning.
+
+### The clutter bar
+
+**Show** draws everybody whose best season clears it. Forty-four careers on one chart is a
+scribble, so the default hides most of them — but it must not hide the person who actually
+dominated a year. The rule: take every **finished** season, find who led it, note that
+player's best year anywhere, and put the bar as high as it will go without dropping one of
+them. It comes out at 45 for the men and 20 for the women, and it stops being derived the
+moment the reader touches the slider.
+
+⚠️⚠️ This asked the wrong question until it was looked at: *"is anybody on screen in every
+season"*, which any visible player satisfies by winning one thing. The women's bar came out at
+35 on a rule meant to hold the leaders, and CHEN Yu Fei — who led 2019 and scored 33 in 2023 —
+was not drawn at all. And it is the leader's **peak** that has to clear the bar, not their
+score that season, because the bar filters on a career's best year.
+
+⚠️ Covering the top **two** of each season looked safer and collapses: some season's runner-up
+is always somebody whose whole career peaks at 10, so the bar falls to 10 and twenty-three
+lines come back. Measured on both draws, not guessed.
+
+⚠️ **The season being played is left out of that sum.** In January it is one tournament and one
+winner; a part-played season cannot say who led it, so it is not asked — without this the bar
+collapses every New Year.
+
+### Exporting the score
+
+The same picker, the same range, the same foot as the board's export — only the drawing
+differs, so `drawScorePoster()` sits beside `drawPoster()` in `poster.js` and the two share
+`POSTER`, the 16384px density guard and the provenance strip at the bottom. The file is named
+`badminton-score-<draw>-<from>-<to>.png`, so the two exports never collide in a downloads
+folder.
+
+The bar you set and the names you pinned go into the picture, because those are what it is
+*about*. ⚠️ **Cropping changes what is shown and never what is counted**: a score is a share of
+its own season, so the numbers, the colours and the height of the axis are all settled over the
+whole board and then cut to the years asked for. Same rule as the era bars, same reason — an
+export of 2011–2016 that recoloured CHEN Long because LEE Chong Wei fell off the left would not
+be the picture the sender was looking at.
+
+⚠️ The axis height is **handed in by the page**, because the page scales it across both draws
+and `poster.js` is given one file. Without that a men's export and a women's export of the same
+seasons come back at two different scales — the bug the page itself already fixed once.
+
+### Why it is a view and not a section
+
+The board and the score answer the same question two ways, which is the split the Compare page
+already makes between its grid and its honours board — one pattern to learn rather than two.
+
+⚠️ And this page has a reason of its own: **the pyramid is twenty columns that scroll sideways
+and the chart is one fixed-width picture.** Stacked, the reader would be dragging one of them
+against the other and the years could never line up.
+
+
 ## Comparing across the eras
 
 LIN Dan and LEE Chong Wei played almost entirely before the World Tour existed, and BWF ships
@@ -601,8 +769,8 @@ never a hidden feature — and each page's own keys are printed under its notes.
 | **Tournament** | <kbd>O</kbd> order of play · <kbd>B</kbd> bracket · <kbd>S</kbd> starred only |
 | **Tournament** | <kbd>↑</kbd> <kbd>↓</kbd> the day, or — in the bracket — how much of the draw |
 | **Tournament** | <kbd>M</kbd> <kbd>W</kbd> <kbd>X</kbd> the discipline; press again for that gender's doubles |
-| **Winners** | <kbd>M</kbd> men's singles · <kbd>W</kbd> women's singles · <kbd>E</kbd> the dominance band |
-| **Winners** | <kbd>↑</kbd> <kbd>↓</kbd> the 3+ / 4+ / 5+ bar, while the band is on |
+| **Winners** | <kbd>B</kbd> board · <kbd>S</kbd> score · <kbd>M</kbd> men's singles · <kbd>W</kbd> women's singles · <kbd>E</kbd> the dominance band |
+| **Winners** | <kbd>↑</kbd> <kbd>↓</kbd> the 3+ / 4+ / 5+ bar while the band is on — or, on the score, the **Show** bar |
 
 Four things about this are deliberate.
 

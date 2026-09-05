@@ -1319,6 +1319,108 @@ export at 2× would hit it, so the density drops to 1 rather than the picture be
 without a build step. `test_season.mjs` reads the computed colour off a drawn tile and holds
 it against the table, so they cannot drift quietly.
 
+### 3.4l The domination score *(built 5 Sep 2026)*
+
+The Winners page's second view — **Board** and **Score** beside the discipline, the same split
+the Compare page makes between its grid and its honours board. Prototyped first as
+`tools/share.html`, a dummy tool nothing linked to, and promoted once the arguments below had
+been settled by looking at it rather than by reasoning about it.
+
+`dominationSeasons(file)` in `model.js` returns `{years, seasons, people}`; `app.js` draws the
+SVG and `poster.js` draws the PNG. The metric is a **score out of 100**: 100 is every title on
+the board that season with nobody else on it.
+
+**Where the weights come from.** `titleWeight(tier) = φ^(rungs above Super 750)`, read off
+`honourRung` — the ladder the photographs are already sized by. Olympics 6.854, Worlds 4.236,
+Tour Finals 2.618, Super 1000 1.618, Super 750 1. So the score is not a second ranking; it is
+the board's own ranking added up, and the page prints all five numbers.
+
+⚠️ **φ per rung, not √φ, and that was measured.** The squares step by √φ on the *side*, which
+steps their *area* by φ — both are "the golden ratio". Over their whole careers, √φ puts LEE
+Chong Wei 86 points of accumulated score clear of LIN Dan (316 to 230); φ puts them level (287
+to 276), which is the reading the eye already has. Area is also what the eye compares on the
+pyramid. Under φ, Lin Dan's 2007 is 56.9 against LCW's best of 45.7.
+
+⚠️ **The half-step Olympics was built and dropped.** An Olympic gold at √φ above a world title
+rather than a full rung changes *nothing* in three years out of four, and in the fourth it
+moves Beijing 41 → 37. Two ladders to explain, for that.
+
+⚠️ **Counting titles alike was dropped too**, and there is no toggle for either. A control that
+offers a reading we do not believe is a question asked for nothing.
+
+⚠️ **A Super 500 net was tried and abandoned.** `PYRAMID_BY_CATEGORY` classifies Super 500 and
+`harvest-winners.mjs --tier 25` still collects them, but the answer was no on both sides:
+**nothing lands on Super 500 before 2018** — four old tiers became five and that is the one
+nothing maps to — so it left 2007–17 at 13–15 titles a season while taking 2023–25 from 12 to
+21, and every early season was then scored against a smaller field than every late one. After
+2018 it barely reordered the top seasons. It cost comparability and bought nothing.
+
+**The drawing rules, each of which was a bug first.**
+
+⚠️ **A point only where somebody won something, runs broken at every gap.** This data says who
+won, not who entered, so a line along the bottom would assert "competed and won nothing" while
+knowing only "not in the winners list".
+
+⚠️ **The palette is handed out over the players *drawn*, not all forty-four**, and it is its
+own twelve hues rather than `REIGN_COLOURS`. The bands can cycle a fixed list because two bars
+of one colour lie far apart on a page; a line chart draws them through each other. Measured
+twice: `REIGN_COLOURS` put AXELSEN and KIDAMBI in near-identical blue a season apart, and one
+colour per career put LEE Chong Wei, SHI Yu Qi and KIDAMBI all in green.
+
+⚠️ **The y-axis is scaled across both draws and never to the selection.** Fitted to what was on
+screen it rescaled on every click, so isolating a player made their line climb the page; and
+the men's and women's boards came out at two heights, so switching compared two scales.
+
+⚠️ **Pinning dims the rest instead of removing them.** Drawing only the pinned player re-ran
+the palette over a set of one, so picking somebody out *changed their colour* — and it threw
+away the context that makes a share chart mean anything. The legend keeps every name too: it
+used to shrink, which made isolating a player a one-way door.
+
+⚠️ **Short seasons are two thirds of the median, not a fixed count.** The calendar has held
+fifteen of these titles and it has held eight. The fixed "fewer than six" called 2022 normal —
+and left the two tables under the chart disagreeing with the axis above them for a while.
+
+⚠️ **A plain `*`, not the pyramid's `⁕` (U+2055).** That glyph has no form in Roboto or in any
+of the fallbacks and renders as a small dot — which is what the board above it does, where the
+note says asterisk and the page draws a dot. Worth fixing there one day.
+
+⚠️ **A marked year must keep its axis label.** The axis thins to every other year when crowded,
+and 2020 and 2022 both fell on the skipped alternate, so the mark was simply not drawn.
+
+⚠️ **The count goes on every strip bar, not only the short ones.** It was the short seasons'
+badge, which made a count look like a warning.
+
+⚠️⚠️ **The default clutter bar asked the wrong question.** It was *"is anybody on screen in
+every season"*, which any visible player satisfies by winning one thing; the women's bar came
+out at 35 on a rule meant to hold the leaders and CHEN Yu Fei was not drawn at all. It now
+takes each **finished** season's leader and reads that player's **career peak** — the number
+the filter actually reads. MS 45, WS 20.
+
+⚠️ Covering the top **two** of each season collapses to 10, because some season's runner-up
+always peaks there. ⚠️ And the season being played is excluded, or the bar collapses every
+January.
+
+⚠️ **Controls that belong to one view are hidden in the other, never disabled.** Measured on
+the prototype: a ladder picker that was only ever seen greyed out read as a broken page.
+
+**The export** is `drawScorePoster` beside `drawPoster`, sharing `POSTER`, the 16384px density
+guard and `drawPosterFoot` — the avatar, the link and the legend strip, which is *provenance*
+and must not exist twice. The file is `badminton-score-…` so the two never collide in a
+downloads folder.
+
+⚠️ **The crop changes what is shown, never what is counted.** A score is a share of its own
+season, and the players, colours and axis are settled over the whole board and then clipped —
+the same rule the era bars follow, for the same reason.
+
+⚠️ **The axis height is handed in by the page.** The page scales it across both draws and
+`poster.js` is given one file; without the hand-in a men's poster and a women's poster of the
+same seasons come back at two scales.
+
+⚠️ **Measure a canvas string before changing the font, not after.** The legend chips took the
+name's width with the 12px font already set and drew it at 13px bold, so every long name had
+its peak printed through its last two letters.
+
+
 ### 3.4j The summit at one size *(built 4 Sep 2026)*
 
 `pyramidScale` is `honourScale` except that `OLY` is drawn at the Worlds size. They share a

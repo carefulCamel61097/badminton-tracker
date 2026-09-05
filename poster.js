@@ -19,6 +19,7 @@
 import {
   winnersSeasons, pyramidSeason, pyramidRowWidth, pyramidScale,
   pyramidReigns, reignLanes, reignStep,
+  dominationSeasons, thinSeasons, shortSeasonWhy,
 } from './model.js';
 
 /* ============================ the shared palette ============================
@@ -541,13 +542,41 @@ export async function drawPoster(file, opts) {
     ctx.restore();
   }
 
-  // ---- where it came from ----
-  const fy = L.height - L.footH + 10;
+  drawPosterFoot(ctx, L.width, L.height, L.footH, avatar, L.legend);
+
+  return new Promise((resolve, reject) => {
+    /* ⚠️ This is where a tainted canvas shows up, and nowhere earlier: every
+       image will have drawn perfectly first. See the note at the top about
+       `crossOrigin`. */
+    try {
+      canvas.toBlob(blob => blob ? resolve(blob)
+        : reject(new Error('the browser would not encode the image')), 'image/png');
+    } catch (e) {
+      reject(new Error('the images would not come back readable (' + e.name + ')'));
+    }
+  });
+}
+
+/**
+ * Where it came from, and what its marks mean — the same foot on every export.
+ *
+ * ⚠️ A legend, because an export leaves the page behind. On screen the bars have
+ * a picker beside them saying 3+ and every square has a tooltip; in a feed there
+ * is nothing but the picture, and a reader who cannot tell what a bar means will
+ * read it as a ranking.
+ *
+ * ⚠️ Shared by the board and the score deliberately. The avatar, the link and
+ * the rule above them are the *provenance*, and two copies of provenance is two
+ * places for it to go stale.
+ */
+function drawPosterFoot(ctx, width, height, footH, avatar, legend) {
+  const P = POSTER;
+  const fy = height - footH + 10;
   ctx.strokeStyle = 'rgba(255,255,255,.10)';
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(P.pad, fy - 8.5);
-  ctx.lineTo(L.width - P.pad, fy - 8.5);
+  ctx.lineTo(width - P.pad, fy - 8.5);
   ctx.stroke();
 
   if (avatar) {
@@ -565,29 +594,13 @@ export async function drawPoster(file, opts) {
   ctx.font = '400 12px "Segoe UI", Roboto, system-ui, sans-serif';
   ctx.fillText(POSTER_LINK, P.pad + (avatar ? 34 : 0), fy + 26);
 
-  /* ⚠️ A legend, because an export leaves the page behind. On screen the bars
-     have a picker beside them saying 3+ and every square has a tooltip; in a
-     feed there is nothing but the picture, and a reader who cannot tell what a
-     bar means will read it as a ranking. */
   ctx.textAlign = 'right';
-  for (const [i, line] of L.legend.entries()) {
+  for (const [i, line] of (legend || []).entries()) {
     ctx.fillStyle = P.dim;
     ctx.font = '400 12px "Segoe UI", Roboto, system-ui, sans-serif';
-    ctx.fillText(line, L.width - P.pad, fy + 12 + i * 15);
+    ctx.fillText(line, width - P.pad, fy + 12 + i * 15);
   }
   ctx.textAlign = 'left';
-
-  return new Promise((resolve, reject) => {
-    /* ⚠️ This is where a tainted canvas shows up, and nowhere earlier: every
-       image will have drawn perfectly first. See the note at the top about
-       `crossOrigin`. */
-    try {
-      canvas.toBlob(blob => blob ? resolve(blob)
-        : reject(new Error('the browser would not encode the image')), 'image/png');
-    } catch (e) {
-      reject(new Error('the images would not come back readable (' + e.name + ')'));
-    }
-  });
 }
 
 function drawTile(ctx, t, x, y, side, faces) {
@@ -626,4 +639,339 @@ function drawTile(ctx, t, x, y, side, faces) {
     ctx.stroke();
     ctx.setLineDash([]);
   }
+}
+
+/* ============================ the score, as a picture ============================
+
+   The Winners page's other view, drawn onto a canvas by the same rules as the
+   board above it — from the model, at a fixed size, with the link on it.
+
+   ⚠️ **The crop changes what is *shown*, never what is *counted*.** A score is a
+   share of its own season, so cropping to 2011–2016 leaves every number exactly
+   where it was; and the players, their colours and the axis are all worked out
+   over the whole career, then clipped. An export of six seasons that recoloured
+   CHEN Long because LEE Chong Wei fell off the left would not be the same
+   picture the sender was looking at. Same rule as the bars, same reason.
+   ==================================================================== */
+
+export const SCORE_POSTER = {
+  plotH: 360,          // the chart itself, above the year labels
+  /* ⚠️ Room for the year labels **and** the counts on the strip below them. At
+     24 a tall strip bar put its number through the year it belonged to. */
+  yearH: 42,
+  stripH: 34,
+  axisW: 40,           // room for the 0–100 labels
+  colMin: 46,          // the narrowest a season may be drawn
+  face: 13,            // the radius of a photograph on the line
+  chipH: 26,           // a legend chip
+  chipGap: 6,
+  /* ⚠️ A marker is drawn *on* its year, so the first and last of them hang half
+     out of the plot unless the years are inset from its edges. */
+  edge: 20,
+};
+
+/**
+ * Lay the chart out in CSS pixels without drawing anything.
+ *
+ * @param {object} file  a `data/winners-*.json`
+ * @param {{from, to, kind, floor, only, top}} opts  `only` is the pinned set, as
+ *   a list of ids; `top` is the height of the y-axis, which the caller supplies
+ *   because the page scales it across **both** draws and one file cannot know
+ *   about the other. Absent, it is derived from this file alone.
+ */
+export function scorePosterLayout(file, opts) {
+  const P = POSTER, S = SCORE_POSTER;
+  const model = dominationSeasons(file);
+  const all = model.years;
+  const from = Math.max(opts.from, all[0]);
+  const to = Math.min(opts.to, all[all.length - 1]);
+  const years = all.filter(y => y >= from && y <= to);
+  const thin = thinSeasons(model.seasons);
+  const floor = (Number(opts.floor) || 0) / 100;
+  const pinned = new Set((opts.only || []).map(String));
+  const lit = id => !pinned.size || pinned.has(String(id));
+
+  /* Over the whole career, in the order careers open — the page's rule, so the
+     colours in the picture are the colours the sender saw. */
+  const shown = model.people.filter(p => p.peak >= floor)
+    .map((p, i) => ({ ...p, colour: SCORE_COLOURS[i % SCORE_COLOURS.length] }));
+
+  const top = Math.min(1, Math.max(0.25, opts.top
+    || Math.ceil(Math.max(...model.people.map(p => p.peak), 0.01) * 10) / 10));
+
+  const plotW = Math.max(660, (years.length - 1) * S.colMin + 80);
+  const width = P.pad * 2 + S.axisW + plotW;
+  const left = P.pad + S.axisW;
+  const span = plotW - S.edge * 2;
+  const x = year => left + S.edge + (years.length < 2
+    ? span / 2 : (span * years.indexOf(year)) / (years.length - 1));
+  const plotTop = P.headH;
+  const y = v => plotTop + S.plotH - S.plotH * (v / top);
+
+  /* One chip per name, wrapped into rows — laid out here so the height of the
+     picture is known before a pixel of it is drawn. */
+  const chips = shown.slice().sort((a, b) => b.peak - a.peak).map(p => ({
+    id: p.id, who: p.who, colour: p.colour, peak: p.peak, lit: lit(p.id),
+    w: 0,
+  }));
+  const stripTop = plotTop + S.plotH + S.yearH;
+  const legendTop = stripTop + S.stripH + 16;
+
+  const legend = [
+    'A score of 100 is every title of that season, and nobody else with one',
+    'Weighted by the board’s own ladder: each tier is φ (1.618) the one below',
+    thin.set.size ? 'A * marks a season with far fewer titles than the ones around it' : '',
+  ].filter(Boolean);
+
+  return {
+    model, years, from, to, thin, top, shown, lit, chips,
+    x, y, left, plotW, plotTop, stripTop, legendTop,
+    width,
+    title: `${KIND_NAME[opts.kind] || opts.kind} · ${from}–${to}`,
+    legend,
+    // Filled in by the drawing, which is where the chips get measured. A floor
+    // of one row, so an empty legend does not close the picture up.
+    height: legendTop + S.chipH + 24 + Math.max(2, legend.length) * 15,
+    footH: 24 + Math.max(2, legend.length) * 15,
+  };
+}
+
+/**
+ * Draw the score chart and hand back a PNG.
+ *
+ * @returns {Promise<Blob>}
+ */
+export async function drawScorePoster(file, opts) {
+  const P = POSTER, S = SCORE_POSTER;
+  const L = scorePosterLayout(file, opts);
+
+  // Every photograph up front, so the drawing below is straight-line code.
+  const wants = new Set();
+  for (const p of L.shown) if (p.who && p.who.a) wants.add(p.who.a);
+  const urls = [...wants];
+  const loaded = await Promise.all(urls.map(u => loadImage(u, true)));
+  const faces = new Map(urls.map((u, i) => [u, loaded[i]]));
+  const avatar = await loadImage(opts.avatar || POSTER_AVATAR, false);
+
+  /* The legend chips can only be measured against a real context, so the canvas
+     is made first at a provisional height and the rows are counted onto it. */
+  const canvas = document.createElement('canvas');
+  const ctx0 = canvas.getContext('2d');
+  ctx0.font = '600 13px "Segoe UI", Roboto, system-ui, sans-serif';
+  for (const c of L.chips) {
+    c.w = S.chipH + 8 + ctx0.measureText(c.who.n || String(c.id)).width
+      + ctx0.measureText(' ' + Math.round(c.peak * 100)).width + 16;
+  }
+  const rowsOf = chips => {
+    const rows = [[]];
+    let used = 0;
+    for (const c of chips) {
+      if (used && used + c.w > L.plotW + S.axisW) { rows.push([]); used = 0; }
+      rows[rows.length - 1].push(c);
+      used += c.w + S.chipGap;
+    }
+    return rows;
+  };
+  const chipRows = rowsOf(L.chips);
+  const legendH = chipRows.length * (S.chipH + S.chipGap);
+  const height = L.legendTop + legendH + L.footH;
+
+  /* ⚠️ Chrome refuses a canvas wider than 16384 device pixels and hands back a
+     blank one rather than an error. Density is what gives way — the picture is
+     still the picture. */
+  const density = L.width * P.scale > 16000 ? 1 : P.scale;
+  canvas.width = Math.round(L.width * density);
+  canvas.height = Math.round(height * density);
+  const ctx = canvas.getContext('2d');
+  ctx.scale(density, density);
+  ctx.textBaseline = 'alphabetic';
+
+  ctx.fillStyle = P.bg;
+  ctx.fillRect(0, 0, L.width, height);
+
+  // ---- the heading ----
+  ctx.fillStyle = P.ink;
+  ctx.font = '700 20px "Segoe UI", Roboto, system-ui, sans-serif';
+  ctx.fillText('Domination score', P.pad, 28);
+  ctx.fillStyle = P.dim;
+  ctx.font = '400 15px "Segoe UI", Roboto, system-ui, sans-serif';
+  ctx.fillText(L.title,
+    P.pad + ctx.measureText('Domination score').width + 74, 28);
+
+  // ---- the plot ----
+  ctx.fillStyle = 'rgba(255,255,255,.022)';
+  roundRect(ctx, L.left - S.axisW + 6, L.plotTop - 10,
+    L.plotW + S.axisW - 6, S.plotH + S.yearH + S.stripH + 14, 5);
+  ctx.fill();
+
+  /* A faint column for a season with a hole in it, named at the foot of it —
+     the strip says how short, this says why. */
+  const half = L.years.length > 1
+    ? (L.plotW - S.edge * 2) / (L.years.length - 1) / 2 : 20;
+  const now = new Date().getUTCFullYear();
+  for (const yr of L.years) {
+    if (!L.thin.set.has(yr)) continue;
+    ctx.fillStyle = 'rgba(255,188,32,.07)';
+    ctx.fillRect(L.x(yr) - half * 0.75, L.plotTop, half * 1.5, S.plotH);
+    const why = shortSeasonWhy(yr, now);
+    if (!why) continue;
+    ctx.fillStyle = 'rgba(255,188,32,.85)';
+    ctx.font = '400 11px "Segoe UI", Roboto, system-ui, sans-serif';
+    const last = yr === L.years[L.years.length - 1];
+    const w = ctx.measureText(why).width;
+    ctx.fillText(why, last ? L.left + L.plotW - w : L.x(yr) - w / 2,
+      L.plotTop + S.plotH - 7);
+  }
+
+  const step = L.top > 0.6 ? 0.2 : L.top > 0.3 ? 0.1 : 0.05;
+  ctx.strokeStyle = 'rgba(255,255,255,.07)';
+  ctx.lineWidth = 1;
+  ctx.font = '400 11px "Segoe UI", Roboto, system-ui, sans-serif';
+  for (let v = 0; v <= L.top + 1e-9; v += step) {
+    const yy = Math.round(L.y(v)) + 0.5;
+    ctx.beginPath();
+    ctx.moveTo(L.left - 6, yy);
+    ctx.lineTo(L.left + L.plotW, yy);
+    ctx.stroke();
+    ctx.fillStyle = P.dim;
+    const lab = String(Math.round(v * 100));
+    ctx.fillText(lab, L.left - 12 - ctx.measureText(lab).width, yy + 4);
+  }
+
+  /* ⚠️ Every other year when the axis is crowded — **except** a year carrying
+     the footnote, which must keep its label or the mark has nothing to sit on. */
+  ctx.font = '400 12px "Segoe UI", Roboto, system-ui, sans-serif';
+  L.years.forEach((yr, i) => {
+    const keep = i === L.years.length - 1 || L.thin.set.has(yr);
+    if (L.years.length > 14 && i % 2 && !keep) return;
+    const marked = L.thin.set.has(yr);
+    const lab = String(yr);
+    const w = ctx.measureText(lab).width + (marked ? 6 : 0);
+    ctx.fillStyle = P.dim;
+    ctx.fillText(lab, L.x(yr) - w / 2, L.plotTop + S.plotH + 16);
+    if (marked) {
+      ctx.fillStyle = '#ffbc20';
+      ctx.fillText('*', L.x(yr) - w / 2 + ctx.measureText(lab).width + 1,
+        L.plotTop + S.plotH + 16);
+    }
+  });
+
+  /* ⚠️ The denominator, drawn. Without it, 66.7 in 2020 and 66.7 in 2015 are the
+     same height on the page and one of them is two matches. */
+  const bw = Math.max(3, Math.min(11, half * 0.7));
+  ctx.font = '400 10px "Segoe UI", Roboto, system-ui, sans-serif';
+  for (const yr of L.years) {
+    const s = L.model.seasons.find(q => q.year === yr);
+    const h = L.thin.max ? (S.stripH * s.total) / L.thin.max : 0;
+    const marked = L.thin.set.has(yr);
+    ctx.fillStyle = marked ? 'rgba(255,188,32,.75)' : 'rgba(255,255,255,.14)';
+    ctx.fillRect(L.x(yr) - bw / 2, L.stripTop + S.stripH - h, bw,
+      Math.max(h, s.total ? 1 : 0));
+    ctx.fillStyle = marked ? '#ffbc20' : P.dim;
+    const n = String(s.total);
+    ctx.fillText(n, L.x(yr) - ctx.measureText(n).width / 2,
+      L.stripTop + S.stripH - h - 4);
+  }
+  ctx.fillStyle = P.dim;
+  ctx.font = '400 10px "Segoe UI", Roboto, system-ui, sans-serif';
+  ctx.fillText('titles', L.left - 12 - ctx.measureText('titles').width,
+    L.stripTop + S.stripH);
+
+  // Lines first, faded ones underneath, then every face over every line.
+  const order = L.shown.slice()
+    .sort((a, b) => Number(L.lit(a.id)) - Number(L.lit(b.id)));
+  const inCrop = p => p.pts.filter(pt => pt.year >= L.from && pt.year <= L.to);
+  for (const p of order) {
+    ctx.globalAlpha = L.lit(p.id) ? 1 : 0.16;
+    ctx.strokeStyle = p.colour;
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    const pts = inCrop(p);
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], c = pts[i];
+      // ⚠️ Only between consecutive seasons: a gap is a gap, not a trend.
+      if (c.year !== a.year + 1) continue;
+      // A leg touching a short season is dashed — a solid line across 2020
+      // asserts a trend through a year that was barely played.
+      ctx.setLineDash(L.thin.set.has(a.year) || L.thin.set.has(c.year) ? [5, 5] : []);
+      ctx.beginPath();
+      ctx.moveTo(L.x(a.year), L.y(a.score));
+      ctx.lineTo(L.x(c.year), L.y(c.score));
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  }
+  for (const p of order) {
+    ctx.globalAlpha = L.lit(p.id) ? 1 : 0.16;
+    const im = p.who && p.who.a ? faces.get(p.who.a) : null;
+    for (const pt of inCrop(p)) {
+      const cx = L.x(pt.year), cy = L.y(pt.score);
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, S.face, 0, Math.PI * 2);
+      ctx.clip();
+      if (im) drawCover(ctx, im, cx - S.face, cy - S.face, S.face * 2);
+      else { ctx.fillStyle = p.colour; ctx.fillRect(cx - S.face, cy - S.face, S.face * 2, S.face * 2); }
+      ctx.restore();
+      ctx.strokeStyle = p.colour;
+      ctx.lineWidth = L.lit(p.id) ? 2.2 : 1.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, S.face, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  // ---- who the lines are ----
+  chipRows.forEach((row, r) => {
+    let cx = P.pad;
+    const top = L.legendTop + r * (S.chipH + S.chipGap);
+    for (const c of row) {
+      ctx.globalAlpha = c.lit ? 1 : 0.35;
+      ctx.fillStyle = 'rgba(255,255,255,.05)';
+      roundRect(ctx, cx, top, c.w, S.chipH, S.chipH / 2);
+      ctx.fill();
+      const fs = S.chipH - 6;
+      const im = c.who && c.who.a ? faces.get(c.who.a) : null;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx + 3 + fs / 2, top + S.chipH / 2, fs / 2, 0, Math.PI * 2);
+      ctx.clip();
+      if (im) drawCover(ctx, im, cx + 3, top + 3, fs);
+      else { ctx.fillStyle = c.colour; ctx.fillRect(cx + 3, top + 3, fs, fs); }
+      ctx.restore();
+      ctx.strokeStyle = c.colour;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx + 3 + fs / 2, top + S.chipH / 2, fs / 2, 0, Math.PI * 2);
+      ctx.stroke();
+
+      const name = (c.who && c.who.n) || String(c.id);
+      ctx.fillStyle = P.ink;
+      ctx.font = '600 13px "Segoe UI", Roboto, system-ui, sans-serif';
+      ctx.fillText(name, cx + S.chipH + 4, top + S.chipH / 2 + 4.5);
+      /* ⚠️ Measured **before** the font changes. Taken after, the name came back
+         at the 12px width it was never drawn at, and every long name had its
+         peak printed through its last two letters. */
+      const nameW = ctx.measureText(name).width;
+      ctx.fillStyle = P.dim;
+      ctx.font = '400 12px "Segoe UI", Roboto, system-ui, sans-serif';
+      ctx.fillText(String(Math.round(c.peak * 100)),
+        cx + S.chipH + 10 + nameW, top + S.chipH / 2 + 4.5);
+      cx += c.w + S.chipGap;
+    }
+  });
+  ctx.globalAlpha = 1;
+
+  drawPosterFoot(ctx, L.width, height, L.footH, avatar, L.legend);
+
+  return new Promise((resolve, reject) => {
+    try {
+      canvas.toBlob(blob => blob ? resolve(blob)
+        : reject(new Error('the browser would not encode the image')), 'image/png');
+    } catch (e) {
+      reject(new Error('the images would not come back readable (' + e.name + ')'));
+    }
+  });
 }

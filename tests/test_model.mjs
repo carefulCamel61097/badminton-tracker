@@ -39,7 +39,9 @@ import {
   titleWeight, dominationSeasons, thinSeasons, shortSeasonWhy,
   bestScoreFloor, SCORE_FLOOR_STEP,
 } from '../model.js';
-import { posterLayout, tileSlot, POSTER, REIGN_COLOURS, TIER_RING } from '../poster.js';
+import {
+  posterLayout, scorePosterLayout, tileSlot, POSTER, REIGN_COLOURS, SCORE_COLOURS, TIER_RING,
+} from '../poster.js';
 import { check, eq, near, report } from './check.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -2870,6 +2872,49 @@ eq('and folded to them, one slot apart',
 
 eq('nothing to draw is nothing, not a crash', bracketLayout(null, 'all').cards.length, 0);
 eq('and it asks for no canvas', bracketLayout(parseDraw({}), 'all').width, 0);
+
+console.log('\n=== a slice of the score, laid out for export ===');
+
+const scoreWhole = scorePosterLayout(winMS, { from: 2007, to: 2026, kind: 'MS', floor: 45 });
+const scoreCrop = scorePosterLayout(winMS, { from: 2011, to: 2016, kind: 'MS', floor: 45 });
+
+eq('the crop holds the seasons asked for', scoreCrop.years.join(','),
+  '2011,2012,2013,2014,2015,2016');
+eq('and says so in its title', scoreCrop.title, 'Men’s singles · 2011–2016');
+eq('a range wider than the board is clamped to the board',
+  scorePosterLayout(winMS, { from: 1990, to: 2100, kind: 'MS', floor: 45 }).years.length,
+  winSeasons.years.length);
+
+/* ⚠️ The crop changes what is shown, never what is counted. A score is a share
+   of its own season, so cropping leaves every number where it was — and the
+   players, their colours and the axis are settled over the whole career and
+   then clipped. An export of six seasons that recoloured CHEN Long because LEE
+   Chong Wei fell off the left would not be the picture the sender saw. */
+eq('the same people, in the same colours',
+  scoreCrop.shown.map(p => p.who.n + '=' + p.colour).join(' '),
+  scoreWhole.shown.map(p => p.who.n + '=' + p.colour).join(' '));
+eq('and the same axis', scoreCrop.top, scoreWhole.top);
+
+/* ⚠️ Handed in, because the page scales the axis across both draws and this
+   file is given one of them. Without it a men's export and a women's export of
+   the same seasons come back at two different scales. */
+eq('an axis height given by the caller is the one used',
+  scorePosterLayout(winMS, { from: 2007, to: 2026, kind: 'MS', floor: 45, top: 1 }).top, 1);
+
+/* The bar and the pins are what a shared chart is *about*, so the picture is
+   drawn to the same reading the page was on. */
+eq('a lower bar draws more people',
+  scorePosterLayout(winMS, { from: 2007, to: 2026, kind: 'MS', floor: 20 }).shown.length
+    > scoreWhole.shown.length, true);
+const pinnedLayout = scorePosterLayout(winMS,
+  { from: 2007, to: 2026, kind: 'MS', floor: 45, only: [scoreWhole.shown[0].id] });
+eq('a pin lights one and leaves the rest drawn',
+  pinnedLayout.shown.filter(p => pinnedLayout.lit(p.id)).length, 1);
+eq('with everybody still in the picture',
+  pinnedLayout.shown.length, scoreWhole.shown.length);
+
+check('a wide board is drawn wider than a narrow one',
+  scoreWhole.width > scoreCrop.width, scoreWhole.width + ' vs ' + scoreCrop.width);
 
 
 process.exit(report());

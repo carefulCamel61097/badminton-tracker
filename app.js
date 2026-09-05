@@ -37,7 +37,7 @@ import {
   bestScoreFloor, SCORE_FLOOR_MAX, SCORE_FLOOR_STEP,
 } from './model.js';
 import {
-  drawPoster, posterLayout, POSTER, TIER_RING,
+  drawPoster, posterLayout, drawScorePoster, scorePosterLayout, POSTER, TIER_RING,
   REIGN_COLOURS, SCORE_COLOURS, CUP_PATHS, CUP_BOX, RING_AT, RING_COLOURS, RING_BOX,
 } from './poster.js';
 
@@ -1814,17 +1814,31 @@ function renderExportBar() {
 
 /** What the file is called when it lands in somebody's downloads. */
 function exportName(range) {
-  return `badminton-winners-${win.kind}-${range.from}-${range.to}.png`;
+  const what = win.view === 'score' ? 'score' : 'winners';
+  return `badminton-${what}-${win.kind}-${range.from}-${range.to}.png`;
+}
+
+/** What the poster has to be told about whichever view is up. */
+function posterOpts(range) {
+  return win.view === 'score'
+    ? {
+      from: range.from, to: range.to, kind: win.kind,
+      floor: win.floor, only: [...win.only],
+      /* ⚠️ The axis height is handed in, because the page scales it across
+         **both** draws and `poster.js` is given one file. Without this a men's
+         export and a women's export of the same seasons come back at two
+         different scales — which is the bug the page already fixed once. */
+      top: scoreTop(),
+    }
+    : { from: range.from, to: range.to, kind: win.kind, min: win.reign, eras: win.eras };
 }
 
 async function makePoster() {
   const file = winFile();
   const range = exportRange();
   if (!file || !range) return null;
-  return drawPoster(file, {
-    from: range.from, to: range.to,
-    kind: win.kind, min: win.reign, eras: win.eras,
-  });
+  const opts = posterOpts(range);
+  return win.view === 'score' ? drawScorePoster(file, opts) : drawPoster(file, opts);
 }
 
 function exportSaying(msg, bad) {
@@ -4107,6 +4121,26 @@ window.BST = {
       .map(t => t.textContent),
     ladder: () => [...document.querySelectorAll('#scoreLadder .wt')]
       .map(w => w.textContent.trim()),
+    /* The export, the same two hooks the board has: the layout as numbers, and
+       a real encoded image, because a tainted canvas only shows up at `toBlob`
+       after everything has drawn perfectly. */
+    poster: (from, to) => {
+      const L = scorePosterLayout(winFile(), posterOpts({ from, to }));
+      return {
+        width: L.width, from: L.from, to: L.to, top: L.top,
+        years: L.years, title: L.title, legend: L.legend,
+        shown: L.shown.map(p => ({ id: p.id, who: p.who.n, colour: p.colour })),
+      };
+    },
+    png: async (from, to) => {
+      const blob = await drawScorePoster(winFile(), posterOpts({ from, to }));
+      const url = await new Promise(res => {
+        const r = new FileReader();
+        r.onload = () => res(r.result);
+        r.readAsDataURL(blob);
+      });
+      return { bytes: blob.size, type: blob.type, url };
+    },
     rows: id => [...document.querySelectorAll('#' + id + ' tr')].slice(1).map(tr => ({
       cells: [...tr.querySelectorAll('td')].map(td => td.textContent.trim()),
       thin: tr.classList.contains('thin'),

@@ -2986,6 +2986,51 @@ check('a photograph never loads in a way that poisons the canvas',
 await b.ev(`document.getElementById('winSave').click()`);
 check('and the picker closes again', await b.ev(`document.getElementById('winExport').hidden`));
 
+/* ---- and a slice of the score ----
+
+   The same picker, the same range, the same foot: only the drawing differs. */
+
+await b.ev(`location.hash = '#pg=winners&wv=score'`);
+await b.until(`window.BST.score.marks().length > 5`, { timeout: 60000 });
+
+eq('the file says which of the two views it is',
+  await b.ev(`window.BST.winners.name({ from: 2011, to: 2016 })`),
+  'badminton-score-MS-2011-2016.png');
+
+const scoreCrop = await b.ev(`window.BST.score.poster(2011, 2016)`);
+eq('a crop is drawn to the seasons asked for',
+  scoreCrop.years.join(','), '2011,2012,2013,2014,2015,2016');
+/* ⚠️ The crop changes what is *shown*, never what is *counted*: a score is a
+   share of its own season, and the players, their colours and the axis are all
+   settled over the whole career and then clipped. An export of six seasons that
+   recoloured CHEN Long because LEE Chong Wei fell off the left would not be the
+   picture the sender was looking at. */
+const scoreWhole = await b.ev(`window.BST.score.poster(2007, 2026)`);
+eq('and the colours are the ones the whole board gave them',
+  scoreCrop.shown.map(p => p.who + '=' + p.colour).join(' '),
+  scoreWhole.shown.map(p => p.who + '=' + p.colour).join(' '));
+eq('so is the height of the axis', scoreCrop.top, scoreWhole.top);
+/* ⚠️ And the axis is the one the *page* worked out, across both draws — one
+   file cannot know about the other, so the number is handed in. */
+eq('which is the height the page is drawn at',
+  scoreCrop.top, await b.ev(`window.BST.score.top()`));
+
+const scorePng = await b.ev(`window.BST.score.png(2011, 2016)`);
+check('a score poster comes back as a real PNG',
+  scorePng && scorePng.type === 'image/png', JSON.stringify(scorePng && scorePng.type));
+check('with the photographs in it', scorePng && scorePng.bytes > 20000, scorePng && scorePng.bytes);
+check('and it decodes to the width the layout asked for',
+  await b.ev(`(async () => {
+    const L = window.BST.score.poster(2011, 2016);
+    const out = await window.BST.score.png(2011, 2016);
+    const im = new Image();
+    await new Promise(r => { im.onload = r; im.onerror = r; im.src = out.url; });
+    return im.naturalWidth === Math.round(L.width * 2)
+      ? true : im.naturalWidth + ' want ' + Math.round(L.width * 2);
+  })()`), true);
+
+await b.ev(`location.hash = '#pg=winners'`);
+await b.until(`!!document.querySelector('.pyrseason')`, { timeout: 60000 });
 await b.ev(`document.querySelector('#pageNav [data-page="seasons"]').click()`);
 
 /* ============================ the keyboard ============================
