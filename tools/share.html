@@ -25,8 +25,10 @@
   (`honourRung` in model.js), so a Super 1000 is worth phi times a Super 750,
   and the Olympics phi^4 of one — 6.85 Super 750s. The pyramid sizes a square by
   area and area is what goes up by phi a rung, so that is the default; the
-  square-root basis, which is what the *side* of a square does, is offered
-  beside it because it is the other defensible reading.
+  square-root basis, which is what the *side* of a square does, was offered
+  beside it for a while and is gone: it is defensible and it is not what anybody
+  means by "weight them by the golden ratio", and a control nobody would move is
+  a question asked for nothing.
 
   Nothing here is imported by the app. It imports FROM the app — `model.js` for
   the ladder and for `winnersSeasons`, which is what moves a season-ending
@@ -163,8 +165,6 @@
   <span class="seg" id="kindSeg"></span>
   <span class="lbl" style="margin-left:14px">Metric</span>
   <span class="seg" id="metricSeg"></span>
-  <span class="lbl" style="margin-left:14px" id="basisLbl">Ladder</span>
-  <span class="seg" id="basisSeg"></span>
 </div>
 <div class="bar">
   <span class="lbl">Show</span>
@@ -233,34 +233,22 @@ const BASE_RUNG = honourRung(24);
    same number. The photographs step by sqrt(phi) on the *side*, which makes the
    *area* step by phi. Area is what the eye actually compares on the pyramid, so
    phi-per-rung is the default and sqrt(phi)-per-rung is offered beside it. */
-const BASIS = {
-  area: {
-    label: 'Steep', step: PHI,
-    /* ⚠️ Named by what it *does*, not by the constant behind it. The buttons
-       said "φ per rung" and "√φ per rung", which is precise and unreadable: a
-       reader who does not already know what φ is cannot guess which button is
-       the bigger one, and a reader who does know still has to work out whether
-       a rung is a tier. The provenance is in the sentence underneath. */
-    why: 'a title is worth <b>1.6×</b> the tier below it, so an Olympic gold is '
-      + 'nearly seven Super 750s. The step a square’s <i>area</i> takes on the '
-      + 'pyramid',
-  },
-  side: {
-    label: 'Gentle', step: Math.sqrt(PHI),
-    why: 'a title is worth <b>1.27×</b> the tier below it, so an Olympic gold is '
-      + 'about two and a half Super 750s. The step a square’s <i>side</i> takes',
-  },
-};
+/* ⚠️ **φ per rung, and that is the whole ladder.** The photographs on the Winners
+   board step by √φ on the *side* of a square, which steps its **area** by φ — and
+   area is what an eye compares when it looks at that board, so φ is the step this
+   agrees with. A √φ alternative was on a toggle for a while: also defensible,
+   also not what anybody means by "weighted by the golden ratio", and a second
+   control that nobody would ever move is a question asked for nothing. */
+const STEP = PHI;
 
-const weightOf = (tier, basis) =>
-  Math.pow(BASIS[basis].step, BASE_RUNG - honourRung(tier));
+const weightOf = tier => Math.pow(STEP, BASE_RUNG - honourRung(tier));
 
 const TIER_NAME = { OLY: 'Olympics', 20: 'World Champs', 22: 'Tour Finals',
   23: 'Super 1000', 24: 'Super 750', 25: 'Super 500' };
 
 /* ---------- state ---------- */
 
-const view = { kind: 'MS', metric: 'share', basis: 'area', floor: 20, autoFloor: true };
+const view = { kind: 'MS', metric: 'share', floor: 20, autoFloor: true };
 const files = {};
 const only = new Set();     // legend pins; empty means "everybody who clears the floor"
 
@@ -295,17 +283,16 @@ async function load(kind) {
 function build() {
   const file = files[view.kind];
   const { years, byYear } = winnersSeasons(file);
-  const basis = view.basis;
 
   const seasons = years.map(year => {
     const list = byYear.get(year) || [];
     const total = list.length;
-    const mass = list.reduce((n, t) => n + weightOf(t.tier, basis), 0);
+    const mass = list.reduce((n, t) => n + weightOf(t.tier), 0);
     const by = new Map();
     for (const t of list) {
       const cur = by.get(t.w) || { n: 0, w: 0, titles: [] };
       cur.n += 1;
-      cur.w += weightOf(t.tier, basis);
+      cur.w += weightOf(t.tier);
       cur.titles.push(t);
       by.set(t.w, cur);
     }
@@ -585,17 +572,17 @@ function renderTables(model) {
 }
 
 function renderWeights() {
-  const b = BASIS[view.basis];
   const line = ['OLY', 20, 22, 23, 24, 25]
-    .map(t => `${TIER_NAME[t]} <code>${weightOf(t, view.basis).toFixed(3)}</code>`)
+    .map(t => `${TIER_NAME[t]} <code>${weightOf(t).toFixed(3)}</code>`)
     .join(' · ');
   $('weightNote').innerHTML =
-    `<b>A score of 100 is the whole season</b> — every title on the board, and `
-    + `nobody else with one. <b>Titles</b> counts them and treats them all alike. `
-    + `<b>Weighted</b> asks what they were worth, on a <b>${b.label.toLowerCase()}</b> `
-    + `ladder: ${b.why}. Super 750 is the unit — ${line} — and the steps are the `
-    + `golden ratio, the same one the photographs on the Winners board are sized `
-    + `by (<code>honourRung</code>), so nothing here invents a second ranking.`;
+    '<b>A score of 100 is the whole season</b> — every title on the board, and '
+    + 'nobody else with one. <b>Titles</b> counts them and treats them all alike. '
+    + '<b>Weighted</b> asks what they were worth: each tier is <b>1.6×</b> the one '
+    + 'below it, so an Olympic gold is nearly seven Super 750s. Super 750 is the '
+    + `unit — ${line} — and 1.6 is the golden ratio, the same step the photographs `
+    + 'on the Winners board are sized by (<code>honourRung</code>), so nothing here '
+    + 'invents a second ranking.';
 }
 
 function renderControls() {
@@ -613,11 +600,6 @@ function renderControls() {
   };
   seg('kindSeg', [['MS', 'Men’s'], ['WS', 'Women’s']], 'kind');
   seg('metricSeg', [['share', 'Titles'], ['weighted', 'Weighted']], 'metric');
-  /* Greyed out under *Titles*, where it changes nothing — a control that is
-     live and inert is a question the reader has to answer twice. */
-  const flat = view.metric === 'share';
-  seg('basisSeg', Object.entries(BASIS).map(([k, v]) => [k, v.label, flat]), 'basis');
-  $('basisLbl').style.opacity = flat ? '.4' : '';
   $('floor').value = String(view.floor);
   $('floorTxt').textContent = (view.floor
     ? `players who scored ${view.floor} or better in some year`
@@ -630,16 +612,17 @@ function renderControls() {
  *
  * The slider is a clutter control and the interesting default is not "show
  * everyone" — forty-four careers is a scribble — but it must not hide the person
- * who actually dominated a year. Walked up in the slider's own steps, stopped
- * one short of the first season whose best player would drop off.
+ * who actually dominated a year.
+ *
+ * So: take every finished season, find who led it, and note that player's best
+ * year anywhere. The bar is the highest slider step at or below the lowest of
+ * those, which is as high as it can go without dropping one of them.
  *
  * ⚠⚠ This asked the wrong question until 5 Sep 2026: *"is anybody on screen in
  * every season"*, which is satisfied by any visible player who happened to win
  * something that year, however little. The women's default came out at 35 on a
  * rule that was meant to hold the leaders, and CHEN Yu Fei — who led 2019 with a
- * 30 and scored 33.3 in 2023 — was not drawn at all. The bar it settles on is now
- * the lowest season-leading score there is, which is the only number that can
- * honestly be called "the most it can hide".
+ * 30 and scored 33.3 in 2023 — was not drawn at all.
  *
  * ⚠️ Covering the top **two** of each season was the other candidate and it
  * collapses: some season's runner-up is always somebody with a peak of 10, so
