@@ -50,7 +50,15 @@ const arg = (flag, fallback) => {
 const DRAW = Number(arg('--draw', 1));
 const CODE = DRAWS[DRAW] || 'MS';
 OUT = path.join(ROOT, 'data', `winners-${CODE}.json`);
-const FROM = Number(arg('--from', 2007));
+/* ⚠️ An optional **wider net**, written to a file of its own so the board's own
+   data cannot be changed by accident: `--tier 25` collects the Super 500
+   winners into `winners-<CODE>-s500.json`. The pyramid stops at Super 750 on
+   purpose — a fifth row would make every season column half as wide again — but
+   the share chart can ask whether the answer moves when the net widens.
+   Nothing lands on Super 500 before 2018, so it only ever adds to 2018+. */
+const TIER = arg('--tier', '');
+if (TIER) OUT = path.join(ROOT, 'data', `winners-${CODE}-s${TIER}.json`);
+const FROM = Number(arg('--from', TIER ? 2018 : 2007));
 const TO = Number(arg('--to', new Date().getUTCFullYear()));
 
 sweepProfiles({ quiet: true });
@@ -150,7 +158,9 @@ const save = () => {
   fs.writeFileSync(OUT, JSON.stringify(state));
 };
 
-const wanted = new Set(PYRAMID_ROWS.flatMap(r => r.tiers).map(String));
+const wanted = TIER
+  ? new Set([String(TIER)])
+  : new Set(PYRAMID_ROWS.flatMap(r => r.tiers).map(String));
 
 for (let year = FROM; year <= TO; year++) {
   if (state.seasons[year]) { console.log(`${year}  (already)`); continue; }
@@ -190,7 +200,7 @@ for (let year = FROM; year <= TO; year++) {
   state.seasons[year] = won;
   save();
 
-  const byRow = PYRAMID_ROWS.map(r =>
+  const byRow = TIER ? `tier ${TIER}` : PYRAMID_ROWS.map(r =>
     `${r.key} ${won.filter(x => r.tiers.some(t => String(t) === String(x.tier))).length}`).join('  ');
   console.log(`${year}  ${String(won.length).padStart(2)} titles   ${byRow}`
     + (missing.length ? `   no final for: ${missing.join('; ')}` : ''));

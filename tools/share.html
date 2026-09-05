@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Domination score — a sketch</title>
+
+<!--
+  A DUMMY TOOL. Not linked from the site and not styled like it beyond the
+  palette; it exists to answer one question before anything is built for real:
+
+    what does "how much of a season did somebody win" actually look like?
+
+  Answered as a **domination score out of 100**. 100 is the whole season: every
+  title on the board, nobody else got one. Two readings of it:
+
+    titles     titles won / titles there were
+    weighted   the same, with every title worth phi^(rungs above Super 750)
+
+  It is a percentage underneath and deliberately not called one. "75% of 2022"
+  invites the question "per cent of what?" every time it is read; a score out of
+  100 carries its own scale, and the count it is made of is on the hover.
+
+  The weights come from the *same ladder the photographs are sized with*
+  (`honourRung` in model.js), so a Super 1000 is worth phi times a Super 750,
+  and the Olympics phi^4 of one — 6.85 Super 750s. The pyramid sizes a square by
+  area and area is what goes up by phi a rung, so that is the default; the
+  square-root basis, which is what the *side* of a square does, is offered
+  beside it because it is the other defensible reading.
+
+  Nothing here is imported by the app. It imports FROM the app — `model.js` for
+  the ladder and for `winnersSeasons`, which is what moves a season-ending
+  Finals back into the season it concludes — so the numbers cannot drift from
+  the board they are meant to describe.
+
+  Run it:  node serve.mjs   then open  http://localhost:8090/tools/share.html
+  (It fetches ../data/*.json, so file:// will not work.)
+-->
+
+<style>
+  :root {
+    color-scheme: dark;
+    --font: Roboto, "Segoe UI", system-ui, -apple-system, sans-serif;
+    --mono: "Roboto Mono", ui-monospace, Consolas, monospace;
+    --bg: #1a1a1a; --surface: #262626; --surface-2: #2f2f2f; --surface-sunk: #212121;
+    --text: #f2f2f2; --text-dim: #c9c9c9; --text-muted: #9a9a9a;
+    --border: #3d3d3d; --border-soft: #303030;
+    --accent: #df2027; --accent-fg: #fff; --accent-text: #ff5f64;
+    --warn: #ffbc20;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 18px 22px 60px;
+    background: var(--bg); color: var(--text);
+    font: 400 13px/1.45 var(--font);
+  }
+  h1 { font-size: 17px; margin: 0 0 2px; }
+  h1 small { font: 400 12px var(--font); color: var(--text-muted); margin-left: 8px; }
+  h2 { font-size: 12px; letter-spacing: .08em; text-transform: uppercase;
+       color: var(--text-muted); margin: 22px 0 8px; font-weight: 600; }
+
+  .bar { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin: 14px 0 4px; }
+  .lbl { font: 600 10px var(--mono); letter-spacing: .1em; text-transform: uppercase;
+         color: var(--text-muted); }
+  .seg { display: flex; gap: 3px; }
+  button.opt {
+    font: 400 11.5px var(--font); padding: 3px 10px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface-sunk); color: var(--text-muted);
+    transition: background .12s, color .12s, border-color .12s;
+  }
+  button.opt:hover { border-color: var(--text-muted); color: var(--text-dim); }
+  button.opt.on { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+  button.opt:disabled { opacity: .4; cursor: not-allowed; }
+  input[type=range] { accent-color: var(--accent); width: 150px; vertical-align: middle; }
+
+  .note { color: var(--text-muted); font-size: 12px; max-width: 96ch; margin: 8px 0 0; }
+  .note b { color: var(--text-dim); }
+  .warnline { color: var(--warn); }
+
+  .chartwrap { position: relative; margin-top: 10px; }
+  svg { display: block; width: 100%; height: auto; background: var(--surface-sunk);
+        border: 1px solid var(--border-soft); border-radius: 6px; }
+  .grid line { stroke: rgba(255,255,255,.07); }
+  .axis text { fill: var(--text-muted); font: 400 10px var(--mono); }
+  .lane { fill: rgba(255,255,255,.028); }
+  .thin { fill: rgba(255,188,32,.09); }
+  path.series { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  circle.pt { stroke: var(--bg); stroke-width: 1.5; }
+  .dim { opacity: .13; }
+  .hit { fill: transparent; cursor: pointer; }
+
+  #tip {
+    position: absolute; pointer-events: none; z-index: 5; min-width: 190px; max-width: 300px;
+    background: #101010ee; border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px 10px; font-size: 12px; box-shadow: 0 6px 22px #0009;
+  }
+  #tip[hidden] { display: none; }
+  #tip .who { display: flex; align-items: center; gap: 7px; font-weight: 700; margin-bottom: 4px; }
+  #tip img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
+  #tip .big { font: 700 16px var(--mono); }
+  #tip ul { margin: 5px 0 0; padding-left: 15px; color: var(--text-dim); }
+  #tip li { font-size: 11.5px; }
+  #tip .k { color: var(--text-muted); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+  .lg {
+    display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface-sunk);
+    border-radius: 999px; padding: 2px 10px 2px 3px; font-size: 11.5px; color: var(--text-dim);
+  }
+  .lg img { width: 18px; height: 18px; border-radius: 50%; object-fit: cover; }
+  .lg i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .lg.off { opacity: .35; }
+  .lg .pk { font: 400 10px var(--mono); color: var(--text-muted); }
+
+  table { border-collapse: collapse; font-size: 12px; margin-top: 6px; }
+  th, td { padding: 3px 12px 3px 0; text-align: left; white-space: nowrap; }
+  th { color: var(--text-muted); font-weight: 600; font-size: 10.5px;
+       letter-spacing: .06em; text-transform: uppercase; }
+  td.n { font-family: var(--mono); }
+  tr.thin td { color: var(--warn); }
+  .cols { display: flex; gap: 40px; flex-wrap: wrap; align-items: flex-start; }
+  code { font-family: var(--mono); font-size: 11.5px; color: var(--text-dim); }
+</style>
+</head>
+<body>
+
+<h1>Domination score <small>a sketch, not a page</small></h1>
+<p class="note" id="sub">Loading…</p>
+
+<div class="bar">
+  <span class="lbl">Draw</span>
+  <span class="seg" id="kindSeg"></span>
+  <span class="lbl" style="margin-left:14px">Metric</span>
+  <span class="seg" id="metricSeg"></span>
+  <span class="lbl" style="margin-left:14px">Weights</span>
+  <span class="seg" id="basisSeg"></span>
+</div>
+<div class="bar">
+  <span class="lbl">Net</span>
+  <span class="seg" id="netSeg"></span>
+  <span class="lbl" style="margin-left:14px">Show</span>
+  <input type="range" id="floor" min="0" max="60" step="5" value="20">
+  <span id="floorTxt" class="lbl" style="text-transform:none;letter-spacing:0"></span>
+</div>
+
+<div class="chartwrap">
+  <svg id="chart" viewBox="0 0 1180 470" preserveAspectRatio="xMidYMid meet"></svg>
+  <div id="tip" hidden></div>
+</div>
+<div class="legend" id="legend"></div>
+
+<p class="note" id="weightNote"></p>
+
+<div class="cols">
+  <div>
+    <h2>Best single seasons</h2>
+    <table id="best"></table>
+  </div>
+  <div>
+    <h2>What each season held</h2>
+    <table id="years"></table>
+  </div>
+</div>
+
+<script type="module">
+import { winnersSeasons, honourRung, PHI } from '../model.js';
+import { REIGN_COLOURS } from '../poster.js';
+
+/* ⚠️ The band's eight hues, then six more. Eight is right for the era bands —
+   two bars of one colour are far apart in time there — but a line chart puts a
+   dozen series on top of each other, and at eight LEE Chong Wei and Kunlavut
+   VITIDSARN came out the same green. Extended here rather than in `poster.js`,
+   because the extra hues are only right for this chart. */
+const PALETTE = REIGN_COLOURS.concat([
+  '#e8734a', '#8ad35b', '#ff9ad5', '#5bc0de', '#d4b483', '#b98cff',
+]);
+
+/* ---------- the ladder ---------- */
+
+/* Super 750 is 1. Everything else is measured against it, because it is the
+   bottom of the board — the lowest tier the whole top of the game enters. */
+const BASE_RUNG = honourRung(24);
+
+/* ⚠️ Two defensible readings of "golden ratio weighting", and they are not the
+   same number. The photographs step by sqrt(phi) on the *side*, which makes the
+   *area* step by phi. Area is what the eye actually compares on the pyramid, so
+   phi-per-rung is the default and sqrt(phi)-per-rung is offered beside it. */
+const BASIS = {
+  area: { label: 'φ per rung', step: PHI,
+    why: 'what a square’s area does on the pyramid' },
+  side: { label: '√φ per rung', step: Math.sqrt(PHI),
+    why: 'what a square’s side does — a flatter ladder' },
+};
+
+const weightOf = (tier, basis) =>
+  Math.pow(BASIS[basis].step, BASE_RUNG - honourRung(tier));
+
+const TIER_NAME = { OLY: 'Olympics', 20: 'World Champs', 22: 'Tour Finals',
+  23: 'Super 1000', 24: 'Super 750', 25: 'Super 500' };
+
+/* ---------- state ---------- */
+
+const view = { kind: 'MS', metric: 'share', basis: 'area', net: 'core', floor: 20 };
+const files = {};           // 'MS' -> base file, 'MS+500' -> the wider net
+const only = new Set();     // legend pins; empty means "everybody who clears the floor"
+
+const $ = id => document.getElementById(id);
+/* Out of 100, and never printed with a % sign — see the note at the top. */
+const score = x => (x * 100).toFixed(x >= 0.995 ? 0 : 1).replace(/\.0$/, '');
+
+/* ---------- loading ---------- */
+
+async function grab(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(url + ' → ' + r.status);
+  return r.json();
+}
+
+async function load(kind) {
+  if (!files[kind]) files[kind] = await grab(`../data/winners-${kind}.json`);
+  if (files[kind + '+500'] === undefined) {
+    /* The wider net is harvested separately and may simply not be there —
+       `--tier 25` is an extra run. Absent is a state, not a failure. */
+    try { files[kind + '+500'] = await grab(`../data/winners-${kind}-s25.json`); }
+    catch { files[kind + '+500'] = null; }
+  }
+  return files[kind];
+}
+
+/** The base file, with the Super 500 seasons folded in when the net is wide. */
+function merged() {
+  const base = files[view.kind];
+  const extra = files[view.kind + '+500'];
+  if (view.net === 'core' || !extra) return base;
+  const seasons = {};
+  for (const [y, list] of Object.entries(base.seasons)) seasons[y] = list.slice();
+  for (const [y, list] of Object.entries(extra.seasons)) {
+    seasons[y] = (seasons[y] || []).concat(list);
+  }
+  return { ...base, players: { ...extra.players, ...base.players }, seasons };
+}
+
+/* ---------- the numbers ---------- */
+
+/**
+ * Every player's season-by-season share of what was on offer.
+ *
+ * ⚠️ A player has a point only in the years they won something. There is no
+ * third column in this data saying who *entered*, so "0% in 2013" and "not on
+ * the tour in 2013" cannot be told apart — and a line drawn along zero would be
+ * claiming the first when it only knows the second. Runs break at any gap, so
+ * two dots four years apart stay two dots.
+ */
+function build() {
+  const file = merged();
+  const { years, byYear } = winnersSeasons(file);
+  const basis = view.basis;
+
+  const seasons = years.map(year => {
+    const list = byYear.get(year) || [];
+    const total = list.length;
+    const mass = list.reduce((n, t) => n + weightOf(t.tier, basis), 0);
+    const by = new Map();
+    for (const t of list) {
+      const cur = by.get(t.w) || { n: 0, w: 0, titles: [] };
+      cur.n += 1;
+      cur.w += weightOf(t.tier, basis);
+      cur.titles.push(t);
+      by.set(t.w, cur);
+    }
+    return { year, total, mass, by, tiers: list };
+  });
+
+  const people = new Map();
+  for (const s of seasons) {
+    for (const [id, got] of s.by) {
+      if (!people.has(id)) people.set(id, { id, who: file.players[id] || { n: '#' + id }, pts: [] });
+      people.get(id).pts.push({
+        year: s.year,
+        share: s.total ? got.n / s.total : 0,
+        weighted: s.mass ? got.w / s.mass : 0,
+        n: got.n, of: s.total, titles: got.titles,
+      });
+    }
+  }
+
+  const list = [...people.values()];
+  for (const p of list) {
+    p.peak = Math.max(...p.pts.map(pt => pt[view.metric]));
+    /* ⚠️ Ranked on the **count** share whatever is being drawn, so a player does
+       not change colour when the metric toggles. */
+    p.rank = Math.max(...p.pts.map(pt => pt.share));
+  }
+
+  /* ⚠️ Coloured **strongest first**, not in the order careers open, which is how
+     the era bands on the real page do it. Eight hues over forty-four players
+     collide whatever the order; the bands get away with it because two bars of
+     one colour are far apart in time, and a line chart does not — the first
+     draft gave Viktor AXELSEN and Anders ANTONSEN the same teal and put three
+     purples on top of each other. Handing the palette out by peak means the
+     players anybody is looking at are always the eight distinct ones, and a
+     repeat only happens down in the tail. */
+  list.sort((a, b) => (b.rank - a.rank) || (a.id - b.id));
+  list.forEach((p, i) => { p.colour = PALETTE[i % PALETTE.length]; });
+  return { years, seasons, people: list };
+}
+
+/* ---------- the chart ---------- */
+
+const PAD = { l: 46, r: 16, t: 14, b: 30 };
+const W = 1180, H = 470;
+
+function draw(model) {
+  const { years, seasons, people } = model;
+  const svg = $('chart');
+  const floor = view.floor / 100;
+  const shown = people.filter(p => p.peak >= floor && (!only.size || only.has(p.id)));
+
+  const top = Math.min(1, Math.max(0.25,
+    Math.ceil(Math.max(0.01, ...shown.map(p => p.peak)) * 10) / 10));
+  const x = i => PAD.l + (W - PAD.l - PAD.r) * (years.length < 2 ? 0.5 : i / (years.length - 1));
+  const y = v => H - PAD.b - (H - PAD.t - PAD.b) * (v / top);
+  const at = year => x(years.indexOf(year));
+
+  const out = [];
+
+  /* A season with almost nothing in it is not a season anybody dominated: 2020
+     held two of these tournaments, so one title is 50% of the year. Banded
+     rather than dropped — the hole is the story. */
+  const thin = seasons.filter(s => s.total > 0 && s.total < 6);
+  for (const s of thin) {
+    const i = years.indexOf(s.year);
+    const half = (W - PAD.l - PAD.r) / Math.max(1, years.length - 1) / 2;
+    out.push(`<rect class="thin" x="${x(i) - half}" y="${PAD.t}" width="${half * 2}"`
+      + ` height="${H - PAD.t - PAD.b}"></rect>`);
+  }
+
+  out.push('<g class="grid">');
+  const step = top > 0.6 ? 0.2 : top > 0.3 ? 0.1 : 0.05;
+  for (let v = 0; v <= top + 1e-9; v += step) {
+    out.push(`<line x1="${PAD.l}" x2="${W - PAD.r}" y1="${y(v)}" y2="${y(v)}"></line>`);
+  }
+  out.push('</g><g class="axis">');
+  for (let v = 0; v <= top + 1e-9; v += step) {
+    out.push(`<text x="${PAD.l - 8}" y="${y(v) + 3.5}" text-anchor="end">${Math.round(v * 100)}</text>`);
+  }
+  years.forEach((yr, i) => {
+    if (years.length > 14 && i % 2 && i !== years.length - 1) return;
+    out.push(`<text x="${x(i)}" y="${H - PAD.b + 15}" text-anchor="middle">${yr}</text>`);
+  });
+  out.push('</g>');
+
+  /* Lines first, then every marker on top of every line, so a dot is never
+     buried under somebody else's segment. */
+  for (const p of shown) {
+    const runs = [];
+    for (const pt of p.pts) {
+      const last = runs[runs.length - 1];
+      if (last && pt.year === last[last.length - 1].year + 1) last.push(pt);
+      else runs.push([pt]);
+    }
+    for (const run of runs) {
+      if (run.length < 2) continue;
+      const d = run.map((pt, i) => (i ? 'L' : 'M') + at(pt.year) + ' ' + y(pt[view.metric])).join(' ');
+      out.push(`<path class="series" data-id="${p.id}" stroke="${p.colour}" d="${d}"></path>`);
+    }
+  }
+  for (const p of shown) {
+    for (const pt of p.pts) {
+      out.push(`<circle class="pt" data-id="${p.id}" data-year="${pt.year}"`
+        + ` cx="${at(pt.year)}" cy="${y(pt[view.metric])}" r="4" fill="${p.colour}"></circle>`);
+    }
+  }
+  /* A fatter invisible target, because a 4px dot is a hard thing to hover. */
+  for (const p of shown) {
+    for (const pt of p.pts) {
+      out.push(`<circle class="hit" data-id="${p.id}" data-year="${pt.year}"`
+        + ` cx="${at(pt.year)}" cy="${y(pt[view.metric])}" r="11"></circle>`);
+    }
+  }
+
+  svg.innerHTML = out.join('');
+  return shown;
+}
+
+/* ---------- the rest of the page ---------- */
+
+function renderLegend(model, shown) {
+  const ids = new Set(shown.map(p => p.id));
+  $('legend').innerHTML = model.people
+    .filter(p => p.peak >= view.floor / 100 || only.has(p.id))
+    .sort((a, b) => b.peak - a.peak)
+    .map(p => `<span class="lg${ids.has(p.id) ? '' : ' off'}" data-id="${p.id}">`
+      + `<i style="background:${p.colour}"></i>`
+      + (p.who.a ? `<img src="${p.who.a}" alt="">` : '')
+      + `${p.who.n}<span class="pk">${score(p.peak)}</span></span>`).join('');
+}
+
+function renderTables(model) {
+  const rows = [];
+  for (const p of model.people) {
+    for (const pt of p.pts) rows.push({ p, pt });
+  }
+  rows.sort((a, b) => b.pt[view.metric] - a.pt[view.metric]);
+  $('best').innerHTML = '<tr><th>Season</th><th>Player</th><th>Score</th><th>Titles</th></tr>'
+    + rows.slice(0, 14).map(r =>
+      `<tr class="${r.pt.of < 6 ? 'thin' : ''}"><td class="n">${r.pt.year}</td>`
+      + `<td>${r.p.who.n}</td>`
+      + `<td class="n">${score(r.pt[view.metric])}</td>`
+      + `<td class="n">${r.pt.n} of ${r.pt.of}</td></tr>`).join('');
+
+  $('years').innerHTML = '<tr><th>Year</th><th>Titles</th><th>Made of</th><th>Winners</th></tr>'
+    + model.seasons.map(s => {
+      const by = {};
+      for (const t of s.tiers) by[t.tier] = (by[t.tier] || 0) + 1;
+      const made = Object.entries(by)
+        .sort((a, b) => honourRung(a[0]) - honourRung(b[0]))
+        .map(([t, n]) => `${n}×${TIER_NAME[t] || t}`).join(', ');
+      return `<tr class="${s.total > 0 && s.total < 6 ? 'thin' : ''}">`
+        + `<td class="n">${s.year}</td><td class="n">${s.total}</td>`
+        + `<td>${made || '—'}</td><td class="n">${s.by.size}</td></tr>`;
+    }).join('');
+}
+
+function renderWeights() {
+  const b = BASIS[view.basis];
+  const line = ['OLY', 20, 22, 23, 24, 25]
+    .map(t => `${TIER_NAME[t]} <code>${weightOf(t, view.basis).toFixed(3)}</code>`)
+    .join(' · ');
+  $('weightNote').innerHTML =
+    `<b>A score of 100 is the whole season</b> — every title on the board, and `
+    + `nobody else with one. <b>Titles</b> counts them; <b>Weighted</b> asks what `
+    + `they were worth, ${b.label} — ${b.why}. Super 750 is 1 and everything is measured `
+    + `against it: ${line}. The rungs are <code>honourRung</code> from the app, `
+    + `so this is the ladder the photographs are already sized with.`;
+}
+
+function renderControls() {
+  const seg = (id, opts, key) => {
+    $(id).innerHTML = opts.map(([val, label, dis]) =>
+      `<button type="button" class="opt${view[key] === val ? ' on' : ''}"`
+      + `${dis ? ' disabled' : ''} data-val="${val}">${label}</button>`).join('');
+    $(id).onclick = e => {
+      const b = e.target.closest('button');
+      if (!b || b.disabled) return;
+      view[key] = b.dataset.val;
+      only.clear();
+      go();
+    };
+  };
+  seg('kindSeg', [['MS', 'Men’s'], ['WS', 'Women’s']], 'kind');
+  seg('metricSeg', [['share', 'Titles'], ['weighted', 'Weighted']], 'metric');
+  seg('basisSeg', Object.entries(BASIS).map(([k, v]) => [k, v.label]), 'basis');
+  const has500 = !!files[view.kind + '+500'];
+  seg('netSeg', [
+    ['core', 'Super 750 +'],
+    ['wide', 'Super 500 +', !has500],
+  ], 'net');
+  $('floorTxt').textContent = view.floor
+    ? `players who scored ${view.floor} or better in some year`
+    : 'everybody';
+}
+
+/* ---------- wiring ---------- */
+
+let current = null;
+
+function go() {
+  renderControls();
+  renderWeights();
+  const model = current = build();
+  const shown = draw(model);
+  renderLegend(model, shown);
+  renderTables(model);
+
+  const file = merged();
+  const n = model.seasons.reduce((a, s) => a + s.total, 0);
+  const wide = view.net === 'wide' && files[view.kind + '+500'];
+  $('sub').innerHTML =
+    `<b>${model.years[0]}–${model.years[model.years.length - 1]}</b> · `
+    + `${n} titles · ${model.people.length} different winners · `
+    + `harvested ${file.generated}. `
+    + (wide ? '<span class="warnline">⚠️ The wider net only widens 2018 onwards — '
+        + 'nothing landed on Super 500 before the World Tour, so the earlier '
+        + 'seasons are unchanged and the two halves are no longer like for like.</span> '
+      : '')
+    + '<span class="warnline">⚠️ A banded year held fewer than six of these '
+    + 'tournaments — 2020 held two, so one title is half the season — and the '
+    + 'last year is still being played.</span>';
+}
+
+$('floor').oninput = e => { view.floor = Number(e.target.value); only.clear(); go(); };
+
+$('legend').onclick = e => {
+  const lg = e.target.closest('.lg');
+  if (!lg) return;
+  const id = Number(lg.dataset.id);
+  if (only.has(id)) only.delete(id); else only.add(id);
+  go();
+};
+
+/* Hovering a marker names the player and lists what they actually won, because
+   the whole question this sketch is asking is whether a percentage is a fair
+   summary of a season — and you cannot tell without seeing the titles. */
+const tip = $('tip');
+$('chart').addEventListener('mousemove', e => {
+  const hit = e.target.closest('circle.hit, circle.pt');
+  if (!hit || !current) { tip.hidden = true; unhighlight(); return; }
+  const id = Number(hit.dataset.id);
+  const year = Number(hit.dataset.year);
+  const p = current.people.find(q => q.id === id);
+  const pt = p && p.pts.find(q => q.year === year);
+  if (!pt) { tip.hidden = true; return; }
+  const s = current.seasons.find(q => q.year === year);
+  tip.innerHTML =
+    `<div class="who">${p.who.a ? `<img src="${p.who.a}" alt="">` : ''}`
+    + `<span>${p.who.n}</span></div>`
+    + `<div><span class="big">${score(pt[view.metric])}</span>`
+    + `<span class="k"> / 100 in ${year}</span></div>`
+    + `<div class="k">${pt.n} of ${pt.of} titles`
+    + (view.metric === 'weighted'
+      ? ` · ${(pt.weighted * s.mass).toFixed(2)} of ${s.mass.toFixed(2)} by weight` : '')
+    + `</div><ul>${pt.titles
+      .sort((a, b) => honourRung(a.tier) - honourRung(b.tier))
+      .map(t => `<li>${t.name.trim()} <span class="k">${TIER_NAME[t.tier] || t.tier}</span></li>`)
+      .join('')}</ul>`;
+  tip.hidden = false;
+  const box = $('chart').getBoundingClientRect();
+  const left = e.clientX - box.left + 16;
+  tip.style.left = Math.min(left, box.width - tip.offsetWidth - 8) + 'px';
+  tip.style.top = Math.max(4, e.clientY - box.top - 20) + 'px';
+  highlight(id);
+});
+$('chart').addEventListener('mouseleave', () => { tip.hidden = true; unhighlight(); });
+
+function highlight(id) {
+  for (const el of $('chart').querySelectorAll('path.series, circle.pt')) {
+    el.classList.toggle('dim', Number(el.dataset.id) !== id);
+  }
+}
+function unhighlight() {
+  for (const el of $('chart').querySelectorAll('.dim')) el.classList.remove('dim');
+}
+
+try {
+  await load('MS');
+  go();
+  /* The other draw in the background, so the toggle is instant when it is used
+     and the page is not held up by it when it is not. */
+  load('WS').then(renderControls);
+} catch (err) {
+  $('sub').innerHTML = `<span class="warnline">${err.message}</span> — this tool fetches `
+    + `<code>../data/*.json</code>, so it needs the dev server: <code>node serve.mjs</code>, `
+    + `then open <code>http://localhost:8090/tools/share.html</code>.`;
+}
+</script>
+</body>
+</html>

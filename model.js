@@ -2546,6 +2546,16 @@ const PYRAMID_BY_CATEGORY = [
   [/world tour finals/i, 22],
   [/super 1000/i, 23],
   [/super 750/i, 24],
+  /* ⚠️ Classified but **not on `PYRAMID_ROWS`**, so nothing draws it: the board
+     of photographs stops at Super 750, which is the lowest tier the top of the
+     game all enters. It is here so `tools/harvest-winners.mjs --tier 25` can
+     collect the Super 500 winners into a file of their own, for the share
+     chart's optional wider net. Adding it to the rows would make every season
+     column half as wide again.
+     ⚠️ And there is **no Superseries-era equivalent**: four old tiers became
+     five, and Super 500 is the one nothing lands on. A net that includes it
+     therefore only widens 2018 onwards. */
+  [/super 500/i, 25],
   [/world superseries premier/i, 23],
   [/world superseries$/i, 24],
 ];
