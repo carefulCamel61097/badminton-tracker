@@ -11,7 +11,7 @@
  * and cached.
  */
 
-import { parseSeason } from './model.js';
+import { parseSeason, settleWinnerOrder } from './model.js';
 
 export const API = 'https://extranet-lv.bwfbadminton.com/api';
 
@@ -525,7 +525,16 @@ export async function searchPlayers(query, opts = {}) {
 
 const winnerFiles = new Map();
 
-/** The harvested winners for one discipline. Fetched once per page load. */
+/**
+ * The harvested winners for one discipline. Fetched once per page load.
+ *
+ * ⚠️ Passed through `settleWinnerOrder` on the way out, and this is the only
+ * place that happens. BWF lists a partnership in whichever order it feels like
+ * and the split square draws them in the order it is given, so without this the
+ * same pair swaps faces halfway along a row. Settling it here means the board,
+ * the era band, the score chart and every export are looking at one order
+ * without any of them having to know there was ever a question.
+ */
 export function loadWinners(code = 'MS') {
   const key = String(code).toUpperCase();
   if (!winnerFiles.has(key)) {
@@ -534,6 +543,7 @@ export function loadWinners(code = 'MS') {
         if (!r.ok) throw new Error(`no harvested winners for ${key} on this server`);
         return r.json();
       })
+      .then(settleWinnerOrder)
       .catch(e => { winnerFiles.delete(key); throw e; }));
   }
   return winnerFiles.get(key);

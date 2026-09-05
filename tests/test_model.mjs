@@ -18,6 +18,7 @@ import {
   pyramidLabel, pyramidTitleSeason, pyramidSeasonMarks, winnersSeasons,
   pyramidReigns, reignLanes, reignStep, REIGN_STEPS, REIGN_DEFAULT,
   titleWinnerIds, titleWinnerKey, winnerOf, pairName, winnerRegistry, usableAvatar,
+  settleWinnerOrder,
   flatSupers, PREMIER_FROM, pyramidScale,
   parseSeason, seasonDisciplines, drawFor, drawForKind, dominantDraw,
   kindOf, seasonKinds, defaultKind, seasonLevels,
@@ -2277,6 +2278,111 @@ eq('somebody the file has never heard of is still drawn',
   winnerOf({}, ['999']).n, '#999');
 eq('and nobody at all is null', winnerOf({}, []), null);
 
+/* ---- one order per pair, across the whole file ----
+
+   ⚠️ **BWF does not list a partnership the same way twice**, and the split
+   square draws it in the order the title carries — so the same pair swapped
+   faces from one square to the next along a single row, and the hover swapped
+   their names with them. `settleWinnerOrder` decides once, at the door. */
+
+const flipped = {
+  players: {
+    1: { n: 'Markis KIDO' }, 2: { n: 'Hendra SETIAWAN' },
+    3: { n: 'CAI Yun' }, 4: { n: 'FU Haifeng' },
+    5: { n: 'LIN Dan' },
+  },
+  seasons: {
+    2007: [
+      { tier: 20, name: 'Worlds', date: '2007-08-13', w: [1, 2] },
+      { tier: 24, name: 'Early', date: '2007-05-01', w: [4, 3] },
+      { tier: 24, name: 'Solo', date: '2007-06-01', w: 5 },
+    ],
+    2008: [
+      { tier: 'OLY', name: 'Games', date: '2008-08-17', w: [2, 1] },
+      { tier: 24, name: 'Later', date: '2008-09-01', w: [3, 4] },
+      { tier: 23, name: 'Later still', date: '2008-10-01', w: [3, 4] },
+    ],
+  },
+};
+const settled = settleWinnerOrder(flipped);
+const orderOf = (year, name) => titleWinnerIds(
+  settled.seasons[year].find(t => t.name === name)).join(',');
+
+/* Kido and Setiawan: two titles, one each way, so the earliest breaks the tie
+   and the Worlds in August 2007 is earlier than the Games in August 2008. */
+eq('a pair split evenly takes the order of its earliest title',
+  orderOf(2007, 'Worlds'), '1,2');
+eq('and the later title is turned round to match', orderOf(2008, 'Games'), '1,2');
+
+/* ⚠️ Cai and Fu: **the majority wins, not the first title.** The obvious rule —
+   whichever order the first title carried — is wrong on the real data twice
+   over: Fu and Cai's first title is one of five against thirteen the other way,
+   and Lee Hyo Jung and Lee Yong Dae's is one against six. */
+eq('a pair listed one way more often takes that order',
+  orderOf(2008, 'Later'), '3,4');
+eq('even in the title that was listed first', orderOf(2007, 'Early'), '3,4');
+
+eq('a singles winner is left exactly as it was',
+  JSON.stringify(settled.seasons[2007].find(t => t.name === 'Solo').w), '5');
+eq('and nothing is added or lost',
+  Object.values(settled.seasons).flat().length,
+  Object.values(flipped.seasons).flat().length);
+
+/* ⚠️ The file on disk keeps saying what BWF said — the same rule `usableAvatar`
+   follows. Which way round to draw a pair is a decision about drawing. */
+eq('the file handed in is not touched',
+  JSON.stringify(flipped.seasons[2008][0].w), '[2,1]');
+eq('a singles file comes straight back',
+  settleWinnerOrder({ seasons: { 2007: [{ tier: 24, w: 5 }] } }).seasons[2007][0].w, 5);
+check('and a file with no seasons at all does not throw',
+  !!settleWinnerOrder({}), 'returned something');
+
+/* Over the real files: every pair, every title, one order. This is the check
+   that would have caught it. */
+for (const code of ['MS', 'WS', 'MD', 'WD', 'XD']) {
+  const p = path.join(HERE, '..', 'data', `winners-${code}.json`);
+  if (!fs.existsSync(p)) continue;
+  const raw = JSON.parse(fs.readFileSync(p, 'utf8'));
+  const done = settleWinnerOrder(raw);
+  const order = new Map();
+  const clashes = [];
+  for (const list of Object.values(done.seasons)) {
+    for (const t of list || []) {
+      const key = titleWinnerKey(t), ids = titleWinnerIds(t).join(',');
+      if (!order.has(key)) order.set(key, ids);
+      else if (order.get(key) !== ids) clashes.push(`${key}: ${order.get(key)} vs ${ids}`);
+    }
+  }
+  check(`every ${code} competitor is listed one way`, !clashes.length,
+    clashes.slice(0, 3).join(' · '));
+  /* And it changed nothing about *who* won, which was never in doubt: the key
+     has been sorted since the day the pairs arrived. */
+  const before = Object.values(raw.seasons).flat().map(titleWinnerKey).sort().join('|');
+  const after = Object.values(done.seasons).flat().map(titleWinnerKey).sort().join('|');
+  eq(`and ${code} still has exactly the same winners`, after, before);
+}
+
+/* The two that a first-title rule gets backwards, named, so the rule cannot be
+   quietly simplified back to the wrong one. */
+const mdOrderPath = path.join(HERE, '..', 'data', 'winners-MD.json');
+if (fs.existsSync(mdOrderPath)) {
+  const md = settleWinnerOrder(JSON.parse(fs.readFileSync(mdOrderPath, 'utf8')));
+  const players = md.players;
+  const named = new Set();
+  for (const list of Object.values(md.seasons)) {
+    for (const t of list || []) {
+      named.add(titleWinnerIds(t).map(i => (players[i] || {}).n).join(' / '));
+    }
+  }
+  check('CAI Yun leads FU Haifeng, as BWF usually has it',
+    named.has('CAI Yun / FU Haifeng') && !named.has('FU Haifeng / CAI Yun'),
+    [...named].filter(n => /CAI Yun|FU Haifeng/.test(n)).join(' · '));
+  check('and Kido leads Setiawan, which is the way round they were named',
+    named.has('Markis KIDO / Hendra SETIAWAN')
+    && !named.has('Hendra SETIAWAN / Markis KIDO'),
+    [...named].filter(n => /KIDO|SETIAWAN/.test(n)).join(' · '));
+}
+
 /* ---- the same three views, over a doubles board ---- */
 
 const mdPath = path.join(HERE, '..', 'data', 'winners-MD.json');
@@ -2733,6 +2839,46 @@ eq('a range wider than the data is clamped to the data', `${all.from}–${all.to
   `${winSeasons.years[0]}–${winSeasons.years[winSeasons.years.length - 1]}`);
 eq('and a backwards one draws nothing rather than throwing',
   posterOf(2016, 2011).years.length, 0);
+
+/* ---- a picked board, exported ----
+
+   ⚠️ The pick goes into the picture, because it *is* the picture. An export of
+   a board with one competitor followed across it is a different claim from an
+   export of the board — the same rule the score poster follows with its pins
+   and the compare poster follows with its chips: an export draws what is on
+   screen. */
+
+const litIds = L => L.columns.flatMap(c => c.rows.flatMap(r => r.tiles))
+  .filter(t => L.lit(t.id)).map(t => t.id);
+const allIds = L => L.columns.flatMap(c => c.rows.flatMap(r => r.tiles)).map(t => t.id);
+
+check('with nothing picked, every square is lit',
+  litIds(slice).length === allIds(slice).length, `${litIds(slice).length}`);
+
+const lcwId = slice.columns.flatMap(c => c.rows.flatMap(r => r.tiles))
+  .find(t => t.who && t.who.n === 'LEE Chong Wei').id;
+const onePick = posterOf(2011, 2016, { only: [lcwId] });
+check('a pick lights that competitor and nobody else',
+  [...new Set(litIds(onePick))].join(','), lcwId);
+eq('and nothing has left the board',
+  allIds(onePick).length, allIds(slice).length);
+/* Named at the foot, so a reader who gets this in a feed is not looking at an
+   unexplained dark board. */
+check('the foot says who is lit',
+  onePick.legend.some(l => /^Lit: LEE Chong Wei$/.test(l)),
+  onePick.legend.join(' | '));
+check('and says nothing about it when nothing is picked',
+  !slice.legend.some(l => /^Lit:/.test(l)), slice.legend.join(' | '));
+
+/* The pick is by the same key the page pins on, so a link and its export agree. */
+eq('two picks light two competitors',
+  new Set(litIds(posterOf(2011, 2016,
+    { only: [lcwId, allIds(slice).find(id => id !== lcwId)] }))).size, 2);
+/* ⚠️ A pick for somebody who is not in the crop must not black the whole thing
+   out — it lights nothing, and every square correctly reads as not-picked
+   rather than the layout throwing. */
+check('a pick nobody in the crop matches does not throw',
+  posterOf(2011, 2016, { only: ['nobody'] }).columns.length === 6);
 
 /* ---- the bars ---- */
 

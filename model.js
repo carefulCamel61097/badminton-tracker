@@ -2657,8 +2657,9 @@ export function titleWinnerIds(title) {
  * ⚠️ **Sorted, on a copy.** BWF lists a pair in the conventional order — the man
  * first in the mixed — and there is no promise it lists them the same way twice.
  * Keying on the order as sent would split a partnership in half the first time
- * two payloads disagreed, so the key sorts and the *name* does not: see
- * `pairName`, which keeps whichever order the pair's first title carried.
+ * two payloads disagreed, so the key sorts and the *name* does not. Which order
+ * the pair is drawn and named in is settled separately, once, by
+ * `settleWinnerOrder` — the key never had to care, and still does not.
  */
 export function titleWinnerKey(title) {
   return titleWinnerIds(title).slice().sort().join('+');
@@ -2735,9 +2736,9 @@ export function winnerOf(players, ids) {
 /**
  * Every competitor in a harvested file, keyed the way the views key them.
  *
- * ⚠️ The naming order is fixed by a pair's **first** title and then never moves,
- * so a partnership is called one thing all the way across the board even if a
- * later payload lists it the other way round.
+ * ⚠️ Whichever order the pair's titles carry, they carry one — the file came
+ * through `settleWinnerOrder` at the door. This takes the first it meets and
+ * that is enough; it does not have to be the arbiter.
  */
 export function winnerRegistry(file) {
   const players = (file && file.players) || {};
@@ -2750,6 +2751,99 @@ export function winnerRegistry(file) {
     }
   }
   return out;
+}
+
+
+/**
+ * The file, with every pair listed in one order.
+ *
+ * ⚠️ **BWF does not list a partnership the same way twice.** Seven of the 174
+ * pairs on these boards appear in both orders across their own titles — Kido
+ * and Setiawan eleven times one way and once the other, Fu and Cai five and
+ * thirteen, Gao Ling and Zheng Bo four and four. Nothing downstream was wrong
+ * about *who* won, because the key has always been sorted; but the split square
+ * is drawn in the order the title carries, so the same pair swapped faces from
+ * one square to the next along a single row, and the hover swapped their names
+ * with them. That reads as two different partnerships.
+ *
+ * ⚠️ **The most common order wins, and the earliest title breaks a tie.** The
+ * obvious rule — whichever order the first title carried — is wrong twice over
+ * on this data: Fu and Cai's first title is one of the five, against thirteen
+ * the other way, and Lee Hyo Jung and Lee Yong Dae's is one against six. So the
+ * rule follows BWF's own usual presentation rather than an accident of
+ * chronology, and only reaches for the first title where BWF genuinely has no
+ * preference (three pairs, split 1–1, 3–3 and 4–4).
+ *
+ * No convention is imposed on top of that. It would be easy to put the man
+ * first in the mixed, and BWF itself does not: GAO Ling / ZHENG Bo is the
+ * majority order for that pair and Lee Yong Dae leads his. The page says what
+ * the federation says, consistently.
+ *
+ * ⚠️ Done here, at the door, rather than at harvest time or in each of the four
+ * views that draw a pair. The file on disk keeps saying what BWF said — the
+ * same rule `usableAvatar` follows — and *which way round to draw them* is one
+ * decision made once, so the board, the era band, the score chart and the
+ * exports cannot disagree.
+ *
+ * @param {object} file  a parsed `data/winners-*.json`
+ * @returns {object} a copy; the argument is not touched
+ */
+export function settleWinnerOrder(file) {
+  const seasons = (file && file.seasons) || {};
+  /* First pass: how each pair has been ordered, and how often. A bare number
+     stays a bare number — a singles winner cannot be out of order. */
+  const tally = new Map();
+  const titles = [];
+  for (const [year, list] of Object.entries(seasons)) {
+    for (const t of list || []) {
+      const ids = titleWinnerIds(t);
+      if (ids.length < 2) continue;
+      const key = titleWinnerKey(t);
+      const order = ids.join('+');
+      if (!tally.has(key)) tally.set(key, new Map());
+      const seen = tally.get(key);
+      seen.set(order, (seen.get(order) || 0) + 1);
+      titles.push({ key, order, year, date: String(t.date || '') });
+    }
+  }
+  if (!titles.length) return file;
+
+  /* The tie-break: the earliest title, by date, then by the season it is filed
+     under — a title with no date at all must still land somewhere fixed. */
+  titles.sort((a, b) => a.date.localeCompare(b.date) || a.year.localeCompare(b.year));
+  const first = new Map();
+  for (const t of titles) if (!first.has(t.key)) first.set(t.key, t.order);
+
+  const settled = new Map();
+  for (const [key, seen] of tally) {
+    /* ⚠️ Strictly greater, so a tie is *detected* rather than silently resolved
+       by whichever order came last. Map iteration is insertion order, which is
+       the file, so "last equal one wins" would make the answer depend on the
+       order the seasons happen to be written in. A tie falls through to the
+       earliest title instead. */
+    let best = null, most = -1;
+    for (const [order, n] of seen) if (n > most) { best = order; most = n; }
+    const tied = [...seen.values()].filter(n => n === most).length > 1;
+    settled.set(key, (tied ? first.get(key) : best).split('+'));
+  }
+
+  return {
+    ...file,
+    seasons: Object.fromEntries(Object.entries(seasons).map(([year, list]) =>
+      [year, (list || []).map(t => {
+        const order = settled.get(titleWinnerKey(t));
+        /* Only where it actually differs, so a file that was already consistent
+           comes back with the very same title objects in it. */
+        if (!order || order.join('+') === titleWinnerIds(t).join('+')) return t;
+        /* ⚠️ The *original* values, reordered — not the string ids rebuilt with
+           `Number`. The ids on disk are numbers today and coercing them back
+           would work today; an id that was ever anything else would silently
+           become `NaN`, and the file would stop saying what BWF said. */
+        const w = Array.isArray(t.w) ? t.w : [t.w];
+        const byId = new Map(w.map(v => [String(v), v]));
+        return { ...t, w: order.map(id => byId.get(id)) };
+      })])),
+  };
 }
 
 

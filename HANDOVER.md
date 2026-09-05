@@ -1483,10 +1483,10 @@ on the score, one legend chip — and `winnerOf` returns the same shape for a si
 who is simply the one-person case. A season's scores still add to a whole season, which is the
 property that splitting a title into two half-titles would have broken.
 
-⚠️ **The key sorts; the name does not.** BWF lists a pair in the conventional order — man
-first in the mixed — with no promise it does so twice the same way, so `titleWinnerKey` sorts
-a *copy* of the ids and the display order comes from whichever title the pair first won.
-Keying on the order as sent would split a partnership the first time two payloads disagreed.
+⚠️ **The key sorts; the drawing order is settled separately.** `titleWinnerKey` sorts a
+*copy* of the ids, so a partnership is one competitor however BWF ordered it — keying on the
+order as sent would split a pair the first time two payloads disagreed. What order to *draw*
+the pair in is a second question and it was got wrong: see 3.4o.
 
 ⚠️ Two shapes on disk: a singles `w` is a bare number, a pair is an array. `titleWinnerIds`
 reads both, rather than re-harvesting twenty seasons of singles for a shape change that buys
@@ -1531,6 +1531,102 @@ trap as 3.4k, one endpoint over.
 seasons** — any season holding fewer titles than the same season in the fullest of the five
 files — and re-running each discipline. Everything already on disk was left alone.
 
+
+### 3.4o One pair, drawn the same way round *(fixed 5 Sep 2026)*
+
+⚠️⚠️ **BWF does not list a partnership the same way twice.** Seven of the 174 pairs across the
+three doubles boards appear in *both* orders within their own titles:
+
+| pair | one way | the other |
+|---|---|---|
+| Kido / Setiawan | 11 | 1 |
+| Boe / Mogensen | 15 | 1 |
+| Cai / Fu | 13 | 5 |
+| Lee Yong Dae / Lee Hyo Jung | 6 | 1 |
+| Gao Ling / Zheng Bo | 4 | 4 |
+| Pedersen / Rytter Juhl | 3 | 3 |
+| Natsir / Marissa | 1 | 1 |
+
+The split square draws the pair in the order the *title* carries, so the same partnership
+swapped faces from one square to the next along a single row — and the hover swapped their
+names to match. Reported by the user looking at the board, which is the only way this one was
+ever going to be found: nothing was wrong about *who* won (`titleWinnerKey` has sorted a copy
+of the ids since the pairs arrived), so no existing check could see it.
+
+**`settleWinnerOrder` decides once, at the door.** Each pair takes **the order BWF used most
+often for it**; the earliest title breaks a tie.
+
+⚠️ **The obvious rule is wrong here.** "Whichever order the first title carried" — which is
+what `winnerRegistry` had documented — gets two of the seven backwards: Cai and Fu's first
+title is one of the five against thirteen, and Lee Hyo Jung and Lee Yong Dae's is one against
+six. The majority follows BWF's own usual presentation and only three genuine ties (1–1, 3–3,
+4–4) ever reach the tie-break.
+
+⚠️ **No convention is imposed on top.** It is tempting to put the man first in the mixed, and
+BWF itself does not — GAO Ling / ZHENG Bo is the majority order for that pair while Lee Yong
+Dae leads his. The page says what the federation says, consistently, and does not invent a
+rule the source does not hold to.
+
+⚠️ Applied in `loadWinners` and **nowhere else**. Not at harvest time: the file on disk keeps
+saying what BWF said, the same rule `usableAvatar` follows. Not in each renderer: there are
+four that draw a pair (board, era band, score chart, the posters) and a rule that has to be
+remembered four times is a rule that will be wrong in one of them. One decision, one place,
+and everything downstream is looking at a file where the question does not arise.
+
+⚠️ The tie-break sorts by `date` then by the season key, so a title with no date at all still
+lands somewhere fixed. And the majority is taken with a *strictly greater* comparison, with
+ties falling through to the earliest title — taking the last equal one would make the answer
+depend on Map iteration order, which is insertion order, which is the file.
+
+### 3.4p Picking one competitor out *(built 5 Sep 2026)*
+
+A doubles board is two photographs per square and several hundred squares, and following one
+partnership across it by eye is genuinely hard — the user's words were "it is all a bit more
+messy". **Click a square and the rest recede.**
+
+**One set and one gesture, wherever a competitor is drawn**: `win.only` was already the score
+chart's pin set and the hash's `wp`, so the board's squares, the era band's bars, the chart's
+markers and the legend's chips all now call `toggleWinPick` with the same key. They are the
+same person keyed the same way; four gestures for one idea would be four things to learn.
+
+⚠️ **The photograph fades and the square does not.** Dimming the whole tile was the obvious
+implementation and it deletes the board: `.pyrtile` carries the faint white ground that draws
+the pyramid's silhouette, so at 16% the *shape of the season* — which is what the view is for
+— went with it. Fading only what is inside leaves twenty grey pyramids standing with the
+picked faces lit inside them, which is a far more useful picture. Same reasoning one level
+down in the era band: the run's block of colour stays and its face, name and flag recede.
+
+⚠️ The tier marks fade with the face. The Olympic ring and the dashed footnote mark are
+siblings-or-shadows of the square, not children, so the first cut left a full-strength gold
+ring on a square whose face had gone — which reads as the *mark* being what was selected.
+
+**Additive, and `Esc` is the way back.** Clicking a lit square drops it, so two clicks compare
+two rivals; but on a board of several hundred squares "which ones did I click?" is a question
+the reader should not have to answer, so Escape clears the lot. It is folded into the existing
+Escape branch, which already closes the panels and blurs the search box.
+
+⚠️ **The board is repainted in place, not re-rendered.** A full `renderWinners` throws away
+several hundred `<img>` elements and builds new ones, and a fresh `<img>` decodes
+asynchronously even when the bytes are in cache — so every click flashed an empty board for a
+frame, on a gesture whose entire purpose is to make the picture easier to read.
+`repaintWinPick` toggles the classes instead. The render still applies them itself from
+`pickedOff`, and must: a board arriving with `wp=` in the link has never been through the
+click path. Two paths, one predicate.
+
+⚠️ **The board poster had to learn it too.** `drawScorePoster` has taken `opts.only` since
+the score view was built; `drawPoster` had not, so a reader who picked a pair and hit Export
+got a picture that disagreed with the screen. Now `posterOpts` passes `only` on both branches
+and `posterLayout` hands the drawing a `lit(id)`. Two canvas-specific traps in doing it: the
+tier rings and summit badges are drawn *outside* the square and had to be faded explicitly or
+a receded photograph kept a full-strength gold ring; and inside an era bar the per-season
+shading sets `globalAlpha` and resets it to 1, so the fade there is a **multiplier** rather
+than a value it would otherwise wipe out. The foot names who is lit — an export leaves the
+page behind, and an unexplained dark board reads as a rendering fault.
+
+⚠️ `setWinView` still clears the pick when the view changes, and that is deliberate rather
+than left over. The score chart's `lit()` is `!win.only.size || win.only.has(id)`, so a pick
+carried onto a chart that cannot show it — a competitor below the **Show** bar — would dim
+*every* line at once. The floor slider clears for the same reason.
 
 ### 3.4j The summit at one size *(built 4 Sep 2026)*
 

@@ -1395,6 +1395,34 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
    the same kind of mark. */
 /* Offset clear of the gold ring, so Tokyo 2020 wears both without them touching. */
 .pyrtile.is-moved { outline: 1px dashed rgba(255, 255, 255, .8); outline-offset: 2px; }
+/* ---- picked out, and everybody else pushed back ----
+
+   A doubles board is two photographs per square and several hundred squares,
+   and following one partnership across it by eye is genuinely hard — which is
+   what this is for. Click a square and the rest recede.
+
+   ⚠️ **The photograph fades; the square does not.** Dimming the whole tile was
+   the obvious way and it deletes the board: `.pyrtile` carries the faint white
+   ground that draws the pyramid's silhouette, so at 16% the shape of the season
+   — which is the entire point of the view — went with it. Fading only what is
+   *inside* leaves twenty grey pyramids standing with the picked faces lit in
+   them, which is a far more useful picture than three faces in the dark.
+
+   ⚠️ The tier marks fade too. A full-strength gold ring or a dashed footnote on
+   a square whose face has receded reads as the mark being the thing selected. */
+.pyrtile { cursor: pointer; }
+.pyrtile.faded .face,
+.pyrtile.faded .noface { opacity: .16; }
+.pyrmajor.faded .pyrbadge { opacity: .16; }
+.pyrtile.t-OLY.faded { box-shadow: 0 0 0 2px rgba(255, 210, 74, .18); }
+.pyrtile.is-moved.faded { outline-color: rgba(255, 255, 255, .16); }
+/* Not the whole bar: the run's block of colour is the era band's silhouette in
+   the same way the squares are the pyramid's, so it stays and its face, name
+   and flag are what recede. */
+.erabar { cursor: pointer; }
+.erabar.faded .erafill { opacity: .3; }
+.erabar.faded .erawho { opacity: .22; }
+
 .pyryear .ast { font-style: normal; color: var(--warn); margin-left: 2px; }
 .pyryear.is-moved { color: var(--text-dim); }
 

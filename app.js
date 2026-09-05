@@ -1363,8 +1363,26 @@ function renderWinners() {
   $('winSpan').textContent = `${years[0]}–${years[years.length - 1]} · `
     + `${years.reduce((n, y) => n + seasons.byYear.get(y).length, 0)} titles`;
 
+  /* ⚠️ Laid out once and then drawn, because the pick has to be checked against
+     the whole board before a single square is written. A pick that names nobody
+     here makes `pickedOff` true for *every* square — a board dimmed to nothing,
+     with no visible cause and nothing to click to get it back. It cannot happen
+     by clicking, only by arriving in a link that names somebody from a
+     different draw, so it is dropped rather than drawn. The link is left to be
+     rewritten by whatever the reader does next; a render does not write
+     history. */
+  const perYear = new Map(years.map(year =>
+    [year, pyramidSeason(seasons.byYear.get(year), players, year)]));
+  if (win.only.size) {
+    const present = new Set();
+    for (const rows of perYear.values()) {
+      for (const row of rows) for (const t of row.tiles) present.add(String(t.id));
+    }
+    if (![...win.only].some(id => present.has(String(id)))) win.only.clear();
+  }
+
   const columns = years.map(year => {
-    const rows = pyramidSeason(seasons.byYear.get(year), players, year);
+    const rows = perYear.get(year);
     const bulges = pyramidBulges(rows);
     const widest = Math.max(...rows.map(pyramidRowWidth), 1);
 
@@ -1379,9 +1397,15 @@ function renderWinners() {
       }
       return `<div class="pyrrow">` + row.tiles.map(t => {
         const side = Math.round(t.scale * unit);
-        const tile = `<span class="pyrtile t-${esc(String(t.tier))}${t.mark ? ' is-moved' : ''}"
+        /* ⚠️ The fade goes on the badge's wrapper as well as on the square. The
+           rings and the cup are *siblings* of the tile, not children of it, so
+           dimming the tile alone left a full-strength Olympic badge floating
+           beside a square that had receded. */
+        const off = pickedOff(t.id) ? ' faded' : '';
+        const tile = `<span class="pyrtile t-${esc(String(t.tier))}${t.mark ? ' is-moved' : ''}${off}"
           style="width:${side}px;height:${side}px"
           data-tier="${esc(String(t.tier))}" data-level="${esc(t.level)}"
+          data-id="${esc(String(t.id))}"
           data-mark="${esc(t.mark ? t.mark.kind : '')}"
           title="${esc(tileTitle(t, year))}">${winnerFace(t.who, side)}</span>`;
         const badge = winnerBadge(t.tier);
@@ -1390,7 +1414,7 @@ function renderWinners() {
         return badge
           /* Half the photograph, with a floor: at the smallest zoom a Worlds
              square is 22px and a proportional mark is a smudge. */
-          ? `<span class="pyrmajor" style="--badge:${Math.max(15, Math.round(side * 0.5))}px"
+          ? `<span class="pyrmajor${off}" style="--badge:${Math.max(15, Math.round(side * 0.5))}px"
               >${badge}${tile}</span>`
           : tile;
       }).join('') + `</div>`;
@@ -1501,7 +1525,8 @@ function renderEraBand(seasons, players) {
        clip: an `overflow: hidden` ancestor is a scroll container, and a sticky
        element inside one sticks to a box that never scrolls — which is to say,
        it does nothing at all. The shading is clipped by `.erafill` instead. */
-    return `<div class="erabar" data-id="${esc(String(p.id))}" data-lane="${p.lane}"
+    return `<div class="erabar${pickedOff(p.id) ? ' faded' : ''}"
+      data-id="${esc(String(p.id))}" data-lane="${p.lane}"
       data-from="${run.from}" data-to="${run.to}" data-n="${run.total}"
       style="--era:${REIGN_COLOURS[i % REIGN_COLOURS.length]};left:${left}px;`
       + `width:${width}px;top:${p.lane * (ERA_LANE_H + ERA_LANE_GAP)}px"
@@ -1937,14 +1962,96 @@ function scoreHighlight(id) {
   }
 }
 
+/* ---- picking somebody out ----
+
+   ⚠️ One set, `win.only`, and **one gesture wherever a competitor is drawn**:
+   the legend chip, the marker on the chart, the square on the board, the bar in
+   the era band. They are the same person keyed the same way, so clicking any of
+   them has to mean the same thing or the reader has to learn four rules for one
+   idea. Additive, because the question a board like this raises is usually
+   about two people rather than one, and clicking a lit one again puts it back.
+
+   ⚠️ It **dims what is not picked rather than hiding it** — everywhere, not
+   only on the chart. The shape of a season, and who else was in it, is most of
+   what these views are for; see `drawScore` for the first time that lesson was
+   learned. */
+function toggleWinPick(id) {
+  if (!id) return;
+  if (win.only.has(id)) win.only.delete(id); else win.only.add(id);
+  repaintWinPick();
+  writeHash();
+}
+
+/** True if it actually cleared something, so Escape can fall through if not. */
+function clearWinPick() {
+  if (!win.only.size) return false;
+  win.only.clear();
+  repaintWinPick();
+  writeHash();
+  return true;
+}
+
+/**
+ * The fade, moved without redrawing the board.
+ *
+ * ⚠️ The board is **repainted in place, not re-rendered**. A full
+ * `renderWinners` throws away several hundred `<img>` elements and builds new
+ * ones, and a fresh `<img>` decodes asynchronously even from cache — so every
+ * click flashed an empty board for a frame. Which is the whole picture, on a
+ * gesture whose entire purpose is to make the picture easier to read.
+ *
+ * ⚠️ The render still applies the classes itself, from `pickedOff`, and must
+ * keep doing so: a board arriving with `wp=` in the link has never been through
+ * here. Two paths that have to agree, which is why both read the one predicate.
+ */
+function repaintWinPick() {
+  // The chart redraws from a model and has no such cost, so it takes the
+  // ordinary path — and its legend has to be rebuilt anyway.
+  if (win.view !== 'board') return renderWinners();
+  for (const el of $('winBody').querySelectorAll('.pyrtile[data-id]')) {
+    const off = pickedOff(el.dataset.id);
+    el.classList.toggle('faded', off);
+    // The badge hangs off a wrapper around the square; it fades with it.
+    if (el.parentElement && el.parentElement.classList.contains('pyrmajor')) {
+      el.parentElement.classList.toggle('faded', off);
+    }
+  }
+  for (const el of $('winBody').querySelectorAll('.erabar[data-id]')) {
+    el.classList.toggle('faded', pickedOff(el.dataset.id));
+  }
+}
+
 $('scoreLegend').addEventListener('click', e => {
   const lg = e.target.closest('.lg');
-  if (!lg) return;
-  const id = lg.dataset.id;
-  if (win.only.has(id)) win.only.delete(id); else win.only.add(id);
-  renderWinners();
-  writeHash();
+  if (lg) toggleWinPick(lg.dataset.id);
 });
+
+/* The marker is a face with a name attached, which is exactly what the chip
+   below is — so it does what the chip does. The reader who has just hovered a
+   face to find out whose line that is should not have to go and find the same
+   face again in a list of twenty to pin it. */
+$('scoreChart').addEventListener('click', e => {
+  const hit = e.target.closest('.hit');
+  if (hit) toggleWinPick(hit.dataset.id);
+});
+
+/* The board, where there is no legend at all — the squares *are* the legend.
+   Delegated on the container, which survives every redraw, rather than on the
+   squares, of which a doubles season can have twelve and the board six hundred.
+
+   ⚠️ The era bar is picked up by the same handler and not by a second one. It
+   carries `data-id` already and it is the same key, so a reader who clicks the
+   name on a run gets exactly what they would have got by clicking one of the
+   squares that run is made of. */
+$('winBody').addEventListener('click', e => {
+  const hit = e.target.closest('.pyrtile[data-id], .erabar[data-id]');
+  if (hit) toggleWinPick(hit.dataset.id);
+});
+
+/** Whether a competitor is one of the ones being pushed back right now. */
+function pickedOff(id) {
+  return win.only.size > 0 && !win.only.has(String(id));
+}
 
 $('winFloorRange').addEventListener('input', e => {
   const n = Math.max(0, Math.min(SCORE_FLOOR_MAX, Number(e.target.value) || 0));
@@ -2054,7 +2161,11 @@ function posterOpts(range) {
          different scales — which is the bug the page already fixed once. */
       top: scoreTop(),
     }
-    : { from: range.from, to: range.to, kind: win.kind, min: win.reign, eras: win.eras };
+    /* ⚠️ `only` goes to the board poster too, and for the same reason the score
+       poster has always had it: an export of a board with one pair followed
+       across it is a different claim from an export of the board. */
+    : { from: range.from, to: range.to, kind: win.kind, min: win.reign,
+      eras: win.eras, only: [...win.only] };
 }
 
 async function makePoster() {
@@ -2948,6 +3059,12 @@ function stepGridGroup(by) {
 function setWinKind(kind) {
   if (!WIN_KINDS.includes(kind) || kind === win.kind) return;
   win.kind = kind;
+  /* ⚠️ The pick does not survive a change of discipline. It is keyed on player
+     ids, so a pair picked out of the men's doubles matches nothing at all in the
+     mixed — and `pickedOff` would then be true for every square on the new
+     board, which is a board dimmed to nothing with no visible cause. Switching
+     draw is switching subject; the same reasoning as `setWinView`. */
+  win.only.clear();
   writeHash();
   loadWinnersPage();
 }
@@ -3037,6 +3154,11 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     openPanel($('topBtn'), $('topPanel'), false);
     openPanel($('moreBtn'), $('morePanel'), false);
+    /* ⚠️ The way back from a pick, and the reason picking is safe to make
+       additive. Clicking a lit square again un-picks it, but on a board of six
+       hundred squares "which three did I click?" is a question the reader
+       should never have to answer to get their board back. */
+    if (page === 'winners' && !isTyping(e.target)) clearWinPick();
     /* The way out of the search box, which the app focuses on load — and so the
        way in to everything below. */
     if (isTyping(e.target) && e.target.blur) e.target.blur();
@@ -4026,12 +4148,18 @@ function writeHash() {
   // is a viewing preference and stays in localStorage.
   if (page === 'winners' && win.kind !== 'MS') p.set('wk', win.kind);
   if (page === 'winners' && win.view !== 'board') p.set('wv', win.view);
-  if (page === 'winners' && win.view === 'score') {
-    // The bar and the pinned names are the whole of what a score link says.
-    if (!win.autoFloor) p.set('wf', String(win.floor));
+  if (page === 'winners') {
+    /* ⚠️ The pick travels on **both** views. It used to be the score's alone,
+       when the score was the only view that had one; the board picks with the
+       same gesture on the same set now, and a board with one pair followed
+       across it is exactly what a link to it is about. */
     if (win.only.size) p.set('wp', [...win.only].join(','));
-  } else if (page === 'winners' && !win.eras) p.set('we', 'off');
-  else if (page === 'winners' && win.reign !== REIGN_DEFAULT) p.set('we', win.reign);
+    // The bar is the other half of what a score link says.
+    if (win.view === 'score') {
+      if (!win.autoFloor) p.set('wf', String(win.floor));
+    } else if (!win.eras) p.set('we', 'off');
+    else if (win.reign !== REIGN_DEFAULT) p.set('we', win.reign);
+  }
   const next = '#' + p.toString();
   if (location.hash !== next) history.replaceState(null, '', next);
 }
@@ -4337,6 +4465,7 @@ window.BST = {
       return {
         id: b.dataset.id,
         who: (b.querySelector('.erawho b') || {}).textContent || '',
+        faded: b.classList.contains('faded'),
         lane: Number(b.dataset.lane),
         from: Number(b.dataset.from),
         to: Number(b.dataset.to),
@@ -4345,6 +4474,37 @@ window.BST = {
         w: Math.round(r.width * 10) / 10,
       };
     }),
+    /* ---- picking one competitor out of the board ----
+       Read off the drawn squares rather than off `win.only`, because the whole
+       claim is about what the reader can see: the set is trivially right and
+       the fade is the part that has been wrong. */
+    tiles: () => [...document.querySelectorAll('#winBody .pyrtile')].map(t => ({
+      id: t.dataset.id,
+      tier: t.dataset.tier,
+      /* The name is on the wrapper for a pair and on the photograph for a
+         singles winner, so both are asked. */
+      who: (() => {
+        const f = t.querySelector('.pairface, .face, .noface');
+        return f ? (f.getAttribute('aria-label') || f.getAttribute('alt') || '') : '';
+      })(),
+      faded: t.classList.contains('faded'),
+      /* The two halves in the order they are drawn in, which is the thing
+         `settleWinnerOrder` exists to keep still. */
+      halves: [...t.querySelectorAll('.half')].map(h =>
+        h.getAttribute('alt') || h.textContent || ''),
+    })),
+    /** A click on a square, which is the only way a reader has of picking. */
+    tap: id => {
+      const t = document.querySelector(`#winBody .pyrtile[data-id="${id}"]`);
+      if (t) t.click();
+      return [...win.only];
+    },
+    /** Escape, delivered the way the document hears it. */
+    escape: () => {
+      document.dispatchEvent(new KeyboardEvent('keydown',
+        { key: 'Escape', bubbles: true }));
+      return [...win.only];
+    },
     /* ---- the export ----
        The layout is handed back as numbers so the suite can check where things
        land without decoding a picture, and `png` returns a real encoded image
@@ -4358,12 +4518,21 @@ window.BST = {
       if (to != null) $('expTo').value = String(to);
       return exportRange();
     },
-    poster: (from, to) => posterLayout(winFile(), {
-      from, to, kind: win.kind, min: win.reign, eras: win.eras,
-    }),
+    poster: (from, to) => {
+      const L = posterLayout(winFile(), {
+        from, to, kind: win.kind, min: win.reign, eras: win.eras,
+        only: [...win.only],
+      });
+      /* `lit` is a function and does not survive the trip out of the page, so
+         it is answered here for the squares the suite can see. */
+      return { ...L, lit: undefined,
+        litTiles: L.columns.flatMap(c => c.rows.flatMap(r => r.tiles))
+          .map(t => ({ id: t.id, lit: L.lit(t.id) })) };
+    },
     png: async (from, to) => {
       const blob = await drawPoster(winFile(), {
         from, to, kind: win.kind, min: win.reign, eras: win.eras,
+        only: [...win.only],
       });
       const url = await new Promise(res => {
         const r = new FileReader();

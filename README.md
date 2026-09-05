@@ -422,10 +422,34 @@ rather than teams and draw every partnership as two identical lines.
 The old team stopped winning and a new one started, and the board says so rather than
 pretending a career is continuous through a change of the thing that actually won the titles.
 
-⚠️ **The key sorts; the name does not.** BWF lists a pair in the conventional order — the man
-first in the mixed — with no promise it does so the same way twice, so a partnership is keyed
-on its two ids *sorted* and named from whichever order its first title carried. Keying on the
-order as sent would split a pair in half the first time two payloads disagreed.
+⚠️ **The key sorts, and the drawing order is settled once at the door.** BWF does not list a
+partnership the same way twice. Seven pairs across the three doubles boards appear in *both*
+orders across their own titles — Kido and Setiawan eleven times one way and once the other,
+Cai and Fu thirteen and five, Gao Ling and Zheng Bo four and four — and the split square draws
+them in the order the title carries. So the same pair swapped faces from one square to the
+next along a single row, and the hover swapped their names to match, which reads as two
+different partnerships. Two separate defences:
+
+* **The key sorts a copy of the ids**, so who won was never in doubt however BWF ordered them.
+  Keying on the order as sent would have split a pair in half the first time two payloads
+  disagreed.
+* **`settleWinnerOrder` fixes the drawing order**, once, as the file comes through
+  `loadWinners`. Every pair takes **the order BWF used most often for it**, with the earliest
+  title breaking a tie.
+
+⚠️ The obvious rule — whichever order the *first* title carried — is wrong twice on this
+data: Cai and Fu's first title is one of the five against thirteen the other way, and Lee Hyo
+Jung and Lee Yong Dae's is one against six. The majority follows BWF's own usual presentation;
+first-title only decides the three genuine ties (1–1, 3–3, 4–4).
+
+⚠️ **No convention is layered on top of that.** It would be easy to put the man first in the
+mixed and BWF itself does not — GAO Ling / ZHENG Bo is the majority order for that pair while
+Lee Yong Dae leads his. The page says what the federation says, consistently.
+
+⚠️ Settled at the door rather than at harvest time or in each of the four renderers that draw
+a pair. The file on disk keeps saying what BWF said — the rule `usableAvatar` already follows —
+and *which way round to draw them* is one decision made once, so the board, the era band, the
+score chart and every export cannot disagree.
 
 ⚠️ **BWF's stand-in for "no photograph" is a photograph.** Rather than an empty avatar it
 serves a generic silhouette — `profile_male.jpg` or `profile_female.jpg` — and nine of the
@@ -439,11 +463,39 @@ what BWF said: whether a URL is worth drawing is a decision about drawing.
 ⚠️ A half with no photograph **keeps its half of the square**. Dropping it would let the other
 photograph slide across and fill the whole square, which would say the pair was one person.
 
+### Following one competitor
+
+**Click a square and the rest recede.** A doubles board is two photographs per square and
+several hundred squares, and picking one partnership out of it by eye is genuinely hard.
+
+The same gesture works everywhere a competitor is drawn: a square on the board, a bar in the
+eras band, a face on the score chart, a chip in the score's legend. They are the same person
+keyed the same way, so they all mean one thing. **Click more to compare them**, click a lit
+one again to drop it, or press <kbd>Esc</kbd> to get the whole board back. The pick travels in
+the link, so a board with somebody picked out of it can be sent.
+
+⚠️ **What fades is the photographs, not the squares.** Dimming the whole square was the first
+implementation and it deletes the board — the square carries the faint ground that draws the
+pyramid's silhouette, so the shape of every season went with it. Now twenty grey pyramids
+stay standing with the picked faces lit inside them, which says both things at once: who won
+this, and how much there was to win. The eras band does the same one level down — the run
+keeps its block of colour and its name and face recede.
+
+⚠️ Nothing is ever removed, only dimmed, which is the score chart's own rule: a share means
+nothing without the people it was taken from, and the shape of a season means nothing without
+the rest of the season.
+
 ### Exporting a slice
 
 **Export** takes a range of seasons — the pyramid, the band and all — and draws it to a PNG
 at twice the screen's density, with the link and a legend on it. Download it, or **Copy** it
 straight to the clipboard where the browser allows that.
+
+**A pick goes into the picture**, because it *is* the picture: an export of a board with one
+competitor followed across it is a different claim from an export of the board, and the foot
+of the image names who is lit so a reader who gets it in a feed is not looking at an
+unexplained dark board. The same rule the score's pins and the compare page's chips follow —
+an export draws what is on screen.
 
 It is **drawn from the data, not photographed off the page**. Rasterising the DOM in a
 project with no build step means either a library or the `foreignObject` trick — every
@@ -619,6 +671,12 @@ re-ran the palette over a set of one, so the act of picking somebody out *change
 colour* — and it threw away the context that makes a share chart worth reading at all, which
 is who else was in the season. Clicking a second name adds to the selection, and the legend
 keeps every name the bar admits: off is a state, not an absence.
+
+**The face on the chart does what the chip below it does.** A marker here *is* a name with a
+season attached, so clicking one pins that competitor exactly as clicking their legend chip
+would — the reader who has just hovered a face to find out whose line it is should not then
+have to go and find the same face again in a list of twenty. `Esc` clears the lot, on this
+view and on the board.
 
 ### Seasons with a hole in them
 

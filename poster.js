@@ -378,8 +378,24 @@ export function posterLayout(file, opts) {
      not the mark on the square, so the line appeared to be explaining a small
      dot when what it is about is a dashed outline. The glyph stays as a pointer
      and the words do the explaining. */
+  /* ⚠️ The pick goes into the picture, because it *is* the picture — an export
+     of a board with one pair followed across it is a different claim from an
+     export of the board. The same rule the score poster follows with its pins
+     and the compare poster follows with its chips: an export draws what is on
+     screen. */
+  const pinned = new Set((opts.only || []).map(String));
+  const lit = id => !pinned.size || pinned.has(String(id));
+  /* Named at the foot, not left as an unexplained dark board. A reader who gets
+     this in a feed has no way to know that the dim squares are dim on purpose. */
+  const picked = [...new Set(columns.flatMap(c => c.rows.flatMap(r => r.tiles))
+    .filter(t => pinned.has(String(t.id)))
+    .map(t => (t.who && t.who.n) || ''))].filter(Boolean);
+
   const legend = [
     'Every square is a title, sized by what it was worth',
+    picked.length
+      ? `Lit: ${picked.join(' · ')}`
+      : '',
     bars.length
       ? `A bar spans the seasons somebody won ${reignStep(opts.min).n}+ of them`
       : '',
@@ -390,7 +406,7 @@ export function posterLayout(file, opts) {
   const footH = 24 + Math.max(2, legend.length) * 15;
 
   return {
-    years, from, to, columns, bars, lanes, at, stackH,
+    years, from, to, columns, bars, lanes, at, stackH, lit, picked,
     width: P.pad * 2 + boardW,
     height: P.headH + stackH + P.yearH + bandH + footH,
     boardTop: P.headH,
@@ -481,16 +497,20 @@ export async function drawPoster(file, opts) {
           const tx = sx + pad;
           // Bottom-aligned inside the row, like the page: a row is a shelf.
           const ty = y + h - side;
-          drawTile(ctx, t, tx, ty, side, faces);
+          const on = L.lit(t.id);
+          drawTile(ctx, t, tx, ty, side, faces, on);
           // The summit marks hang off the left of the photograph, in the space
-          // the slot reserved for them.
+          // the slot reserved for them — and fade with it, being marks *on* it.
           const bw = badgeWidth(side);
+          ctx.save();
+          ctx.globalAlpha = on ? 1 : 0.18;
           if (String(t.tier) === 'OLY') {
             drawRings(ctx, tx - bw - 3,
               ty + side / 2 - bw * (RING_BOX[1] / RING_BOX[0]) / 2, bw);
           } else if (String(t.tier) === '20') {
             drawCup(ctx, tx - bw - 3, ty + side / 2 - bw / 2, bw);
           }
+          ctx.restore();
           sx += w + P.tileGap;
         });
       } else {
@@ -519,6 +539,11 @@ export async function drawPoster(file, opts) {
   for (const b of L.bars) {
     const top = L.bandTop + b.lane * (P.laneH + P.laneGap);
     ctx.save();
+    /* ⚠️ A **multiplier**, not a value. The shading inside a bar sets
+       `globalAlpha` per season and then resets it to 1, so a fade set once at
+       the top of the loop is wiped out by the first year block. Every alpha in
+       here is written as `× fade` instead. */
+    const fade = L.lit(b.id) ? 1 : 0.3;
     // Square where the crop cut the run, rounded where it really begins or ends.
     roundRect(ctx, b.x, top, b.w, P.laneH, 5);
     if (b.openLeft || b.openRight) {
@@ -545,11 +570,14 @@ export async function drawPoster(file, opts) {
       const next = b.years[i + 1];
       const right = next ? next.x : y.x + y.w;
       ctx.globalAlpha = Number((0.62 + 0.33
-        * (y.n - L.bar) / Math.max(1, L.peak - L.bar)).toFixed(3));
+        * (y.n - L.bar) / Math.max(1, L.peak - L.bar)).toFixed(3)) * fade;
       ctx.fillStyle = b.colour;
       ctx.fillRect(y.x, top, right - y.x, P.laneH);
     }
-    ctx.globalAlpha = 1;
+    /* The face, the name and the flag recede further than the block of colour
+       does — the run stays legible as a run, and only says whose at a glance
+       when it is the one picked. */
+    ctx.globalAlpha = fade === 1 ? 1 : 0.22;
 
     // The label, always at the bar's own left edge — the export does not
     // scroll, so there is nothing for a sticky one to stick to.
@@ -649,15 +677,29 @@ function drawPosterFoot(ctx, width, height, footH, avatar, legend) {
   ctx.textAlign = 'left';
 }
 
-function drawTile(ctx, t, x, y, side, faces) {
+/**
+ * One square.
+ *
+ * ⚠️ **When it is not the picked competitor, the photograph fades and the
+ * square does not** — the same rule the page follows, and for the same reason:
+ * the faint ground is what draws the pyramid's silhouette, so fading the whole
+ * square deletes the shape of the season, which is what the board is for.
+ */
+function drawTile(ctx, t, x, y, side, faces, lit = true) {
   const ring = TIER_RING[String(t.tier)];
   ctx.save();
   roundRect(ctx, x, y, side, side, 3);
   ctx.clip();
   ctx.fillStyle = 'rgba(255,255,255,.06)';
   ctx.fillRect(x, y, side, side);
+  ctx.globalAlpha = lit ? 1 : 0.16;
   drawWinnerFaces(ctx, t.who, x, y, side, side, faces);
   ctx.restore();
+
+  /* The tier marks go with the face. A full-strength gold ring on a square
+     whose photograph has receded reads as the *ring* being what was picked. */
+  ctx.save();
+  ctx.globalAlpha = lit ? 1 : 0.18;
 
   /* ⚠️ Outside the square, not inside it, which is what the page does now — an
      inset ring is painted under the photograph and may as well not be there. */
@@ -678,6 +720,7 @@ function drawTile(ctx, t, x, y, side, faces) {
     ctx.stroke();
     ctx.setLineDash([]);
   }
+  ctx.restore();
 }
 
 /* ============================ the score, as a picture ============================

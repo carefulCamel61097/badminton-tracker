@@ -3198,6 +3198,183 @@ check('every marker on it is a split face',
   await b.ev(`[...document.querySelectorAll('#scoreChart .pt')]
     .every(g => g.querySelectorAll('image').length === 2)`));
 
+console.log('\n=== the winners page: one pair, drawn the same way round ===');
+
+/* ⚠️ **BWF does not list a partnership the same way twice.** Seven of the pairs
+   on these boards appear in both orders across their own titles — Kido and
+   Setiawan eleven times one way and once the other — and the split square draws
+   them in the order the title carries. So the same pair swapped faces from one
+   square to the next along a single row, with the hover swapping their names to
+   match, which reads as two different partnerships. `settleWinnerOrder` decides
+   once, at the door, and this is the check that would have caught it. */
+/* ⚠️ Back to the board first. The section above finishes on the score chart,
+   and `#winBody` keeps its last HTML while it is hidden — so reading squares
+   here without switching back reads a board that is not on screen. */
+await b.ev(`window.BST.score.view('board')`);
+await b.until(`!document.getElementById('winBody').hidden
+  && document.querySelectorAll('#winBody .pyrtile').length > 20`, { timeout: 60000 });
+const orderTiles = await b.ev(`window.BST.winners.tiles()`);
+const byPair = new Map();
+const swapped = [];
+for (const t of orderTiles) {
+  if (t.halves.length !== 2) continue;
+  const drawn = t.halves.join(' / ');
+  if (!byPair.has(t.id)) byPair.set(t.id, drawn);
+  else if (byPair.get(t.id) !== drawn) swapped.push(`${byPair.get(t.id)} vs ${drawn}`);
+}
+check('every square of a given pair draws them in the same order',
+  !swapped.length, swapped.slice(0, 3).join(' · '));
+check('and there are pairs with more than one square to disagree about',
+  byPair.size < orderTiles.filter(t => t.halves.length === 2).length,
+  `${byPair.size} pairs over ${orderTiles.length} squares`);
+
+console.log('\n=== the winners page: picking one out of the board ===');
+
+/* A doubles board is two photographs per square and several hundred squares,
+   and following one partnership across it by eye is genuinely hard. */
+const repeat = [...byPair.keys()].find(id =>
+  orderTiles.filter(t => t.id === id).length > 3);
+check('a pair with several squares to follow is on the board', !!repeat, String(repeat));
+const picked = await b.ev(`window.BST.winners.tap(${JSON.stringify(repeat)})`);
+await b.wait(200);
+eq('clicking a square picks that competitor', picked.join(','), repeat);
+const afterTap = await b.ev(`window.BST.winners.tiles()`);
+eq('every square of theirs is lit',
+  afterTap.filter(t => t.id === repeat && !t.faded).length,
+  afterTap.filter(t => t.id === repeat).length);
+check('and every other square on the board is pushed back',
+  afterTap.filter(t => t.id !== repeat).every(t => t.faded),
+  `${afterTap.filter(t => t.id !== repeat && !t.faded).length} still lit`);
+
+/* ⚠️ **Dimmed, never removed.** The shape of a season, and who else was in it,
+   is most of what this view is for — the same lesson the score chart learned
+   when pinning a name used to redraw the chart over a set of one. */
+eq('nothing has left the board', afterTap.length, orderTiles.length);
+
+/* ⚠️ The photograph fades and the **square does not**. Dimming the whole tile
+   was the obvious way and it deletes the board: `.pyrtile` carries the faint
+   ground that draws the pyramid's silhouette, so at 16% the shape of the season
+   went with it. */
+const fadeOpacity = await b.ev(`(() => {
+  const t = document.querySelector('#winBody .pyrtile.faded');
+  const inner = t.querySelector('.pairface, .face, .noface');
+  return { tile: getComputedStyle(t).opacity,
+    inner: getComputedStyle(inner).opacity,
+    box: getComputedStyle(t).backgroundColor };
+})()`);
+eq('a pushed-back square is still fully drawn', fadeOpacity.tile, '1');
+check('while the photograph inside it has receded',
+  Number(fadeOpacity.inner) > 0 && Number(fadeOpacity.inner) < 0.3, fadeOpacity.inner);
+check('so the silhouette of the pyramid is still there',
+  fadeOpacity.box !== 'rgba(0, 0, 0, 0)', fadeOpacity.box);
+
+/* ⚠️ The same key the score chart pins on, and it travels from **both** views.
+   `wp` used to be written only on the score, which was right while the score
+   was the only view with a pick and silently wrong the moment the board had
+   one: the board dimmed, and the link said nothing about why. */
+check('the pick is in the link',
+  await b.ev(`location.hash.includes('wp=' + encodeURIComponent(${JSON.stringify(repeat)}))`)
+  || await b.ev(`location.hash.includes('wp=${repeat}')`),
+  await b.ev(`location.hash`));
+
+/* ⚠️ The era bar carries the same `data-id` and is picked up by the same
+   handler, so clicking the name on a run gives what clicking a square gives. */
+const barsPicked = await b.ev(`window.BST.winners.bars()`);
+if (barsPicked.length) {
+  check('the bars in the era band answer to the same pick',
+    barsPicked.every(x => x.faded === (x.id !== repeat)),
+    barsPicked.map(x => `${x.who}:${x.faded}`).join(' | '));
+}
+
+/* Additive, because the question a board like this raises is usually about two
+   people rather than one. */
+const second = orderTiles.map(t => t.id).find(id => id !== repeat);
+await b.ev(`window.BST.winners.tap(${JSON.stringify(second)})`);
+await b.wait(200);
+const twoLit = await b.ev(`window.BST.winners.tiles()`);
+eq('a second click adds rather than replaces',
+  [...new Set(twoLit.filter(t => !t.faded).map(t => t.id))].sort().join(','),
+  [repeat, second].sort().join(','));
+
+await b.ev(`window.BST.winners.tap(${JSON.stringify(second)})`);
+await b.wait(200);
+eq('and clicking a lit square again drops it',
+  [...new Set((await b.ev(`window.BST.winners.tiles()`))
+    .filter(t => !t.faded).map(t => t.id))].join(','), repeat);
+
+/* ⚠️⚠️ **A pick must never black out the whole board.** It is keyed on player
+   ids, so one carried onto a different draw matches nothing — and `pickedOff`
+   is then true for every square, which is a board dimmed to nothing with no
+   visible cause and nothing left to click to get it back. Switching discipline
+   drops it; a link that names somebody from another draw is dropped on the way
+   in. */
+await b.ev(`window.BST.winners.kind('XD')`);
+await b.until(`window.BST.winners.kind() === 'XD'
+  && document.querySelectorAll('#winBody .pyrtile').length > 20`, { timeout: 60000 });
+check('switching draw leaves nothing dimmed',
+  (await b.ev(`window.BST.winners.tiles()`)).every(t => !t.faded),
+  `${(await b.ev(`window.BST.winners.tiles()`)).filter(t => t.faded).length} dimmed`);
+eq('and takes the pick out of the link with it',
+  await b.ev(`location.hash.includes('wp=')`), false);
+
+await b.ev(`location.hash = '#pg=winners&wk=XD&wp=${repeat}'`);
+await b.until(`window.BST.winners.kind() === 'XD'
+  && document.querySelectorAll('#winBody .pyrtile').length > 20`, { timeout: 60000 });
+await b.wait(300);
+check('a link naming somebody from another draw draws the board anyway',
+  (await b.ev(`window.BST.winners.tiles()`)).every(t => !t.faded),
+  `${(await b.ev(`window.BST.winners.tiles()`)).filter(t => t.faded).length} dimmed`);
+
+await b.ev(`location.hash = '#pg=winners&wk=MD'`);
+await b.until(`window.BST.winners.kind() === 'MD'
+  && document.querySelectorAll('#winBody .pyrtile').length > 20`, { timeout: 60000 });
+await b.ev(`window.BST.winners.tap(${JSON.stringify(repeat)})`);
+await b.wait(200);
+
+/* ⚠️ The way back. Clicking a lit square un-picks it, but on a board of several
+   hundred squares "which ones did I click?" is a question the reader should not
+   have to answer to get their board back. */
+const cleared = await b.ev(`window.BST.winners.escape()`);
+await b.wait(200);
+eq('Escape lets the whole board go', cleared.length, 0);
+check('and nothing is left dimmed',
+  (await b.ev(`window.BST.winners.tiles()`)).every(t => !t.faded));
+check('nor is the pick left behind in the link',
+  !(await b.ev(`location.hash.includes('wp=')`)), await b.ev(`location.hash`));
+
+console.log('\n=== the winners page: picking a face off the chart ===');
+
+/* ⚠️ The marker is a face with a name attached, which is exactly what the chip
+   below it is — so it does what the chip does. The reader who has just hovered
+   a face to find out whose line that is should not have to go and find the same
+   face again in a list of twenty in order to pin it. */
+await b.ev(`window.BST.score.view('score')`);
+await b.until(`window.BST.score.marks().length > 5`, { timeout: 60000 });
+const chartId = (await b.ev(`window.BST.score.marks()`))[0].id;
+const tapped = await b.ev(`(() => {
+  const h = document.querySelector('#scoreChart .hit[data-id="${chartId}"]');
+  h.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  return window.BST.score.pinned();
+})()`);
+await b.wait(200);
+eq('clicking a marker pins that competitor', tapped.join(','), chartId);
+const chartLegend = await b.ev(`window.BST.score.legend()`);
+eq('the legend chip shows it as picked, exactly as a click on the chip would',
+  chartLegend.filter(l => !l.off).map(l => l.id).join(','), chartId);
+eq('and the legend keeps every name it had',
+  chartLegend.filter(l => l.off).length, chartLegend.length - 1);
+const chartMarks = await b.ev(`window.BST.score.marks()`);
+check('the rest of the chart is dimmed rather than dropped',
+  chartMarks.every(m => m.faded === (m.id !== chartId)));
+await b.ev(`(() => {
+  document.querySelector('#scoreChart .hit[data-id="${chartId}"]')
+    .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+})()`);
+await b.wait(200);
+eq('and clicking the same marker again lets it go',
+  (await b.ev(`window.BST.score.pinned()`)).length, 0);
+await b.ev(`window.BST.score.view('board')`);
+
 /* ---- the keys ----
    ⚠️ The tournament page's idiom, borrowed rather than invented: five draws will
    not fit five letters anybody would guess, and a reader who has learned the
@@ -3298,6 +3475,34 @@ const corsOk = await b.ev(`(async () => {
    is a failure, and the only one that matters here. */
 check('a photograph never loads in a way that poisons the canvas',
   corsOk === true || corsOk === 'offline', String(corsOk));
+
+/* ⚠️ The pick goes into the picture, because it *is* the picture — the same rule
+   the score poster follows with its pins. An export of a board with one
+   competitor followed across it is a different claim from an export of the
+   board, and a reader who picked somebody and then exported would otherwise get
+   a picture that disagrees with what they were looking at. */
+const litBefore = await b.ev(`(() => {
+  const L = window.BST.winners.poster(2011, 2016);
+  return L.litTiles.filter(t => t.lit).length + '/' + L.litTiles.length;
+})()`);
+eq('with nothing picked, the poster lights every square',
+  litBefore.split('/')[0], litBefore.split('/')[1]);
+
+const exportPick = (await b.ev(`window.BST.winners.tiles()`))[0].id;
+await b.ev(`window.BST.winners.tap(${JSON.stringify(exportPick)})`);
+await b.wait(200);
+const litAfter = await b.ev(`window.BST.winners.poster(2011, 2016).litTiles`);
+check('and a pick on the page reaches the poster',
+  litAfter.some(t => t.lit) && litAfter.some(t => !t.lit),
+  `${litAfter.filter(t => t.lit).length} of ${litAfter.length} lit`);
+check('lighting exactly the squares the board has lit',
+  litAfter.every(t => t.lit === (t.id === exportPick)));
+const pickedPng = await b.ev(`window.BST.winners.png(2011, 2016)`);
+check('and a picked board still encodes to a readable PNG',
+  pickedPng && pickedPng.type === 'image/png' && pickedPng.bytes > 20000,
+  JSON.stringify(pickedPng && [pickedPng.type, pickedPng.bytes]));
+await b.ev(`window.BST.winners.escape()`);
+await b.wait(200);
 
 await b.ev(`document.getElementById('winSave').click()`);
 check('and the picker closes again', await b.ev(`document.getElementById('winExport').hidden`));
