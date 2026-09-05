@@ -77,13 +77,30 @@ for (const year of [...years].sort((a, b2) => a - b2)) {
   const j = await get(`vue-grouped-year-tournaments?year=${year}`);
   const all = ((j && j.results) || []).flatMap(m => m.tournaments || []);
   if (!all.length) { console.log(`${year}  nothing`); continue; }
+  /* ⚠⚠ **Cancelled events are still on the calendar** and must not be counted.
+     BWF leaves them in with "(Cancelled)" appended to the name and, more usefully,
+     `status.code === 'cancelled'` — 2020 lists nine of these titles and six of
+     them never happened. A denominator that includes them would rank everybody
+     as having failed to win events that were called off, which is the exact
+     mistake this file exists to avoid; and on the *current* season it would
+     deflate every score the moment a tournament was dropped.
+
+     ⚠️ On the `status` field, not the name. The name is where it was noticed —
+     the suffix is inconsistent, "2021(Cancelled)" against "2022 (Cancelled)" —
+     but a label is not a flag, and BWF gives a real one. */
+  const live = all.filter(t => !(t.status && String(t.status.code) === 'cancelled'));
+  const dropped = all.length - live.length;
   /* The same classification the winners harvest uses, so the two cannot drift:
      everything is asked for and named by `pyramidTier`, because the category
      ids have changed twice and a filter on them does not survive. */
-  const tiers = all.map(t => pyramidTier(t))
+  const tiers = live.map(t => pyramidTier(t))
     .filter(t => t != null && wanted.has(String(t)));
   planned[year] = tiers;
-  console.log(`${year}  ${String(tiers.length).padStart(2)} on the board`);
+  const off = all.filter(t => t.status && String(t.status.code) === 'cancelled')
+    .map(t => pyramidTier(t)).filter(t => t != null && wanted.has(String(t)));
+  console.log(`${year}  ${String(tiers.length).padStart(2)} on the board`
+    + (off.length ? `   (${off.length} cancelled, not counted)` : '')
+    + (dropped && !off.length ? `   [${dropped} cancelled, none on the board]` : ''));
 }
 
 for (const f of files) {

@@ -1687,33 +1687,36 @@ overlap longer.
 
 ### 3.4s The pandemic seasons, and the year still running *(built 5 Sep 2026)*
 
-⚠⚠ **`COVID_SEASONS` is 2020, 2021 and 2022, and it is named rather than counted.** A
-count-based rule (`thinSeasons`, two thirds of the median) finds 2020 and 2022 and misses
-2021, which held ten — the same as 2018 and 2019. What was wrong with 2021 was not how many
-but *which*. The evidence is in the harvested tournament list, which is why the set is written
-down there with it:
+⚠⚠ **`COVID_SEASONS` is 2020, 2021 and 2022, and the test is participation — not the
+calendar.** A domination score is a share, so what flatters a winner is a thinner field, not a
+shorter tour. Distinct players in the opening rounds of every board event, share Chinese:
 
-| season | China Open | China Masters / Fuzhou | planned | played |
-|---|---|---|---|---|
-| 2019 | ✓ | ✓ | 10 | 10 |
-| 2020 | — | — | 9 | **3** |
-| 2021 | — | — | 15 | **10** |
-| 2022 | — | — | 10 | **8** |
-| 2023 | ✓ | ✓ | 12 | 12 |
+| 2018 | 2019 | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 |
+|---|---|---|---|---|---|---|---|
+| 12.3% | 14.7% | split | **2.3%** | **9.9%** | 13.3% | 14.1% | 12.6% |
 
-Plus: 2020's own World Tour Finals played in **January 2021**; 2021's two Super 1000s in
-consecutive January weeks in one Bangkok bubble, an Olympics a year late still named Tokyo
-2020, four events carrying *(new dates)*, and the Worlds in December.
+**2021 held ten titles — the same as 2018 and 2019 — and eight of its eleven events had
+literally no Chinese player**: both Thailand Opens, the All England, the French, both Indonesia
+events, both World Tour Finals. Only the Olympics, Denmark and the Worlds had any. No count of
+titles can see that, which is the whole argument for a written-down set.
 
-⚠️ **2018 and 2019 hold ten as well and are deliberately not in the set** — the World Tour
-restructure changed how many events sit on these five rungs, which is a change to the ladder
-and not to whether the season was played. No count can tell those two apart, and that is the
-whole argument for a written-down set.
+**2020 is split by the shutdown**: the All England on 11 March was a normal 16.1% field, played
+days before everything stopped; the October Denmark Open and the January-2021 Finals had none.
 
-⚠️ Out of the ranking by **default**, because leaving them in put Viktor AXELSEN top of both
-orderings on 184 of his 315 points and TAI Tzu Ying top of the women's peak on an 81 taken in
-a three-title season. It is a judgement, so it is a chip and not a silent rule, and the chart
-draws those seasons either way — the toggle decides whether they are *weighed*.
+**2022 is the weakest case and is in on a judgement** — present everywhere, reduced to about
+three quarters of normal, on a calendar cut to eight events from twelve with the Finals moved
+out of Guangzhou. The chip exists to be disagreed with.
+
+⚠⚠ **The first version of this argued from hosting** — no Chinese *event* in 2020–22, both
+back in 2023 — and that is true and is the wrong test. Hosting is not competing: 2022 hosted
+nothing and had Chinese players at all eight tournaments, while 2021's Thailand Opens were
+played in Bangkok with none at all. Reported by the user, who asked the question the data could
+actually answer.
+
+⚠️ The field counts come from `day-matches`, the same endpoint the winners harvest uses —
+three opening days per tournament, distinct player ids by `countryCode`. Measured with a
+throwaway probe rather than harvested: it is evidence for a decision, not something the page
+reads.
 
 #### The season being played
 

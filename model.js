@@ -3379,44 +3379,51 @@ export function dominationSeasons(file, opts = {}) {
 
 /* ---- the pandemic seasons ----
 
-   ⚠️⚠️ **2020, 2021 and 2022 — and 2021 is the one that hides.** These are not
-   guessed from a count; they are read off the tournament list itself, and the
-   clearest single signal is China. This board's Chinese events are the China
-   Open and, since 2023, the China Masters (before that the Fuzhou China Open):
+   ⚠⚠ **What matters is who was in the draw, not where it was held.** A
+   domination score is a *share*, so it is not the calendar that flatters a
+   winner — it is a thinner field. If a third of the best players are not on the
+   tour, everybody else's share of the season is larger than it would have been,
+   and they did nothing to earn the difference. So the question is participation.
 
-     2019   VICTOR China Open · Fuzhou China Open
-     2020   none          2021   none          2022   none
-     2023   VICTOR China Open · LI-NING China Masters
-     2024   VICTOR China Open · LI-NING China Masters
+   Distinct players in the opening rounds of every event on this board, and how
+   many of them were Chinese — counted from `day-matches`, which lists the field
+   rather than the result:
 
-   Three consecutive seasons with no Chinese event on a tour that had held two
-   a year for a decade, and both back the moment the border reopened. That is
-   the boundary, and it is in the data rather than in anybody's memory.
+     2018  12.3%      2022   9.9%
+     2019  14.7%      2023  13.3%
+     2020  see below  2024  14.1%
+     2021   2.3%      2025  12.6%
 
-   The rest of the evidence, season by season, all of it from the harvested
-   names and dates:
+   **2021 is the season that a count of titles cannot see.** It held ten of these
+   titles, the same as 2018 and 2019, and it ran almost entirely without China:
+   **eight of its eleven events had literally nobody** — both Thailand Opens, the
+   All England, the French, both Indonesia events, and both World Tour Finals.
+   Only the Olympics (14), the Denmark Open (18) and the Worlds (17) had any at
+   all. 2.3% against a baseline of 12–15.
 
-   **2020** — three events on this board. The All England in March, one Denmark
-   Open in October, and the season's own World Tour Finals *played on 27 January
-   2021*, which is why the file still carries it under "(New Dates)".
+   **2020 is split down the middle by the shutdown.** It held three titles. The
+   All England on 11 March was 16.1% Chinese — an ordinary field, played days
+   before everything stopped. The Denmark Open in October had **none**, and
+   neither did the Finals, which were played in January 2021.
 
-   **2021** — ten events, which is why a count-based rule misses it, and not one
-   of them a normal calendar. Two Super 1000s in consecutive weeks in January
-   (YONEX Thailand Open, TOYOTA Thailand Open) — one bio-bubble in Bangkok
-   standing in for the whole Asian swing. The Olympics in July, a year late,
-   still named "Tokyo 2020". Four events carrying "(New dates)" in the name
-   BWF gave them. And the World Championships in **December** rather than
-   August. No Malaysia, no Singapore, no India, no Japan, no China.
+   **2022 is the weakest case of the three and is included on a judgement.**
+   China was present at every single event and reduced rather than absent — 9.9%
+   against a 12–15 baseline, about three quarters of normal. What it also has is
+   a calendar cut to eight events from twelve, the Asian swing gone bar
+   Indonesia, Malaysia and Japan, and the World Tour Finals moved out of
+   Guangzhou. Take the chip off and it is counted; that is what the chip is for.
 
-   **2022** — eight events. The Asian swing still gone apart from Indonesia,
-   Malaysia and Japan; no Chinese event; and the World Tour Finals moved out of
-   Guangzhou to Bangkok.
+   ⚠️ **2018 and 2019 also hold ten titles and are deliberately not here.** That
+   is the World Tour restructure — a change to how many events sit on these five
+   rungs, not to whether the season was played — and their fields are normal.
+   Counting titles cannot tell the two apart, which is the whole reason this set
+   is written down rather than derived.
 
-   ⚠️ **Not 2018 or 2019**, which also hold ten. That is the World Tour
-   restructure, which cut how many events sit on these five rungs — a change to
-   the ladder, not to whether the season was played. Counting alone cannot tell
-   the two apart, which is the whole reason this set is written down rather than
-   derived. */
+   ⚠️ An earlier version of this note argued from **which countries hosted**:
+   no Chinese event in 2020, 2021 or 2022, both back in 2023. That is true and it
+   is the wrong test. Hosting is not competing — 2022 hosted nothing and had a
+   Chinese contingent at all eight of its tournaments, while 2021's Thailand
+   Opens were held in Bangkok with none. The measure had to be the field. */
 export const COVID_SEASONS = new Set([2020, 2021, 2022]);
 
 /** True if a season was played under the pandemic. See `COVID_SEASONS`. */

@@ -759,27 +759,39 @@ Set aside, the men's singles reads LEE Chong Wei, LIN Dan, CHEN Long — the ans
 would give, now given by the arithmetic. It is a judgement, so it is a chip rather than a
 silent rule, and the seasons stay on the chart either way.
 
-⚠⚠ **Which seasons, and why 2021 is one of them.** Not a count — 2021 held ten of these
-titles, the same as 2018 and 2019, and what was wrong with it was not how many but *which*.
-The clearest signal is China:
+⚠⚠ **Which seasons, and why on participation rather than on the calendar.** A domination
+score is a *share*, so what flatters a winner is not where the tour went — it is a thinner
+field. If a third of the best players are not competing, everybody else's share of the season
+is larger and they did nothing to earn the difference. So the test is who was actually in the
+draw. Distinct players in the opening rounds of every event on this board, and how many were
+Chinese:
 
-| season | China Open | China Masters / Fuzhou | planned | played |
-|---|---|---|---|---|
-| 2019 | ✓ | ✓ | 10 | 10 |
-| 2020 | — | — | 9 | **3** |
-| 2021 | — | — | 15 | **10** |
-| 2022 | — | — | 10 | **8** |
-| 2023 | ✓ | ✓ | 12 | 12 |
+| 2018 | 2019 | 2020 | 2021 | 2022 | 2023 | 2024 | 2025 |
+|---|---|---|---|---|---|---|---|
+| 12.3% | 14.7% | split | **2.3%** | **9.9%** | 13.3% | 14.1% | 12.6% |
 
-Three consecutive seasons with no Chinese event on a tour that had held two a year for a
-decade, and both back the moment the border reopened. On top of that: 2020 stopped in March
-and played its own World Tour Finals in **January 2021**; 2021 ran two Super 1000s in
-consecutive January weeks in one Bangkok bubble, held an Olympics a year late still called
-Tokyo 2020, carried *(new dates)* in four event names and put the World Championships in
-December; 2022 lost the Asian swing bar Indonesia, Malaysia and Japan. **2018 and 2019 also
-hold ten and are not in the set** — that is the World Tour restructure, a change to the ladder
-rather than to whether the season was played, and no count can tell the two apart. Which is
-why the set is written down with its evidence in `COVID_SEASONS` rather than derived.
+**2021 is the season a count of titles cannot see.** It held ten of these titles, the same as
+2018 and 2019, and it ran almost entirely without China: **eight of its eleven events had
+literally nobody** — both Thailand Opens, the All England, the French, both Indonesia events
+and both World Tour Finals. Only the Olympics, the Denmark Open and the Worlds had any.
+
+**2020 is split by the shutdown.** Three titles. The All England on 11 March was 16.1% Chinese,
+an ordinary field played days before everything stopped; the October Denmark Open had none, and
+neither did the Finals, played in January 2021.
+
+**2022 is the weakest case and is in on a judgement.** China was present at every event and
+reduced rather than absent — 9.9% against a 12–15 baseline. What it also has is a calendar cut
+to eight events from twelve, the Asian swing gone bar Indonesia, Malaysia and Japan, and the
+Finals moved out of Guangzhou. The chip is there to disagree with.
+
+**2018 and 2019 hold ten titles as well and are deliberately not in the set** — that is the
+World Tour restructure, a change to the ladder rather than to whether the season was played,
+and their fields are normal.
+
+⚠️ An earlier version of this argued from **which countries hosted**: no Chinese event in
+2020–22, both back in 2023. True, and the wrong test — hosting is not competing. 2022 hosted
+nothing and had Chinese players at all eight of its tournaments; 2021's Thailand Opens were
+held in Bangkok with none.
 
 ⚠⚠ **The season being played is weighed against the whole year.** A share of the titles
 played *so far* makes whoever wins the first tournament of January a 100, and in September
