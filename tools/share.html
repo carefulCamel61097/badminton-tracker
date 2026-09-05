@@ -112,6 +112,8 @@
   path.series { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
   .pt image { pointer-events: none; }
   .dim { opacity: .13; }
+  .faded { opacity: .16; }
+  .faded .ring { stroke-width: 1.5; }
   .hit { fill: transparent; cursor: pointer; }
 
   #tip {
@@ -249,28 +251,23 @@ const BASE_RUNG = honourRung(24);
  * is what these weights read, has always ranked them apart.
  */
 const LADDERS = {
-  steep: {
-    label: 'Steep', why: 'every tier is <b>1.6×</b> the one below — the step a '
-      + 'square’s <i>area</i> takes on the pyramid',
+  full: {
+    label: 'Steep',
+    why: 'every tier is <b>1.6×</b> the one below it, the Olympics included',
     at: rung => Math.pow(PHI, BASE_RUNG - rung),
   },
-  gentle: {
-    label: 'Gentle', why: 'every tier is <b>1.27×</b> the one below — the step a '
-      + 'square’s <i>side</i> takes',
-    at: rung => Math.pow(Math.sqrt(PHI), BASE_RUNG - rung),
-  },
-  /* ⚠️ Gentle everywhere, and then one full φ step for the Olympics alone. The
-     argument for it: four years of a career point at one fortnight, so the gap
-     between an Olympic gold and everything else is not the gap between any other
-     two neighbouring tiers. The argument against: it is a rule with an exception
-     in it, and the exception is the tier a reader is most likely to think it was
-     written for. Here so it can be looked at rather than argued about. */
-  olympic: {
-    label: 'Gentle, Olympic apart',
-    why: 'every tier is <b>1.27×</b> the one below, except the Olympics, which '
-      + 'takes a full <b>1.6×</b> step above the World Championships',
-    at: rung => Math.pow(Math.sqrt(PHI), BASE_RUNG - Math.max(rung, honourRung(20)))
-      * (rung < honourRung(20) ? PHI : 1),
+  /* ⚠️ Steep everywhere and a **half step** for the Olympics: 1.27× the Worlds
+     rather than 1.6×. The claim is narrow and arguable — an Olympic gold is worth
+     more than a world title and not a whole tier more, because they are the same
+     event four years apart with much the same eight people in the draw.
+     ⚠️ It changes nothing in a season without an Olympics, which is three years in
+     four, and which is why the two ladders agree exactly about LIN Dan's 2007. */
+  half: {
+    label: 'Steep, half-step Olympics',
+    why: 'every tier is <b>1.6×</b> the one below it, except the Olympics, which is '
+      + '<b>1.27×</b> the World Championships rather than a full step above it',
+    at: rung => Math.pow(PHI, BASE_RUNG - Math.max(rung, honourRung(20)))
+      * (rung < honourRung(20) ? Math.sqrt(PHI) : 1),
   },
 };
 
@@ -281,7 +278,7 @@ const TIER_NAME = { OLY: 'Olympics', 20: 'World Champs', 22: 'Tour Finals',
 
 /* ---------- state ---------- */
 
-const view = { kind: 'MS', metric: 'share', ladder: 'steep', floor: 20, autoFloor: true };
+const view = { kind: 'MS', metric: 'share', ladder: 'full', floor: 20, autoFloor: true };
 const files = {};
 const only = new Set();     // legend pins; empty means "everybody who clears the floor"
 
@@ -432,7 +429,15 @@ function draw(model) {
   const { years, seasons, people } = model;
   const svg = $('chart');
   const floor = view.floor / 100;
-  const shown = paint(people.filter(p => p.peak >= floor && (!only.size || only.has(p.id))));
+  /* ⚠️ Pinning a name **dims the rest instead of removing them**. Drawing only the
+     pinned player re-ran `paint` over a set of one, so the act of picking somebody
+     out changed their colour — and it threw away the context that makes a share
+     chart worth reading at all, which is who else was in the season. The set on
+     screen is the bar's set, always; `only` decides what is lit. */
+  const shown = paint(people.filter(p => p.peak >= floor));
+  const lit = id => !only.size || only.has(id);
+  /* Faded first, pinned last, so a lit line is never buried under a dim one. */
+  shown.sort((a, b) => Number(lit(a.id)) - Number(lit(b.id)));
 
   const top = axisTop();
   const x = i => PAD.l + (W - PAD.l - PAD.r) * (years.length < 2 ? 0.5 : i / (years.length - 1));
@@ -537,7 +542,8 @@ function draw(model) {
       for (let i = 1; i < run.length; i++) {
         const a = run[i - 1], b = run[i];
         const holed = thin.set.has(a.year) || thin.set.has(b.year);
-        out.push(`<path class="series${holed ? ' over-hole' : ''}" data-id="${p.id}"`
+        out.push(`<path class="series${holed ? ' over-hole' : ''}`
+          + `${lit(p.id) ? '' : ' faded'}" data-id="${p.id}"`
           + ` stroke="${p.colour}" d="M${at(a.year)} ${y(a[view.metric])}`
           + ` L${at(b.year)} ${y(b[view.metric])}"></path>`);
       }
@@ -552,7 +558,8 @@ function draw(model) {
     for (const pt of p.pts) {
       const cx = at(pt.year), cy = y(pt[view.metric]);
       const hole = thin.set.has(pt.year) ? ' on-hole' : '';
-      out.push(`<g class="pt${hole}" data-id="${p.id}" data-year="${pt.year}"`
+      out.push(`<g class="pt${hole}${lit(p.id) ? '' : ' faded'}"`
+        + ` data-id="${p.id}" data-year="${pt.year}"`
         + ` transform="translate(${cx} ${cy})">`
         + (p.who.a
           ? `<image href="${p.who.a}" x="${-FACE}" y="${-FACE}"`
@@ -586,12 +593,12 @@ function draw(model) {
  * Off is a state, not an absence.
  */
 function renderLegend(model, shown) {
-  const drawn = new Set(shown.map(p => p.id));
   const floor = view.floor / 100;
+  const lit = id => !only.size || only.has(id);
   $('legend').innerHTML = model.people
     .filter(p => p.peak >= floor)
     .sort((a, b) => b.peak - a.peak)
-    .map(p => `<span class="lg${drawn.has(p.id) ? '' : ' off'}" data-id="${p.id}">`
+    .map(p => `<span class="lg${lit(p.id) ? '' : ' off'}" data-id="${p.id}">`
       + `<i style="background:${p.colour || '#666'}"></i>`
       + (p.who.a ? `<img src="${p.who.a}" alt="">` : '')
       + `${p.who.n}<span class="pk">${score(p.peak)}</span></span>`).join('');
