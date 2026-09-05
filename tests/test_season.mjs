@@ -2859,7 +2859,7 @@ const marksMS = await b.ev(`window.BST.score.marks()`);
 /* Every mark the chart draws is a season somebody actually won something in —
    and every such season above the bar is drawn. */
 const floorMS = await b.ev(`window.BST.score.floor()`);
-eq('the bar starts where the data puts it', floorMS, 45);
+eq('the bar starts where the data puts it', floorMS, 40);
 check('and it says so is derived', await b.ev(`window.BST.score.auto()`));
 const wantMarks = scoreModelMS.people
   .filter(p => p.peak * 100 >= floorMS - 1e-9)
@@ -2934,10 +2934,10 @@ check('and the bar stops being the derived default once touched',
 
 console.log('\n=== the winners page: pinning a name ===');
 
-await b.ev(`window.BST.score.floor(45)`);
+await b.ev(`window.BST.score.floor(40)`);
 await b.wait(120);
 const pinId = scoreModelMS.people
-  .filter(p => p.peak * 100 >= 45).sort((a, b) => b.peak - a.peak)[0].id;
+  .filter(p => p.peak * 100 >= 40).sort((a, b) => b.peak - a.peak)[0].id;
 const legendBefore = await b.ev(`window.BST.score.legend()`);
 await b.ev(`window.BST.score.pin('${pinId}')`);
 await b.wait(150);
@@ -2984,7 +2984,7 @@ eq('and it is drawn to the same height as the men’s',
   await b.ev(`window.BST.score.top()`), topBefore);
 /* A bar the reader set is theirs, and does not quietly re-derive itself under
    them when they look at the other draw. */
-eq('a chosen bar survives the switch', await b.ev(`window.BST.score.floor()`), 45);
+eq('a chosen bar survives the switch', await b.ev(`window.BST.score.floor()`), 40);
 
 /* ⚠️ A link without the bar in it is asking for the *default*, and the default
    is derived per discipline — so the women's board settles far lower than the
@@ -2998,7 +2998,7 @@ eq('but the derived one is the women’s own',
 await b.ev(`location.hash = '#pg=winners&wv=score'`);
 await b.until(`window.BST.winners.kind() === 'MS' && window.BST.score.marks().length > 5`,
   { timeout: 60000 });
-eq('and the men’s is theirs', await b.ev(`window.BST.score.floor()`), 45);
+eq('and the men’s is theirs', await b.ev(`window.BST.score.floor()`), 40);
 
 /* The score is a share of the same seasons the board draws, so the two cannot
    disagree about what a season held. */
@@ -3075,6 +3075,160 @@ check('a short row is dimmed, not lit',
     return grey(getComputedStyle(tr.querySelector('td')).color)
       < grey(getComputedStyle(lit.querySelector('td')).color);
   })()`));
+
+
+console.log('\n=== the winners page: a pair in one square ===');
+
+await b.ev(`location.hash = '#pg=winners&wk=MD'`);
+check('the men’s doubles board draws',
+  await b.until(`document.querySelectorAll('.pyrtile').length > 20`, { timeout: 60000 }));
+/* Two photographs per square, so the board has twice as many to fetch as a
+   singles one and takes correspondingly longer to settle. */
+await b.until(`[...document.querySelectorAll('.pyrtile img')]
+  .filter(i => i.complete && i.naturalWidth > 0).length > 40`, { timeout: 90000 });
+
+const pairTiles = await b.ev(`[...document.querySelectorAll('.pyrtile')].map(t => {
+  const r = t.getBoundingClientRect();
+  return {
+    tier: t.dataset.tier,
+    w: Math.round(r.width), h: Math.round(r.height),
+    halves: [...t.querySelectorAll('.half')].map(x => {
+      const b = x.getBoundingClientRect();
+      return { w: Math.round(b.width), h: Math.round(b.height), src: x.getAttribute('src') || '' };
+    }),
+  };
+})`);
+
+check('every square holds two halves',
+  pairTiles.every(t => t.halves.length === 2),
+  `${pairTiles.filter(t => t.halves.length !== 2).length} of ${pairTiles.length} do not`);
+
+/* ⚠️ **The square stays square, and stays the size the ladder says.** A doubles
+   title is won by a partnership and the board's standing rule is that every
+   square means the same thing — so the pair fits the square rather than the
+   square growing to fit the pair. */
+check('and every square is still square',
+  pairTiles.every(t => Math.abs(t.w - t.h) <= 1),
+  JSON.stringify(pairTiles.find(t => Math.abs(t.w - t.h) > 1) || 'all square'));
+check('with the halves exactly half of it, full height',
+  pairTiles.every(t => Math.abs(t.halves[0].w * 2 - t.w) <= 1
+    && Math.abs(t.halves[0].h - t.h) <= 1),
+  JSON.stringify(pairTiles[0]));
+/* ⚠️⚠️ **BWF's stand-in for "no photograph" is a photograph.** Rather than an
+   empty avatar it serves a generic silhouette — `profile_male.jpg` — and nine of
+   the winners across these boards have one, two of them in the *singles* files
+   where it had gone unnoticed for weeks. On a pair it drew the same blank
+   silhouette twice and read as a rendering fault. Treated as no photograph now,
+   so the initials take over and the half says who it is. Two more had a `.tif`
+   avatar, which no browser renders at all. */
+check('no square shows the same photograph twice',
+  pairTiles.every(t => !t.halves[0].src || t.halves[0].src !== t.halves[1].src),
+  JSON.stringify(pairTiles.find(t => t.halves[0].src
+    && t.halves[0].src === t.halves[1].src) || 'none'));
+check('and BWF’s generic silhouette is never drawn as a face',
+  pairTiles.every(t => t.halves.every(h => !/profile_(male|female)\.jpg/.test(h.src))));
+check('nor a .tif, which no browser renders',
+  pairTiles.every(t => t.halves.every(h => !/\.tiff?$/i.test(h.src))));
+/* The half whose photograph was dropped keeps its place, rather than letting the
+   other one slide across and claim the whole square. */
+check('a half with no photograph still holds half the square',
+  await b.ev(`[...document.querySelectorAll('.pyrtile')].every(t => {
+    const kids = [...t.querySelectorAll('.pairface > *')];
+    if (kids.length !== 2) return true;
+    const w = kids.map(k => Math.round(k.getBoundingClientRect().width));
+    return Math.abs(w[0] - w[1]) <= 1;
+  })`));
+
+/* ⚠️ The same tier is the same size in every draw. If a doubles square came out
+   a different size from a singles one, the ladder would be saying something
+   about the discipline rather than about the title. */
+const mdSizes = await b.ev(`(() => {
+  const out = {};
+  for (const t of document.querySelectorAll('.pyrtile')) {
+    out[t.dataset.tier] = Math.round(t.getBoundingClientRect().width);
+  }
+  return out;
+})()`);
+await b.ev(`window.BST.winners.kind('MS')`);
+await b.until(`document.querySelectorAll('.pyrtile').length > 20`, { timeout: 60000 });
+const msSizes = await b.ev(`(() => {
+  const out = {};
+  for (const t of document.querySelectorAll('.pyrtile')) {
+    out[t.dataset.tier] = Math.round(t.getBoundingClientRect().width);
+  }
+  return out;
+})()`);
+for (const tier of Object.keys(msSizes)) {
+  if (mdSizes[tier] == null) continue;
+  eq(`a ${tier} square is the same size in both draws`, mdSizes[tier], msSizes[tier]);
+}
+eq('and a singles square holds one photograph, not two',
+  await b.ev(`document.querySelectorAll('.pyrtile .half').length`), 0);
+
+/* ---- one competitor, whichever draw ---- */
+
+await b.ev(`location.hash = '#pg=winners&wk=MD'`);
+await b.until(`document.querySelectorAll('.erabar').length > 2`, { timeout: 60000 });
+
+/* ⚠️ A partnership is **one** bar between them. The bug the pair key exists to
+   stop is a band with a lane for each half of every pair. */
+const mdBars = await b.ev(`window.BST.winners.bars()`);
+check('an era bar is named for the pair', mdBars.every(x => / \/ /.test(x.who)),
+  mdBars.map(x => x.who).join(' | '));
+check('and carries both their faces',
+  await b.ev(`[...document.querySelectorAll('.erawho .pairface')].length
+    === document.querySelectorAll('.erabar').length`));
+
+await b.ev(`window.BST.score.view('score')`);
+await b.until(`window.BST.score.marks().length > 5`, { timeout: 60000 });
+const mdScore = await b.ev(`window.BST.score.model()`);
+check('the chart draws pairs, not people',
+  mdScore.people.every(p => / \/ /.test(p.who)), mdScore.people[0].who);
+/* A season's shares still add to a whole season, which is the property that
+   would break the moment a title were split between two half-competitors. */
+check('and a doubles season is still one whole season',
+  mdScore.seasons.filter(s => s.total).every(s => {
+    const n = mdScore.people.reduce((sum, p) => {
+      const pt = p.pts.find(q => q.year === s.year);
+      return sum + (pt ? pt.score : 0);
+    }, 0);
+    return Math.abs(n - 1) < 1e-9;
+  }));
+check('every marker on it is a split face',
+  await b.ev(`[...document.querySelectorAll('#scoreChart .pt')]
+    .every(g => g.querySelectorAll('image').length === 2)`));
+
+/* ---- the keys ----
+   ⚠️ The tournament page's idiom, borrowed rather than invented: five draws will
+   not fit five letters anybody would guess, and a reader who has learned the
+   double-tap on one page has learned it here. */
+await b.ev(`window.BST.score.view('board')`);
+await b.ev(`location.hash = '#pg=winners&wk=MS'`);
+await b.until(`window.BST.winners.kind() === 'MS'`, { timeout: 60000 });
+const pressKey = k => b.ev(`document.body.dispatchEvent(new KeyboardEvent('keydown',
+  { key: ${JSON.stringify(k)}, bubbles: true, cancelable: true }))`);
+await pressKey('m');
+await b.wait(150);
+eq('m again is the men’s doubles', await b.ev(`window.BST.winners.kind()`), 'MD');
+await pressKey('m');
+await b.wait(150);
+eq('and m once more comes back to the singles',
+  await b.ev(`window.BST.winners.kind()`), 'MS');
+await pressKey('w');
+await b.wait(150);
+eq('w is the women’s singles', await b.ev(`window.BST.winners.kind()`), 'WS');
+await pressKey('w');
+await b.wait(150);
+eq('and w again the women’s doubles', await b.ev(`window.BST.winners.kind()`), 'WD');
+await pressKey('x');
+await b.wait(150);
+eq('x is the mixed', await b.ev(`window.BST.winners.kind()`), 'XD');
+await pressKey('x');
+await b.wait(150);
+eq('and x again stays there, having nowhere else to go',
+  await b.ev(`window.BST.winners.kind()`), 'XD');
+await b.ev(`location.hash = '#pg=winners'`);
+await b.until(`window.BST.winners.kind() === 'MS'`, { timeout: 60000 });
 
 
 console.log('\n=== the winners page: saving a slice of it ===');

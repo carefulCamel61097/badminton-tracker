@@ -2622,6 +2622,137 @@ function rowsFor(season) {
     : r));
 }
 
+/* ============================ who won it ============================
+
+   A title on this board is won by **one competitor**, which in the two singles
+   draws is a player and in the three doubles draws is a pair. Everything above
+   this — the pyramid square, the era bar, the domination score — asks "who", and
+   gets the same shape of answer whichever draw it is looking at.
+
+   ⚠️ **The pair is the competitor, not the two people in it.** A doubles title
+   is won by a partnership; splitting it into two half-titles would make the
+   chart describe people rather than teams, and a season's lines would be two
+   identical ones for every pair in it. The cost is real and is the honest one:
+   a player who changes partner starts a new line, because the old team stopped
+   winning and a new one started.
+   ==================================================================== */
+
+/**
+ * The ids of whoever won a title, as strings.
+ *
+ * ⚠️ Two shapes on disk. A singles winner is a bare number, as the two singles
+ * files have always had it; a pair is an array. Rather than re-harvest twenty
+ * seasons of men's and women's singles for a shape change that buys nothing,
+ * both are read here and nothing downstream has to know which it got.
+ */
+export function titleWinnerIds(title) {
+  const w = title && title.w;
+  if (w == null) return [];
+  return (Array.isArray(w) ? w : [w]).filter(x => x != null).map(String);
+}
+
+/**
+ * The competitor's key: stable, and the same however BWF ordered the pair.
+ *
+ * ⚠️ **Sorted, on a copy.** BWF lists a pair in the conventional order — the man
+ * first in the mixed — and there is no promise it lists them the same way twice.
+ * Keying on the order as sent would split a partnership in half the first time
+ * two payloads disagreed, so the key sorts and the *name* does not: see
+ * `pairName`, which keeps whichever order the pair's first title carried.
+ */
+export function titleWinnerKey(title) {
+  return titleWinnerIds(title).slice().sort().join('+');
+}
+
+/* ⚠️ **BWF's stand-in for "no photograph" is a photograph.** Rather than an
+   empty avatar it serves a generic silhouette, `profile_male.jpg` or
+   `profile_female.jpg` — nine of the winners on these boards have one. On a
+   singles square that is merely uninformative; in a *pair* it draws the same
+   blank silhouette twice and reads as a rendering fault. Initials say who it is,
+   so a placeholder is treated as no photograph and the fallback takes over. */
+const BWF_PLACEHOLDER = /\/profile_(?:male|female)\.jpg$/i;
+
+/* ⚠️ **And two winners have a `.tif` avatar**, which no browser renders — they
+   were a silently broken square on the board long before anybody looked. */
+const UNRENDERABLE = /\.tiff?(?:$|[?#])/i;
+
+/**
+ * The photograph, or '' where there is not really one.
+ *
+ * Cleaned in the model rather than at harvest time, on purpose: the file should
+ * keep saying what BWF said, and *whether a URL is worth drawing* is a decision
+ * about drawing.
+ */
+export function usableAvatar(url) {
+  const u = String(url || '');
+  return (!u || BWF_PLACEHOLDER.test(u) || UNRENDERABLE.test(u)) ? '' : u;
+}
+
+/** Surnames, joined — "GICQUEL / DELRUE". BWF sends no name for a pair at all. */
+export function pairName(people) {
+  const list = (people || []).filter(Boolean);
+  if (!list.length) return '';
+  if (list.length === 1) return list[0].n || '';
+  return list.map(p => surnameOf(p.n || '')).join(' / ');
+}
+
+/**
+ * One competitor, assembled from the file's player table.
+ *
+ * The shape the drawing code already expects for a singles winner — `n`, `c`,
+ * `a`, `f` — plus `people`, which is what a split square and a two-name hover
+ * read. Singles is the one-person case of the same thing rather than a branch.
+ *
+ * @param {object} players  the file's `players` map, id -> {n, c, a, f}
+ * @param {string[]} ids  in the order they should be *named*
+ */
+export function winnerOf(players, ids) {
+  const people = (ids || []).map(id => {
+    const p = (players || {})[String(id)] || { n: '#' + id, c: '', f: '' };
+    /* A copy, with the avatar cleaned — see `usableAvatar`. The file's own
+       player table is left exactly as BWF sent it. */
+    return { ...p, a: usableAvatar(p.a) };
+  });
+  if (!people.length) return null;
+  return {
+    people,
+    n: pairName(people),
+    /* The first player's, which is the pair's in every case but a
+       mixed-nationality partnership — rare, and the flag on the board has always
+       been a hint rather than a fact about both. */
+    c: people[0].c || '',
+    f: people[0].f || '',
+    /* ⚠️ `a` is the first face **that exists** — so a pair whose first player
+       has no photograph still hands one to anything with room for only one.
+       `faces` is positional and may hold '', because a split square has to keep
+       the missing half in its place and fall back to initials there rather than
+       letting the other photograph slide across and fill the square. */
+    a: people.map(p => p.a).find(Boolean) || '',
+    faces: people.map(p => p.a || ''),
+  };
+}
+
+/**
+ * Every competitor in a harvested file, keyed the way the views key them.
+ *
+ * ⚠️ The naming order is fixed by a pair's **first** title and then never moves,
+ * so a partnership is called one thing all the way across the board even if a
+ * later payload lists it the other way round.
+ */
+export function winnerRegistry(file) {
+  const players = (file && file.players) || {};
+  const out = new Map();
+  for (const list of Object.values((file && file.seasons) || {})) {
+    for (const t of list || []) {
+      const key = titleWinnerKey(t);
+      if (!key || out.has(key)) continue;
+      out.set(key, winnerOf(players, titleWinnerIds(t)));
+    }
+  }
+  return out;
+}
+
+
 export function pyramidSeason(won, players, season) {
   const all = won || [];
   const flat = flatSupers(season);
@@ -2653,8 +2784,10 @@ export function pyramidSeason(won, players, season) {
         name: t.name,
         date: t.date,
         scale: pyramidScale(t.tier),
-        who: (players || {})[String(t.w)] || null,
-        id: t.w,
+        /* One competitor, which is a player in the singles draws and a pair in
+           the doubles ones. `who.faces` is what a split square reads. */
+        who: winnerOf(players, titleWinnerIds(t)),
+        id: titleWinnerKey(t),
         // What this rung was called in *this* season, so a 2013 square says
         // Superseries Premier and a 2023 one says Super 1000.
         level: pyramidLabel(t.tier, season),
@@ -2929,11 +3062,15 @@ export function pyramidReigns(seasons, players, min) {
 
   const perYear = new Map();
   const everyone = new Set();
+  /* Keyed on the competitor — a player in singles, a pair in doubles — so a
+     partnership gets one bar and a partner change starts another. */
+  const named = new Map();
   for (const y of years) {
     const c = new Map();
     for (const t of byYear.get(y) || []) {
-      if (t.w == null) continue;
-      const id = String(t.w);
+      const id = titleWinnerKey(t);
+      if (!id) continue;
+      if (!named.has(id)) named.set(id, winnerOf(players, titleWinnerIds(t)));
       c.set(id, (c.get(id) || 0) + 1);
       everyone.add(id);
     }
@@ -2956,7 +3093,7 @@ export function pyramidReigns(seasons, players, min) {
     if (!runs.length) continue;
     out.push({
       id,
-      who: (players || {})[id] || null,
+      who: named.get(id) || null,
       first: runs[0].from,
       // The longest single run, which is what the eye actually reads off the
       // band and so the right tie-break between two players who opened together.
@@ -3021,8 +3158,8 @@ export function reignLanes(reigns) {
    the eye actually compares on the pyramid.
 
    ⚠️ Settled by measurement, not by taste. On the gentler √φ ladder LEE Chong
-   Wei finishes 86 points of accumulated score clear of LIN Dan (316 to 230); on
-   φ they finish level (287 to 276), which is the reading the eye already has —
+   Wei finishes 83 points of accumulated score clear of LIN Dan (313 to 230); on
+   φ they finish level (285 to 276), which is the reading the eye already has —
    LCW won more of them, LIN Dan won the big ones. The half-step variant, where
    an Olympic gold is √φ above a world title rather than a full rung, was built
    and dropped: it changes nothing in three years out of four, and in the fourth
@@ -3069,8 +3206,9 @@ export function dominationSeasons(file) {
     const mass = list.reduce((n, t) => n + titleWeight(t.tier), 0);
     const by = new Map();
     for (const t of list) {
-      if (t.w == null) continue;
-      const id = String(t.w);
+      // The competitor, which is a pair in the doubles draws. See `winnerOf`.
+      const id = titleWinnerKey(t);
+      if (!id) continue;
       const cur = by.get(id) || { n: 0, w: 0, titles: [] };
       cur.n += 1;
       cur.w += titleWeight(t.tier);
@@ -3084,7 +3222,9 @@ export function dominationSeasons(file) {
   for (const s of seasons) {
     for (const [id, got] of s.by) {
       if (!people.has(id)) {
-        people.set(id, { id, who: players[id] || { n: '#' + id }, pts: [] });
+        /* Named from the first title this competitor won, so a pair is called
+           one thing all the way across the chart — see `winnerRegistry`. */
+        people.set(id, { id, who: winnerOf(players, titleWinnerIds(got.titles[0])), pts: [] });
       }
       people.get(id).pts.push({
         year: s.year,

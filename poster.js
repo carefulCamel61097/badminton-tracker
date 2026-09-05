@@ -207,9 +207,53 @@ function roundRect(ctx, x, y, w, h, r) {
  * chin off half the board.
  */
 function drawCover(ctx, im, x, y, side) {
-  const k = Math.max(side / im.naturalWidth, side / im.naturalHeight);
-  const sw = side / k, sh = side / k;
-  ctx.drawImage(im, (im.naturalWidth - sw) / 2, 0, sw, sh, x, y, side, side);
+  drawCoverRect(ctx, im, x, y, side, side);
+}
+
+/** The same crop into a box of any shape — what a split square needs. */
+function drawCoverRect(ctx, im, x, y, w, h) {
+  const k = Math.max(w / im.naturalWidth, h / im.naturalHeight);
+  const sw = w / k, sh = h / k;
+  ctx.drawImage(im, (im.naturalWidth - sw) / 2, 0, sw, sh, x, y, w, h);
+}
+
+/**
+ * A competitor's photograph, or **a pair's, split down the middle**.
+ *
+ * ⚠️ Each half is the *central band* of its photograph, not its left or right
+ * side: `drawCoverRect` into a box half as wide as it is tall scales on height
+ * and crops the sides, which is exactly what `object-fit: cover` gives the page.
+ * One rule, two renderers, so an exported pair looks like the one on screen.
+ *
+ * ⚠️ Vertically it is top-aligned, like every other face in this file — BWF's
+ * thumbnails are head-and-shoulders and a centred crop takes the chin off.
+ */
+function drawWinnerFaces(ctx, who, x, y, w, h, faces) {
+  /* ⚠️ Positional, not filtered: a pair with one photograph between them keeps
+     the missing half in its half and gets initials there, rather than letting
+     the other photograph slide across and fill the square. */
+  const people = (who && who.people) || [who].filter(Boolean);
+  const urls = (who && who.faces) || [who && who.a];
+  const n = Math.max(1, people.length || urls.length);
+  const cw = w / n;
+  for (let i = 0; i < n; i++) {
+    const im = urls[i] ? faces.get(urls[i]) : null;
+    const cx = x + i * cw;
+    if (im) { drawCoverRect(ctx, im, cx, y, cw, h); continue; }
+    // No photograph: the initials, exactly as the page falls back to them.
+    ctx.fillStyle = 'rgba(255,255,255,.06)';
+    ctx.fillRect(cx, y, cw, h);
+    ctx.fillStyle = '#9a9a9a';
+    ctx.font = `700 ${Math.max(7, Math.round(Math.min(cw, h) * 0.4))}px `
+      + '"Segoe UI", Roboto, sans-serif';
+    const ini = initialsOf(people[i] && people[i].n);
+    ctx.fillText(ini, cx + (cw - ctx.measureText(ini).width) / 2, y + h / 2 + h * 0.12);
+  }
+  /* The seam, so a pair reads as two people rather than one odd photograph. */
+  if (n > 1) {
+    ctx.fillStyle = 'rgba(0,0,0,.55)';
+    for (let i = 1; i < n; i++) ctx.fillRect(x + i * cw - 0.5, y, 1, h);
+  }
 }
 
 function drawRings(ctx, x, y, w) {
@@ -378,11 +422,15 @@ export async function drawPoster(file, opts) {
      export code turns into a callback maze. */
   const faces = new Map();
   const wants = new Set();
+  /* ⚠️ **Every** face a competitor has, not just the first. A pair is two
+     photographs and asking only for `who.a` left the right-hand half of every
+     doubles square blank. */
+  const facesOf = who => ((who && who.faces) || [who && who.a]).filter(Boolean);
   for (const col of L.columns) {
-    for (const row of col.rows) for (const t of row.tiles) if (t.who && t.who.a) wants.add(t.who.a);
+    for (const row of col.rows) for (const t of row.tiles) for (const u of facesOf(t.who)) wants.add(u);
   }
   for (const b of L.bars) {
-    if (b.who && b.who.a) wants.add(b.who.a);
+    for (const u of facesOf(b.who)) wants.add(u);
     if (b.who && b.who.f) wants.add(b.who.f);
   }
   const urls = [...wants];
@@ -514,17 +562,14 @@ export async function drawPoster(file, opts) {
     roundRect(ctx, b.x + 3, top + 3, pillW, P.laneH - 6, (P.laneH - 6) / 2);
     ctx.fill();
 
-    const fim = b.who && b.who.a ? faces.get(b.who.a) : null;
     const fs = P.laneH - 10;
     ctx.save();
     ctx.beginPath();
     ctx.arc(b.x + 5 + fs / 2, top + P.laneH / 2, fs / 2, 0, Math.PI * 2);
     ctx.clip();
-    if (fim) drawCover(ctx, fim, b.x + 5, top + 5, fs);
-    else {
-      ctx.fillStyle = 'rgba(255,255,255,.10)';
-      ctx.fillRect(b.x + 5, top + 5, fs, fs);
-    }
+    ctx.fillStyle = 'rgba(255,255,255,.10)';
+    ctx.fillRect(b.x + 5, top + 5, fs, fs);
+    drawWinnerFaces(ctx, b.who, b.x + 5, top + 5, fs, fs, faces);
     ctx.restore();
 
     ctx.fillStyle = P.ink;
@@ -611,14 +656,7 @@ function drawTile(ctx, t, x, y, side, faces) {
   ctx.clip();
   ctx.fillStyle = 'rgba(255,255,255,.06)';
   ctx.fillRect(x, y, side, side);
-  const im = t.who && t.who.a ? faces.get(t.who.a) : null;
-  if (im) drawCover(ctx, im, x, y, side);
-  else {
-    ctx.fillStyle = '#9a9a9a';
-    ctx.font = `700 ${Math.max(8, Math.round(side * 0.32))}px "Segoe UI", Roboto, sans-serif`;
-    const ini = initialsOf(t.who && t.who.n);
-    ctx.fillText(ini, x + (side - ctx.measureText(ini).width) / 2, y + side / 2 + side * 0.12);
-  }
+  drawWinnerFaces(ctx, t.who, x, y, side, side, faces);
   ctx.restore();
 
   /* ⚠️ Outside the square, not inside it, which is what the page does now — an
@@ -748,7 +786,10 @@ export async function drawScorePoster(file, opts) {
 
   // Every photograph up front, so the drawing below is straight-line code.
   const wants = new Set();
-  for (const p of L.shown) if (p.who && p.who.a) wants.add(p.who.a);
+  // Every face, not just the first: a pair is two. See `drawWinnerFaces`.
+  for (const p of L.shown) {
+    for (const u of ((p.who && p.who.faces) || [p.who && p.who.a]).filter(Boolean)) wants.add(u);
+  }
   const urls = [...wants];
   const loaded = await Promise.all(urls.map(u => loadImage(u, true)));
   const faces = new Map(urls.map((u, i) => [u, loaded[i]]));
@@ -905,15 +946,15 @@ export async function drawScorePoster(file, opts) {
   }
   for (const p of order) {
     ctx.globalAlpha = L.lit(p.id) ? 1 : 0.16;
-    const im = p.who && p.who.a ? faces.get(p.who.a) : null;
     for (const pt of inCrop(p)) {
       const cx = L.x(pt.year), cy = L.y(pt.score);
       ctx.save();
       ctx.beginPath();
       ctx.arc(cx, cy, S.face, 0, Math.PI * 2);
       ctx.clip();
-      if (im) drawCover(ctx, im, cx - S.face, cy - S.face, S.face * 2);
-      else { ctx.fillStyle = p.colour; ctx.fillRect(cx - S.face, cy - S.face, S.face * 2, S.face * 2); }
+      ctx.fillStyle = p.colour;
+      ctx.fillRect(cx - S.face, cy - S.face, S.face * 2, S.face * 2);
+      drawWinnerFaces(ctx, p.who, cx - S.face, cy - S.face, S.face * 2, S.face * 2, faces);
       ctx.restore();
       ctx.strokeStyle = p.colour;
       ctx.lineWidth = L.lit(p.id) ? 2.2 : 1.5;
@@ -934,13 +975,13 @@ export async function drawScorePoster(file, opts) {
       roundRect(ctx, cx, top, c.w, S.chipH, S.chipH / 2);
       ctx.fill();
       const fs = S.chipH - 6;
-      const im = c.who && c.who.a ? faces.get(c.who.a) : null;
       ctx.save();
       ctx.beginPath();
       ctx.arc(cx + 3 + fs / 2, top + S.chipH / 2, fs / 2, 0, Math.PI * 2);
       ctx.clip();
-      if (im) drawCover(ctx, im, cx + 3, top + 3, fs);
-      else { ctx.fillStyle = c.colour; ctx.fillRect(cx + 3, top + 3, fs, fs); }
+      ctx.fillStyle = c.colour;
+      ctx.fillRect(cx + 3, top + 3, fs, fs);
+      drawWinnerFaces(ctx, c.who, cx + 3, top + 3, fs, fs, faces);
       ctx.restore();
       ctx.strokeStyle = c.colour;
       ctx.lineWidth = 2;

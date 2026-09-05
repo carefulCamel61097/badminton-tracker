@@ -1149,10 +1149,14 @@ function savedWinZoom() {
     : WIN_ZOOM.def;
 }
 
-/* The disciplines this page has data for. Doubles is deliberately absent: a
-   doubles title is won by a *pair*, so one square would have to hold two faces
-   and would stop meaning what every other square on the page means. */
-const WIN_KINDS = ['MS', 'WS'];
+/* The disciplines this page has data for.
+   ⚠️ The three doubles draws were absent until 5 Sep 2026, on the grounds that a
+   doubles title is won by a *pair* and one square would have to hold two faces
+   and stop meaning what every other square means. The square is now **split down
+   the middle**, half a photograph each, which answers that objection without
+   changing what a square is: see `winnerFace`. Everything above the square then
+   treats the pair as one competitor — one tile, one bar, one line. */
+const WIN_KINDS = ['MS', 'WS', 'MD', 'WD', 'XD'];
 
 /* Two readings of the same seasons. The board says *who won what*; the score
    says *how much of it*.
@@ -1214,17 +1218,42 @@ async function loadWinnersPage() {
   renderWinners();
 }
 
-/** A face, or the initials of somebody BWF has no photograph of. */
-function winnerFace(who, side) {
-  const name = esc((who && who.n) || 'Unknown');
-  const initials = String((who && who.n) || '?')
-    .replace(/[^A-Za-z ]/g, ' ').trim().split(/\s+/)
+/** The initials the board falls back to when BWF has no photograph. */
+function faceInitials(name) {
+  return String(name || '?').replace(/[^A-Za-z ]/g, ' ').trim().split(/\s+/)
     .map(w => w[0]).slice(0, 2).join('').toUpperCase();
-  if (who && who.a) {
-    return `<img class="face" src="${esc(who.a)}" alt="${name}" loading="lazy"
-      width="${Math.round(side)}" height="${Math.round(side)}">`;
-  }
-  return `<span class="face noface" aria-label="${name}">${esc(initials)}</span>`;
+}
+
+/** One person's photograph, or their initials, filling whatever box it is in. */
+function oneFace(person, side, cls) {
+  const name = esc((person && person.n) || 'Unknown');
+  return person && person.a
+    ? `<img class="${cls}" src="${esc(person.a)}" alt="${name}" loading="lazy"
+        width="${Math.round(side)}" height="${Math.round(side)}">`
+    : `<span class="${cls} noface" aria-label="${name}">${esc(faceInitials(person && person.n))}</span>`;
+}
+
+/**
+ * A competitor's square: one face, or a **pair split down the middle**.
+ *
+ * ⚠️ This is what let the doubles draws onto the board at all. A doubles title
+ * is won by two people, and the page's standing rule is that every square means
+ * the same thing — so one square has to hold the pair without becoming a
+ * different kind of object. Half each, and the square stays the size the ladder
+ * says it is.
+ *
+ * ⚠️ **The half is the middle of the photograph, not the left or right of it.**
+ * `object-fit: cover` in a box half as wide as it is tall scales the source to
+ * match on height and crops the sides, which takes the central band — and
+ * `object-position: top center` keeps the crop off the chin, the same rule the
+ * full square already follows. Halving the *photograph* instead would give one
+ * player their left ear and the other their right.
+ */
+function winnerFace(who, side) {
+  const people = (who && who.people) || (who ? [who] : []);
+  if (people.length < 2) return oneFace(people[0] || who, side, 'face');
+  return `<span class="face pairface" aria-label="${esc(who.n || '')}">`
+    + people.map(p => oneFace(p, side, 'half')).join('') + '</span>';
 }
 
 /* ---- the two badges on the summit row ----
@@ -1267,7 +1296,12 @@ function winnerBadge(tier) {
 
 /** Everything the hover has to say about one title. */
 function tileTitle(t, year) {
-  const who = (t.who && t.who.n) || 'unknown';
+  const people = (t.who && t.who.people) || [];
+  /* A pair is "GIDEON / SUKAMULJO" on the chip, where it has to fit; the hover
+     has room for both names in full, so it says them. */
+  const who = people.length > 1
+    ? people.map(p => p.n).join(' & ')
+    : ((t.who && t.who.n) || 'unknown');
   return [
     t.name,
     // What this rung was called in *this* season: "Superseries Premier" in
@@ -1564,6 +1598,30 @@ function scoreTop() {
   return Math.min(1, Math.max(0.25, Math.ceil(best * 10) / 10));
 }
 
+/**
+ * The photograph inside a marker — one face, or a pair split down the middle.
+ *
+ * ⚠️ `slice` in a box half as wide as it is tall takes the **central band** of
+ * the photograph, which is the same crop the board's split square gets from
+ * `object-fit: cover`. One rule, two renderers, so a pair looks like itself in
+ * both places. A competitor with no photograph at all falls back to a plain dot,
+ * as it always has.
+ */
+function scoreMarkFace(p) {
+  /* ⚠️ Positional, not filtered. A pair with one photograph between them keeps
+     the missing half *in its half* — filtering the blank out would let the other
+     photograph slide across and fill the whole marker, which would say the pair
+     was one person. */
+  const faces = p.who.faces && p.who.faces.length ? p.who.faces : [p.who.a];
+  if (!faces.some(Boolean)) return `<circle r="${SC.face - 1}" fill="${p.colour}"></circle>`;
+  const w = (SC.face * 2) / faces.length;
+  return faces.map((href, i) => (href
+    ? `<image href="${esc(href)}" x="${-SC.face + i * w}" y="${-SC.face}"`
+      + ` width="${w}" height="${SC.face * 2}"`
+      + ' preserveAspectRatio="xMidYMin slice" clip-path="url(#scoreFace)"></image>'
+    : '')).join('');
+}
+
 function drawScore(model) {
   const { years, seasons, people } = model;
   const floor = win.floor / 100;
@@ -1698,11 +1756,7 @@ function drawScore(model) {
       out.push(`<g class="pt${hole}${lit(p.id) ? '' : ' faded'}"`
         + ` data-id="${esc(p.id)}" data-year="${pt.year}"`
         + ` transform="translate(${at(pt.year)} ${y(pt.score)})">`
-        + (p.who.a
-          ? `<image href="${esc(p.who.a)}" x="${-SC.face}" y="${-SC.face}"`
-            + ` width="${SC.face * 2}" height="${SC.face * 2}"`
-            + ' preserveAspectRatio="xMidYMid slice" clip-path="url(#scoreFace)"></image>'
-          : `<circle r="${SC.face - 1}" fill="${p.colour}"></circle>`)
+        + scoreMarkFace(p)
         + `<circle class="ring" r="${SC.face}" fill="none" stroke="${p.colour}"></circle></g>`);
     }
   }
@@ -1715,6 +1769,18 @@ function drawScore(model) {
   }
 
   $('scoreChart').innerHTML = out.join('');
+}
+
+/** The round thumbnail on a legend chip or a hover — split, for a pair. */
+function legendFace(who) {
+  const people = (who && who.people) || [];
+  if (!people.some(p => p.a)) return '';
+  if (people.length === 1) return `<img src="${esc(people[0].a)}" alt="" width="18" height="18">`;
+  // Positional, so a pair with one photograph keeps its empty half. See
+  // `scoreMarkFace` for why that matters.
+  return '<span class="pairpic">'
+    + people.map(p => (p.a ? `<img src="${esc(p.a)}" alt="">`
+      : `<i class="blank" aria-label="${esc(p.n || '')}"></i>`)).join('') + '</span>';
 }
 
 /**
@@ -1734,7 +1800,7 @@ function renderScoreLegend(model) {
     .map(p => `<button type="button" class="lg${lit(p.id) ? '' : ' off'}"`
       + ` data-id="${esc(p.id)}" aria-pressed="${lit(p.id)}">`
       + `<i style="background:${p.colour || '#666'}"></i>`
-      + (p.who.a ? `<img src="${esc(p.who.a)}" alt="" width="18" height="18">` : '')
+      + legendFace(p.who)
       + `${esc(p.who.n)}<span class="pk">${scoreText(p.peak)}</span></button>`).join('');
 }
 
@@ -1825,8 +1891,12 @@ function scoreTipFor(id, year) {
   const pt = p && p.pts.find(q => q.year === year);
   if (!pt) return null;
   return `<span class="who">`
-    + (p.who.a ? `<img src="${esc(p.who.a)}" alt="">` : '')
+    + legendFace(p.who)
     + `<b>${esc(p.who.n)}</b></span>`
+    /* A pair is named by its surnames everywhere it has to fit; the hover has
+       room to say who they actually are. */
+    + (p.who.people.length > 1
+      ? `<span class="k">${esc(p.who.people.map(q => q.n).join(' · '))}</span>` : '')
     + `<span class="big">${scoreText(pt.score)}</span>`
     + `<span class="k"> / 100 in ${year}</span>`
     + `<span class="k">${pt.n} of ${pt.played} titles · `
@@ -2929,8 +2999,16 @@ function runHotkey(key) {
   }
 
   if (page === 'winners') {
-    if (key === 'm') { setWinKind('MS'); return true; }
-    if (key === 'w') { setWinKind('WS'); return true; }
+    /* ⚠️ The tournament page's idiom, borrowed rather than invented: M is the
+       men's singles and M again is the men's doubles. Five draws will not fit
+       five letters that anybody would guess, and a reader who has learned the
+       double-tap on one page has learned it here. */
+    if (DISCIPLINE_KEY[key]) {
+      const options = DISCIPLINE_KEY[key].filter(c => WIN_KINDS.includes(c));
+      if (!options.length) return false;
+      setWinKind(options[(options.indexOf(win.kind) + 1) % options.length]);
+      return true;
+    }
     if (key === 'b') { setWinView('board'); return true; }
     /* ⚠️ S rather than D. It is Superseries on the compare page and Starred on
        the tournament page, which is fine — a letter may mean two things as long

@@ -1308,6 +1308,31 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
   font-size: 10px; font-weight: 700; color: var(--dim); letter-spacing: .04em;
 }
 
+/* ---- a pair, in one square ----
+
+   ⚠️ The square stays the size the ladder says it is; what changes is that two
+   people are in it. A doubles title is won by a partnership, and the board's
+   standing rule is that every square means the same thing — so the pair has to
+   fit the square rather than the square growing to fit the pair.
+
+   ⚠️ **Each half shows the middle of its photograph.** `object-fit: cover` in a
+   box half as wide as it is tall matches the source on height and crops the
+   sides, which is the central band; `object-position: top center` then keeps
+   the crop off the chin, the same rule the full square follows. `min-width: 0`
+   because a flex item will not shrink past its intrinsic width without it, and
+   the two photographs would push the square wide. */
+.pyrtile .pairface { display: flex; width: 100%; height: 100%; }
+.pyrtile .pairface .half {
+  width: 50%; height: 100%; min-width: 0;
+  object-fit: cover; object-position: top center;
+}
+/* The seam, so a pair reads as two people rather than as one odd photograph.
+   Drawn inside the right-hand half as a shadow, not as a border on either: a
+   border would take a pixel out of one face and not the other, and at the
+   smallest zoom a Super 750 square is 22px and that is visible. */
+.pyrtile .pairface .half + .half { box-shadow: inset 1px 0 0 rgba(0, 0, 0, .55); }
+.pyrtile .pairface .noface { font-size: 8px; }
+
 /* The gold ring, and nothing else on the board wears one. The Olympics and the
    Worlds are the same size and share a row, so **the ring is what tells them
    apart** — and it only takes one of them to do it: the Olympic square is the
@@ -1446,6 +1471,11 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
   box-shadow: 0 0 0 1px rgba(0, 0, 0, .5);
 }
 .erawho .noface { font-size: 8px; }
+/* A pair's bar carries the pair, split the way its squares are. */
+.erawho .pairface {
+  width: 18px; height: 18px; border-radius: 50%; overflow: hidden; flex: none;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .5);
+}
 /* Smaller than the photograph beside it: the flag says which country, and a
    circle the same size as a face competes with it for the same job. */
 .erawho .flag { width: 14px; height: 14px; }
@@ -1527,6 +1557,24 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
   object-fit: cover; object-position: top center;
 }
 .scorelegend .lg i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+/* The same split as the board's square, at thumbnail size — on a legend chip
+   and in the hover, so a pair is recognisably the same competitor in all four
+   places it appears. */
+.pairpic {
+  display: inline-flex; width: 18px; height: 18px; flex: none;
+  border-radius: 50%; overflow: hidden;
+}
+.pairpic img {
+  width: 50%; height: 100%; min-width: 0;
+  object-fit: cover; object-position: top center;
+}
+.pairpic img + img, .pairpic .blank + img, .pairpic img + .blank {
+  box-shadow: inset 1px 0 0 rgba(0, 0, 0, .55);
+}
+/* The half of a pair BWF has no photograph of. It holds its place rather than
+   letting the other face fill the circle — see `legendFace`. */
+.pairpic .blank { width: 50%; height: 100%; background: rgba(255, 255, 255, .1); }
+#scoreTip .pairpic { width: 26px; height: 26px; }
 .scorelegend .lg.off { opacity: .35; }
 .scorelegend .lg .pk { font: 400 10px var(--mono); color: var(--text-muted); }
 

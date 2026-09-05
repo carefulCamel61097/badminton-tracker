@@ -394,6 +394,51 @@ Things that look wrong and are not:
 - **2020 is nearly bare even with its Finals back.** The calendar entries say "(Cancelled)",
   and a cancelled final has no winner.
 
+### The doubles, and the split square
+
+All five draws are on this page: **MS · WS · MD · WD · XD**. The three doubles ones were
+absent for a while on a real objection — a doubles title is won by a *pair*, so one square
+would have to hold two faces and would stop meaning what every other square on the page
+means.
+
+**The square is split down the middle instead**, half a photograph each, and it stays exactly
+the size the ladder says it is. A Super 750 square is the same size in mixed doubles as in
+men's singles, because the ladder is about what the *title* was worth and not about how many
+people won it.
+
+⚠️ **Each half shows the middle of its own photograph**, not one player's left ear and the
+other's right. `object-fit: cover` in a box half as wide as it is tall matches the source on
+height and crops the sides, which is the central band — and `object-position: top center`
+keeps the crop off the chin, the same rule the full square already followed. The canvas
+export does the identical thing with `drawImage`, so a pair looks like itself on screen and
+in a poster.
+
+**Above the square, a pair is one competitor**: one tile, one era bar, one line on the score,
+one legend chip, and a season's scores still add to a whole season. The alternative —
+splitting a title into two half-titles, one per player — would make the chart describe people
+rather than teams and draw every partnership as two identical lines.
+
+⚠️ The cost is real and it is the honest one: **a player who changes partner starts again.**
+The old team stopped winning and a new one started, and the board says so rather than
+pretending a career is continuous through a change of the thing that actually won the titles.
+
+⚠️ **The key sorts; the name does not.** BWF lists a pair in the conventional order — the man
+first in the mixed — with no promise it does so the same way twice, so a partnership is keyed
+on its two ids *sorted* and named from whichever order its first title carried. Keying on the
+order as sent would split a pair in half the first time two payloads disagreed.
+
+⚠️ **BWF's stand-in for "no photograph" is a photograph.** Rather than an empty avatar it
+serves a generic silhouette — `profile_male.jpg` or `profile_female.jpg` — and nine of the
+winners across these five boards have one, two of them in the singles files where it had gone
+unnoticed. On a singles square that is merely uninformative; on a *pair* it drew the same
+blank twice and read as a rendering fault. It is treated as no photograph, so the initials
+take over and the half says who it is. Two more winners have a `.tif` avatar, which no
+browser renders at all, and get the same treatment. The harvested files still say exactly
+what BWF said: whether a URL is worth drawing is a decision about drawing.
+
+⚠️ A half with no photograph **keeps its half of the square**. Dropping it would let the other
+photograph slide across and fill the whole square, which would say the pair was one person.
+
 ### Exporting a slice
 
 **Export** takes a range of seasons — the pyramid, the band and all — and draws it to a PNG
@@ -512,13 +557,13 @@ already has an opinion about:
 
 | ladder | LEE Chong Wei | LIN Dan |
 |---|---|---|
-| titles counted alike | 333 | 202 |
-| √φ per rung | 316 | 230 |
-| **φ per rung** | **287** | **276** |
+| titles counted alike | 329 | 202 |
+| √φ per rung | 313 | 230 |
+| **φ per rung** | **285** | **276** |
 
 φ is the reading the eye already has — LCW won more of them, LIN Dan won the big ones — and it
 is area that the eye compares on the pyramid. Under it Lin Dan's 2007 is 56.9 against LCW's
-best season of 45.7.
+best season of 43.4.
 
 A half-step variant, where an Olympic gold is √φ above a world title rather than a full rung,
 was built and dropped: it changes **nothing** in three years out of four, and in the fourth it
@@ -607,7 +652,7 @@ like a warning.
 scribble, so the default hides most of them — but it must not hide the person who actually
 dominated a year. The rule: take every **finished** season, find who led it, note that
 player's best year anywhere, and put the bar as high as it will go without dropping one of
-them. It comes out at 45 for the men and 20 for the women, and it stops being derived the
+them. It comes out at 40 for the men and 20 for the women, and it stops being derived the
 moment the reader touches the slider.
 
 ⚠️⚠️ This asked the wrong question until it was looked at: *"is anybody on screen in every
@@ -821,7 +866,8 @@ never a hidden feature — and each page's own keys are printed under its notes.
 | **Tournament** | <kbd>O</kbd> order of play · <kbd>B</kbd> bracket · <kbd>S</kbd> starred only |
 | **Tournament** | <kbd>↑</kbd> <kbd>↓</kbd> the day, or — in the bracket — how much of the draw |
 | **Tournament** | <kbd>M</kbd> <kbd>W</kbd> <kbd>X</kbd> the discipline; press again for that gender's doubles |
-| **Winners** | <kbd>B</kbd> board · <kbd>S</kbd> score · <kbd>M</kbd> men's singles · <kbd>W</kbd> women's singles · <kbd>E</kbd> the dominance band |
+| **Winners** | <kbd>B</kbd> board · <kbd>S</kbd> score · <kbd>E</kbd> the dominance band |
+| **Winners** | <kbd>M</kbd> <kbd>W</kbd> <kbd>X</kbd> the discipline; press again for that gender's doubles |
 | **Winners** | <kbd>↑</kbd> <kbd>↓</kbd> the 3+ / 4+ / 5+ bar while the band is on — or, on the score, the **Show** bar |
 
 Six things about this are deliberate.
@@ -872,6 +918,11 @@ and pressing the same letter again moves to that gender's doubles. Clicking the 
 any of it. Stepping the day and the fold **clamps** rather than wraps, unlike the pages:
 four pages in a ring beat two dead ends, but the last day of a tournament is the last day.
 
+The Winners page borrows the same double-tap rather than inventing anything: five draws will
+not fit five letters anybody would guess, and a reader who has learned it on one page has
+learned it on the other. There it simply picks the board, since a board is only ever about
+one discipline.
+
 ## Where things are
 
 | File | What it is |
@@ -902,7 +953,7 @@ that: on the predecessor 467 of them accumulated and took a 238 GB disk to zero 
 
 ## The harvested files
 
-`data/winners-MS.json` and `data/winners-WS.json` are not fetched from BWF at page load.
+`data/winners-<draw>.json` — one per discipline, all five — is not fetched from BWF at page load.
 The app is player-centric — every endpoint it uses is keyed on a player id — and "who won
 this tournament" is the opposite question, so it takes a call per tournament per season.
 None of it changes once a final has been played, so it happens once, offline, and the result
@@ -911,10 +962,25 @@ is committed.
 ```
 node tools/harvest-winners.mjs                 men's singles, 2007..now
 node tools/harvest-winners.mjs --draw 2        women's singles
+node tools/harvest-winners.mjs --draw 3        men's doubles (4 women's, 5 mixed)
 node tools/harvest-winners.mjs --from 2015     a shorter run
 ```
 
-It resumes from whatever is already on disk and writes one file per discipline.
+It resumes from whatever is already on disk and writes one file per discipline, so a
+re-run only fetches the seasons that are not there.
+
+```sh
+node tools/audit-winners.mjs           # what is missing, per discipline
+node tools/audit-winners.mjs --drop    # delete the short seasons, then re-harvest
+```
+
+⚠️ **Counting titles per season does not tell you whether the harvest is complete.** A season
+that is one short looks exactly like a season that is one short somewhere else, and a missing
+Olympic gold is one row in a file of 242. The audit compares the **union of tournament ids**
+across the five files: every draw plays the same calendar, so a tournament in one file and
+not another is a hole in the other. That is how four of five Olympic golds were found missing
+from the doubles boards, and how a 2010 Super Series title was found missing from all five.
+Its blind spot is stated on the tin: a tournament missing from *every* file cannot be seen.
 
 ⚠️ **The obvious endpoint is the wrong one.** `vue-tournament-draw-data` returns the whole
 draw and looks like the answer, but it is 256–407 KB per tournament and **returns HTTP 500
@@ -930,6 +996,7 @@ node tools/shot.mjs [#hash…]     # screenshot the strip, from fixtures
 node tools/probe-draws.mjs       # what tournaments/draws returns per format
 node tools/probe-draw.mjs        # which drawId each discipline actually has
 node tools/probe-bracket.mjs     # the fold table, and the geometry, against live draws
+node tools/audit-winners.mjs     # is the winners harvest complete? (--drop to re-fetch)
 ```
 
 `discover.mjs` captures the API requests a BWF page makes and scans its JS bundles for

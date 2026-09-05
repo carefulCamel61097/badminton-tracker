@@ -17,6 +17,7 @@ import {
   pyramidTier, pyramidSeason, pyramidBulges, pyramidRow, PYRAMID_ROWS,
   pyramidLabel, pyramidTitleSeason, pyramidSeasonMarks, winnersSeasons,
   pyramidReigns, reignLanes, reignStep, REIGN_STEPS, REIGN_DEFAULT,
+  titleWinnerIds, titleWinnerKey, winnerOf, pairName, winnerRegistry, usableAvatar,
   flatSupers, PREMIER_FROM, pyramidScale,
   parseSeason, seasonDisciplines, drawFor, drawForKind, dominantDraw,
   kindOf, seasonKinds, defaultKind, seasonLevels,
@@ -2205,6 +2206,136 @@ eq('nothing at all is four empty rows', pyramidSeason([], {}).length, 4);
    file can.
    ==================================================================== */
 
+
+console.log('\n=== who won it: one player, or a pair ===');
+
+/* ⚠️ Two shapes on disk, on purpose: a singles winner is a bare number, as the
+   two singles files have always had it, and a pair is an array. Re-harvesting
+   twenty seasons of singles for a shape change that buys nothing would have been
+   the alternative. Both are read, so nothing downstream knows which it got. */
+eq('a singles winner is one id', JSON.stringify(titleWinnerIds({ w: 25831 })), '["25831"]');
+eq('a pair is two', JSON.stringify(titleWinnerIds({ w: [68544, 70762] })), '["68544","70762"]');
+eq('and nobody is nobody', titleWinnerIds({ w: null }).length, 0);
+eq('as is a title with no winner at all', titleWinnerIds({}).length, 0);
+
+/* ⚠️ **The key sorts; the name does not.** BWF lists a pair in the conventional
+   order — the man first in the mixed — with no promise it does so twice the same
+   way, and a key that trusted the order would split a partnership in half the
+   first time two payloads disagreed. */
+eq('a pair keys the same however it was ordered',
+  titleWinnerKey({ w: [70762, 68544] }), titleWinnerKey({ w: [68544, 70762] }));
+eq('and a singles key is just the id', titleWinnerKey({ w: 25831 }), '25831');
+check('a pair and one of its players are different competitors',
+  titleWinnerKey({ w: [68544, 70762] }) !== titleWinnerKey({ w: 68544 }));
+
+const pairPlayers = {
+  68544: { n: 'Thom GICQUEL', c: 'FRA', a: 'gic.jpg', f: 'fra.png' },
+  70762: { n: 'Delphine DELRUE', c: 'FRA', a: 'del.jpg', f: 'fra.png' },
+};
+const duo = winnerOf(pairPlayers, ['68544', '70762']);
+eq('a pair is named by its surnames', duo.n, 'GICQUEL / DELRUE');
+eq('and keeps both people', duo.people.length, 2);
+/* ⚠️ `a` is the first face and `faces` is all of them, so everything that only
+   ever had room for one photograph keeps working untouched. */
+eq('the first face is still where it always was', duo.a, 'gic.jpg');
+eq('and both are there for anything that can split a square',
+  JSON.stringify(duo.faces), '["gic.jpg","del.jpg"]');
+
+const solo = winnerOf({ 1: { n: 'LIN Dan', c: 'CHN', a: 'lin.jpg' } }, ['1']);
+eq('a single player keeps their whole name, not a surname', solo.n, 'LIN Dan');
+eq('and is a pair of one rather than a special case', solo.people.length, 1);
+eq('with one face', JSON.stringify(solo.faces), '["lin.jpg"]');
+/* ⚠️⚠️ BWF's stand-in for "no photograph" **is a photograph** — a generic
+   silhouette. On a singles square that is merely uninformative; in a pair it
+   draws the same blank twice and reads as a rendering fault, so it is treated as
+   no photograph and the initials take over. Two winners also carry a `.tif`
+   avatar, which no browser renders at all. */
+eq('the generic male silhouette is not a photograph',
+  usableAvatar('https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg'), '');
+eq('nor the female one',
+  usableAvatar('https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_female.jpg'), '');
+eq('nor a .tif, which no browser renders',
+  usableAvatar('https://img.bwfbadminton.com/image/upload/v1/thumbnail/67172.tif'), '');
+eq('a real thumbnail is left alone',
+  usableAvatar('https://img.bwfbadminton.com/x/thumbnail/50906.jpg'),
+  'https://img.bwfbadminton.com/x/thumbnail/50906.jpg');
+
+/* ⚠️ A dropped photograph leaves a **hole in place**, not a shorter list: the
+   half it belonged to still has to be drawn, with initials, or the other
+   photograph slides across and the square says the pair was one person. */
+const halfLit = winnerOf({
+  1: { n: 'A PLAYER', a: 'https://x/thumbnail/profile_male.jpg' },
+  2: { n: 'B PLAYER', a: 'real.jpg' },
+}, ['1', '2']);
+eq('a pair with one usable photograph keeps two people', halfLit.people.length, 2);
+eq('and two face slots, one of them empty',
+  JSON.stringify(halfLit.faces), '["","real.jpg"]');
+eq('while the single-photograph consumers get the one that exists',
+  halfLit.a, 'real.jpg');
+
+eq('somebody the file has never heard of is still drawn',
+  winnerOf({}, ['999']).n, '#999');
+eq('and nobody at all is null', winnerOf({}, []), null);
+
+/* ---- the same three views, over a doubles board ---- */
+
+const mdPath = path.join(HERE, '..', 'data', 'winners-MD.json');
+if (fs.existsSync(mdPath)) {
+  const md = JSON.parse(fs.readFileSync(mdPath, 'utf8'));
+  const mdSeasons = winnersSeasons(md);
+
+  check('every men’s doubles title was won by two people',
+    Object.values(md.seasons).flat().every(t => titleWinnerIds(t).length === 2),
+    `${Object.values(md.seasons).flat().length} titles`);
+
+  /* The square is what let the doubles onto the board at all: it holds the pair
+     and stays the size the ladder says it is. */
+  const mdRows = pyramidSeason(mdSeasons.byYear.get(2018), md.players, 2018);
+  const mdTiles = mdRows.flatMap(r => r.tiles);
+  check('a doubles square carries two faces', mdTiles.every(t => t.who.faces.length === 2),
+    JSON.stringify(mdTiles[0] && mdTiles[0].who.faces));
+  eq('and is exactly the size a singles square of that tier is',
+    mdTiles[0].scale, pyramidScale(mdTiles[0].tier));
+
+  /* ⚠️ The competitor is the **pair**, so a partnership gets one bar and one
+     line, and a partner change starts another. Checked by counting: if the key
+     were a player, every doubles season would hold twice as many winners as it
+     holds titles. */
+  const dom = dominationSeasons(md);
+  for (const s of dom.seasons) {
+    check(`${s.year} has no more winners than it had titles`,
+      s.by.size <= s.total, `${s.by.size} winners, ${s.total} titles`);
+  }
+  let sums = 0;
+  for (const s of dom.seasons) {
+    if (!s.total) continue;
+    let n = 0;
+    for (const p of dom.people) {
+      const pt = p.pts.find(q => q.year === s.year);
+      if (pt) n += pt.score;
+    }
+    if (Math.abs(n - 1) > 1e-9) sums++;
+  }
+  eq('and a doubles season still adds up to one whole season', sums, 0);
+
+  check('every line on the chart is named for a pair',
+    dom.people.every(p => p.who.people.length === 2 && / \/ /.test(p.who.n)),
+    dom.people[0] && dom.people[0].who.n);
+
+  /* ⚠️ A partnership is one bar, not two — the bug the pair key exists to stop
+     is a band with a lane for each half of every pair. */
+  const mdLanes = reignLanes(pyramidReigns(mdSeasons, md.players, 3));
+  check('a dominant pair takes one bar between them',
+    mdLanes.every(p => p.who && p.who.people.length === 2),
+    mdLanes.map(p => p.who.n).join(' | '));
+  check('and the band is far shorter than one lane per player',
+    Math.max(...mdLanes.map(p => p.lane)) + 1 < mdLanes.length,
+    `${Math.max(...mdLanes.map(p => p.lane)) + 1} lanes for ${mdLanes.length} pairs`);
+} else {
+  console.log('  (no men’s doubles harvested on this machine — skipped)');
+}
+
+
 console.log('\n=== the winners file, put back into its seasons ===');
 
 const winMS = JSON.parse(fs.readFileSync(
@@ -2286,8 +2417,15 @@ eq('and so do the tiles', py2013[2].tiles[0].level, 'Superseries Premier');
    would assert a tier that did not exist for another four years. */
 for (const y of [2007, 2008, 2009, 2010]) {
   const rows = pyramidSeason(winSeasons.byYear.get(y), winMS.players, y);
-  eq(`${y} fills both Super rows`,
-    rows.slice(2).map(r => r.tiles.length).join(','), '6,6');
+  /* ⚠️ Not a fixed 6,6. An odd number of Superseries deals the spare one to the
+     *lower* row — 2010 ran thirteen — so what is checked is that both rows are
+     filled and differ by at most one, rather than a count that a recovered
+     title moves. It moved: the 2010 French Open was missing from every board
+     until `canonicalDraw` reached the harvest. */
+  const dealt = rows.slice(2).map(r => r.tiles.length);
+  check(`${y} fills both Super rows`,
+    dealt[0] > 0 && dealt[1] > 0 && dealt[1] - dealt[0] >= 0 && dealt[1] - dealt[0] <= 1,
+    dealt.join(','));
   eq(`and ${y} calls both of them Superseries`,
     rows.slice(2).map(r => r.label).join(), 'Superseries,Superseries');
   eq(`and draws both at the one size`,
@@ -2502,7 +2640,7 @@ near('and 85.8 once the Worlds is weighted', ax2022.score * 100, 85.8, 0.05);
    would break it silently. */
 const scoreCareer = name => domMS.people.find(p => p.who.n === name)
   .pts.reduce((n, pt) => n + pt.score * 100, 0);
-near('LEE Chong Wei’s seasons add to 287', scoreCareer('LEE Chong Wei'), 287, 1);
+near('LEE Chong Wei’s seasons add to 285', scoreCareer('LEE Chong Wei'), 285, 1);
 near('LIN Dan’s add to 276, which is level with him', scoreCareer('LIN Dan'), 276, 1);
 near('and Lin Dan’s 2007 stands well above LCW’s 2010',
   domMS.people.find(p => p.who.n === 'LIN Dan').pts.find(pt => pt.year === 2007).score * 100,
@@ -2540,7 +2678,7 @@ const floorMS = bestScoreFloor(domMS, 2026);
 const domWS = dominationSeasons(JSON.parse(fs.readFileSync(
   path.join(HERE, '..', 'data', 'winners-WS.json'), 'utf8')));
 const floorWS = bestScoreFloor(domWS, 2026);
-eq('the men’s board settles at 45', floorMS, 45);
+eq('the men’s board settles at 40', floorMS, 40);
 eq('the women’s at 20', floorWS, 20);
 
 /** Whoever led each finished season, and whether the bar still draws them. */

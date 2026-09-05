@@ -1338,9 +1338,9 @@ the board's own ranking added up, and the page prints all five numbers.
 
 ⚠️ **φ per rung, not √φ, and that was measured.** The squares step by √φ on the *side*, which
 steps their *area* by φ — both are "the golden ratio". Over their whole careers, √φ puts LEE
-Chong Wei 86 points of accumulated score clear of LIN Dan (316 to 230); φ puts them level (287
+Chong Wei 83 points of accumulated score clear of LIN Dan (313 to 230); φ puts them level (285
 to 276), which is the reading the eye already has. Area is also what the eye compares on the
-pyramid. Under φ, Lin Dan's 2007 is 56.9 against LCW's best of 45.7.
+pyramid. Under φ, Lin Dan's 2007 is 56.9 against LCW's best of 43.4.
 
 ⚠️ **The half-step Olympics was built and dropped.** An Olympic gold at √φ above a world title
 rather than a full rung changes *nothing* in three years out of four, and in the fourth it
@@ -1464,6 +1464,73 @@ which does; flags come from `extranet.bwf.sport`, which does not — so every fl
 poster failed to load, drew nothing, and printed a CORS error that the suite’s console-hygiene
 check caught. Dropped, with the country left in the line under the name. The Winners board’s
 flags are on the photograph host and are unaffected.
+
+### 3.4n The doubles draws, and the split square *(built 5 Sep 2026)*
+
+All five draws are on the Winners page. The three doubles ones were absent on a real
+objection — a doubles title is won by a *pair*, so one square would have to hold two faces and
+would stop meaning what every other square means. **The square is split down the middle**
+instead, half a photograph each, and stays exactly the size the ladder says it is.
+
+⚠️ **Each half is the *central band* of its own photograph**, not one player's left ear and
+the other's right. `object-fit: cover` in a box half as wide as it is tall matches on height
+and crops the sides; `object-position: top center` keeps the crop off the chin, which is the
+rule the full square already followed. `drawCoverRect` does the identical thing on canvas, so
+the export matches the page.
+
+**The competitor is the pair, everywhere above the square** — one tile, one era bar, one line
+on the score, one legend chip — and `winnerOf` returns the same shape for a singles player,
+who is simply the one-person case. A season's scores still add to a whole season, which is the
+property that splitting a title into two half-titles would have broken.
+
+⚠️ **The key sorts; the name does not.** BWF lists a pair in the conventional order — man
+first in the mixed — with no promise it does so twice the same way, so `titleWinnerKey` sorts
+a *copy* of the ids and the display order comes from whichever title the pair first won.
+Keying on the order as sent would split a partnership the first time two payloads disagreed.
+
+⚠️ Two shapes on disk: a singles `w` is a bare number, a pair is an array. `titleWinnerIds`
+reads both, rather than re-harvesting twenty seasons of singles for a shape change that buys
+nothing.
+
+⚠️⚠️ **BWF's stand-in for "no photograph" is a photograph.** It serves a generic silhouette,
+`profile_male.jpg` / `profile_female.jpg`, and nine winners across the five boards have one —
+two of them in the *singles* files, where it had gone unnoticed. On a pair it drew the same
+blank twice and read as a rendering fault. `usableAvatar` treats it as no photograph, and does
+the same for the two `.tif` avatars BWF serves, which no browser renders. Cleaned in the model
+and not at harvest time: the file should keep saying what BWF said, and whether a URL is worth
+drawing is a decision about drawing.
+
+⚠️ A dropped photograph leaves a **hole in place**. Every renderer iterates positionally rather
+than filtering, because filtering lets the surviving photograph slide across and fill the
+square — which says the pair was one person.
+
+#### The harvest, and two bugs it had all along
+
+⚠️⚠️ **`personOf` took `players[0]`.** Correct for the two singles draws and silently wrong for
+the three that were then unreachable: the partner was simply dropped.
+
+⚠️⚠️ **The finals-day window was `end ± 1`.** A tour event plays all five finals on its closing
+day, and that assumption is what the window encoded. **The Olympics does not**: London 2012
+played the men's singles and doubles on the last day, the women's the day before, and the
+*mixed two days earlier still*. Paris 2024 spread them over four. The singles finals are
+always last, which is why the two singles boards were complete and this was invisible until
+the doubles arrived missing four of five Olympic golds — the biggest tile on each board. Now
+six days, walked outward, stopping at the first that answers: no extra cost on a normal
+tournament, because that is the first day asked.
+
+⚠️⚠️ **`drawId` is not the discipline.** The fallback passed `--draw` (1–5) straight through as
+`drawId`, but a drawId is a position in *that tournament's* draw list, and at a Games the
+group stages come first and shift everything: at London 2012 the XD elimination draw is `15`
+and `5` is the **men's doubles**. It never actually filed a wrong winner — the endpoint 500s
+or comes back empty for every Games — but a fallback that can answer with the wrong discipline
+is not a fallback. `drawIdFor` now reads `tournaments/draws?tournament_code=` and takes the
+row whose `type_id` is 0 (elimination, not a group) and whose name is exactly the code. Same
+trap as 3.4k, one endpoint over.
+
+⚠️ Re-harvesting is per season and resumable, so the fix was applied by **deleting the short
+seasons** — any season holding fewer titles than the same season in the fullest of the five
+files — and re-running each discipline. Everything already on disk was left alone.
+
 
 ### 3.4j The summit at one size *(built 4 Sep 2026)*
 
