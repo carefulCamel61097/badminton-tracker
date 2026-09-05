@@ -140,7 +140,14 @@
   th { color: var(--text-muted); font-weight: 600; font-size: 10.5px;
        letter-spacing: .06em; text-transform: uppercase; }
   td.n { font-family: var(--mono); }
-  tr.thin td { color: var(--warn); }
+  /* ⚠️ **Dimmed, not coloured.** These rows were amber, which is the palette's
+     attention colour — so the one season nobody should read at face value was
+     the brightest line in the table, and Anders ANTONSEN's two titles out of
+     three looked like the find of the chart. A footnote should recede. The
+     asterisk stays lit, because a mark is a pointer and not a highlight. */
+  tr.thin td { color: var(--text-muted); }
+  tr.thin td.n { color: #7a7a7a; }
+  .ast { font-style: normal; color: var(--warn); margin-left: 2px; }
   .cols { display: flex; gap: 40px; flex-wrap: wrap; align-items: flex-start; }
   code { font-family: var(--mono); font-size: 11.5px; color: var(--text-dim); }
 </style>
@@ -542,6 +549,13 @@ function renderLegend(model, shown) {
 }
 
 function renderTables(model) {
+  /* ⚠️ The **same rule the chart marks with**, not a second one. These two tables
+     were left on the fixed "fewer than six" test when the chart moved to two
+     thirds of the median, so they called 2020 short and 2022 and 2026 normal
+     while the axis above them said otherwise. */
+  const thin = thinYears(model.seasons);
+  const mark = yr => (thin.set.has(yr) ? '<i class="ast">*</i>' : '');
+
   const rows = [];
   for (const p of model.people) {
     for (const pt of p.pts) rows.push({ p, pt });
@@ -549,7 +563,8 @@ function renderTables(model) {
   rows.sort((a, b) => b.pt[view.metric] - a.pt[view.metric]);
   $('best').innerHTML = '<tr><th>Season</th><th>Player</th><th>Score</th><th>Titles</th></tr>'
     + rows.slice(0, 14).map(r =>
-      `<tr class="${r.pt.of < 6 ? 'thin' : ''}"><td class="n">${r.pt.year}</td>`
+      `<tr class="${thin.set.has(r.pt.year) ? 'thin' : ''}">`
+      + `<td class="n">${r.pt.year}${mark(r.pt.year)}</td>`
       + `<td>${r.p.who.n}</td>`
       + `<td class="n">${score(r.pt[view.metric])}</td>`
       + `<td class="n">${r.pt.n} of ${r.pt.of}</td></tr>`).join('');
@@ -561,8 +576,8 @@ function renderTables(model) {
       const made = Object.entries(by)
         .sort((a, b) => honourRung(a[0]) - honourRung(b[0]))
         .map(([t, n]) => `${n}×${TIER_NAME[t] || t}`).join(', ');
-      return `<tr class="${s.total > 0 && s.total < 6 ? 'thin' : ''}">`
-        + `<td class="n">${s.year}</td><td class="n">${s.total}</td>`
+      return `<tr class="${thin.set.has(s.year) ? 'thin' : ''}">`
+        + `<td class="n">${s.year}${mark(s.year)}</td><td class="n">${s.total}</td>`
         + `<td>${made || '—'}</td><td class="n">${s.by.size}</td></tr>`;
     }).join('');
 }
