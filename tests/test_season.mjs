@@ -2859,10 +2859,11 @@ const marksMS = await b.ev(`window.BST.score.marks()`);
 /* Every mark the chart draws is a season somebody actually won something in —
    and every such season above the bar is drawn. */
 const floorMS = await b.ev(`window.BST.score.floor()`);
-/* ⚠️ **15, not the 40 it was.** The bar is derived from the scores and the page
-   opens on the full-season reading, where 2020's best is a 17 rather than a 69;
-   the rule is not to drop a season's leader, so the bar comes down to keep it.
-   Twelve lines instead of seven. The women's board does not move. */
+/* ⚠️ **15, and the pandemic denominator is what puts it there.** The bar is
+   derived from the scores, and 2020's best season is a 17 once weighed against a
+   whole year — it was a 69 against its own three titles. The rule is not to drop
+   a season's leader, so the bar comes down to keep it: twelve lines, not seven.
+   The women's board does not move. */
 eq('the bar starts where the data puts it', floorMS, 15);
 check('and it says so is derived', await b.ev(`window.BST.score.auto()`));
 const wantMarks = scoreModelMS.people
@@ -3089,128 +3090,74 @@ await b.wait(200);
 
 console.log('\n=== the winners page: the pandemic seasons, and the year still running ===');
 
-/* ⚠️ **The page opens on the middle reading.** Read as played, those seasons put
-   Viktor AXELSEN top of *both* orderings on 184 of his 315 points and TAI Tzu
-   Ying top of the women's peak on an 81 taken in a season that held three
-   titles; set aside entirely, they discard titles that were genuinely won. The
-   default divides them by what a full season of the era was worth. */
-eq('the pandemic seasons are weighed against a whole year to begin with',
-  await b.ev(`window.BST.score.covid()`), 'full');
-eq('and it is that chip of the three that is lit',
-  await b.ev(`document.querySelector('#rankCovid .chip.on').dataset.covid`), 'full');
-eq('there are three readings offered, not a switch',
-  await b.ev(`[...document.querySelectorAll('#rankCovid .chip')]
-    .map(c => c.dataset.covid).join(',')`), 'aside,full,played');
-eq('and the default is not in the link, being the default',
-  await b.ev(`location.hash.includes('wc=')`), false);
+/* ⚠️ **One reading, and no control for it.** There was a row of chips here
+   offering three; the other two were removed. What is left has to say what it
+   does in the caption, because a reader comparing 2020 with 2023 should not have
+   to infer that the two were divided by the same year. */
+check('there is no control for the pandemic seasons any more',
+  await b.ev(`!document.getElementById('rankCovid')`));
+check('and the caption says what they are divided by',
+  /2020.{0,3}22 weighed against a whole season/
+    .test(await b.ev(`document.getElementById('rankWhat').textContent`)),
+  await b.ev(`document.getElementById('rankWhat').textContent`));
+check('nothing in the link decides it either',
+  await b.ev(`!location.hash.includes('wc=')`), await b.ev(`location.hash`));
 
-/* ⚠️ **The default reading changes the chart, not only the table.** It changes
-   what a score is a share of, so the lines move with it — a ranking quoting
-   numbers the plot above it never drew would be the worst thing this page could
-   do. */
+/* ⚠️ It changes what a score is a share of, so it is the chart's numbers as much
+   as the table's — there is no reading under which the two could disagree. */
 const fullModel = await b.ev(`window.BST.score.model()`);
 const fullSeason = y => fullModel.seasons.find(s => s.year === y);
-/* 5.24 as it was played — three titles — against 19.33 for a full World Tour
-   season, which is where the whole difference between the readings comes from. */
+/* 5.24 against its own three titles; 19.33 against a full World Tour season,
+   which is what 2023 and 2025 are weighed against too. */
 check('2020 is weighed against a full season it never held',
   fullSeason(2020).whole && fullSeason(2020).mass > 15,
   `mass ${fullSeason(2020).mass.toFixed(2)}, ${fullSeason(2020).played}`
   + ` of ${fullSeason(2020).planned}`);
+eq('the same denominator an ordinary season of the era gets',
+  fullSeason(2020).mass, fullSeason(2023).mass);
 /* The strip is one bar per season in year order, so the year picks the index. */
 const fullStrip = await b.ev(`window.BST.score.strip()`);
 eq('and the strip under the axis says both numbers',
   fullStrip[fullModel.years.indexOf(2020)].text, '3/12');
 /* ⚠️ 2021 held more than a normal season, so there is nothing to grow. It is
-   also the most compromised season on the board — which this reading, being a
+   also the season with the thinnest field of the three — which this, being a
    calendar correction, cannot see. */
 check('2021 is left exactly as it was played', !fullSeason(2021).whole,
   `mass ${fullSeason(2021).mass.toFixed(2)}`);
-const fullRanks = await b.ev(`window.BST.score.ranks()`);
-check('and no career is marked as under-counted, because none is',
-  await b.ev(`document.querySelectorAll('#scoreRank .rankrow .ast').length`) === 0);
-check('the caption says the chart is drawn this way too',
-  /chart above/.test(await b.ev(`document.getElementById('rankWhat').textContent`)),
-  await b.ev(`document.getElementById('rankWhat').textContent`));
 
-/* ---- setting them aside instead, which is a claim about the field ---- */
+const covidRanks = await b.ev(`window.BST.score.ranks()`);
+eq('the men’s singles reads the way the numbers put it',
+  covidRanks.slice(0, 3).map(r => r.who).join(', '),
+  'LEE Chong Wei, LIN Dan, Viktor AXELSEN');
+/* ⚠️ There was an asterisk on names the ranking was under-counting, because the
+   pandemic seasons had been set aside. Nothing is set aside now — every season a
+   competitor won in is in these numbers — so a mark meaning "there is a season
+   here you are not being shown" would point at nothing. */
+eq('no career is marked as under-counted, because none is',
+  await b.ev(`document.querySelectorAll('#scoreRank .rankrow .ast').length`), 0);
+/* ⚠️ And nobody is dropped for having won only in those seasons, which is what
+   the removed reading did. */
+check('every competitor the chart knows about is in the table',
+  covidRanks.length === fullModel.people.length
+    || (await b.ev(`window.BST.score.rankAll(true)`)) === true,
+  `${covidRanks.length} rows against ${fullModel.people.length} careers`);
 
-await b.ev(`window.BST.score.covid('aside')`);
-await b.wait(250);
-const covidOut = await b.ev(`window.BST.score.ranks()`);
-eq('set aside, the men’s singles reads the way anybody would expect',
-  covidOut.slice(0, 3).map(r => r.who).join(', '),
-  'LEE Chong Wei, LIN Dan, CHEN Long');
-eq('and it is in the link, not being the default any more',
-  await b.ev(`location.hash.includes('wc=aside')`), true);
-eq('nothing is weighed against a whole year now',
-  (await b.ev(`window.BST.score.model()`)).seasons.filter(s => s.whole).length, 0);
-/* ⚠️ **An asterisk on a name means that career is being under-counted** — the
-   same mark, for the same reason, as the one beside a pandemic year on the axis:
-   there is a season here you are not being shown. Without it the table reads as
-   a complete account of everybody, when Viktor AXELSEN is fifth on 131 of a
-   career that is 315 with those seasons counted. */
-const marked = await b.ev(`[...document.querySelectorAll('#scoreRank .rankrow')]
-  .map(r => ({ who: r.children[1].textContent.trim(),
-    ast: !!r.children[1].querySelector('.ast'),
-    tip: r.getAttribute('title') || '' }))`);
-check('the careers with seasons set aside are marked',
-  marked.some(m => m.ast), marked.slice(0, 6).map(m => m.who).join(' | '));
-check('and the ones with nothing set aside are not',
-  marked.some(m => !m.ast), marked.slice(0, 6).map(m => `${m.who}:${m.ast}`).join(' | '));
-/* ⚠️ LEE Chong Wei and LIN Dan retired before any of it, so a mark on them
-   would be saying something untrue about the number beside it. */
-for (const who of ['LEE Chong Wei', 'LIN Dan']) {
-  const row = marked.find(m => m.who.startsWith(who));
-  if (row) check(`${who} carries no mark, having no season set aside`, !row.ast, row.who);
-}
-const axeRow = marked.find(m => /AXELSEN/.test(m.who));
-if (axeRow) {
-  check('Viktor AXELSEN carries one', axeRow.ast, axeRow.who);
-  /* The hover says by how much, because "under-counted" without a number is a
-     warning rather than a fact. */
-  check('and the hover says what the numbers would be with them counted',
-    /set aside/.test(axeRow.tip) && /Counted, this reads/.test(axeRow.tip),
-    axeRow.tip);
-}
-check('and the caption says which seasons are not being counted',
-  /2020.{0,3}22 not counted/.test(await b.ev(`document.getElementById('rankWhat').textContent`)),
-  await b.ev(`document.getElementById('rankWhat').textContent`));
-
-/* ---- and as they were played, which is the record ---- */
-
-await b.ev(`window.BST.score.covid('played')`);
-await b.wait(250);
-const covidIn = await b.ev(`window.BST.score.ranks()`);
-eq('counted as they were played, it is Viktor AXELSEN who leads',
-  covidIn[0].who, 'Viktor AXELSEN');
-check('and it is most of his total that they were',
-  covidIn.find(r => /AXELSEN/.test(r.who)).total
-    > 2 * covidOut.find(r => /AXELSEN/.test(r.who)).total,
-  `${covidOut.find(r => /AXELSEN/.test(r.who)).total} -> `
-  + `${covidIn.find(r => /AXELSEN/.test(r.who)).total}`);
-/* With the seasons counted there is nothing being set aside, so nothing to
-   mark — an asterisk that stayed would be pointing at nothing. */
-check('and with them counted, no career is marked as under-counted',
-  await b.ev(`document.querySelectorAll('#scoreRank .rankrow .ast').length`) === 0,
-  await b.ev(`document.querySelectorAll('#scoreRank .rankrow .ast').length`));
-eq('the chip that is lit is the one that was clicked',
-  await b.ev(`document.querySelector('#rankCovid .chip.on').dataset.covid`), 'played');
-check('and that reading is in the link too',
-  await b.ev(`location.hash.includes('wc=played')`), await b.ev(`location.hash`));
-
-/* ⚠️ **The default sits between the other two, which is the whole reason it is
-   the default**: it fixes the arithmetic of a three-title season without
-   discarding a title anybody won. */
-const axeFullRow = fullRanks.find(r => /AXELSEN/.test(r.who));
-const axeAside = covidOut.find(r => /AXELSEN/.test(r.who));
-const axeCounted = covidIn.find(r => /AXELSEN/.test(r.who));
-check('Viktor AXELSEN reads between the other two readings',
-  axeFullRow.total > axeAside.total && axeFullRow.total < axeCounted.total,
-  `${axeAside.total} < ${axeFullRow.total} < ${axeCounted.total}`);
+/* ⚠️ The chart keeps drawing the pandemic seasons and keeps marking them — they
+   happened, and they were not ordinary. The marks are the only thing left that
+   says so, now that there is no chip to press. */
+const covidMarks = await b.ev(`window.BST.score.marks()`);
+check('the pandemic seasons are on the chart',
+  [2020, 2021, 2022].every(y => covidMarks.some(m => m.year === y)),
+  covidMarks.map(m => m.year).join(','));
+/* ⚠️ All three are marked, which a count could not do: 2021 held ten, the same
+   as 2018 and 2019. What was wrong with it was not how many but which. */
+const why = await b.ev(`window.BST.score.why()`);
+eq('all three are named at the foot of the plot',
+  why.filter(t => /covid/i.test(t)).length, 3);
 
 /* ⚠️ **Red, and by the same rule as every other chip on the site.** This was
-   five hand-written ids, and two bars had been missed — this one and the draw
-   filter on the tournament page. */
+   five hand-written ids, and two bars had been missed — the pandemic row that no
+   longer exists, and the draw filter on the tournament page. */
 const chipRed = await b.ev(`(() => {
   const on = document.querySelector('#rankMode .chip.on');
   const off = document.querySelector('#rankMode .chip:not(.on)');
@@ -3218,8 +3165,6 @@ const chipRed = await b.ev(`(() => {
     .getPropertyValue('--accent').trim();
   return { on: getComputedStyle(on).backgroundColor,
     off: getComputedStyle(off).backgroundColor,
-    covid: getComputedStyle(document.querySelector('#rankCovid .chip.on'))
-      .backgroundColor,
     accent: acc };
 })()`);
 const rgbOf = hex => {
@@ -3227,7 +3172,6 @@ const rgbOf = hex => {
   return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
 };
 eq('the chosen sort is drawn in the accent', chipRed.on, rgbOf(chipRed.accent));
-eq('and the pandemic chip too, when it is on', chipRed.covid, rgbOf(chipRed.accent));
 check('while an unchosen one is not', chipRed.off !== rgbOf(chipRed.accent), chipRed.off);
 /* The same rule, on a bar that had been left out of the old list. */
 check('and the tournament page’s draw chips answer to it as well',
@@ -3237,22 +3181,8 @@ check('and the tournament page’s draw chips answer to it as well',
     return getComputedStyle(c).backgroundColor;
   })()`) !== 'not drawn');
 
-await b.ev(`window.BST.score.covid('full')`);
-await b.wait(250);
-eq('and going back to the default leaves the link alone',
-  await b.ev(`location.hash.includes('wc=')`), false);
-
-/* ⚠️ The chart keeps drawing them whichever reading is up — they happened. What
-   the chips decide is what they are *weighed against*. */
-const covidMarks = await b.ev(`window.BST.score.marks()`);
-check('the pandemic seasons are still on the chart',
-  [2020, 2021, 2022].every(y => covidMarks.some(m => m.year === y)),
-  covidMarks.map(m => m.year).join(','));
-/* ⚠️ And all three are marked, which a count could not do: 2021 held ten, the
-   same as 2018 and 2019. What was wrong with it was not how many but which. */
-const why = await b.ev(`window.BST.score.why()`);
-eq('all three are named at the foot of the plot',
-  why.filter(t => /covid/i.test(t)).length, 3);
+await b.ev(`window.BST.score.rankAll(false)`);
+await b.wait(150);
 
 
 console.log('\n=== the winners page: the year still being played ===');

@@ -19,7 +19,7 @@
 import {
   winnersSeasons, pyramidSeason, pyramidRowWidth, pyramidScale,
   pyramidReigns, reignLanes, reignStep,
-  dominationSeasons, thinSeasons, shortSeasonWhy, covidMode, isCovidSeason,
+  dominationSeasons, thinSeasons, shortSeasonWhy, isCovidSeason,
   gridSections, sectionCells, gridYears, careerHonours, honourSections, honourStep,
 } from './model.js';
 
@@ -763,10 +763,7 @@ export const SCORE_POSTER = {
  */
 export function scorePosterLayout(file, opts) {
   const P = POSTER, S = SCORE_POSTER;
-  /* ⚠️ The page's reading of the pandemic seasons travels with the export, or
-     an exported chart quotes different numbers from the one on screen that made
-     it. See `COVID_MODES`. */
-  const model = dominationSeasons(file, { covid: opts.covid });
+  const model = dominationSeasons(file);
   const all = model.years;
   const from = Math.max(opts.from, all[0]);
   const to = Math.min(opts.to, all[all.length - 1]);
@@ -806,9 +803,10 @@ export function scorePosterLayout(file, opts) {
     'A score of 100 is every title of that season, and nobody else with one',
     'Weighted by the board’s own ladder: each tier is φ (1.618) the one below',
     thin.set.size ? 'A * marks a season with far fewer titles than the ones around it' : '',
-    /* Said out loud on the picture, because the numbers on it are not the ones a
-       reader would get by opening the page — and a chart that quietly used a
-       different denominator would be the worst thing this file could ship. */
+    /* Said out loud on the picture. It was here because the page offered other
+       readings and an export had to name the one it used; it stays because a
+       2020 column two thirds shorter than its neighbours needs a sentence, and
+       the picture travels away from the page that explains it. */
     model.seasons.some(s => s.whole)
       ? 'The pandemic seasons are weighed against a full season, not what they held'
       : '',

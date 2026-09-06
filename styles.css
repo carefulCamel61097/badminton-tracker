@@ -1657,11 +1657,6 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
    own only made the overlap longer. */
 .ranks .chiprow > .lbl { width: auto; flex: 0 1 auto; }
 .ranks .chiprow .lbl, .ranks .chiprow .linkish { white-space: nowrap; }
-/* The pandemic span labels the three chips after it rather than being a chip
-   itself — "2020–22" is not a thing to switch on, it is what the switches are
-   about. A little air before it so the row reads as two groups of controls and
-   not five loose buttons. */
-.ranks .chiprow .covidlbl { margin-left: 6px; }
 .ranks h3 {
   font: 600 11px var(--mono); letter-spacing: .09em; text-transform: uppercase;
   color: var(--text-muted); margin: 0;
@@ -1706,9 +1701,6 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
 .ranktable .yr { font-size: 10px; color: var(--text-muted); margin-left: 5px; }
 /* The same asterisk the axis puts on a pandemic year, for the same reason: there
    is a season here you are not being shown. */
-.ranktable .ast {
-  font-style: normal; color: var(--warn); margin-left: 3px; font-size: 11px;
-}
 /* "8 of 12" — the denominator is what makes a peak mean something, and it is
    the quieter half of the fact. */
 .ranktable .of, .scorecols .of {

@@ -41,7 +41,7 @@ import {
   titleWeight, dominationSeasons, thinSeasons, shortSeasonWhy,
   bestScoreFloor, SCORE_FLOOR_STEP,
   dominationRanking, rankMode, RANK_MODES, RANK_DEFAULT,
-  COVID_SEASONS, isCovidSeason, COVID_MODES, COVID_DEFAULT, covidMode, normalSeason,
+  COVID_SEASONS, isCovidSeason, normalSeason,
 } from '../model.js';
 import {
   posterLayout, scorePosterLayout, gridPosterLayout, honoursPosterLayout,
@@ -2709,14 +2709,13 @@ check('and every rung is the same step',
 
 console.log('\n=== a season as a share of itself ===');
 
-/* ⚠️ **`played`, said out loud, and not the page's default.** Everything from
-   here to the pandemic block is about the mechanics — a share of its own season,
-   the ladder, the Show bar's rule, how a ranking is built — and those read
-   clearest on the seasons exactly as they happened. The default reading
-   (`full`, which grows two denominators) is a claim laid on top of that, and it
-   gets its own block with its own model. Left implicit, changing the default
-   silently rewrote fourteen of these into questions nobody had asked. */
-const domMS = dominationSeasons(winMS, { covid: 'played' });
+/* ⚠️ **There is one reading and no option**, so this is the model the page
+   draws — 2020 and 2022 divided by a full season of their era, everything else
+   by what it held. Several checks below are worded against that: a season's
+   shares add to one *unless* it is weighed against more than it held, and the
+   men's bar settles at 15 rather than the 40 it sat at when a pandemic season
+   was a share of its own three titles. */
+const domMS = dominationSeasons(winMS);
 
 eq('the same seasons the board draws', domMS.years.length, winSeasons.years.length);
 check('every season is a full one', domMS.seasons.every(s =>
@@ -2733,15 +2732,20 @@ for (const s of domMS.seasons) {
     const pt = p.pts.find(q => q.year === s.year);
     if (pt) n += pt.score;
   }
-  /* ⚠⚠ A **finished** season adds to exactly one — a share is a share of
-     something. The season still being played is weighed against the *whole*
-     year instead, so what it adds to is how much of the year has been won so
-     far: everything still to come belongs to nobody yet. That is the property
-     that makes a part-played season safe to rank on — it can only go up. */
-  if (s.forecast) msRunning = n;
+  /* ⚠⚠ A season adds to exactly one **unless it is weighed against more than
+     it held** — a share is a share of something. Two seasons are in that state:
+     the one still being played, and a pandemic season, which is divided by a
+     full season of its era. What they add to is how much of that year was
+     actually won; the rest belongs to nobody. That is the property that makes a
+     part-played season safe to rank on — it can only go up. */
+  if (s.planned > s.played) { if (s.forecast) msRunning = n; }
   else if (Math.abs(n - 1) > 1e-9) sums++;
 }
-eq('every finished season’s scores add up to a whole season', sums, 0);
+eq('every season weighed against what it held adds up to a whole season', sums, 0);
+/* Said the other way round, so the check above cannot pass by exempting
+   everything. */
+eq('and the ones weighed against a whole year are 2020 and 2022',
+  domMS.seasons.filter(s => s.whole).map(s => s.year).join(','), '2020,2022');
 check('and the season being played adds up to less, with more to come',
   msRunning === null || (msRunning > 0 && msRunning < 1),
   msRunning === null ? 'no season in progress' : msRunning.toFixed(3));
@@ -2761,15 +2765,20 @@ check('careers are listed in the order they open', domMS.people.every((p, i) =>
   i === 0 || p.pts[0].year >= domMS.people[i - 1].pts[0].year));
 
 /* ⚠️ Read off the recorded harvest by hand: 2022 held eight of these titles and
-   Viktor AXELSEN won six of them, including the Worlds. Six of eight by count is
-   75; by weight it is 85.8, and the gap between those two numbers is the whole
-   reason the score is weighted. */
+   Viktor AXELSEN won six of them, including the Worlds. 2022 is a pandemic
+   season, so it is weighed against a full season of twelve rather than against
+   the eight it managed — six of twelve by count is 50; by weight it is 62.6, and
+   the gap between those two numbers is the whole reason the score is weighted.
+   (Against its own eight titles it read 85.8, which is the distortion the
+   full-season denominator exists to remove.) */
 const ax2022 = domMS.people.find(p => p.who.n === 'Viktor AXELSEN')
   .pts.find(pt => pt.year === 2022);
-eq('AXELSEN won six of the eight titles of 2022', ax2022.n, 6);
-eq('out of a season that held eight', ax2022.played, 8);
-near('which is 75 by count', (ax2022.n / ax2022.played) * 100, 75, 0.05);
-near('and 85.8 once the Worlds is weighted', ax2022.score * 100, 85.8, 0.05);
+eq('AXELSEN won six titles in 2022', ax2022.n, 6);
+eq('of the eight the season actually held',
+  domMS.seasons.find(s => s.year === 2022).played, 8);
+eq('but the denominator is a full season of twelve', ax2022.played, 12);
+near('which is 50 by count', (ax2022.n / ax2022.played) * 100, 50, 0.05);
+near('and 62.6 once the Worlds is weighted', ax2022.score * 100, 62.6, 0.05);
 
 /* ⚠️ LIN Dan against LEE Chong Wei is what settled the steepness. On the gentler
    √φ ladder LCW finishes 86 points clear; on φ they finish level, which is the
@@ -2814,17 +2823,15 @@ console.log('\n=== the default clutter bar ===');
    wrongly put the women's default at 35 and drew CHEN Yu Fei not at all. */
 const floorMS = bestScoreFloor(domMS, 2026);
 const domWS = dominationSeasons(JSON.parse(fs.readFileSync(
-  path.join(HERE, '..', 'data', 'winners-WS.json'), 'utf8')), { covid: 'played' });
+  path.join(HERE, '..', 'data', 'winners-WS.json'), 'utf8')));
 const floorWS = bestScoreFloor(domWS, 2026);
-eq('the men’s board settles at 40', floorMS, 40);
+/* ⚠️ **15, and it is the pandemic denominator that puts it there.** 2020's best
+   season is a 17 once weighed against a whole year — it was a 69 against its own
+   three titles — and the rule is not to drop a season's leader, so the bar comes
+   down to keep it. The women's board is unaffected: nothing in it was being held
+   up by a pandemic season. */
+eq('the men’s board settles at 15', floorMS, 15);
 eq('the women’s at 20', floorWS, 20);
-/* ⚠️ **The bar follows the reading, because it is derived from the scores.** On
-   the page's default the men's board opens at 15, not 40: 2020's best season is
-   a 17 once it is weighed against a whole year rather than a 69, and the rule is
-   not to drop a season's leader. The women's does not move — nothing in it was
-   being held up by a pandemic season. */
-eq('and on the page’s own reading the men’s board opens lower',
-  bestScoreFloor(dominationSeasons(winMS, { covid: COVID_DEFAULT }), 2026), 15);
 
 /** Whoever led each finished season, and whether the bar still draws them. */
 function leadersHeld(model, floor, now) {
@@ -2847,14 +2854,34 @@ for (const [name, model, floor] of [['men', domMS, floorMS], ['women', domWS, fl
     `at ${floor + SCORE_FLOOR_STEP}`);
 }
 
-/* ⚠️ The season being played is left out of the sum. In January it is one
-   tournament and one winner, whose whole career may peak at 12 — and the bar
-   would collapse to 10 every New Year. Proved by asking the same question with
-   the ongoing season counted. */
-const naive = bestScoreFloor(
-  { seasons: domMS.seasons, people: domMS.people }, 2027);
-check('counting the part-played season would drag the bar down',
-  naive < floorMS, `${naive} against ${floorMS}`);
+/* ⚠⚠ The season being played is left out of the sum. In January it is one
+   tournament and one winner, whose whole career may peak at 8 — and the bar
+   would collapse every New Year.
+
+   ⚠️ **Proved on a constructed model, not on the harvest.** It used to be shown
+   by re-running the real board with the running season counted, and that stopped
+   separating the two answers the day the pandemic denominator pulled the men's
+   bar down to 15: 2026's leader clears 15 either way. A rule demonstrated only
+   where this year's numbers happen to show it is a rule that quietly stops being
+   tested. This board is built to have exactly the shape the rule is about. */
+const oneSeason = (year, ongoing) => ({
+  year, total: 12, mass: 12, played: 12, planned: 12,
+  ongoing, forecast: ongoing, whole: false,
+});
+const madeUp = {
+  seasons: [oneSeason(2024, false), oneSeason(2025, false), oneSeason(2026, true)],
+  people: [
+    { id: 'a', who: { n: 'A' }, peak: 0.5, pts: [{ year: 2024, score: 0.5, n: 6, played: 12 }] },
+    { id: 'b', who: { n: 'B' }, peak: 0.45, pts: [{ year: 2025, score: 0.45, n: 5, played: 12 }] },
+    /* The running season's leader, whose whole career peaks at 8 — exactly the
+       January case: one tournament in, and nothing else behind them. */
+    { id: 'c', who: { n: 'C' }, peak: 0.08, pts: [{ year: 2026, score: 0.08, n: 1, played: 12 }] },
+  ],
+};
+eq('the bar ignores the season being played', bestScoreFloor(madeUp, 2026), 45);
+check('counting it would drag the bar down',
+  bestScoreFloor(madeUp, 2027) < bestScoreFloor(madeUp, 2026),
+  `${bestScoreFloor(madeUp, 2027)} against ${bestScoreFloor(madeUp, 2026)}`);
 
 eq('nothing to draw is a bar of nothing',
   bestScoreFloor({ seasons: [], people: [] }, 2026), 0);
@@ -2962,39 +2989,6 @@ check('and nobody ranked is dated in it',
 
 /* ---- the pandemic seasons ---- */
 
-/* ⚠️ Off by default on the page, and this is why: leaving them in put Viktor
-   AXELSEN top of *both* orderings, on 184 of his 315 points — and TAI Tzu Ying
-   top of the women's peak on an 81 taken in a season that held three titles. */
-const rankNoCovid = dominationRanking(domMS, 'total', { skip: COVID_SEASONS });
-eq('with the pandemic seasons out, LEE Chong Wei leads the men on total',
-  rankNoCovid[0].who.n, 'LEE Chong Wei');
-eq('and LIN Dan is second', rankNoCovid[1].who.n, 'LIN Dan');
-eq('with them in, it is Viktor AXELSEN', rankMS[0].who.n, 'Viktor AXELSEN');
-const axeIn = rankMS.find(r => /AXELSEN/.test(r.who.n));
-const axeOut = rankNoCovid.find(r => /AXELSEN/.test(r.who.n));
-check('most of whose total came from them',
-  axeIn.total - axeOut.total > axeOut.total,
-  `${(axeIn.total * 100).toFixed(0)} → ${(axeOut.total * 100).toFixed(0)}`);
-eq('and the three seasons are counted as dropped', axeOut.dropped, 3);
-/* ⚠️ A career that exists only inside the skipped seasons is dropped, not
-   shown at zero: a row saying somebody dominated nothing is worse than no row. */
-check('a career made only of skipped seasons leaves the table',
-  rankNoCovid.length < rankMS.length,
-  `${rankMS.length} → ${rankNoCovid.length}`);
-check('and nobody is left in it with nothing to rank',
-  rankNoCovid.every(r => r.total > 0 && r.seasons > 0));
-/* The peak season's own numbers, because a career total is the wrong fact
-   beside a peak: what a peak *means* is how much of that year it took. */
-const peakNoCovid = dominationRanking(domMS, 'peak', { skip: COVID_SEASONS });
-check('a peak carries the season it was taken in and what it held',
-  peakNoCovid[0].peakTitles > 0 && peakNoCovid[0].peakPlayed > peakNoCovid[0].peakTitles,
-  `${peakNoCovid[0].who.n}: ${peakNoCovid[0].peakTitles} of ${peakNoCovid[0].peakPlayed}`
-  + ` in ${peakNoCovid[0].peakYear}`);
-eq('and the peak is recomputed over what is left, not taken from the career',
-  peakNoCovid.find(r => /AXELSEN/.test(r.who.n)).peak,
-  Math.max(...domMS.people.find(p => /AXELSEN/.test(p.who.n)).pts
-    .filter(pt => !COVID_SEASONS.has(pt.year)).map(pt => pt.score)));
-
 /* The set itself: named from the tournament list, not from a count. */
 eq('the pandemic seasons are 2020, 2021 and 2022',
   [...COVID_SEASONS].sort().join(','), '2020,2021,2022');
@@ -3003,58 +2997,45 @@ check('2021 is one of them though it held as many titles as 2019',
 check('and 2018 is not, though it held ten as well', !isCovidSeason(2018),
   'the World Tour restructure is a change to the ladder, not to the season');
 
-/* ---- the third reading: weighed against a full season ---- */
+/* ---- what they are divided by, which is not what they held ---- */
 
-/* ⚠️ Neither counting them nor dropping them. 2020 held three of these titles,
-   so one of them is a third of the year for a reason that is arithmetical before
-   it is competitive; `full` divides by what a season of the era was worth
-   instead. See `COVID_MODES`. */
-const domFull = dominationSeasons(winMS, { now: 2026, covid: 'full' });
+/* ⚠️ **One reading, no option.** 2020 held three of these titles, so one of them
+   would be a third of the year for a reason that is arithmetical before it is
+   competitive. It is weighed against what a season of the era was worth instead
+   — the same figure 2023 and 2025 are weighed against. Two other readings were
+   built, measured and removed; see the note above `COVID_SEASONS`. */
 const seasonOf = (m, y) => m.seasons.find(s => s.year === y);
-/* Said out loud: `full` is the default now, so an omitted mode would make this
-   pair of models identical and every comparison below vacuously true. */
-const asPlayed = dominationSeasons(winMS, { now: 2026, covid: 'played' });
 
-eq('the three readings are set aside, full season and as played',
-  COVID_MODES.map(m => m.key).join(','), 'aside,full,played');
-/* ⚠️ **The middle one is the default.** It is the reading that changes the
-   arithmetic without discarding a result: setting a season aside is a claim
-   about the field, which this data cannot check season by season, while weighing
-   a short season against a full one is a claim about the calendar, which it
-   can. */
-eq('and the default is to weigh them against a whole year', COVID_DEFAULT, 'full');
-eq('an unknown key falls back to the default', covidMode('nonsense').key, 'full');
-/* ⚠️ Links written before there were three readings carry `wc=1`, and it meant
-   "count them" — which is now a named mode rather than a boolean. */
-eq('wc=1 from an older link still means what it was written to mean',
-  covidMode('1').key, 'played');
-
-near('2020 was worth 5.24 as it was played', seasonOf(asPlayed, 2020).mass, 5.24, 0.01);
-near('and is weighed against 19.33 — a full World Tour season',
-  seasonOf(domFull, 2020).mass, 19.33, 0.01);
-check('which the season says of itself', seasonOf(domFull, 2020).whole);
+near('2020 is weighed against 19.33 — a full World Tour season',
+  seasonOf(domMS, 2020).mass, 19.33, 0.01);
+check('which the season says of itself', seasonOf(domMS, 2020).whole);
 eq('and the strip says both numbers, three of a notional twelve',
-  `${seasonOf(domFull, 2020).played}/${seasonOf(domFull, 2020).planned}`, '3/12');
+  `${seasonOf(domMS, 2020).played}/${seasonOf(domMS, 2020).planned}`, '3/12');
+/* ⚠️ It is the *same* denominator as an ordinary season of the era, which is the
+   whole argument: a season cut short then reads as the fraction of a year it
+   actually was, rather than as a full year with three titles in it. */
+eq('the same denominator an ordinary season of the era gets',
+  seasonOf(domMS, 2020).mass, seasonOf(domMS, 2023).mass);
 /* ⚠️ **Never downward.** 2021 held the Olympics, the Worlds and two World Tour
    Finals — 23.80 against a normal 19.33 — and substituting the normal figure
    would *raise* every 2021 score, which is the opposite of the point. */
 near('2021 held more than a normal season and is left exactly alone',
-  seasonOf(domFull, 2021).mass, seasonOf(asPlayed, 2021).mass, 1e-9);
+  seasonOf(domMS, 2021).mass, 23.80, 0.01);
 check('so it is not marked as weighed against a whole year',
-  !seasonOf(domFull, 2021).whole, '23.80 against a normal 19.33');
+  !seasonOf(domMS, 2021).whole, '23.80 against a normal 19.33');
 eq('and no season outside the pandemic is touched either',
-  domFull.seasons.filter(s => s.whole).map(s => s.year).join(','), '2020,2022');
+  domMS.seasons.filter(s => s.whole).map(s => s.year).join(','), '2020,2022');
 /* ⚠️ The season being played keeps its own denominator, which comes from the
    harvested calendar — a different mechanism for a different reason. */
 check('the running season is still weighed against its calendar',
-  seasonOf(domFull, 2026).forecast && !seasonOf(domFull, 2026).whole);
+  seasonOf(domMS, 2026).forecast && !seasonOf(domMS, 2026).whole);
 
 /* ⚠️ **The era matters.** A Superseries season carried thirteen to fifteen of
    these titles and a World Tour season ten to twelve, so one figure for the
    whole file would weigh 2020 against a calendar that had not existed for three
    years. Nothing is hard-coded: it is read off the seasons the file holds. */
-const normModern = normalSeason(asPlayed.seasons, 2020);
-const normOld = normalSeason(asPlayed.seasons, 2012);
+const normModern = normalSeason(domMS.seasons, 2020);
+const normOld = normalSeason(domMS.seasons, 2012);
 near('a full World Tour season is worth 19.33', normModern.mass, 19.33, 0.01);
 eq('and holds twelve titles', normModern.count, 12);
 check('a Superseries season was worth more', normOld.mass > normModern.mass,
@@ -3062,44 +3043,49 @@ check('a Superseries season was worth more', normOld.mass > normModern.mass,
 check('and held more of them', normOld.count > normModern.count,
   `${normOld.count} against ${normModern.count}`);
 
-/* What it does to the argument, which is the whole reason it exists. */
-const rankFull = dominationRanking(domFull, 'total');
-eq('on the full-season reading LEE Chong Wei still leads', rankFull[0].who.n, 'LEE Chong Wei');
-const axeFull = rankFull.find(r => /AXELSEN/.test(r.who.n));
-check('and Viktor AXELSEN lands between the two other readings',
-  axeFull.total > axeOut.total && axeFull.total < axeIn.total,
-  `${(axeOut.total * 100).toFixed(0)} < ${(axeFull.total * 100).toFixed(0)}`
-  + ` < ${(axeIn.total * 100).toFixed(0)}`);
-eq('with nothing dropped from his career', axeFull.dropped, 0);
-/* ⚠️ **A calendar correction cannot see a field.** 2021 is untouched by `full`,
-   and 2021 is the most compromised season on the board — eight of its eleven
-   events with no Chinese player in the draw. So his peak moves off 2022 and onto
-   a season this option has nothing to say about. That is what the option means,
-   and it is why all three are offered rather than one. */
-const peakFull = dominationRanking(domFull, 'peak').find(r => /AXELSEN/.test(r.who.n));
-eq('his peak moves to the season the full-season reading cannot touch',
+/* ⚠️ **The pandemic seasons are counted, so nobody leaves the table for having
+   won only in them.** The removed `aside` reading dropped those careers
+   entirely; this one keeps every competitor who ever won something. */
+check('every competitor who won something is in the ranking',
+  rankMS.length === domMS.people.length,
+  `${rankMS.length} of ${domMS.people.length}`);
+check('and every one of them has something to rank',
+  rankMS.every(r => r.total > 0 && r.seasons > 0));
+
+/* What the reading does to the argument, which is the reason it exists. */
+eq('LEE Chong Wei leads the men on total', rankMS[0].who.n, 'LEE Chong Wei');
+eq('and LIN Dan is second', rankMS[1].who.n, 'LIN Dan');
+const axeFull = rankMS.find(r => /AXELSEN/.test(r.who.n));
+near('Viktor AXELSEN reads 269, not the 315 his titles are worth as played',
+  axeFull.total * 100, 269, 1);
+check('which is third, behind the two of them', axeFull.rank === 3, String(axeFull.rank));
+/* ⚠️⚠️ **A calendar correction cannot see a field, and 2021 is where that
+   shows.** 2021 is untouched — it held more than a normal season — and it is the
+   season with the thinnest field of the three, eight of eleven events with no
+   Chinese player in the draw. So AXELSEN's peak sits in the one pandemic season
+   this correction has nothing to say about. Known and accepted; it is why the
+   chart still marks all three. */
+const peakFull = dominationRanking(domMS, 'peak').find(r => /AXELSEN/.test(r.who.n));
+eq('and his peak sits in the season the correction cannot touch',
   peakFull.peakYear, 2021);
-const peakPlayedAxe = dominationRanking(asPlayed, 'peak').find(r => /AXELSEN/.test(r.who.n));
-eq('where as played it was 2022', peakPlayedAxe.peakYear, 2022);
-check('and it is lower than the as-played peak', peakFull.peak < peakPlayedAxe.peak,
-  `${(peakFull.peak * 100).toFixed(1)} against ${(peakPlayedAxe.peak * 100).toFixed(1)}`);
-/* ⚠️ A career that lives only inside those seasons is kept, not dropped: `full`
-   counts them. Only `aside` removes anybody. */
-eq('nobody leaves the table on the full-season reading',
-  rankFull.length, dominationRanking(asPlayed, 'total').length);
-check('the leader is the leader on total', rankMS[0].who.n, rankMS[0].who.n);
+check('a peak carries the season it was taken in and what it held',
+  peakFull.peakTitles > 0 && peakFull.peakPlayed > peakFull.peakTitles,
+  `${peakFull.peakTitles} of ${peakFull.peakPlayed} in ${peakFull.peakYear}`);
+
 /* ⚠️ The bar filters on **peak**, so a total ranking cut by it is a different
-   claim: on the as-played reading these models are pinned to, the men's bar
-   settles at 40 and would leave seven names of forty-five. This is why the table
-   is not governed by it. On the page's own reading the bar is lower and the cut
-   is smaller, but it is still a cut, which is the point. */
+   claim: the men's bar settles at 15 and draws twelve of these forty-five
+   careers. This is why the table is not governed by it. */
 const msFloor = bestScoreFloor(domMS) / 100;
 check('and the bar would have cut most of them',
   rankMS.filter(r => r.peak >= msFloor).length < rankMS.length / 2,
   `${rankMS.filter(r => r.peak >= msFloor).length} of ${rankMS.length} clear ${msFloor * 100}`);
-check('including somebody well up the total ranking',
-  rankMS.slice(0, 10).some(r => r.peak < msFloor),
-  rankMS.slice(0, 10).map(r => `${r.who.n} ${(r.peak * 100).toFixed(1)}`).join(' · '));
+/* ⚠️ **Inside the page the table actually shows**, which is the top twenty. A
+   bar that only cut careers nobody scrolls to would be no argument for keeping
+   the table off it. Jan O JORGENSEN is twelfth on total and peaks at 7.4. */
+const cutHigh = rankMS.slice(0, 20).filter(r => r.peak < msFloor);
+check('including careers on the table’s own first page',
+  cutHigh.length > 0,
+  rankMS.slice(0, 20).map(r => `${r.who.n} ${(r.peak * 100).toFixed(1)}`).join(' · '));
 
 /* A career's total is its own points and nobody else's. */
 const rankLcw = rankMS.find(r => /LEE Chong Wei/.test(r.who.n));

@@ -1688,8 +1688,8 @@ overlap longer.
 
 ### 3.4s The pandemic seasons, and the year still running *(built 5 Sep 2026)*
 
-**Which seasons and why.** What is *done* with them is 3.4u — three readings, `full` by
-default — and this section is only the argument for the set.
+**Which seasons and why.** What is *done* with them is 3.4u — one denominator, no toggle —
+and this section is only the argument for the set.
 
 ⚠⚠ **`COVID_SEASONS` is 2020, 2021 and 2022, and the test is participation — not the
 calendar.** A domination score is a share, so what flatters a winner is a thinner field, not a
@@ -1758,18 +1758,38 @@ its numbers would depend on whether a request succeeded. Tiers are stored, not w
 title is worth is `titleWeight`'s decision, and a file holding the arithmetic would freeze the
 ladder at the moment it was written.
 
-### 3.4u The third reading: a pandemic season out of a whole year *(built 5 Sep 2026)*
+### 3.4u A pandemic season out of a whole year *(settled 5 Sep 2026)*
 
 Set aside or counted was a switch, and the user asked the question a switch cannot answer:
-*what if 2020–22 were divided by a full schedule instead?* `COVID_MODES` is now three —
-`aside`, **`full` (the default)**, `played` — and the chip became a row.
+*what if 2020–22 were divided by a full schedule instead?* Three readings were built as a chip
+row (`aside`, `full`, `played`), measured against each other, and then **two were removed**.
+There is one denominator now and no control for it.
 
-⚠️ **`full` is the default, chosen by the user after all three were built and measured.** The
-argument for it: it is the reading that changes the arithmetic **without discarding a result**.
-Setting a season aside is a claim about the *competition* — that the field was too thin to
-count — and it is a claim this data cannot check season by season. Weighing a short season
-against a full one is a claim about the *calendar*, which the file can check and does. The
-stronger claim is one click away and the rows it under-counts say so with an asterisk.
+⚠️⚠️ **The argument that settled it, in the user's words: the full-season denominator is the
+same denominator every other year gets.** Not all countries participated, and that showing up in
+the record — fewer Chinese players, so fewer Chinese wins, so higher scores for everybody else —
+*is* what happened and belongs in the record. What the denominator removes is the arithmetical
+distortion on top of it: a player who won one of 2020's three titles cannot bank more than one
+title's worth of a whole year, because the rest of the year was never played and nobody won it.
+The scores come out roughly intact rather than inflated, and the seasons stay marked so the
+reader can judge the field for themselves.
+
+⚠️ **What the other two were, and why they are gone.** `aside` dropped the seasons: it answers
+"who dominated when the game was itself" and put LEE Chong Wei, LIN Dan, CHEN Long at the top of
+the men's singles, but it discards titles that were genuinely won, from everybody — ZHENG /
+HUANG lost 59 points of mixed-doubles total to it, and they are Chinese, so the seasons it
+removed are the ones their own federation's absence defined. `played` left a season as a share of
+its own three titles, which is the distortion the whole thing exists to fix. Neither is a reading
+this project believes, and the weighted-versus-counted note in `model.js` already refuses to ship
+a toggle offering one.
+
+⚠️ **What went with them.** The `2020–22` chip row and its `#rankCovid` container; `COVID_MODES`,
+`COVID_DEFAULT` and `covidMode`; `dominationSeasons`' `opts.covid`; `dominationRanking`'s
+`opts.skip` and the `dropped` field it fed; the `wc` hash key; the `c` hotkey; the
+`BST.score.covid` hook; the `.ranktable .ast` rule and the under-counted asterisk it drew — that
+mark existed only to say "this career is missing a season", and nothing is missing now. Old links
+carrying `wc=aside` or `wc=played` are ignored and open on the one reading, which is the same
+contract `wf` has.
 
 ⚠️ **What "a full season" is, and where it comes from.** The median mass and title count of
 the **finished, non-pandemic seasons of the same era**, era being `SS_LAST_SEASON` — a
@@ -1804,33 +1824,37 @@ it is written into `COVID_MODES`' comment so the next person does not "fix" it.
 That XD row is the argument against `aside` being the only alternative: ZHENG / HUANG are
 Chinese, and setting the seasons aside costs *them* 59 points.
 
-⚠️ **`full` moves the chart, and `aside` does not.** `full` changes what a score is a share of,
-so the lines, hovers, strip and poster all follow — a table quoting numbers the plot above it
-never drew would be worse than either. `aside` is not a denominator: the chart draws what
-happened and the ranking omits it. Two of three modes therefore produce an identical chart, and
-that asymmetry is deliberate and is said out loud in `#rankWhat`.
+⚠️ **It is the chart's numbers as much as the table's.** The denominator changes what a score
+is a share of, so the lines, hovers, strip and poster all sit on it; there is no reading under
+which the two could disagree any more. `#rankWhat` still says what the seasons are divided by,
+and that sentence matters *more* now there is no control: a reader comparing 2020 with 2023 would
+otherwise have to infer that the two got the same denominator.
 
-⚠️ **The Show bar moves with the default**, being derived: the men's singles opens at 15
-rather than 40, because 2020's best season is a 17 once weighed against a whole year rather
-than a 69, and the bar's rule is not to drop a season's leader. Twelve lines instead of seven.
-Measured across all five boards before the default changed: WS 20 → 20, WD 30 → 20 (same twelve
-lines), XD 20 → 20, MD 30 → 20. Only the men's singles moves much, and twelve lines is well
-inside what the women's singles already draws at nineteen.
+⚠️ **The Show bar moves with it**, being derived from the scores: the men's singles opens at 15
+rather than the 40 it sat at when a pandemic season was a share of its own three titles, because
+2020's best season is a 17 rather than a 69 and the bar's rule is not to drop a season's leader.
+Twelve lines instead of seven. Measured across all five boards: WS 20 → 20, WD 30 → 20 (same
+twelve lines), XD 20 → 20, MD 30 → 20. Only the men's singles moves much, and twelve is well
+inside the nineteen the women's singles already draws.
 
-⚠️ **A link with no `wc` means "the current default"**, the same contract `wf` has — absence is
-"the derived default", not a frozen value. So links written between 5 September's two commits
-carried no `wc`, meant *set aside*, and now open on *full season*. Accepted deliberately: `wc`
-records the argument, and a reader opening somebody's link should get the page's current reading
-of the seasons rather than one pinned to whatever the sender's build thought.
-
-⚠️ **The model suite's `domMS` and `domWS` are pinned to `{ covid: 'played' }`, said out loud.**
-Everything from the ladder to the Show bar's rule to how a ranking is built reads clearest on
-the seasons exactly as they happened, and the pandemic reading is a claim laid on top of that
-with its own block and its own models. Left implicit, changing the default silently rewrote
-fourteen of those checks into questions nobody had asked — including "every finished season adds
-to one", which is *false by design* under `full` and had to be generalised to "adds to one, or
-to less of one where the season is weighed against more than it held". The remainder is the
+⚠️⚠️ **Two model-suite checks were false by design under this denominator and had to be
+generalised, not silenced.** "Every finished season adds to one" is wrong for 2020 and 2022 —
+their winners took a fraction of a year between them and the rest of the year was never played.
+It reads "adds to one, or to less of one where the season is weighed against more than it held"
+(`planned > played`, which covers the running year with the same rule). The remainder is the
 feature: it is the part of the year nobody owns.
+
+⚠️ **And one demonstration stopped demonstrating.** "Counting the part-played season would drag
+the bar down" was shown by re-running the real board with the running season counted — and once
+the pandemic denominator pulled the men's bar to 15, 2026's leader cleared it either way, so the
+two answers stopped differing. It is proved on a **constructed** three-season model now, built to
+have exactly the shape the rule is about. A rule demonstrated only where this year's numbers
+happen to show it is a rule that quietly stops being tested.
+
+⚠️ **The pinning e2e had the same disease and was fixed at the same time**: it compared marker
+counts and colours against a reading taken at the derived default, while the block itself sets
+the bar to 40. That held only because two unrelated numbers agreed. It reads the chart at its own
+bar now.
 
 ⚠️ `scoreTop` moves with the mode. Its comment forbids the axis moving *under the reader*, and
 that is about selection: `full` is a different measurement, and holding the axis at 90 for a

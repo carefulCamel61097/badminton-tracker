@@ -752,47 +752,44 @@ out-rank a fifteen-year career, and the number would be describing the hole in t
 than the players. A third column that cannot be computed honestly is worse than no third
 column.
 
-⚠️ **The pandemic seasons have three readings**, chosen by the `2020–22` chips.
+⚠️ **The pandemic seasons get the same denominator as every other season, and there is no
+toggle.** What is most obviously wrong with 2020 is arithmetic before it is competition: three
+titles were played, so one of them would be a third of the year. 2020 and 2022 are weighed
+against **what a full season of the era was worth** — 19.33 by weight, twelve titles, read off
+the seasons in the file rather than typed in, and exactly the figure 2023 and 2025 get. A season
+cut short then reads as the fraction of a year it actually was. Viktor AXELSEN's career total is
+**269**; against 2020's own three titles it would read 315.
 
-**Full season** is the default. What is most obviously wrong with 2020 is arithmetic before it
-is competition: three titles were played, so one of them is a third of the year. This weighs
-those seasons against **what a full season of the era was worth** — 19.33 by weight, twelve
-titles, read off the seasons in the file rather than typed in — and never downward. Viktor
-AXELSEN reads **269** here, against 315 as played and 131 with the seasons dropped.
+⚠️ **The thin field is left in the record deliberately.** Fewer Chinese players entered, so
+fewer Chinese players won, so their scores are lower and everybody else's are higher — and that
+*is* what happened. What the denominator removes is the arithmetical distortion, not the
+sporting one: a player who won one of 2020's three titles cannot bank more than one title's
+worth of a whole year, because the rest of the year was never played and nobody won it. The
+seasons are marked on the chart — a faint column, the word "Covid", an asterisk on the year — so
+a reader knows not to take them at face value, and then the reader judges.
 
-It is the default because it is the reading that changes the arithmetic **without discarding a
-result**. Setting a season aside is a claim about the *competition* — that the field was too
-thin to count — and it is a claim this data cannot check season by season. Weighing a short
-season against a full one is a claim about the *calendar*, which the file can check and does.
+⚠️ **Never downward.** 2021 held *more* than a normal season by weight (23.80 against 19.33 — an
+Olympics, a Worlds and two World Tour Finals), and substituting the normal figure there would
+*raise* every 2021 score, which is the opposite of the point. So 2021 is untouched.
 
-**Set aside** is the stronger claim and one click away: the men's singles then reads LEE Chong
-Wei, LIN Dan, CHEN Long, the answer most people would give. It costs something — it throws away
-titles that were genuinely won, from everybody, ZHENG / HUANG included, who lose 59 points of
-mixed-doubles total to the very seasons China's absence defined. **As played** is the record as
-it stands, which puts AXELSEN top of *both* orderings on **184 of his 315 points** and TAI Tzu
-Ying top of the women's peak on an 81 taken in a season that held three titles.
+⚠⚠ **This is a calendar correction and it cannot see a field, and 2021 is where that shows.**
+2.3% Chinese participation, eight of its eleven events with literally nobody in the draw — and
+no adjustment at all, because it was not short. AXELSEN's peak sits in that season. Known,
+accepted, and the reason the pandemic marks on the chart are not decoration.
 
-⚠️ **Only `full` moves the chart, and it has to.** It changes what a score is a share of, so
-the lines, the hovers, the strip (`3/12`, the way the running year reads) and the exported PNG
-all follow it. `aside` is not a denominator at all: the chart goes on drawing what happened and
-the ranking leaves those seasons out.
+⚠️ **The Show bar follows, being derived from the scores.** The men's singles opens at 15 rather
+than the 40 it sat at when a pandemic season was a share of its own three titles, because 2020's
+best season is now a 17 rather than a 69 and the bar's rule is not to drop a season's leader.
+Twelve lines instead of seven; the other four boards barely move.
 
-⚠️ **The Show bar follows too, being derived from the scores.** The men's singles opens at 15
-rather than 40, because 2020's best season is a 17 once it is weighed against a whole year
-rather than a 69, and the bar's rule is not to drop a season's leader. Twelve lines instead of
-seven; the other four boards barely move.
-
-⚠️ **A link with no `wc` means "the current default"**, the way `wf` means "the derived bar".
-Links written before this change carried no `wc` and meant *set aside*; they now open on *full
-season*. `wc=1`, from before there were three readings, still means *as played*.
-
-⚠⚠ **`full` is a calendar correction and cannot see a field.** Two things were wrong with these
-years — fewer events, and a thinner draw at the ones that ran — and it fixes the first only.
-**2021 is the proof**: it held *more* than a normal season by weight (23.80 against 19.33 — an
-Olympics, a Worlds and two World Tour Finals), so `full` leaves it untouched, and 2021 is the
-most compromised season on the board. AXELSEN's peak duly moves off 2022 and onto 2021, which
-this reading has nothing to say about. That is what the reading means, and it is why all three
-are offered.
+⚠️ **Two other readings were built, measured and removed.** `aside` dropped the seasons
+altogether — the men's singles then read LEE Chong Wei, LIN Dan, CHEN Long — but it discarded
+titles that were genuinely won, from everybody, ZHENG / HUANG included, who lost 59 points of
+mixed-doubles total to the very seasons China's absence defined. `played` left them as a share of
+their own three titles, which is the distortion this exists to fix. Neither is a reading this
+project believes, and a toggle offering a reading we do not believe is what the
+weighted-versus-counted rule above already refuses to ship. The measurements are in HANDOVER
+3.4u.
 
 ⚠⚠ **Which seasons, and why on participation rather than on the calendar.** A domination
 score is a *share*, so what flatters a winner is not where the tour went — it is a thinner

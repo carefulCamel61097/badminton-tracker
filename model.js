@@ -3296,11 +3296,6 @@ export function dominationSeasons(file, opts = {}) {
   const players = (file && file.players) || {};
   const now = opts.now || new Date().getUTCFullYear();
   const plannedAll = (file && file.planned) || {};
-  /* Only `full` changes anything here. `aside` is not a denominator — it is a
-     decision the *ranking* makes about which seasons to count, and the chart
-     under it goes on drawing what happened. See `COVID_MODES`. */
-  const whole = covidMode(opts.covid).key === 'full';
-
   /* ⚠️ **Two passes, because a pandemic season is weighed against the others.**
      What a full season of the era is worth cannot be known until every season
      has been counted, so the first pass is what each one actually held and the
@@ -3352,7 +3347,7 @@ export function dominationSeasons(file, opts = {}) {
        19.33 — and substituting the normal figure there would *raise* every 2021
        score, which is the opposite of what this option is for. `full` can only
        ever make a denominator bigger. */
-    const norm = whole && isCovidSeason(r.year) && !r.ongoing
+    const norm = isCovidSeason(r.year) && !r.ongoing
       ? normalSeason(rows, r.year) : null;
     const grown = norm && norm.mass > r.mass ? norm : null;
     const plan = r.plan;
@@ -3461,64 +3456,49 @@ export function isCovidSeason(year) {
 
 /* ---- what to divide a pandemic season by ----
 
-   Setting the pandemic seasons aside answers "who dominated when the game was
-   itself", and it was the default until the middle reading existed. But it
-   throws away titles that were genuinely won, and it throws them away from
-   everybody — ZHENG / HUANG lose 59 points of mixed-doubles total to it, and
-   they are Chinese, so the seasons it removes are the ones their own
-   federation's absence defined.
+   ⚠️⚠️ **The same denominator as every other season, and there is no toggle.**
+   A domination score is a share, and 2020's share is monstrous for an
+   arithmetical reason before it is a competitive one: three titles were played,
+   so one of them is a third of the year. These seasons are weighed against
+   **what a full season of the era was worth** — the same figure 2023 and 2025
+   are weighed against — so a season that was cut short reads as the fraction of
+   a year it actually was. Viktor AXELSEN's 2020 falls to about a quarter of what
+   it reads against its own three titles, and his career total lands on 269.
 
-   **The middle reading is the default, and this is it.** A domination score is a
-   share, and 2020's share is monstrous for an arithmetical reason before it is a
-   competitive one:
-   three titles were played, so one of them is a third of the year. Weigh those
-   seasons against **what a full season of the era was worth** instead and the
-   arithmetic stops shouting: Viktor AXELSEN's 2020 falls to about a quarter of
-   what it reads as played, and his career total goes 315 → 269 rather than
-   315 → 131.
+   ⚠️ **The thin field is left in the record deliberately, and that is the
+   argument for this and against dropping the seasons.** Fewer Chinese players
+   entered, so fewer Chinese players won, so their scores are lower and other
+   people's are higher — and that *is* what happened. What the full-season
+   denominator removes is the arithmetical distortion, not the sporting one: a
+   player who won one of 2020's three titles cannot bank more than one title's
+   worth of a whole year, because the rest of the year was never played and
+   nobody won it. The seasons are marked on the chart — a faint column, the word
+   "Covid", an asterisk on the year — so a reader knows not to read them as
+   ordinary, and then the reader does the judging.
 
-   ⚠️ **It is a calendar correction and it cannot see a field.** The two things
-   wrong with these seasons are that fewer events were played and that the
-   players who did play met a thinner draw, and this fixes only the first. 2021
-   is the proof: it held *more* than a normal season by weight, so `full` leaves
-   it exactly as it is — and 2021 is the most compromised season on the board,
-   eight of its eleven events with no Chinese player in the draw at all. Anybody
-   whose peak is a 2021 peak is untouched by this option. That is not a bug to be
-   patched; it is what the option means, and it is why all three readings are
-   offered rather than one.
+   ⚠️ **Only ever upward.** See `dominationSeasons`. 2021 held *more* than a
+   normal season by weight — an Olympics, a Worlds and two World Tour Finals,
+   23.80 against 19.33 — and substituting the normal figure there would *raise*
+   every 2021 score, which is the opposite of the point.
 
-   ⚠️ **Only ever upward.** See `dominationSeasons`.
+   ⚠️⚠️ **2021 is therefore untouched by this, and it is the season with the
+   thinnest field of the three.** 2.3% Chinese participation, eight of its eleven
+   events with literally nobody in the draw. This is a *calendar* correction and
+   it cannot see a field: anybody whose peak is a 2021 peak — Viktor AXELSEN's is
+   — is getting no adjustment at all. Known, accepted, and the reason the
+   pandemic marks on the chart are not decoration.
 
-   ⚠️ **Why this one and not `aside`.** It is the reading that changes the
-   arithmetic without discarding a result. Setting a season aside is a claim
-   about the *competition* — that the field was too thin to count — and it is a
-   claim this data cannot check season by season; weighing a short season against
-   a full one is a claim about the *calendar*, which the file can check and does.
-   The stronger claim is still one click away, and the rows it under-counts say
-   so with an asterisk. Chosen by the user on 5 September 2026, after all three
-   were built and measured side by side. */
-
-/**
- * The three readings of the pandemic seasons, and their order is the chip row.
- *
- * ⚠️ **Ordered least-counted to most, so the default is in the middle rather
- * than first.** It is a spectrum — dropped, grown, as they stand — and reading
- * left to right tells the reader what the row is *for*. Promoting the default to
- * the front would make it three unrelated buttons.
- */
-export const COVID_MODES = [
-  { key: 'aside', label: 'Set aside', of: 'not counted at all' },
-  { key: 'full', label: 'Full season', of: 'weighed against a whole year' },
-  { key: 'played', label: 'As played', of: 'weighed against what was played' },
-];
-export const COVID_DEFAULT = 'full';
-
-/** A mode key, or the default. Tolerates `wc=1` from links written before this. */
-export function covidMode(key) {
-  const k = key === '1' ? 'played' : String(key || '');
-  return COVID_MODES.find(m => m.key === k)
-    || COVID_MODES.find(m => m.key === COVID_DEFAULT);
-}
+   ⚠️ **Two other readings were built, measured and removed** on 5 September
+   2026, in a chip row beside the ranking. `aside` dropped the seasons
+   altogether: it answers "who dominated when the game was itself", but it
+   discards titles that were genuinely won, from everybody — ZHENG / HUANG lost
+   59 points of mixed-doubles total to it, and they are Chinese, so the seasons
+   it removed are the ones their own federation's absence defined. `played` left
+   them as a share of their own three titles, which is the distortion this exists
+   to fix. Neither is a reading this project believes, and a toggle offering a
+   reading we do not believe is the thing the weighted-versus-counted note above
+   already refuses to ship. The measurements are kept in HANDOVER 3.4u rather
+   than in code nobody runs. */
 
 /** The upper median, which is `thinSeasons`' convention — see it for why. */
 function midOf(xs) {
@@ -3598,9 +3578,9 @@ export function rankMode(key) {
  * draws them, because they happened; these numbers are a *ranking of careers*
  * and that is a different question.
  *
- * ⚠️ A competitor whose every season is skipped is **dropped**, not shown at
+ * ⚠️ A competitor whose every season is left out is **dropped**, not shown at
  * zero. A row saying somebody dominated nothing is worse than no row: they did
- * win, in a season this ranking has decided not to weigh.
+ * win, in a season this ranking cannot weigh.
  *
  * @param {object} model  a `dominationSeasons` result
  * @param {string} mode  'total' or 'peak'
@@ -3613,17 +3593,20 @@ export function rankMode(key) {
  * The judgement lives in `dominationSeasons`, which is the only place that knows
  * what a season's denominator is.
  *
- * @param {{skip?: Set<number>}} opts  seasons to leave out of the arithmetic
  * @returns {Array} the people, ordered, each with `total`, `peak`, `peakYear`,
  *   `seasons`, and `rank` — which is **shared on a tie**, so two equal careers
  *   are not put in an order the numbers do not support.
  */
-export function dominationRanking(model, mode, opts = {}) {
+export function dominationRanking(model, mode) {
   const key = rankMode(mode).key;
-  const skip = opts.skip || new Set();
+  /* ⚠️ The **only** reason a season is left out, now that the pandemic ones are
+     weighed rather than dropped: a year still being played that has no calendar
+     to weigh it against, which would otherwise be a share of however much has
+     happened so far. There used to be a `skip` set here as well, for the
+     removed `aside` reading. */
   const bare = new Set(((model && model.seasons) || [])
     .filter(s => s.ongoing && !s.forecast).map(s => Number(s.year)));
-  const out = year => bare.has(Number(year)) || skip.has(Number(year));
+  const out = year => bare.has(Number(year));
   const rows = ((model && model.people) || []).map(p => {
     const pts = p.pts.filter(pt => !out(pt.year));
     if (!pts.length) return null;
@@ -3632,7 +3615,7 @@ export function dominationRanking(model, mode, opts = {}) {
       id: p.id, who: p.who, colour: p.colour || '',
       total: pts.reduce((n, pt) => n + pt.score, 0),
       /* Recomputed rather than taken from `p.peak`, which is the peak over
-         *every* season the competitor won in. With seasons skipped the two are
+         *every* season the competitor won in. With a season left out the two are
          different numbers and the table must show the one it ranked on. */
       peak: Math.max(...pts.map(pt => pt.score)),
       peakYear: best ? best.year : null,
@@ -3644,9 +3627,6 @@ export function dominationRanking(model, mode, opts = {}) {
       peakPlayed: best ? best.played : 0,
       seasons: pts.length,
       titles: pts.reduce((n, pt) => n + pt.n, 0),
-      /* How much of this career the ranking is not looking at, so the page can
-         say so rather than quietly showing a smaller number. */
-      dropped: p.pts.length - pts.length,
       first: pts[0].year,
       last: pts[pts.length - 1].year,
     };
