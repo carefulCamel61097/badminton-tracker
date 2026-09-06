@@ -42,6 +42,12 @@ const DEFAULT_PLAYERS = [
   // Superseries-era mapping exists for and the only way to test it.
   50906,   // LIN Dan          MS, 2005–2020
   50152,   // LEE Chong Wei    MS, 2005–2019
+  /* ⚠️ The one **senior** career in reach that BWF files a placing of `"Final"`
+     on rather than `"1st"`: the 2012 Bitburger Open, which CHOU won 6-0. That
+     one square is the only way to replay a final that has not been played yet —
+     pin `now=` inside the tournament and it must read F, pin it a day later and
+     the title is his. See HANDOVER 3.4w. */
+  34810,   // CHOU Tien Chen   MS, 2006–
 ];
 
 const args = process.argv.slice(2);
@@ -65,6 +71,24 @@ const roster = (args.includes('--searches') || onlyTmt) ? []
  * `now=` hash parameter — is what stops the recorded day and the replayed day
  * drifting apart the morning after. Move it when you re-record. */
 const TMT_DAY = process.env.TMT_DAY || '2026-08-23';
+
+/* ⚠️⚠️ **Naming players means only those players.** `vue-tmt-schedule` answers
+   "what is on *now*", so re-recording the tournament page overwrites the
+   photograph the suite is pinned to — and `node tests/record.mjs 34810`, run to
+   add one career, silently moved the page's whole world from the World
+   Championships week to the one after it. Nine checks failed in a block that had
+   nothing to do with the change, and the old answer cannot be fetched back:
+   BWF only ever serves today.
+
+   So a targeted recording leaves the tournament page and its brackets alone.
+   `--tmt` is how you ask for them on purpose, and a bare `node tests/record.mjs`
+   still refreshes everything — that is the run you move `TMT_DAY` for.
+
+   ⚠️ If it does get overwritten, `scheduleFromYear` rebuilds it: BWF's own
+   `vue-grouped-year-tournaments?year=` is retrospective, and the app's CORS
+   fallback turns a year list into these same three slots for any date. */
+const wholeRun = !players.length;
+const doTmt = wholeRun || onlyTmt;
 
 const server = createServer(ROOT);
 await new Promise(r => server.listen(PORT, r));
@@ -193,8 +217,9 @@ process.stdout.write(`  search roster … `);
 
 /* The tournament page: the schedule, then every day of whatever it names. One
    request each, and a tournament is a week, so this is eight calls. */
-process.stdout.write(`  tournament (${TMT_DAY}) … `);
-{
+if (!doTmt) console.log('  tournament … skipped, players were named');
+if (doTmt) {
+  process.stdout.write(`  tournament (${TMT_DAY}) … `);
   const before = fixtureCount();
   await b.ev(`location.hash = '#pg=tmt&now=${TMT_DAY}'`);
   const ok = await b.until('window.BST.tmt && window.BST.tmt.pick() !== null', { timeout: 60000 });
@@ -213,8 +238,8 @@ process.stdout.write(`  tournament (${TMT_DAY}) … `);
    call and each draw is one more, so this is six for a full tournament — worth
    recording in full, because the suite switches between them and a discipline
    that was never fetched is a fixture miss rather than a failure with a name. */
-process.stdout.write('  brackets … ');
-{
+if (doTmt) {
+  process.stdout.write('  brackets … ');
   const before = fixtureCount();
   await b.ev(`window.BST.tmt.bracket.view('draw')`);
   const ok = await b.until('window.BST.tmt.bracket.ready()', { timeout: 90000 });

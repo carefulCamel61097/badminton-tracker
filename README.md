@@ -78,6 +78,15 @@ as the World Championships — and spells their draws and rounds out in full
 ("Men's Singles", "Quarterfinals") where the World Tour uses codes, which is a good way to
 lose them entirely. See `HANDOVER.md` Part 2.6.
 
+⚠️ **A tournament that is still on says where the player is, not how they finished**, and
+the strip says the same. Somebody in the final of an event being played this week reads
+**F**, hovering "In the final" — not the title they have not played for yet. The same word
+means the opposite thing once the event is over: BWF files a handful of finished
+tournaments as `"Final"` rather than `"1st"`, and there the one who lost no match won it.
+The record is identical either way, so the only thing that separates them is whether the
+last day has passed. `#now=YYYY-MM-DD` pins what the page thinks today is, which is the
+only way to see finals day without waiting for one.
+
 ## Four pages
 
 **Seasons**, **Compare**, **Tournament** and **Winners**, on a tab bar under the player's

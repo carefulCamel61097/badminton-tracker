@@ -243,20 +243,45 @@ const POSITION_ALIAS = {
   'ROUND OF 16': 'R16', 'ROUND OF 32': 'R32', 'ROUND OF 64': 'R64', 'ROUND OF 128': 'R128',
 };
 
-/* A placing that names a round the player has *reached* rather than one they
-   went out in. A tournament still being played reports the round they are in —
-   the 2026 World Championships returned "SF" mid-event — and the gauge reads
-   the same either way: this is how far they have got. */
-const REACHED = /^(F|SF)$/;
+/* A placing that names a round rather than a finish: "Final", "F", "SF" and the
+   spellings of those. Both halves of `positionInfo` turn on this set — it is
+   the only placing whose meaning depends on whether the tournament is over. */
+const REACHED = /^(F|FINALS?|SF|SEMI-?FINALS?)$/;
+
+/* What one of those means while the tournament is still on, keyed by the
+   placing it settles to. `full` on the placing itself reads "Runner-up", which
+   is precisely the claim that cannot be made yet. */
+const IN_ROUND = { '2nd': 'In the final', '3rd': 'In the semi-final' };
 
 const MIN_FILL = 0.13;           // a first-round exit still shows a sliver
 
 /**
- * @param {string} pos    BWF's placing string
- * @param {object} [draw] the draw entry, used only to settle "Final", which
- *   does not say who won it. A finalist who lost no match won the thing.
+ * Whether a tournament is still being played, which decides what a round name
+ * in `position` means.
+ *
+ * ⚠️ **Today is a parameter, never `new Date()`** — the same rule the schedule
+ * keeps, and for the same reason: a suite replaying a September 2026 fixture in
+ * December would otherwise test a different branch every run.
+ *
+ * The last day counts as running. The final is played on it, and until it has
+ * been there is nothing to report.
+ *
+ * @param {{end?: string}} tmt   a parsed tournament
+ * @param {string} [today]       `YYYY-MM-DD`; without one, nothing is running
  */
-export function positionInfo(pos, draw) {
+export function tournamentRunning(tmt, today) {
+  const end = dayOf(tmt && tmt.end);
+  return !!(today && end && end >= today);
+}
+
+/**
+ * @param {string} pos      BWF's placing string
+ * @param {object} [draw]   the draw entry, used only to settle a finished
+ *   "Final", which does not say who won it. A finalist who lost no match did.
+ * @param {boolean} [running]  the tournament is still being played, so a round
+ *   name is where the player *is* rather than where they finished.
+ */
+export function positionInfo(pos, draw, running) {
   const raw = String(pos == null ? '' : pos).trim();
   if (!raw || raw === 'N/A' || raw === '-') {
     return { label: '-', tier: 'na', full: 'Played' };
@@ -265,12 +290,33 @@ export function positionInfo(pos, draw) {
 
   const key = raw.toUpperCase();
   if (POSITION_ALIAS[key]) {
-    // "Final" and "F" do not say who *won* it. Whoever lost no match did.
-    if ((/^FINALS?$/.test(key) || REACHED.test(key))
-        && draw && Number(draw.lose) === 0 && POSITION_ALIAS[key] === '2nd') {
+    const settled = POSITION[POSITION_ALIAS[key]];
+
+    /* ⚠️⚠️ **"Final" means two different things and only the calendar tells
+       them apart.** On a finished tournament it is a *placing* — the small
+       events of 2012, 2014, 2017, 2020 and 2022 all record their champion as
+       `"Final"` with no losses, and their runner-up as `"Final"` with one. On a
+       tournament still being played it is the round the player is IN: Tomoka
+       MIYAZAKI stood at `"Final" 4-0` on the morning of the 2026 China Masters
+       final, having won her semi and played nothing since.
+
+       Same string, same record, opposite meanings — so the win/loss count
+       cannot settle it and the only honest discriminator is whether the event
+       is over. While it is on, the square says F and the tooltip says she is in
+       the final; it does not hand her a title she has not played for. The
+       reverse error is small and self-correcting: BWF rewrites the placing to
+       "1st" or "2nd" as soon as the draw closes, so the most a champion is ever
+       under-read by is the gap between the last point and BWF's refresh. */
+    if (running && REACHED.test(key) && IN_ROUND[POSITION_ALIAS[key]]) {
+      return { ...settled, full: IN_ROUND[POSITION_ALIAS[key]] };
+    }
+
+    // A finished "Final" does not say who won it. Whoever lost no match did.
+    if (REACHED.test(key) && draw && Number(draw.lose) === 0
+        && POSITION_ALIAS[key] === '2nd') {
       return POSITION['1st'];
     }
-    return POSITION[POSITION_ALIAS[key]];
+    return settled;
   }
 
   /* Group stages: the Olympics and the season-ending Finals both seed a knockout
@@ -1252,8 +1298,12 @@ export function tournamentSeason(tmt) {
  *
  * Ties are broken by date, oldest first, so a row is stable from render to
  * render rather than reshuffling itself when nothing has changed.
+ *
+ * ⚠️ `today` is only ever used to ask whether a tournament is still on, which
+ * changes what a round name in `position` means — see `positionInfo`. Left out,
+ * every result reads as finished, which is what every result but one is.
  */
-export function seasonResults(season, kind, preferred, era) {
+export function seasonResults(season, kind, preferred, era, today) {
   const by = new Map();
 
   for (const tmt of (season && season.tournaments) || []) {
@@ -1262,7 +1312,7 @@ export function seasonResults(season, kind, preferred, era) {
     const group = eraGroup(modern, era);
     const draw = drawForKind(tmt, kind, preferred);
     if (!draw) continue;
-    const info = positionInfo(draw.position, draw);
+    const info = positionInfo(draw.position, draw, tournamentRunning(tmt, today));
     // `from` is the tier this actually was, on the results the chosen era had to
     // translate to get here. Null on everything already in its own vocabulary —
     // which is the pre-2018 half of a career in Superseries mode.
@@ -1346,7 +1396,7 @@ export function sectionCells(by, sections) {
  * because a tournament can move between rows and one of those rows may not
  * exist yet — or at all.
  */
-export function careerRows(seasons, kind, preferred, era) {
+export function careerRows(seasons, kind, preferred, era, today) {
   const byYear = new Map();
   for (const s of seasons || []) {
     for (const t of s.tournaments || []) {
@@ -1356,7 +1406,8 @@ export function careerRows(seasons, kind, preferred, era) {
     }
   }
   return [...byYear.keys()].sort((a, b) => b - a).map(year =>
-    ({ year, by: seasonResults({ year, tournaments: byYear.get(year) }, kind, preferred, era) }));
+    ({ year, by: seasonResults({ year, tournaments: byYear.get(year) },
+      kind, preferred, era, today) }));
 }
 
 /**

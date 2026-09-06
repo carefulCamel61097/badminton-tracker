@@ -22,7 +22,7 @@ import {
   flatSupers, PREMIER_FROM, pyramidScale,
   parseSeason, seasonDisciplines, drawFor, drawForKind, dominantDraw,
   kindOf, seasonKinds, defaultKind, seasonLevels,
-  positionInfo, fillFraction, boxSize, boxScale, levelLabel, isTeamEvent,
+  positionInfo, tournamentRunning, fillFraction, boxSize, boxScale, levelLabel, isTeamEvent,
   shortTmtName, seasonLabels, tidyTmtName, surnameOf, levelAbbr, roundsInDraw,
   mainDrawSize, drawLadder,
   canonicalDraw, isOlympics,
@@ -441,12 +441,17 @@ eq('hyphenated', positionInfo('Semi-Finals').label, 'SF');
 eq('and the rounds', positionInfo('Round of 16').label, 'R16');
 eq('deeper ones as well', positionInfo('Round of 32').steps, 5);
 
-// "Final" does not say who won it. Whoever lost no match did.
+/* On a *finished* tournament "Final" is a placing that does not say who won it,
+   and whoever lost no match did. Six events in the recorded fixtures spell it
+   this way — the 2012 Bitburger Open, a 2014 China International exhibition and
+   three junior championships — so the rule earns its keep on real data. */
 eq('a finalist who lost a match is the runner-up',
   positionInfo('Final', { win: 4, lose: 1 }).label, 'F');
 eq('one who lost none is the champion',
   positionInfo('Final', { win: 5, lose: 0 }).label, 'W');
 eq('with no record to go on, assume they lost it', positionInfo('Final').label, 'F');
+eq('and the short spelling reads the same way',
+  positionInfo('F', { win: 5, lose: 0 }).label, 'W');
 
 console.log('\n=== group stages ===');
 eq('going out in a group is not an unknown placing', positionInfo('Group A').label, 'Grp');
@@ -516,10 +521,57 @@ console.log('\n=== a tournament still being played ===');
 eq('a live semi-final is a semi-final', positionInfo('SF').label, 'SF');
 eq('on the same rung', positionInfo('SF').steps, 2);
 eq('and coloured as one', positionInfo('SF').tier, 'sf');
-eq('a live final too', positionInfo('F', { win: 5, lose: 1 }).label, 'F');
-eq('and whoever has lost nothing has won it', positionInfo('F', { win: 5, lose: 0 }).label, 'W');
 near('so it fills against the ladder rather than reading as nothing',
   fillFraction(positionInfo('SF'), { win: 4, lose: 0 }, 6), 4 / 6);
+
+console.log('\n=== and a final that has not been played yet ===');
+/* ⚠️⚠️ Reported from the live page: Tomoka MIYAZAKI showed a China Masters
+   *win* on the morning of the final. BWF had her at `"Final" 4-0` — she had won
+   her semi and played nothing since — and the rule that reads a finished
+   "Final" with no losses as a champion read it as one.
+
+   The win/loss count cannot tell the two apart: a champion and somebody
+   standing in the tunnel both have no losses. Only the calendar can. */
+eq('being in the final is not winning it',
+  positionInfo('Final', { win: 4, lose: 0 }, true).label, 'F');
+eq('and the tooltip says which it is',
+  positionInfo('Final', { win: 4, lose: 0 }, true).full, 'In the final');
+eq('while a finished one with the same record is still a title',
+  positionInfo('Final', { win: 4, lose: 0 }, false).label, 'W');
+eq('the short spelling too',
+  positionInfo('F', { win: 5, lose: 0 }, true).label, 'F');
+/* A group-stage event lets a player lose a match and still reach the final, so
+   "they have a loss, therefore they lost the final" does not hold either. While
+   the event is on, a place in the final is all a place in the final means. */
+eq('a loss earlier in the draw does not settle it either',
+  positionInfo('Final', { win: 5, lose: 1 }, true).full, 'In the final');
+eq('it is still a runner-up’s rung', positionInfo('Final', { win: 4, lose: 0 }, true).steps, 1);
+eq('and a runner-up’s colour', positionInfo('Final', { win: 4, lose: 0 }, true).tier, 'f');
+eq('a live semi-final says so as well',
+  positionInfo('SF', { win: 3, lose: 0 }, true).full, 'In the semi-final');
+eq('without moving off its rung', positionInfo('SF', { win: 3, lose: 0 }, true).steps, 2);
+/* Every other placing is a finish whether the event is over or not — a player
+   who went out in the round of 16 went out in it, and nothing later changes
+   that. */
+eq('an exit is an exit either way',
+  positionInfo('R16', { win: 1, lose: 1 }, true).full, positionInfo('R16').full);
+eq('and so is a placing BWF has already settled',
+  positionInfo('1st', { win: 5, lose: 0 }, true).label, 'W');
+
+console.log('\n=== which tournament is still being played ===');
+// Today is a parameter here for the reason the schedule keeps it as one: a
+// fixture pins a date and the clock does not.
+check('a tournament that ended yesterday is over',
+  !tournamentRunning({ end: '2026-09-05 00:00:00' }, '2026-09-06'));
+check('one ending today is not — the final is played on the last day',
+  tournamentRunning({ end: '2026-09-06 00:00:00' }, '2026-09-06'));
+check('nor is one still to come', tournamentRunning({ end: '2026-09-13' }, '2026-09-06'));
+check('BWF’s end-of-day stamp reads the same',
+  tournamentRunning({ end: '2026-09-06 23:59:59' }, '2026-09-06'));
+check('with no date to compare against, nothing is running',
+  !tournamentRunning({ end: '2026-09-06' }, null));
+check('and a tournament with no end is not running either',
+  !tournamentRunning({}, '2026-09-06'));
 
 console.log('\n=== names BWF writes in capitals ===');
 eq('a region is not a sponsor', shortTmtName('ASIAN Games 2022 (Individual Event)'), 'ASIAN Games');

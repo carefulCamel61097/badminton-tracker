@@ -18,7 +18,7 @@ import {
   loadDrawList, loadDrawData,
 } from './api.js';
 import {
-  positionInfo, fillFraction, drawForKind, dominantDraw, seasonKinds,
+  positionInfo, tournamentRunning, fillFraction, drawForKind, dominantDraw, seasonKinds,
   defaultKind, seasonLevels, levelLabel, levelAbbr, boxSize, isTeamEvent,
   drawLadder, BOX_H, LEVEL, LEVEL_ORDER,
   careerRows, gridSections, sectionCells, gridYears, gridGroupLabel, seasonLabels, GRID_ORDER,
@@ -171,7 +171,11 @@ function square(tmt, kind, preferred, label) {
   const draw = tmt.team
     ? (tmt.draws || [])[0] || null
     : drawForKind(tmt, kind, preferred);
-  const info = positionInfo(draw && draw.position, draw);
+  /* ⚠️ Whether the tournament is over decides what a round name in `position`
+     means — "Final" is a placing on a finished event and a whereabouts on a
+     live one. `todayStr()` honours `#now=`, so finals day is reachable without
+     waiting for one. */
+  const info = positionInfo(draw && draw.position, draw, tournamentRunning(tmt, todayStr()));
   const rounds = draw ? roundsFor(tmt, draw.name) : null;
   const pct = Math.round(fillFraction(info, draw, rounds) * 100);
   const box = boxSize(tmt.cat, state.sized);
@@ -636,7 +640,7 @@ function careers() {
 function careerGridRows(career) {
   const kind = gridKindFor(career.seasons);
   const preferred = dominantDraw(career.seasons.flatMap(s => s.tournaments), kind);
-  return careerRows(career.seasons, kind, preferred, grid.era);
+  return careerRows(career.seasons, kind, preferred, grid.era, todayStr());
 }
 
 /**
@@ -4980,7 +4984,7 @@ window.BST = {
     of: () => careers().map(c => {
       const kind = gridKindFor(c.seasons);
       const rows = careerRows(c.seasons, kind,
-        dominantDraw(c.seasons.flatMap(s => s.tournaments), kind), grid.era);
+        dominantDraw(c.seasons.flatMap(s => s.tournaments), kind), grid.era, todayStr());
       return careerHonours(rows, honourStep(grid.threshold).rank);
     }),
     sections: () => honourSections(window.BST.honours.of(), grid.era),

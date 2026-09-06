@@ -1735,6 +1735,50 @@ the page opens on a U19 Open — and **cancelled events**, on `status.code` rath
 name, the same rule `harvest-calendar.mjs` uses and for the same reason. BWF's own `nextTmt` that
 day was "Abu Dhabi Masters 2026 (Cancelled)".
 
+### 3.4w A final that has not been played yet *(fixed 6 Sep 2026)*
+
+Reported by the user, from the live page: **Tomoka MIYAZAKI showed a China Masters win on
+the morning of the final.** She had won her semi the afternoon before and had not played
+since. BWF had her at `WS: "Final", 4-0`.
+
+⚠️⚠️ **"Final" is a placing on a finished tournament and a whereabouts on a live one.**
+Both are real and both are common:
+
+| | position | record | means |
+|---|---|---|---|
+| 2012 Bitburger Open, over | `"Final"` | 6-0 | CHOU Tien Chen won it |
+| 2014 China Int'l exhibition, over | `"Final"` | 0-1 | lost the final |
+| 2026 China Masters, on | `"Final"` | 4-0 | in the final, not yet played |
+
+The rule this project had — *a finalist who lost no match won the thing* — is sound on the
+first two and hands out a title on the third. **The win/loss count cannot separate them**:
+a champion and somebody standing in the tunnel both have nothing against them. Only the
+calendar can, so `positionInfo` now takes a third argument saying whether the tournament is
+still being played, and while it is, a round name is where the player *is*.
+
+⚠️ **The last day counts as running.** The final is played on it. So the square reads F for
+the whole of finals day and becomes a title the moment BWF rewrites the placing to `"1st"`
+— which it does as the draw closes, well inside the day. The residual error is the gap
+between the last point and BWF's refresh, it is in the conservative direction, and it
+clears itself.
+
+⚠️ **A loss earlier in the draw settles nothing either.** The season-ending Finals and the
+Olympics seed their knockouts from groups, so a player can lose a match and still be in the
+final. "They have a loss, therefore they lost it" is as wrong as its opposite.
+
+⚠️ Only round names move — `F`, `SF` and the spellings of those. `"1st"`, `"R16"`, `"QF"`
+and the rest are finishes whether the event is over or not, which is what makes pinning a
+date safe: it rewrites one square in a career, never the career.
+
+⚠️ **Today is a parameter, never `new Date()`** — the rule Part 3's schedule already keeps,
+now reaching into the strip. `tournamentRunning(tmt, today)` is the whole of the clock, the
+app passes `todayStr()`, and `#now=YYYY-MM-DD` pins it. That is what lets the suite stand on
+finals day without waiting for one: `#p=34810&now=2012-11-04` puts CHOU Tien Chen back in
+the Bitburger final, and one day later hands him the title again.
+
+⚠️ The tooltip says which of the two it is — "In the final", not "Runner-up". `POSITION`
+spells `2nd` as *Runner-up*, and that is precisely the claim that cannot be made yet.
+
 ### 3.4v One rule for every pandemic mark *(fixed 6 Sep 2026)*
 
 Reported by the user: **2021's bar in the strip was grey between two amber ones.** The chart
@@ -2647,8 +2691,14 @@ range, and it answers with thirteen *groups* ("HSBC BWF World Tour", "Games",
 round abbreviation rather than a final placing: the 2026 World Championships returned
 `"SF"` while it was on. `SF` and `F` are not in the placings table — that spells
 finishes as `3rd` and `2nd` — so an unhandled one draws as an empty square, and the
-event everybody is currently watching is exactly the one that shows no result. `F`
-with no losses is a champion, not a runner-up.
+event everybody is currently watching is exactly the one that shows no result.
+
+⚠️⚠️ **And `"Final"` means two opposite things depending on whether the event is over.**
+On a finished tournament it is a placing and the one who lost no match won it — six events
+in the recorded fixtures are filed that way, from the 2012 Bitburger Open to a 2022 junior
+international. On a live one it is where the player is standing: Tomoka MIYAZAKI was
+`"Final", 4-0` on the morning of the 2026 China Masters final. The record is identical, so
+only the calendar separates them. See Part 3.4w.
 
 ⚠️⚠️ **The Olympics spell draws and placings out in full**: `"Men's Singles"` where the
 World Tour says `MS`, `"Quarterfinals"` where it says `QF`. Rio 2016 used the short
@@ -2742,6 +2792,30 @@ scroll step did not help either, because the shape had changed again.
 **The recorder now calls `window.BST.loadLadders(year)` for every season outright.**
 That found 76 ladders it had been missing. Where a fixture set depends on lazy loading,
 drive the loading directly rather than reproducing the conditions that trigger it.
+
+### 4.4d Recording one player re-recorded the whole week *(fixed 6 Sep 2026)*
+
+`node tests/record.mjs 34810`, run to add one career to the fixture set, **moved the
+tournament page's world by a week** and failed nine checks in a block that had nothing to
+do with the change.
+
+⚠️⚠️ **`vue-tmt-schedule` answers "what is on *now*"**, so its fixture is a photograph of
+one moment and every date in the tournament suite is pinned to it — `now=2026-08-23`, the
+Worlds' finals day. The recording script drove the tournament page at the end of its run
+whatever it had been asked for, and BWF answered with the week that had just finished. The
+fixture is keyed on the URL, so the new answer overwrote the old one in place, and the old
+one **cannot be fetched back**: BWF only ever serves today.
+
+Now a targeted recording leaves the tournament page and its brackets alone. `--tmt` asks
+for them on purpose; a bare `node tests/record.mjs` still refreshes everything, and that is
+the run to move `TMT_DAY` for.
+
+⚠️ **It is recoverable, and this is how.** `vue-grouped-year-tournaments?year=` is
+*retrospective* — it lists the whole season whenever you ask — and `scheduleFromYear`,
+written for the CORS fallback in 3.5a, turns a year list into the same three slots for any
+date you name. Fetch the year, run it at the pinned day, and write the result back as the
+fixture body. It reproduced `nextLive: BWF World Championships 2026` exactly, which is the
+only field the suite reads off that payload.
 
 ### 4.4c `captureBeyondViewport` does not photograph the top layer
 

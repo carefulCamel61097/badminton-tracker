@@ -4162,6 +4162,113 @@ await b.ev(`(() => {
 check('escape leaves the box',
   await b.ev(`document.activeElement !== document.getElementById('q')`));
 
+/* ---- a final that has not been played yet ----
+
+   ⚠️⚠️ Reported from the live page: Tomoka MIYAZAKI showed a China Masters
+   *win* on the morning of the final. BWF had her at `"Final" 4-0` — she had won
+   her semi that afternoon and played nothing since.
+
+   "Final" is a placing on a finished tournament and a whereabouts on a live
+   one, and the record is identical either way: a champion and somebody standing
+   in the tunnel both have no losses. Only the calendar separates them, which is
+   what `#now=` is for here.
+
+   CHOU Tien Chen's 2012 Bitburger Open is the one senior event in the recorded
+   fixtures BWF files as `"Final"` rather than `"1st"`. He won it, so it must
+   read as a title from every date after it — and as a place in the final from
+   any date during it.
+   ==================================================================== */
+
+console.log('\n=== a final that has not been played yet ===');
+
+const bitburger = list => find(list, /Bitburger/);
+
+/* ⚠️ **`hl=` is set explicitly, and it has to be.** `readHash` only touches the
+   hidden levels when the link carries them, so the level-chip block above this
+   one leaves its choices standing across a change of player — and the first run
+   of this section read a 2012 with five squares in it, all of them
+   Internationals, and reported the Bitburger Open missing from a career that
+   contains it. An empty `hl=` is the way to say "all of them". */
+check('CHOU Tien Chen loads', await open('#p=34810&hl='));
+const chou2012 = await squares(2012);
+/* Guarded, because a miss here would otherwise take the remaining two hundred
+   checks down with it — and a section that cannot find its square should report
+   that, not stop the suite. */
+const wonIt = bitburger(chou2012) || {};
+check('the 2012 Bitburger Open is on his strip', !!wonIt.label,
+  chou2012.map(s => s.name).join(', '));
+eq('and reads as the title it was', wonIt.label, 'W');
+eq('coloured as one', wonIt.tier, 'w');
+check('with the tooltip agreeing', /Champion/.test(wonIt.title || ''), wonIt.title);
+
+/* The same square, the same record, the same fixture — read from a date while
+   the tournament was still on. Nothing about the data changed; the only thing
+   that moved is what day it is. */
+check('reopened on the day of that final', await open('#p=34810&hl=&now=2012-11-04'));
+const midway = bitburger(await squares(2012)) || {};
+eq('being in the final is not winning it', midway.label, 'F');
+eq('it sits on a runner-up’s rung', midway.tier, 'f');
+check('and the tooltip says which of the two it is',
+  /In the final/.test(midway.title || '') && !/Champion/.test(midway.title || ''),
+  midway.title);
+
+/* ⚠️ The last day counts as running, because the final is played on it. A date
+   one day later is the first from which the title can be claimed. */
+check('reopened the day after', await open('#p=34810&hl=&now=2012-11-05'));
+eq('and the title is his again', (bitburger(await squares(2012)) || {}).label, 'W');
+
+/* ⚠️ **Only round names move.** Every other placing is a finish whether the
+   event is over or not, and 2012 is a good year to prove it on: CHOU won five
+   titles that season, four of them recorded as `"1st"`. Pinning a date in the
+   middle of it must take exactly one of the five away.
+
+   Three of those four were played *after* the pinned date, so they are running
+   or unplayed by the same test — and they keep their titles, because a settled
+   placing is settled whatever the calendar says. */
+const winsAt = async day => {
+  await open(`#p=34810&hl=&now=${day}`);
+  return (await squares(2012)).filter(s => s.tier === 'w').map(s => s.name);
+};
+const afterwards = await winsAt('2012-12-31');
+eq('CHOU won five in 2012', afterwards.length, 5);
+const during = await winsAt('2012-11-04');
+eq('and on the day of the Bitburger final, four of them', during.length, 4);
+eq('the missing one being the final he had not played',
+  afterwards.filter(w => !during.includes(w)).join(), 'Bitburger Open Grand Pr…');
+
+/* The Compare page draws the same career from the same model, so it cannot hand
+   out the title either — the two pages disagreeing about what a career holds is
+   the failure this whole file exists to catch.
+
+   ⚠️ It holds **two** of those five titles, not five: the board has a rung only
+   for the levels the ladder names, and three of CHOU's 2012 wins were
+   Internationals, which are on the strip and nowhere near it. */
+const gridRow = async day => {
+  await open(`#p=34810&hl=&pg=compare&now=${day}`);
+  await b.until('window.BST.grid.ready()', { timeout: 180000 });
+  const card = (await b.ev('window.BST.grid.cards()'))[0];
+  return card.cells.filter(c => c.year === 2012);
+};
+const gridAfter = await gridRow('2012-12-31');
+eq('the board holds two 2012 titles once the season is over',
+  gridAfter.filter(c => c.tier === 'w').length, 2);
+const gridDuring = await gridRow('2012-11-04');
+eq('and one on the day of the Bitburger final',
+  gridDuring.filter(c => c.tier === 'w').length, 1);
+
+/* ⚠️⚠️ **The check this section is really for.** That row now holds two F cells
+   — the Chinese Taipei Open, whose final he genuinely lost in October, and the
+   Bitburger, which has not been played. Same colour, same rung, and the hover is
+   the only thing that separates them: one says Runner-up and the other says In
+   the final. If that wording were ever dropped as decoration, this is what would
+   notice. */
+const finals = gridDuring.filter(c => c.tier === 'f')
+  .map(c => c.title.split('\n')[1] || c.title);
+eq('two finals in the row, one lost and one not yet played', finals.length, 2);
+check('and the hover tells them apart',
+  finals.some(t => /In the final/.test(t)) && finals.some(t => /Runner-up/.test(t)),
+  finals.join(' | '));
+
 /* ---- the winners page ---- */
 
 await b.ev(`document.querySelector('#pageNav [data-page="winners"]').click()`);
