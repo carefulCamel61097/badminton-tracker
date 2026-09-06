@@ -3081,6 +3081,96 @@ check('and it is a genuinely different ranking',
 eq('nobody has left or joined the table',
   rankPeak.length, rankTotal.length);
 
+/* ---- and the ordering that ranks seasons rather than careers ----
+
+   ⚠️⚠️ **The one where a competitor can appear twice**, which is the whole
+   reason it exists. Kento MOMOTA's 2019 and 2018 are the first and fifth best
+   men's singles seasons on this board, and `peak` - which answers once per
+   career - can only ever say the first of them. A career that burned that
+   brightly for two years and then stopped is the shape this table is for.
+   ==================================================================== */
+
+const rankSeason = await b.ev(`(() => { window.BST.score.rank('season');
+  return window.BST.score.ranks(); })()`);
+await b.wait(150);
+eq('the third chip ranks seasons', await b.ev(`window.BST.score.rank()`), 'season');
+eq('and the rows say so', rankSeason[0].mode, 'season');
+eq('the columns are a season’s, not a career’s',
+  (await b.ev(`[...document.querySelectorAll('#scoreRank th')].map(t => t.textContent)`)).join(),
+  '#,Competitor,Season,Score,Titles');
+eq('sorted on the season’s own share',
+  (await b.ev(`window.BST.score.rankBy()`)).join(), 'Score');
+check('best first', rankSeason.every((r, i) => !i || rankSeason[i - 1].score >= r.score),
+  rankSeason.slice(0, 6).map(r => r.score).join(' '));
+
+/* ⚠️⚠️ The check this whole mode was built for. */
+const momota = rankSeason.filter(r => /MOMOTA/.test(r.who));
+check('MOMOTA is in the table more than once',
+  momota.length >= 2, rankSeason.slice(0, 6).map(r => `${r.who} ${r.year}`).join(' | '));
+eq('with his best season first of all', rankSeason[0].who, 'Kento MOMOTA');
+eq('taken in 2019', rankSeason[0].year, 2019);
+check('and his second one high up the same list, where peak could not show it',
+  momota.some(r => r.year === 2018 && r.rank <= 8),
+  momota.map(r => `${r.year} #${r.rank} ${r.score}`).join(' | '));
+check('both of them the same competitor, by id',
+  new Set(momota.map(r => r.id)).size === 1, momota.map(r => r.id).join());
+
+/* ⚠️ A season row still carries what the share was made of. "7 of 10" is what
+   a score of 78.3 actually means, and it is two numbers in one cell. */
+check('every row says how many titles, out of how many there were',
+  rankSeason.every(r => r.titles > 0 && r.played >= r.titles),
+  JSON.stringify(rankSeason[0]));
+
+/* ⚠️ The pandemic mark is on the year here as well - the same gold asterisk,
+   in the one column this mode shows a year in. */
+check('a season played under the pandemic is marked',
+  rankSeason.filter(r => [2020, 2021, 2022].includes(r.year)).every(r => r.yearMarked)
+  && rankSeason.some(r => r.yearMarked),
+  rankSeason.filter(r => r.yearMarked).map(r => `${r.who} ${r.year}`).join(' | '));
+check('and an ordinary season is not',
+  rankSeason.filter(r => ![2020, 2021, 2022].includes(r.year)).every(r => !r.yearMarked),
+  rankSeason.filter(r => r.yearMarked && ![2020, 2021, 2022].includes(r.year))
+    .map(r => `${r.who} ${r.year}`).join(' | ') || 'none wrongly marked');
+
+/* ⚠️ The career the columns dropped went into the hover, because a reader
+   looking at 78.3 in one season wants to know it was one of only five. */
+check('the hover says what the career came to',
+  await b.ev(`/across the whole career/.test(
+    document.querySelector('#scoreRank .rankrow').getAttribute('title') || '')`),
+  await b.ev(`document.querySelector('#scoreRank .rankrow').getAttribute('title')`));
+
+/* ⚠️⚠️ **A pick is of a competitor, not of a season**, so clicking one of
+   MOMOTA's rows lights every row he holds. The chart above has one line for him
+   either way, and a pick that lit one row and faded the other would be claiming
+   the two seasons belong to different people. */
+await b.ev(`document.querySelectorAll('#scoreRank .rankrow')[0].click()`);
+await b.wait(250);
+const seasonLit = await b.ev(`window.BST.score.ranks()`);
+const hisRows = seasonLit.filter(r => /MOMOTA/.test(r.who));
+check('picking one of his seasons lights all of them',
+  hisRows.length >= 2 && hisRows.every(r => !r.faded),
+  hisRows.map(r => `${r.year}${r.faded ? ' faded' : ' lit'}`).join(' | '));
+check('and everybody else steps back',
+  seasonLit.filter(r => !/MOMOTA/.test(r.who)).every(r => r.faded));
+/* Escape is the way back from a pick. Dispatched inline rather than through
+   `press`, which is a `const` declared further down this file with the rest of
+   the keyboard checks and cannot be reached from up here. */
+await b.ev(`document.body.dispatchEvent(new KeyboardEvent('keydown',
+  { key: 'Escape', bubbles: true, cancelable: true }))`);
+await b.wait(150);
+check('and escape gives everybody back',
+  (await b.ev(`window.BST.score.ranks()`)).every(r => !r.faded));
+
+/* It travels in the link like the other two. */
+check('this ordering is in the link too',
+  await b.ev(`location.hash.includes('wr=season')`), await b.ev(`location.hash`));
+
+/* ⚠️ The key for it is checked further down, with the rest of this page's
+   keyboard — `press` is declared down there and a `const` cannot be reached
+   before it is. */
+await b.ev(`window.BST.score.rank('peak')`);
+await b.wait(150);
+
 /* Which ordering is on is an argument about the board, so it travels. */
 check('the ordering is in the link', await b.ev(`location.hash.includes('wr=peak')`),
   await b.ev(`location.hash`));
@@ -4356,6 +4446,28 @@ eq('up lowers the bar, showing more',
 await press('ArrowDown');
 eq('and down raises it again',
   await b.ev('window.BST.score.floor()'), floorKeyed);
+
+/* The three orderings of the dominators, on their initials.
+
+   ⚠️ **Y, not S or B**, for the one that ranks seasons: its own initial is
+   spoken for twice over on this page — S is the score view and B is the board —
+   so it takes the year's letter. A letter that stands for nothing would be
+   worse than an awkward one that stands for something, and the chip says the
+   word in full. */
+await b.ev(`window.BST.score.rank('total')`);
+await press('p');
+eq('p is the peak', await b.ev('window.BST.score.rank()'), 'peak');
+await press('y');
+eq('y is the best seasons', await b.ev('window.BST.score.rank()'), 'season');
+await press('t');
+eq('and t the total', await b.ev('window.BST.score.rank()'), 'total');
+/* ⚠️ And s still leaves the view alone rather than being eaten by the ranking —
+   the score view is already up, so the letter has nothing to do, but it must
+   not have quietly become a fourth ordering. */
+await press('s');
+eq('s is still the view, not an ordering', await b.ev('window.BST.score.rank()'), 'total');
+eq('and the view did not move', await b.ev('window.BST.score.view()'), 'score');
+
 await press('b');
 eq('b is the board again', await b.ev('window.BST.score.view()'), 'board');
 

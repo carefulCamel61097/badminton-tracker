@@ -34,7 +34,7 @@ import {
   winnersSeasons, pyramidReigns, reignLanes, REIGN_STEPS, REIGN_DEFAULT, reignStep,
   pyramidScale,
   dominationSeasons, thinSeasons, shortSeasonWhy, titleWeight, SCORE_TIERS,
-  dominationRanking, rankMode, RANK_MODES, RANK_DEFAULT,
+  dominationRanking, rankMode, ranksSeasons, RANK_MODES, RANK_DEFAULT,
   COVID_SEASONS, isCovidSeason,
   bestScoreFloor, SCORE_FLOOR_MAX, SCORE_FLOOR_STEP,
 } from './model.js';
@@ -2001,50 +2001,83 @@ function renderScoreRanking(model) {
      taken in one of those years is exactly where they would want to be told. */
   const yearMark = y => (isCovidSeason(y)
     ? '<i class="ast" aria-hidden="true">*</i>' : '');
+  const bySeason = ranksSeasons(win.rank);
   const byPeak = win.rank === 'peak';
+
+  /* ⚠️ **The name is not the row here, the season is**, so a competitor with two
+     great years gets two rows and MOMOTA's 2018 stops being invisible behind his
+     2019. Everything else about the row is the same, deliberately: the same
+     face, the same pick, the same gold asterisk on a pandemic year. Clicking one
+     of MOMOTA's rows lights *both* of them, because a pick is of a competitor
+     and always was — the chart above has one line for him either way. */
+  const seasonHead = '<tr><th class="n">#</th><th>Competitor</th>'
+    + '<th class="n">Season</th><th class="n by">Score</th>'
+    + '<th class="n">Titles</th></tr>';
+
+  const seasonRow = r =>
+    `<tr class="rankrow${lit(r.id) ? '' : ' faded'}" data-id="${esc(String(r.id))}"`
+    + ` tabindex="0" title="${esc(`${r.who.n} — ${r.year}`
+      + `
+${r.n} of the ${r.played} biggest titles that season`
+      + `
+across the whole career: ${scoreText(r.total)} in ${r.seasons} seasons`
+      + (isCovidSeason(r.year)
+        ? `
+* ${r.year} was played under the pandemic and is weighed`
+          + ' against a full season of its era.' : ''))}">`
+    + `<td class="n rk">${r.rank}</td>`
+    + `<td><span class="rkwho">${legendFace(r.who) || '<i class="noface"></i>'}`
+    + `${esc(r.who.n)}</span></td>`
+    + `<td class="n">${r.year}${yearMark(r.year)}</td>`
+    + `<td class="n by">${num(r.score)}</td>`
+    + `<td class="n">${r.n}<span class="of">of ${r.played}</span></td></tr>`;
+
   const tail = byPeak
     ? { a: 'Season', b: 'Titles', va: r => `${r.peakYear}${yearMark(r.peakYear)}`,
       vb: r => `${r.peakTitles}<span class="of">of ${r.peakPlayed}</span>` }
     : { a: 'Seasons', b: 'Titles', va: r => r.seasons, vb: r => r.titles };
 
-  $('scoreRank').innerHTML =
-    '<tr><th class="n">#</th><th>Competitor</th>'
+  const careerHead = '<tr><th class="n">#</th><th>Competitor</th>'
     + `<th class="n${byPeak ? '' : ' by'}">Total</th>`
     + `<th class="n${byPeak ? ' by' : ''}">Peak</th>`
-    + `<th class="n">${tail.a}</th><th class="n">${tail.b}</th></tr>`
-    + rankRows(rows).map(r =>
-      `<tr class="rankrow${lit(r.id) ? '' : ' faded'}" data-id="${esc(String(r.id))}"`
-      + ` tabindex="0" title="${esc(`${r.who.n}
+    + `<th class="n">${tail.a}</th><th class="n">${tail.b}</th></tr>`;
+
+  const careerRow = r =>
+    `<tr class="rankrow${lit(r.id) ? '' : ' faded'}" data-id="${esc(String(r.id))}"`
+    + ` tabindex="0" title="${esc(`${r.who.n}
 ${r.first}–${r.last}`
-        + ` · ${r.titles} titles in ${r.seasons} seasons`
-        + ` · best ${scoreText(r.peak)} in ${r.peakYear},`
-        + ` ${r.peakTitles} of ${r.peakPlayed}`
-        + (isCovidSeason(r.peakYear)
-          ? `
+      + ` · ${r.titles} titles in ${r.seasons} seasons`
+      + ` · best ${scoreText(r.peak)} in ${r.peakYear},`
+      + ` ${r.peakTitles} of ${r.peakPlayed}`
+      + (isCovidSeason(r.peakYear)
+        ? `
 * ${r.peakYear} was played under the pandemic and is weighed`
-            + ' against a full season of its era.' : ''))}">`
-      + `<td class="n rk">${r.rank}</td>`
-      /* ⚠️ There was an asterisk here, marking a career the ranking was
-         under-counting because the pandemic seasons had been set aside. Nothing
-         is set aside any more — every season a competitor won in is in these
-         numbers — so a mark meaning "there is a season here you are not being
-         shown" would be pointing at nothing. The pandemic marks that remain are
-         on the *chart*, where they say the season was odd rather than absent. */
-      + `<td><span class="rkwho">${legendFace(r.who) || '<i class="noface"></i>'}`
-      + `${esc(r.who.n)}</span></td>`
-      + `<td class="n${byPeak ? '' : ' by'}">${num(r.total)}</td>`
-      /* The year is what makes a peak a claim rather than a number — 76 in a
-         season nobody remembers is a different sentence from 76 in 2025. It is
-         a suffix here only when the sort is *not* peak; ranked on peak it has a
-         column of its own, and printing it twice reads as two facts. */
-      + `<td class="n${byPeak ? ' by' : ''}">${num(r.peak)}`
-      /* The same mark in the other place the year is shown, because it is the
-         same year and a mark that appeared under one sort and not the other
-         would read as a property of the sort. */
-      + (byPeak ? ''
-        : `<span class="yr">${r.peakYear}${yearMark(r.peakYear)}</span>`) + '</td>'
-      + `<td class="n">${tail.va(r)}</td>`
-      + `<td class="n">${tail.vb(r)}</td></tr>`).join('');
+          + ' against a full season of its era.' : ''))}">`
+    + `<td class="n rk">${r.rank}</td>`
+    /* ⚠️ There was an asterisk here, marking a career the ranking was
+       under-counting because the pandemic seasons had been set aside. Nothing
+       is set aside any more — every season a competitor won in is in these
+       numbers — so a mark meaning "there is a season here you are not being
+       shown" would be pointing at nothing. The pandemic marks that remain are
+       on the *chart*, where they say the season was odd rather than absent. */
+    + `<td><span class="rkwho">${legendFace(r.who) || '<i class="noface"></i>'}`
+    + `${esc(r.who.n)}</span></td>`
+    + `<td class="n${byPeak ? '' : ' by'}">${num(r.total)}</td>`
+    /* The year is what makes a peak a claim rather than a number — 76 in a
+       season nobody remembers is a different sentence from 76 in 2025. It is
+       a suffix here only when the sort is *not* peak; ranked on peak it has a
+       column of its own, and printing it twice reads as two facts. */
+    + `<td class="n${byPeak ? ' by' : ''}">${num(r.peak)}`
+    /* The same mark in the other place the year is shown, because it is the
+       same year and a mark that appeared under one sort and not the other
+       would read as a property of the sort. */
+    + (byPeak ? ''
+      : `<span class="yr">${r.peakYear}${yearMark(r.peakYear)}</span>`) + '</td>'
+    + `<td class="n">${tail.va(r)}</td>`
+    + `<td class="n">${tail.vb(r)}</td></tr>`;
+
+  $('scoreRank').innerHTML = (bySeason ? seasonHead : careerHead)
+    + rankRows(rows).map(bySeason ? seasonRow : careerRow).join('');
 
   const shown = rankRows(rows).length;
   $('rankMore').hidden = rows.length <= RANK_TOP;
@@ -3380,10 +3413,14 @@ function runHotkey(key) {
       // The same two keys as the honours bar and the era bar: up shows more.
       if (key === 'ArrowUp') return stepScoreFloor(-1);
       if (key === 'ArrowDown') return stepScoreFloor(1);
-      /* The two orderings of the ranking, by their initials. Neither letter is
-         doing anything else on this page. */
+      /* The orderings of the ranking, by their initials.
+         ⚠️ Except the third, which takes **Y for the year** because its own
+         initial is spoken for twice over on this page: S is the score view and
+         B is the board. A letter that stands for nothing is worse than an
+         awkward one that stands for something, and the chip says the word. */
       if (key === 't') return setRankMode('total') || true;
       if (key === 'p') return setRankMode('peak') || true;
+      if (key === 'y') return setRankMode('season') || true;
       return false;
     }
     if (key === 'e') { win.eras = !win.eras; renderWinners(); writeHash(); return true; }
@@ -4895,16 +4932,39 @@ window.BST = {
       if (on != null && win.rankAll !== !!on) $('rankMore').click();
       return win.rankAll;
     },
+    /* ⚠️ **The shape follows the mode**, because the columns do. Ranked on
+       seasons the row is a season — one competitor can hold several — and
+       `peakYear`/`seasons`/`titles` are career facts that are not on it. Read
+       `mode` before reading the rest. */
     ranks: () => [...document.querySelectorAll('#scoreRank .rankrow')].map(r => {
       const cell = i => r.children[i];
-      /* ⚠️ **Digits only.** A pandemic season carries a gold asterisk in
-         whichever column its year is shown, so `Number('2021*')` is NaN — the
-         same trap the board's ⁕ set on the season labels, and it came back the
-         moment the mark moved onto the year. Read the number out of the text
-         rather than assuming the text is a number. */
       const num = el => Number(String((el || {}).textContent || '').replace(/[^\d.-]/g, ''));
+      if (ranksSeasons(win.rank)) {
+        return {
+          id: r.dataset.id,
+          mode: 'season',
+          rank: num(cell(0)),
+          who: cell(1).textContent.trim(),
+          year: num(cell(2)),
+          yearMarked: !!cell(2).querySelector('.ast'),
+          score: Number(cell(3).textContent),
+          /* "7of 10" — the count and what it was out of, which is one cell and
+             two numbers, so they are read apart rather than as one. */
+          titles: Number(cell(4).childNodes[0].textContent),
+          played: num(cell(4).querySelector('.of')),
+          faded: r.classList.contains('faded'),
+          by: [...r.children].map(c => c.classList.contains('by')),
+        };
+      }
+      /* ⚠️ **Digits only**, which is why `num` is declared above rather than
+         here. A pandemic season carries a gold asterisk in whichever column its
+         year is shown, so `Number('2021*')` is NaN — the same trap the board's
+         ⁕ set on the season labels, and it came back the moment the mark moved
+         onto the year. Read the number out of the text rather than assuming the
+         text is a number. */
       return {
         id: r.dataset.id,
+        mode: win.rank,
         rank: num(cell(0)),
         who: cell(1).textContent.trim(),
         total: num(cell(2)),

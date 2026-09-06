@@ -776,8 +776,9 @@ collapses every New Year.
 ### Dominators: the same scores, ranked
 
 The chart says who dominated **and when**. The table under it says who dominated, full stop —
-and there is more than one honest way to answer that, so **both are always on screen and only
-the sort moves**.
+and there is more than one honest way to answer that, so there are three orderings. Two of
+them rank careers, with **both numbers on screen and only the sort moving**; the third ranks
+seasons.
 
 **Total** is every season's share added up. It rewards staying there: LEE Chong Wei never took
 44 of a season and took some of twelve of them, which is a claim about a career that no single
@@ -789,6 +790,21 @@ took 76 of 2025 and appear in two seasons, so they are **first on peak and eight
 The two orderings disagree, and the disagreement is the point. A table that showed one column
 at a time would have hidden it, so both numbers are on every row and the sorted column is
 marked rather than moved.
+
+**Best seasons** ranks the seasons themselves rather than the careers, and is the one ordering
+where a competitor appears more than once. The other two answer once per career, so a career's
+*second*-best year is invisible in them however good it was: Kento MOMOTA took **78 of 2019
+and 53 of 2018** — the first and fifth best men's singles seasons on the board — and Peak can
+only ever say the first. Five seasons in all, two of them among the best anyone has played.
+The columns become a season's — year, share, and what the share was made of — and the career
+total moves into the hover, which is what makes a short peak read as one.
+
+⚠️ **It is a different question, not a better answer.** A list of the best seasons is crowded
+by the people who had them: six competitors hold the top fifteen men's singles seasons, and
+KIDAMBI Srikanth, tenth on peak, is twenty-eighth here. That is what the list *is* — it simply
+stops being a ranking of competitors while it does it, which is why it is a third chip beside
+the other two rather than a replacement for either. Picking a row still picks the
+**competitor**, so both of MOMOTA's rows light together.
 
 ⚠️ **There is deliberately no average**, and the reason is the same one that makes the lines
 above break at a gap. This data says who *won*, not who *entered*, so a competitor has a point

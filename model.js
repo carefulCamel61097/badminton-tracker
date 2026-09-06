@@ -3665,12 +3665,18 @@ export function normalSeason(seasons, year) {
    and there is more than one honest answer.
    ==================================================================== */
 
-/** The two orderings, and nothing else is offered — see `dominationRanking`. */
+/** The three orderings, and nothing else is offered — see `dominationRanking`. */
 export const RANK_MODES = [
   { key: 'total', label: 'Total', of: 'every season added up' },
   { key: 'peak', label: 'Peak', of: 'the best single season' },
+  /* ⚠️ **The one that ranks seasons rather than careers**, and so the one where
+     a competitor can appear twice. See `seasonRanking`. */
+  { key: 'season', label: 'Best seasons', of: 'every season on its own' },
 ];
 export const RANK_DEFAULT = 'total';
+
+/** Whether a mode ranks seasons rather than careers, which changes the row. */
+export const ranksSeasons = mode => rankMode(mode).key === 'season';
 
 export function rankMode(key) {
   return RANK_MODES.find(m => m.key === key) || RANK_MODES[0];
@@ -3713,7 +3719,8 @@ export function rankMode(key) {
  * win, in a season this ranking cannot weigh.
  *
  * @param {object} model  a `dominationSeasons` result
- * @param {string} mode  'total' or 'peak'
+ * @param {string} mode  'total' or 'peak' — 'season' is handed to
+ *   `seasonRanking`, whose rows are seasons and have a different shape
  * ⚠⚠ **The season in progress counts only when it has a whole-year
  * denominator.** With one — `dominationSeasons` marks the season `forecast` —
  * a part-played year is a *lower bound*: the numerator grows, the denominator
@@ -3727,7 +3734,77 @@ export function rankMode(key) {
  *   `seasons`, and `rank` — which is **shared on a tie**, so two equal careers
  *   are not put in an order the numbers do not support.
  */
+/**
+ * Every *season* anybody won something in, ranked, best first.
+ *
+ * ⚠️⚠️ **The ranked thing is a season, not a career, and that is the whole
+ * point.** `peak` asks "who reached the highest" and answers once per
+ * competitor; a career's second-best season is invisible there however good it
+ * was. Kento MOMOTA took **78.3 of 2019 and 53.0 of 2018** — first and fifth of
+ * every men's singles season on this board — and the peak table can only say
+ * the first of those. A career that burned that brightly for two years and then
+ * stopped is exactly the shape this table exists to show.
+ *
+ * ⚠️ **It is not a better `peak`, it is a different question**, and it is
+ * offered alongside rather than instead. Measured over the board: the top
+ * fifteen men's singles seasons are held by **six** people — AXELSEN has four
+ * of them and LIN Dan four — and KIDAMBI Srikanth, tenth on peak, is
+ * twenty-eighth here. That is not a flaw to be corrected. A list of the best
+ * seasons *should* be crowded by the people who had the best seasons; it simply
+ * stops being a ranking of competitors while it does, which is why the ranking
+ * of competitors is still there on the other two chips.
+ *
+ * ⚠️ The columns change with it. A career total and a career peak are the same
+ * number on both of MOMOTA's rows, so printing them beside a single season
+ * would be repeating a fact about somebody else's question. What a season row
+ * owes the reader is the year, the share, and what that share was made of.
+ *
+ * @param {object} model  a `dominationSeasons` result
+ * @returns {Array} one row per competitor-season, each with `id`, `who`,
+ *   `year`, `score`, `n`, `played`, the career's `total`/`seasons` for the
+ *   hover, and `rank` — **shared on a tie**, as in `dominationRanking`.
+ */
+export function seasonRanking(model) {
+  const bare = new Set(((model && model.seasons) || [])
+    .filter(s => s.ongoing && !s.forecast).map(s => Number(s.year)));
+
+  const rows = [];
+  for (const p of (model && model.people) || []) {
+    /* The career's own figures, computed over the same seasons the other two
+       modes count, so a hover here and a row there cannot disagree. */
+    const pts = p.pts.filter(pt => !bare.has(Number(pt.year)));
+    if (!pts.length) continue;
+    const total = pts.reduce((n, pt) => n + pt.score, 0);
+    for (const pt of pts) {
+      rows.push({
+        id: p.id, who: p.who, colour: p.colour || '',
+        year: pt.year, score: pt.score, n: pt.n, played: pt.played,
+        // Carried for the hover, which is where the career went when the
+        // columns became a season's.
+        total, seasons: pts.length,
+      });
+    }
+  }
+
+  /* The year breaks a tie, oldest first, and the name breaks that — so the
+     order is fixed by the data rather than by the order the file was read in.
+     Two seasons that tie are still given the same rank. */
+  rows.sort((a, b) => b.score - a.score || a.year - b.year
+    || (a.who.n < b.who.n ? -1 : a.who.n > b.who.n ? 1 : 0));
+  let rank = 0, seen = null;
+  rows.forEach((r, i) => {
+    if (seen === null || r.score !== seen) { rank = i + 1; seen = r.score; }
+    r.rank = rank;
+  });
+  return rows;
+}
+
 export function dominationRanking(model, mode) {
+  /* ⚠️ Dispatched here rather than at the call site, so a caller cannot ask for
+     'season' and get a career ranking sorted on a field that does not exist —
+     which is silently `undefined` and therefore silently the file's own order. */
+  if (ranksSeasons(mode)) return seasonRanking(model);
+
   const key = rankMode(mode).key;
   /* ⚠️ The **only** reason a season is left out, now that the pandemic ones are
      weighed rather than dropped: a year still being played that has no calendar

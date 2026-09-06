@@ -1735,6 +1735,56 @@ the page opens on a U19 Open — and **cancelled events**, on `status.code` rath
 name, the same rule `harvest-calendar.mjs` uses and for the same reason. BWF's own `nextTmt` that
 day was "Abu Dhabi Masters 2026 (Cancelled)".
 
+### 3.4x Ranking the seasons, not the careers *(built 6 Sep 2026)*
+
+Asked for by the user, and for a reason worth keeping: **"it would show how impressive
+MOMOTA's short peak was."**
+
+⚠️⚠️ **`peak` answers once per career, so a career's second-best season is invisible in it
+however good it was.** Kento MOMOTA took **78.3 of 2019 and 53.0 of 2018** — the first and
+fifth best men's singles seasons on the board — and the peak table can only ever say the
+first of those. A career of five seasons, two of them among the best anyone has played, is
+exactly the shape that ranking cannot draw. `seasonRanking` ranks the seasons themselves, so
+a competitor appears as often as they have seasons.
+
+⚠️ **A third chip, not a replacement, and the numbers say why.** Measured over the board:
+
+| | one row per career | one row per season |
+|---|---|---|
+| top 15, men's singles | 15 people | **6 people** — AXELSEN ×4, LIN Dan ×4 |
+| KIDAMBI Srikanth | 10th | **28th** |
+| career top 10 still in the top 15 | all | 6 of 10 (MS), 7 of 10 (XD) |
+
+Women's singles is gentler — ten distinct people, nobody displaced — and men's collapses.
+That is not a flaw to correct. A list of the best seasons *should* be crowded by the people
+who had the best seasons; it simply stops being a ranking of competitors while it is, which
+is why the ranking of competitors is still one chip away. Two questions, two lists.
+
+⚠️ **The columns change with the mode.** A career total and a career peak are the *same
+number* on both of MOMOTA's rows, so printing them beside a single season would be answering
+somebody else's question twice over. A season row owes the reader the year, the share, and
+what the share was made of — `# · Competitor · Season · Score · Titles`. The career goes into
+the hover, where "across the whole career: 163 in 5 seasons" is the thing that makes a short
+peak read as short.
+
+⚠️ **A pick is of a competitor, not of a season.** Clicking one of MOMOTA's rows lights every
+row he holds, because the chart above has one line for him either way — a pick that lit one
+and faded the other would be claiming the two seasons belong to different people.
+
+⚠️ `dominationRanking` **dispatches** to it rather than the call site choosing. A caller that
+asked for `'season'` and got a career ranking would be sorting on `rows['season']`, which is
+`undefined` on every row, which is silently the order the file was read in — a ranking that
+is not a ranking and does not look wrong.
+
+⚠️ **The hotkey is Y**, for the year. Its own initial is spoken for twice over on this page:
+`s` is the score view and `b` is the board. A letter that stands for nothing would be worse
+than an awkward one that stands for something, and the chip says the words in full.
+
+⚠️ `BST.score.ranks()` now returns **two shapes**, and carries `mode` so a caller can tell
+which. The season rows have `year`/`score`/`titles`/`played`; `peakYear`, `seasons` and
+`titles` are career facts that are not on them. A hook that reads a table by column index has
+to know what the columns are.
+
 ### 3.4w A final that has not been played yet *(fixed 6 Sep 2026)*
 
 Reported by the user, from the live page: **Tomoka MIYAZAKI showed a China Masters win on

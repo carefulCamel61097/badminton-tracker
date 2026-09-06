@@ -41,7 +41,7 @@ import {
   LEVEL, SLOT_W, BOX_H, MIN_LABEL_PX, LEVEL_ORDER,
   titleWeight, dominationSeasons, thinSeasons, shortSeasonWhy,
   bestScoreFloor, SCORE_FLOOR_STEP,
-  dominationRanking, rankMode, RANK_MODES, RANK_DEFAULT,
+  dominationRanking, seasonRanking, ranksSeasons, rankMode, RANK_MODES, RANK_DEFAULT,
   COVID_SEASONS, isCovidSeason, normalSeason,
 } from '../model.js';
 import {
@@ -3027,8 +3027,9 @@ eq('nothing to draw is a bar of nothing',
 
 console.log('\n=== the dominators, ranked ===');
 
-/* Two honest orderings and no third. The chart says who dominated *and when*;
-   this says who dominated, full stop. */
+/* The chart says who dominated *and when*; these say who dominated, full stop —
+   and there is more than one honest answer, so there are three orderings. Two
+   of them rank careers and the third ranks seasons. */
 
 const rankModel = {
   years: [2020, 2021, 2022],
@@ -3081,8 +3082,8 @@ eq('an unknown mode falls back rather than throwing',
   dominationRanking(rankModel, 'mean').map(r => r.id).join(),
   byTotal.map(r => r.id).join());
 eq('and nothing at all ranks nothing', dominationRanking(null, 'total').length, 0);
-eq('the modes on offer are exactly two',
-  RANK_MODES.map(m => m.key).join(','), 'total,peak');
+eq('the modes on offer are exactly three',
+  RANK_MODES.map(m => m.key).join(','), 'total,peak,season');
 /* ⚠️ **And there is deliberately no mean.** This data says who *won*, not who
    *entered*, so the seasons a competitor played and won nothing are missing
    from the divisor rather than sitting in it as zeroes: SHARP would average 80
@@ -3091,6 +3092,63 @@ eq('the modes on offer are exactly two',
 check('and a mean is not one of them',
   !RANK_MODES.some(m => /mean|average/i.test(m.key + m.label)),
   RANK_MODES.map(m => m.label).join(','));
+
+console.log('\n=== and one that ranks seasons rather than careers ===');
+
+/* ⚠️⚠️ **A competitor can appear more than once here, and that is the point.**
+   `peak` answers once per career, so a career's second-best season is invisible
+   however good it was. Kento MOMOTA took 78.3 of 2019 and 53.0 of 2018 - first
+   and fifth of every men's singles season on the real board - and `peak` can
+   only ever say the first of those. */
+const bySeasonToy = dominationRanking(rankModel, 'season');
+eq('every season anybody won in gets a row', bySeasonToy.length, 5);
+eq('best first, whoever played it',
+  bySeasonToy.map(r => `${r.who.n}:${r.year}`).join(','),
+  'SHARP:2021,LONG:2020,LONG:2021,LONG:2022,SMALL:2022');
+eq('and one competitor holds three of them',
+  bySeasonToy.filter(r => r.who.n === 'LONG').length, 3);
+check('which is exactly what a career ranking cannot say',
+  dominationRanking(rankModel, 'peak').filter(r => r.who.n === 'LONG').length === 1);
+
+/* The row is a season, so it carries a season's facts. */
+eq('a row knows its year', bySeasonToy[0].year, 2021);
+eq('and its share', Number(bySeasonToy[0].score.toFixed(6)), 0.8);
+eq('and what that share was made of', bySeasonToy[0].n, 8);
+/* ⚠️ The career goes in the hover rather than the columns, because a career
+   total is the same number on every row that competitor holds - printing it
+   beside a single season would be answering somebody else's question, over and
+   over. */
+eq('the career total rides along for the hover',
+  Number(bySeasonToy.find(r => r.who.n === 'LONG').total.toFixed(6)), 0.9);
+eq('and how many seasons it is out of',
+  bySeasonToy.find(r => r.who.n === 'LONG').seasons, 3);
+
+/* ⚠️ Ranks are shared on a tie here too, and the *year* breaks the tie for
+   order - so three equal seasons read oldest first rather than in whatever
+   order the file was walked in. */
+eq('equal seasons share a rank, and the next rank skips past them',
+  bySeasonToy.map(r => r.rank).join(','), '1,2,2,2,5');
+
+const seasonTied = seasonRanking({ people: [
+  { id: 'a', who: { n: 'AAA' }, pts: [
+    { year: 2020, score: 0.5, n: 1 }, { year: 2015, score: 0.5, n: 1 }] },
+  { id: 'b', who: { n: 'BBB' }, pts: [{ year: 2021, score: 0.2, n: 1 }] },
+] });
+eq('including when they belong to the same competitor',
+  seasonTied.map(r => r.rank).join(','), '1,1,3');
+eq('and the older one is listed first',
+  seasonTied.map(r => r.year).join(','), '2015,2020,2021');
+
+eq('the mode says which kind of row it makes', ranksSeasons('season'), true);
+check('and the other two do not',
+  !ranksSeasons('total') && !ranksSeasons('peak') && !ranksSeasons('nonsense'));
+/* ⚠️⚠️ Asked for through `dominationRanking`, so a caller cannot ask for
+   'season' and get a *career* ranking sorted on a field no row has - which is
+   `undefined` everywhere, and therefore silently the order the file was read
+   in rather than any ranking at all. */
+eq('and asking the ordinary way gets season rows',
+  dominationRanking(rankModel, 'season')[0].year, 2021);
+eq('nothing at all still ranks nothing', dominationRanking(null, 'season').length, 0);
 
 /* ---- over a real board ---- */
 
