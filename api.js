@@ -11,7 +11,7 @@
  * and cached.
  */
 
-import { parseSeason, settleWinnerOrder } from './model.js';
+import { parseSeason, settleWinnerOrder, scheduleFromYear, dayOf } from './model.js';
 
 export const API = 'https://extranet-lv.bwfbadminton.com/api';
 
@@ -139,8 +139,13 @@ export function getJSON(path, params, opts = {}) {
   const hit = opts.fresh ? null : cacheGet(key, opts.persist, ttl);
   if (hit !== null) return Promise.resolve(hit);
 
+  /* ⚠️ Two goes by default, because the retry is there for **rate limiting** —
+     BWF answers 200 with an empty body — and a second ask a moment later gets
+     the data. `tries: 1` is for a call whose failure is known not to be
+     transient, where the 1.2s wait buys nothing and delays the fallback. */
+  const tries = Math.max(1, Number(opts.tries) || 2);
   const run = async () => {
-    for (let attempt = 0; attempt < 2; attempt++) {
+    for (let attempt = 0; attempt < tries; attempt++) {
       if (attempt) await sleep(1200);
       try {
         const res = await fetch(url, { method: 'GET', mode: 'cors', credentials: 'omit' });
@@ -553,13 +558,56 @@ export function loadWinners(code = 'MS') {
 
    `vue-tmt-schedule` is 1.8 KB and answers the whole question of which
    tournament the app should be showing: the one with live scores, the one
-   before it, and the one after, each with BWF's own label. Nothing here has to
-   know today's calendar.
+   before it, and the one after, each with BWF's own label.
+
+   ⚠️ It used to say "nothing here has to know today's calendar", and that is no
+   longer true — it is true of the *first* call and not of the fallback beneath
+   it, which works the three slots out of a year's tournament list because BWF
+   will not serve that one route to the deployed origin. See `loadSchedule`.
    ==================================================================== */
 
-/** Which tournament is live, which just finished, which is next. */
-export function loadSchedule(opts = {}) {
-  return getJSON('vue-tmt-schedule', { drawCount: 1 }, opts);
+/** Every tournament BWF lists for one year, flattened out of its month groups. */
+async function yearTournaments(year, opts = {}) {
+  const raw = await getJSON('vue-grouped-year-tournaments', { year }, opts);
+  return ((raw && raw.results) || []).flatMap(m => m.tournaments || []);
+}
+
+/**
+ * Which tournament is live, which just finished, which is next.
+ *
+ * ⚠️⚠️ **The first call fails on the deployed site and the second one is why
+ * this page works at all.** `vue-tmt-schedule` is the single route on BWF's API
+ * that does not reflect the request origin into `Access-Control-Allow-Origin`:
+ * from `https://carefulcamel61097.github.io` it fails CORS outright, while every
+ * other route this app touches answers 200 with the origin echoed back and
+ * `Vary: Origin` set properly. Measured 6 September 2026 — every attempt, and
+ * with `cache: 'reload'` to rule out a stale cached copy. It works from
+ * `http://127.0.0.1`, which is why the suite never saw it, and from BWF's own
+ * pages. Nothing about the request can be changed to fix it.
+ *
+ * ⚠️ **Still tried first, every time.** The primary source stays primary: it is
+ * one failed request — the retry is turned off below, so it really is one — and
+ * the day BWF fixes their edge config the page goes back to their own answer
+ * with no release. A client-side flag remembering that the server is broken
+ * would outlive the breakage.
+ */
+export async function loadSchedule(opts = {}) {
+  try {
+    /* ⚠️ **One go, not two.** A route that refuses this origin refuses it every
+       time, and the default retry would put a 1.2s wait and a second doomed
+       request in front of the fallback on every single load of this page. */
+    return await getJSON('vue-tmt-schedule', { drawCount: 1 }, { tries: 1, ...opts });
+  } catch {
+    const today = new Date().toISOString().slice(0, 10);
+    const year = Number(today.slice(0, 4));
+    const list = await yearTournaments(year, opts);
+    /* ⚠️ December, where the next tournament is in January and this year's list
+       cannot see it. Asked only when nothing at all in the year is still ahead,
+       so an ordinary week is one extra call and not two. */
+    const more = list.some(t => dayOf(t.start_date) > today)
+      ? [] : await yearTournaments(year + 1, opts);
+    return scheduleFromYear(list.concat(more), today);
+  }
 }
 
 /* ---- the draws, and the brackets in them ----

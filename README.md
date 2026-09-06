@@ -211,6 +211,25 @@ search box stays, because it is how you leave for a player. One 1.8 KB call to B
 scores, which one just finished and which is next; the page shows the right one and says
 which of the three it is.
 
+⚠️⚠️ **One BWF route will not answer the deployed site, and the Tournament page routes around
+it.** `vue-tmt-schedule` — "which tournament is live, which just finished, which is next" — is
+the single route on their API that does not reflect the request origin into
+`Access-Control-Allow-Origin`, so from `https://carefulcamel61097.github.io` it fails CORS while
+every other route the app touches answers 200 with the origin echoed back and `Vary: Origin` set.
+It works from `http://127.0.0.1`, which is why the whole test suite is blind to it. Measured 6
+September 2026 on every attempt, cache-busted.
+
+`loadSchedule` therefore asks for it and, when it fails, rebuilds the same three slots out of
+`vue-grouped-year-tournaments`, which does answer and carries everything `pickTournament` reads.
+The primary is still tried first on every load — the day BWF fixes the route the page goes back
+to their own answer without a release — but with the retry turned off, since a route that refuses
+this origin refuses it every time.
+
+The rebuilt schedule is filtered in two ways BWF's own is not: to tournaments on the board (the
+year list is all 308 events, juniors and para included) and past cancelled ones, on `status.code`
+rather than on the name. See `scheduleFromYear`.
+
+
 A day bar runs across the tournament's dates and opens on today — or on the last day if it
 is over, the first if it has not started. Below it the order of play, laid out as a grid:
 **one column per court, one row per moment in the day**. Two cards level with each other were

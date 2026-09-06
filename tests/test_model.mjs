@@ -32,7 +32,8 @@ import {
   gridGroupLabel, gridGroupCode, gridGroupShort,
   HONOUR_STEPS, HONOUR_DEFAULT, honourStep, honourScale, honourRung,
   careerHonours, honourSections,
-  pickTournament, scheduleGroup, tournamentDays, defaultDay, parseDayMatches, orderOfPlay,
+  pickTournament, scheduleGroup, scheduleFromYear, tournamentDays, defaultDay,
+  parseDayMatches, orderOfPlay,
   nameScore, rosterMatches, mergeSuggestions,
   parseDrawList, parseDraw, bracketRounds, autoFromCol, fromCol, resolvedRound,
   bracketLayout, SLOT,
@@ -1305,6 +1306,91 @@ eq('long afterwards it falls back to the last one played', far.state, 'finished'
 eq('a payload with nothing in it is nothing, not a crash',
   pickTournament({}, '2026-08-23'), null);
 eq('and neither is no payload at all', pickTournament(null, '2026-08-23'), null);
+
+/* ---- rebuilding the schedule when BWF will not serve it ---- */
+
+/* ⚠️⚠️ `vue-tmt-schedule` is the one route on BWF's API that does not reflect
+   the request origin into `Access-Control-Allow-Origin`, so it fails CORS from
+   the deployed site while every other route answers. It works from localhost,
+   which is exactly why the browser suite cannot see the bug — so the fallback
+   is proved here, on a constructed year list, rather than there. */
+console.log('\n=== a schedule built out of the year list ===');
+
+const tmtOf = (id, name, from, to, suffix, extra = {}) => ({
+  id, code: `C${id}`, name, slug: String(name).toLowerCase().replace(/\W+/g, '-'),
+  start_date: `${from} 00:00:00`, end_date: `${to} 00:00:00`,
+  cat_logo: suffix
+    ? `https://bwfbadminton.com/x/tournament/suffix_${suffix}-01.svg` : null,
+  url: `https://bwfbadminton.com/tournament/${id}`,
+  ...extra,
+});
+
+const year = [
+  tmtOf(1, 'Old Open', '2026-01-05', '2026-01-10', '750'),
+  tmtOf(2, 'Last Week Open', '2026-08-24', '2026-08-29', '1000'),
+  tmtOf(3, 'Small Masters', '2026-09-01', '2026-09-06', '100'),
+  tmtOf(4, 'Big Open', '2026-09-01', '2026-09-06', '750'),
+  tmtOf(5, 'Next Open', '2026-09-14', '2026-09-19', '500'),
+  tmtOf(6, 'Later Open', '2026-09-28', '2026-10-03', '1000'),
+  // Not on the board at all: the year list is every event BWF runs.
+  tmtOf(7, 'Someplace Junior U19', '2026-09-02', '2026-09-05', null),
+];
+
+const built = scheduleFromYear(year, '2026-09-03');
+check('the two tournaments running today fill the two live slots',
+  [built.nextLive, built.nextTmt].every(t => t && /Open|Masters/.test(t.name))
+  && [built.nextLive.id, built.nextTmt.id].sort().join(',') === '3,4',
+  `${built.nextLive && built.nextLive.name} / ${built.nextTmt && built.nextTmt.name}`);
+eq('the biggest of them is the one the page opens on',
+  pickTournament(built, '2026-09-03').tmt.name, 'Big Open');
+eq('and the other is offered beside it',
+  pickTournament(built, '2026-09-03').also.map(t => t.name).join(','), 'Small Masters');
+eq('the most recently finished one is the third slot',
+  built.previousTmt.name, 'Last Week Open');
+/* ⚠️ The year list is every tournament BWF runs — 308 of them in 2026, juniors,
+   para and Future Series included. Unfiltered, the page opens on a U19 event. */
+check('a tournament off the board is not offered at all',
+  ![built.nextLive, built.nextTmt, built.previousTmt]
+    .some(t => t && /Junior/.test(t.name)),
+  JSON.stringify([built.nextLive, built.nextTmt, built.previousTmt]
+    .map(t => t && t.name)));
+
+/* Nothing on today: the next two ahead, soonest first, and the last one done. */
+const quiet = scheduleFromYear(year, '2026-09-10');
+eq('with nothing running, the soonest ahead comes first', quiet.nextLive.name, 'Next Open');
+eq('then the one after it', quiet.nextTmt.name, 'Later Open');
+eq('and the one that just finished is still the third slot',
+  quiet.previousTmt.name, 'Big Open');
+eq('which the page reads as upcoming',
+  pickTournament(quiet, '2026-09-10').state, 'upcoming');
+
+/* ⚠️ The shape has to be the *schedule's*, so nothing downstream knows which
+   source it came from. `cat_logo` in particular becomes `catLogo`, which is what
+   `scheduleGroup` reads — get it wrong and every tournament is unrecognised and
+   "the biggest one" silently becomes "whichever came first". */
+check('the slots carry the schedule’s own field names',
+  built.nextLive.catLogo && built.nextLive.tmtLink && built.nextLive.code,
+  JSON.stringify(built.nextLive));
+eq('so the ladder can still tell them apart',
+  scheduleGroup(built.nextLive) != null, true);
+
+/* ⚠️ Cancelled events stay on the calendar with `status.code`, and BWF's own
+   payload does offer them — on 6 September 2026 its `nextTmt` was "Abu Dhabi
+   Masters 2026 (Cancelled)". Filtered on the field, not the name: the suffix is
+   inconsistent, "2021(Cancelled)" against "2022 (Cancelled)". */
+const withDead = scheduleFromYear(year.concat([
+  tmtOf(8, 'Abu Dhabi Masters (Cancelled)', '2026-09-08', '2026-09-12', '750',
+    { status: { code: 'cancelled' } }),
+]), '2026-09-10');
+eq('a cancelled tournament is never offered', withDead.nextLive.name, 'Next Open');
+
+/* Total over any list, because a page that throws has nothing to show. */
+check('an empty list gives three empty slots', (() => {
+  const none = scheduleFromYear([], '2026-09-03');
+  return !none.nextLive && !none.nextTmt && !none.previousTmt;
+})());
+eq('and the page reads that as nothing to show',
+  pickTournament(scheduleFromYear([], '2026-09-03'), '2026-09-03'), null);
 
 /* ======================== matching a name as it is typed ========================
 

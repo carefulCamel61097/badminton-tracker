@@ -1686,6 +1686,55 @@ other chip row has ("Levels", "Day", "Draws"), wrong for a sentence. Left at 58 
 and printed straight over the link beside it, and `white-space: nowrap` alone only made the
 overlap longer.
 
+### 3.5a One BWF route will not answer the deployed site *(fixed 6 Sep 2026)*
+
+The Tournament page on https://carefulcamel61097.github.io said **"Could not load from BWF:
+Failed to fetch"**. Reported by the user; it had presumably never worked there.
+
+⚠️⚠️ **`vue-tmt-schedule` is the only route on BWF's API that does not reflect the request
+origin into `Access-Control-Allow-Origin`.** Measured from the deployed origin, 6 September
+2026:
+
+| call | from github.io | from 127.0.0.1 |
+|---|---|---|
+| `vue-tmt-schedule` | **blocked** | 200 |
+| `vue-player-summary` | 200 | 200 |
+| `vue-tournament-draws` | 200 | 200 |
+| `tournaments/day-matches` | 200 | 200 |
+| `vue-popular-players` | 200 | 200 |
+
+Every working route comes back with `access-control-allow-origin: https://carefulcamel61097.github.io`
+and `vary: Origin`, so their CORS setup is right in general and has a gap on one route. The
+broken one fails on every attempt and with `cache: 'reload'`, so it is not a cached copy carrying
+somebody else's ACAO. Nothing about the request changes it.
+
+⚠️ **Only the Tournament page was affected**, and only its opening call — the same page's
+`vue-tournament-draws` and `day-matches` are fine, and Seasons, Compare and the search were never
+broken. Worth checking before assuming a site-wide outage.
+
+⚠️⚠️ **The suite is blind to this and always will be**, because every test runs on
+`http://127.0.0.1`, where the route works. So `scheduleFromYear` is proved in the *model* suite
+on a constructed year list, and the recovery was verified by blocking the route at the network
+layer with `Network.setBlockedURLs` — which is exactly what CORS does to it in the wild.
+
+**The fix**: `loadSchedule` asks for the schedule, and on failure rebuilds the same three slots
+out of `vue-grouped-year-tournaments`, which does answer and carries `id`, `code`, `name`,
+`start_date`, `end_date` and `cat_logo` — everything `pickTournament` reads. Verified on 6
+September 2026 to pick the same tournament BWF's own payload picks (LI-NING China Masters 2026,
+live), and to find the second live tournament that BWF's payload had already dropped.
+
+⚠️ **The primary is still tried first, on every load.** A client-side flag remembering that the
+server is broken would outlive the breakage; the day BWF fixes the route the page goes back to
+their answer with no release. What it does *not* do is retry — `getJSON` grew a `tries` option
+for this, because the default second attempt is there for rate limiting and a route that refuses
+this origin refuses it every time, so the retry only put a 1.2s wait in front of the fallback.
+
+⚠️ **The rebuilt schedule filters two things BWF's own payload does not.** Tournaments off the
+board — the year list is all 308 events including juniors, para and Future Series, so unfiltered
+the page opens on a U19 Open — and **cancelled events**, on `status.code` rather than on the
+name, the same rule `harvest-calendar.mjs` uses and for the same reason. BWF's own `nextTmt` that
+day was "Abu Dhabi Masters 2026 (Cancelled)".
+
 ### 3.4s The pandemic seasons, and the year still running *(built 5 Sep 2026)*
 
 **Which seasons and why.** What is *done* with them is 3.4u — one denominator, no toggle —

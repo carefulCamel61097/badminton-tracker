@@ -1836,6 +1836,85 @@ export function pickTournament(schedule, today, wantCode) {
   return any ? { tmt: any, state: 'finished', also: [] } : null;
 }
 
+/**
+ * A `vue-tmt-schedule` payload, rebuilt out of a year's tournament list.
+ *
+ * ⚠️⚠️ **This exists because BWF's own schedule endpoint is not reachable from
+ * the deployed site.** `vue-tmt-schedule` is the one route on their API that
+ * does not reflect the request origin into `Access-Control-Allow-Origin`, so
+ * from `https://carefulcamel61097.github.io` it fails CORS while every other
+ * route — `vue-player-summary`, `vue-tournament-draws`, `tournaments/day-matches`
+ * and the rest — answers 200 with the origin echoed back and `Vary: Origin` set
+ * correctly. Measured 6 September 2026, on every attempt, with `cache: 'reload'`.
+ * It works from `http://127.0.0.1`, which is why the whole suite is blind to it,
+ * and from BWF's own pages. Nothing we send changes it; it is a gap in their
+ * edge config on one route.
+ *
+ * `vue-grouped-year-tournaments` does answer, and carries everything the three
+ * slots need. So the page asks for the schedule, and falls back to this.
+ *
+ * ⚠️ **Filtered to what the schedule endpoint would itself have returned.** The
+ * year list is every tournament BWF runs — 308 of them in 2026, juniors, para,
+ * Future Series — and unfiltered this would open the page on a U19 event. Only
+ * tournaments `scheduleGroup` recognises survive, which is the same ladder
+ * `stakes` ranks by, so the two cannot drift.
+ *
+ * ⚠️ The field names differ between the two endpoints and the shape returned
+ * here is the **schedule's**, so nothing downstream has to know which source it
+ * came from: `cat_logo` becomes `catLogo` (which is what `scheduleGroup` reads,
+ * and getting it wrong silently makes every tournament unrecognised and the
+ * biggest-first choice arbitrary), and `url` becomes `tmtLink`.
+ *
+ * @param {Array} list  tournaments from `vue-grouped-year-tournaments`
+ * @param {string} today  `YYYY-MM-DD`
+ * @returns {{nextLive, nextTmt, previousTmt}} the shape `pickTournament` reads
+ */
+export function scheduleFromYear(list, today) {
+  /* ⚠️ **Cancelled events are still on the calendar** and must not be offered.
+     BWF leaves them in with `status.code === 'cancelled'`, and the flag is on
+     the field rather than the name — the "(Cancelled)" suffix is inconsistent,
+     "2021(Cancelled)" against "2022 (Cancelled)". `harvest-calendar.mjs` filters
+     on the same field for the same reason; this is that rule, in the second
+     place that needs it. Their own payload does *not* do this — on 6 September
+     2026 its `nextTmt` was "Abu Dhabi Masters 2026 (Cancelled)" — so the page
+     would otherwise open on an event that is never going to be played. */
+  const off = t => !!(t.status && String(t.status.code) === 'cancelled');
+  const slot = t => ({
+    id: t.id, code: t.code, name: t.name, slug: t.slug,
+    start_date: t.start_date, end_date: t.end_date, date: t.date,
+    catLogo: t.catLogo || t.cat_logo || null,
+    tmtLink: t.tmtLink || t.url || null,
+    tmtLogo: t.tmtLogo || t.logo || null,
+    label: t.label || null,
+  });
+  const board = (list || []).filter(t => !off(t)).map(slot)
+    .filter(t => dayOf(t.start_date) && dayOf(t.end_date) && scheduleGroup(t) != null);
+
+  const live = board.filter(t => within(today, dayOf(t.start_date), dayOf(t.end_date)))
+    .sort((a, b) => stakes(a) - stakes(b));
+  const upcoming = board.filter(t => dayOf(t.start_date) > today)
+    .sort((a, b) => (dayOf(a.start_date) < dayOf(b.start_date) ? -1
+      : dayOf(a.start_date) > dayOf(b.start_date) ? 1 : stakes(a) - stakes(b)));
+  const finished = board.filter(t => dayOf(t.end_date) < today)
+    .sort((a, b) => (dayOf(a.end_date) > dayOf(b.end_date) ? -1
+      : dayOf(a.end_date) < dayOf(b.end_date) ? 1 : stakes(a) - stakes(b)));
+
+  /* ⚠️ **Two slots go to the live ones when two are live**, because BWF streams
+     more than one at a time and `pickTournament` reads all three slots looking
+     for them — on 1-6 September 2026 a Super 100 and a Super 750 ran together
+     and the page has to be able to offer both. A third would be dropped, which
+     is what the real payload does too: it has three slots and no more. */
+  return {
+    nextLive: live[0] || upcoming[0] || null,
+    nextTmt: live[1] || (live.length ? upcoming[0] : upcoming[1]) || null,
+    /* No dedup needed against the other two: this one ended before today and
+       both of those end on or after it, so the three sets are disjoint by
+       construction. The same tournament in two slots would make it its own
+       alternative and the page would offer "Also on: itself". */
+    previousTmt: finished[0] || null,
+  };
+}
+
 /** Every day of a tournament, first to last. */
 export function tournamentDays(tmt) {
   const from = dayOf(tmt && tmt.start_date);
