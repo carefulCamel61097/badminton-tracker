@@ -796,6 +796,22 @@ Olympics, a Worlds and two World Tour Finals), and substituting the normal figur
 no adjustment at all, because it was not short. AXELSEN's peak sits in that season. Known,
 accepted, and the reason the pandemic marks on the chart are not decoration.
 
+⚠️ **Every mark for a pandemic season takes the same set, and it is a union.** A faint column
+behind the plot, the word "Covid" at its foot, an amber asterisk beside the year, an amber bar in
+the strip below it, an asterisk in the season tables and one on the season in the Dominators
+ranking — all of them mean "do not read this as an ordinary season", and all of them fire for
+*either* reason: far fewer titles than the seasons around it, **or** the pandemic. 2021 is why
+that matters: it held ten titles, the same as 2018, so a count cannot find it, and it spent three
+commits picking up the marks one at a time.
+
+What stays on the count alone is the *dimming* of a row and the *dashing* of a line, because
+those two really do mean "barely anything was played" — 2021 played a full complement and reads
+at full strength.
+
+⚠️ **The ranking's asterisk is on the season, never on the competitor.** A peak taken in 2021 is
+a fact about 2021. An earlier mark sat beside the name and meant "this career is being
+under-counted"; it belonged to the reading that set those seasons aside and went with it.
+
 ⚠️ **The Show bar follows, being derived from the scores.** The men's singles opens at 15 rather
 than the 40 it sat at when a pandemic season was a share of its own three titles, because 2020's
 best season is now a 17 rather than a 69 and the bar's rule is not to drop a season's leader.

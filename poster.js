@@ -963,14 +963,16 @@ export async function drawScorePoster(file, opts) {
   for (const yr of L.years) {
     const s = L.model.seasons.find(q => q.year === yr);
     const h = L.thin.max ? (S.stripH * s.total) / L.thin.max : 0;
-    ctx.fillStyle = L.thin.set.has(yr) ? 'rgba(255,188,32,.75)' : 'rgba(255,255,255,.14)';
+    ctx.fillStyle = L.marked.has(yr) ? 'rgba(255,188,32,.75)' : 'rgba(255,255,255,.14)';
     ctx.fillRect(L.x(yr) - bw / 2, L.stripTop + S.stripH - h, bw,
       Math.max(h, s.total ? 1 : 0));
-    /* ⚠️ The **thin** set here and not the union, because this is the page's
-       rule: the strip is a count, and what it warns about is a count. 2021 held
-       ten titles and its bar is an ordinary bar; what was wrong with 2021 shows
-       up in the column behind the plot and the mark beside the year. */
-    ctx.fillStyle = L.thin.set.has(yr) ? '#ffbc20' : P.dim;
+    /* ⚠️ **The union, because the page uses the union.** This said `thin` on
+       the grounds that the strip is a count and what it warns about is a count —
+       which left 2021 with an ordinary bar between two amber ones while the
+       column behind it and the mark beside its year both said otherwise. The
+       page settled on one rule for the whole chart; a poster keeping the old one
+       would put a different picture in front of whoever it is sent to. */
+    ctx.fillStyle = L.marked.has(yr) ? '#ffbc20' : P.dim;
     /* ⚠️ **Both numbers when the season is weighed against more than it held**,
        which the page has always done and this had not: an exported 2026 column
        said "8" beside a line drawn as a share of twelve, and under `full` a 2020

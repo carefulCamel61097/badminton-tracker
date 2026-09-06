@@ -1547,9 +1547,9 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
 .scorewhy { fill: var(--warn); font: 400 10px var(--mono); opacity: .85; }
 
 .scorestrip .sz { fill: rgba(255, 255, 255, .14); }
-.scorestrip .sz.is-thin { fill: var(--warn); opacity: .75; }
+.scorestrip .sz.is-marked { fill: var(--warn); opacity: .75; }
 .scorestrip .szn { fill: var(--text-muted); font: 400 9.5px var(--mono); }
-.scorestrip .szn.is-thin { fill: var(--warn); }
+.scorestrip .szn.is-marked { fill: var(--warn); }
 .scorestrip .szlbl { fill: var(--text-muted); font: 400 9px var(--mono); }
 
 #scoreChart path.series {
@@ -1699,8 +1699,12 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
 /* The year a peak was taken in. 76 in a season nobody remembers is a different
    sentence from 76 in 2024, and the number alone cannot say which. */
 .ranktable .yr { font-size: 10px; color: var(--text-muted); margin-left: 5px; }
-/* The same asterisk the axis puts on a pandemic year, for the same reason: there
-   is a season here you are not being shown. */
+/* The gold asterisk on a pandemic season, the same one the chart's axis draws
+   and for the same reason. It marks the *year*, in whichever column the year is
+   shown — never the competitor, who did nothing to deserve it. */
+.ranktable .ast {
+  font-style: normal; color: var(--warn); margin-left: 3px; font-size: 11px;
+}
 /* "8 of 12" — the denominator is what makes a peak mean something, and it is
    the quieter half of the fact. */
 .ranktable .of, .scorecols .of {

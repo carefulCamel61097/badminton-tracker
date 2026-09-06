@@ -1769,8 +1769,18 @@ function drawScore(model) {
   years.forEach((yr, i) => {
     const s = seasons[i];
     const h = thin.max ? (SC.stripH * s.total) / thin.max : 0;
-    const isThin = thin.set.has(yr) ? ' is-thin' : '';
-    out.push(`<rect class="sz${isThin}" x="${x(i) - bw / 2}"`
+    /* ⚠️ **The same union the column and the year mark use**, not the count on
+       its own. It was `thin` here — far fewer titles than the seasons around it
+       — and 2021 held ten, so the one season on the board that a count cannot
+       see got the faint column, the word "Covid" and the asterisk beside its
+       year, and then a plain grey bar between two amber ones. Three marks
+       agreeing and a fourth quietly disagreeing is worse than no fourth mark.
+       Amber here means what it means everywhere else on this chart: do not read
+       this season as an ordinary one. The number itself still says 10, so
+       nothing is overstated — the colour is the warning, the figure is the
+       fact. */
+    const odd = isMarked.has(yr) ? ' is-marked' : '';
+    out.push(`<rect class="sz${odd}" x="${x(i) - bw / 2}"`
       + ` y="${stripTop + SC.stripH - h}" width="${bw}"`
       + ` height="${Math.max(h, s.total ? 1 : 0)}"></rect>`);
     /* On every bar, not only the short ones. The number was the short seasons'
@@ -1784,7 +1794,7 @@ function drawScore(model) {
        same either way: the year still being played, and — under `full` — a
        pandemic year being read as though it had run its course. */
     const label = s.planned > s.played ? `${s.played}/${s.planned}` : s.total;
-    out.push(`<text class="szn${isThin}" x="${x(i)}"`
+    out.push(`<text class="szn${odd}" x="${x(i)}"`
       + ` y="${stripTop + SC.stripH - h - 4}" text-anchor="middle">${label}</text>`);
   });
   out.push(`<text class="szlbl" x="${SC.l - 8}" y="${stripTop + SC.stripH}"`
@@ -1884,9 +1894,18 @@ function renderScoreTables(model) {
   /* ⚠️ The **same rule the chart marks with**, not a second one. These tables
      were left on a fixed "fewer than six" test when the chart moved to two
      thirds of the median, so they called 2020 short and 2022 normal while the
-     axis above them said otherwise. */
+     axis above them said otherwise.
+
+     ⚠️ **The mark and the dimming are different questions and take different
+     sets.** The asterisk means "do not read this as an ordinary season", which
+     is the chart's union — a thin count *or* the pandemic — so 2021 carries one
+     here exactly as it does on the axis above. The dimmed row means "there was
+     barely anything to win", which is a count and only a count: 2021 held ten
+     titles and reads at full strength. One of these used to do both jobs and
+     got 2021 wrong in the process. */
   const thin = thinSeasons(model.seasons);
-  const mark = yr => (thin.set.has(yr) ? '<i class="ast">*</i>' : '');
+  const marked = new Set([...thin.set, ...COVID_SEASONS]);
+  const mark = yr => (marked.has(yr) ? '<i class="ast">*</i>' : '');
 
   const rows = [];
   for (const p of model.people) for (const pt of p.pts) rows.push({ p, pt });
@@ -1969,9 +1988,18 @@ function renderScoreRanking(model) {
      career count says nothing about the season being ranked — what a peak of 76
      *means* is "8 of the 12 titles there were that year", and which year it
      was. */
+  /* ⚠️ **On the season, not on the competitor.** An earlier mark sat beside the
+     name and meant "this career is being under-counted"; that reading is gone
+     and so is that mark. This one says something narrower and permanent: the
+     season it is attached to was played under the pandemic. It is the same gold
+     asterisk the axis puts beside 2020, 2021 and 2022, for the same reason, so a
+     reader who has met it on the chart already knows what it means — and a peak
+     taken in one of those years is exactly where they would want to be told. */
+  const yearMark = y => (isCovidSeason(y)
+    ? '<i class="ast" aria-hidden="true">*</i>' : '');
   const byPeak = win.rank === 'peak';
   const tail = byPeak
-    ? { a: 'Season', b: 'Titles', va: r => r.peakYear,
+    ? { a: 'Season', b: 'Titles', va: r => `${r.peakYear}${yearMark(r.peakYear)}`,
       vb: r => `${r.peakTitles}<span class="of">of ${r.peakPlayed}</span>` }
     : { a: 'Seasons', b: 'Titles', va: r => r.seasons, vb: r => r.titles };
 
@@ -1986,7 +2014,11 @@ function renderScoreRanking(model) {
 ${r.first}–${r.last}`
         + ` · ${r.titles} titles in ${r.seasons} seasons`
         + ` · best ${scoreText(r.peak)} in ${r.peakYear},`
-        + ` ${r.peakTitles} of ${r.peakPlayed}`)}">`
+        + ` ${r.peakTitles} of ${r.peakPlayed}`
+        + (isCovidSeason(r.peakYear)
+          ? `
+* ${r.peakYear} was played under the pandemic and is weighed`
+            + ' against a full season of its era.' : ''))}">`
       + `<td class="n rk">${r.rank}</td>`
       /* ⚠️ There was an asterisk here, marking a career the ranking was
          under-counting because the pandemic seasons had been set aside. Nothing
@@ -2002,7 +2034,11 @@ ${r.first}–${r.last}`
          a suffix here only when the sort is *not* peak; ranked on peak it has a
          column of its own, and printing it twice reads as two facts. */
       + `<td class="n${byPeak ? ' by' : ''}">${num(r.peak)}`
-      + (byPeak ? '' : `<span class="yr">${r.peakYear}</span>`) + '</td>'
+      /* The same mark in the other place the year is shown, because it is the
+         same year and a mark that appeared under one sort and not the other
+         would read as a property of the sort. */
+      + (byPeak ? ''
+        : `<span class="yr">${r.peakYear}${yearMark(r.peakYear)}</span>`) + '</td>'
       + `<td class="n">${tail.va(r)}</td>`
       + `<td class="n">${tail.vb(r)}</td></tr>`).join('');
 
@@ -4851,17 +4887,25 @@ window.BST = {
     },
     ranks: () => [...document.querySelectorAll('#scoreRank .rankrow')].map(r => {
       const cell = i => r.children[i];
+      /* ⚠️ **Digits only.** A pandemic season carries a gold asterisk in
+         whichever column its year is shown, so `Number('2021*')` is NaN — the
+         same trap the board's ⁕ set on the season labels, and it came back the
+         moment the mark moved onto the year. Read the number out of the text
+         rather than assuming the text is a number. */
+      const num = el => Number(String((el || {}).textContent || '').replace(/[^\d.-]/g, ''));
       return {
         id: r.dataset.id,
-        rank: Number(cell(0).textContent),
+        rank: num(cell(0)),
         who: cell(1).textContent.trim(),
-        total: Number(cell(2).textContent),
+        total: num(cell(2)),
         /* The year is a suffix inside the peak cell, so the two are read apart
            rather than as one number. */
         peak: Number(cell(3).childNodes[0].textContent),
-        peakYear: Number((cell(3).querySelector('.yr') || {}).textContent),
-        seasons: Number(cell(4).textContent),
-        titles: Number(cell(5).textContent),
+        peakYear: num(cell(3).querySelector('.yr')) || num(cell(4)),
+        /** Whether the year the peak was taken in is marked as a pandemic one. */
+        peakYearMarked: !!(cell(3).querySelector('.yr .ast') || cell(4).querySelector('.ast')),
+        seasons: num(cell(4)),
+        titles: num(cell(5)),
         faded: r.classList.contains('faded'),
         by: [...r.children].map(c => c.classList.contains('by')),
       };
@@ -4888,7 +4932,9 @@ window.BST = {
       .map(t => ({
         text: t.textContent,
         n: Number(String(t.textContent).split('/')[0]),
-        thin: t.classList.contains('is-thin'),
+        /* Named for what the class now means: the season is marked as one not
+           to read at face value, for either of the two reasons. */
+        marked: t.classList.contains('is-marked'),
       })),
     /** The reasons written inside the plot, in year order. */
     why: () => [...document.querySelectorAll('#scoreChart .scorewhy')]

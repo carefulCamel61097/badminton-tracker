@@ -1735,6 +1735,55 @@ the page opens on a U19 Open — and **cancelled events**, on `status.code` rath
 name, the same rule `harvest-calendar.mjs` uses and for the same reason. BWF's own `nextTmt` that
 day was "Abu Dhabi Masters 2026 (Cancelled)".
 
+### 3.4v One rule for every pandemic mark *(fixed 6 Sep 2026)*
+
+Reported by the user: **2021's bar in the strip was grey between two amber ones.** The chart
+marked a pandemic season four ways and one of them disagreed.
+
+⚠️⚠️ **There are two questions and they were being answered by one set.** "Do not read this as
+an ordinary season" is the *union* — a thin count **or** the pandemic — and "there was barely
+anything to win" is a count and only a count. The faint column, the word at its foot and the
+asterisk beside the year had all moved to the union; the strip bar and its number were still on
+`thin`, and 2021 held ten titles, so the one season a count cannot see got three marks and a
+plain grey bar. Three marks agreeing and a fourth quietly disagreeing is worse than no fourth
+mark, and it is the same bug as the axis asterisk one commit earlier, in the fourth of four
+places.
+
+Now: **column, year mark, strip colour and the tables' asterisk all take the union.** The
+*dimming* of a row in "What each season held" stays on the count, because that one really does
+mean "barely anything was played" — 2021 reads at full strength there and should. The line
+dashing stays on the count too, for the same reason: a dashed leg says a trend through a
+barely-played year is not a trend, and 2021 played a full complement.
+
+⚠️ The strip's CSS class was `is-thin` and is now `is-marked`. It is set from the union, so the
+old name was a lie on 2021 — the same reason `.who` became `.rkwho`. The `BST.score.strip()`
+hook's flag renamed with it.
+
+⚠️ **The poster took the same fix.** Its strip was still colouring on `thin` with a comment
+claiming that was "the page's rule". It was, until the page changed; a poster keeping the old
+one puts a different picture in front of whoever it is sent to.
+
+#### The mark in the ranking
+
+The user also asked for the gold asterisk on pandemic seasons in the Dominators table — **on the
+year, not on the player**. That is the right way round and worth writing down: a peak taken in
+2021 is a peak taken in a season played largely without one country's team, which is a fact
+about the year. The competitor did nothing to earn a mark of their own.
+
+There *was* a mark beside the name once. It meant "this career is being under-counted because the
+pandemic seasons are set aside", and it went with the `aside` reading. The new one says something
+narrower and permanent, and it is the same glyph the axis uses so a reader has already met it.
+
+⚠️ It appears in **both** places the peak year is shown — the `Season` column when sorted on
+peak, and the suffix inside the `Peak` cell when sorted on total. A mark that showed under one
+sort and not the other would read as a property of the sort.
+
+⚠️⚠️ **`Number('2021*')` is NaN, and it bit again.** The board's ⁕ sprang exactly this trap on
+the season labels once already, and moving the mark onto the year in the ranking put it straight
+back — `BST.score.ranks()` read `peakYear`, `seasons` and `rank` with `Number(cell.textContent)`.
+The hook strips non-digits now and exposes `peakYearMarked` separately. Any hook that reads a
+number out of rendered text is one glyph away from this.
+
 ### 3.4s The pandemic seasons, and the year still running *(built 5 Sep 2026)*
 
 **Which seasons and why.** What is *done* with them is 3.4u — one denominator, no toggle —

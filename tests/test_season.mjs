@@ -2921,7 +2921,26 @@ if (stripRunning) {
    seasons' badge, which made a count look like a warning; it is just the size
    of the season, and a reader comparing 2022 to 2023 wants both. */
 check('and the count is on every bar, not only the marked ones',
-  stripMS.every(s => Number.isFinite(s.n)) && stripMS.some(s => !s.thin && s.n > 0));
+  stripMS.every(s => Number.isFinite(s.n)) && stripMS.some(s => !s.marked && s.n > 0));
+/* ⚠️⚠️ **All three pandemic seasons are marked on the strip, 2021 included.**
+   The bar used to be coloured off the *count* — far fewer titles than its
+   neighbours — and 2021 held ten, so the one season a count cannot see got the
+   faint column, the word "Covid" and the asterisk beside its year, and then a
+   plain grey bar sitting between two amber ones. Three marks agreeing and a
+   fourth disagreeing is worse than no fourth mark. */
+const stripYears = await b.ev(`window.BST.score.model().years`);
+const stripAt = y => stripMS[stripYears.indexOf(y)];
+for (const yr of [2020, 2021, 2022]) {
+  check(`${yr} is marked on the strip like the other pandemic seasons`,
+    stripAt(yr) && stripAt(yr).marked,
+    stripAt(yr) && `${stripAt(yr).text} marked=${stripAt(yr).marked}`);
+}
+/* And the count itself is untouched: the colour is the warning, the figure is
+   the fact. 2021 really did hold ten. */
+eq('while the number it shows is still the plain count', stripAt(2021).text, '10');
+check('and an ordinary season is not marked',
+  !stripAt(2019).marked && !stripAt(2023).marked,
+  `2019=${stripAt(2019).marked} 2023=${stripAt(2023).marked}`);
 
 /* ⚠️ A year carrying the footnote must keep its axis label, or the mark has
    nothing to sit on. 2020 and 2022 both fell on the skipped alternate when the
@@ -3129,12 +3148,59 @@ const covidRanks = await b.ev(`window.BST.score.ranks()`);
 eq('the men’s singles reads the way the numbers put it',
   covidRanks.slice(0, 3).map(r => r.who).join(', '),
   'LEE Chong Wei, LIN Dan, Viktor AXELSEN');
-/* ⚠️ There was an asterisk on names the ranking was under-counting, because the
-   pandemic seasons had been set aside. Nothing is set aside now — every season a
-   competitor won in is in these numbers — so a mark meaning "there is a season
-   here you are not being shown" would point at nothing. */
-eq('no career is marked as under-counted, because none is',
-  await b.ev(`document.querySelectorAll('#scoreRank .rankrow .ast').length`), 0);
+/* ⚠️ There was an asterisk on *names*, marking a career the ranking was
+   under-counting because the pandemic seasons had been set aside. Nothing is set
+   aside now, so that mark is gone: it would point at nothing. */
+eq('no competitor’s name carries a mark',
+  await b.ev(`document.querySelectorAll('#scoreRank .rkwho .ast').length`), 0);
+
+/* ⚠️⚠️ **The mark is on the season instead, which is where the fact lives.** A
+   peak taken in 2021 is a peak taken in a season played without most of one
+   country's team; that is a property of the year, not an accusation against the
+   player. Same gold asterisk the axis puts beside 2020, 2021 and 2022, so a
+   reader who has met it on the chart already knows what it says. */
+const marks = await b.ev(`window.BST.score.ranks()`);
+const marksFor = y => marks.filter(r => r.peakYear === y);
+for (const yr of [2020, 2021, 2022]) {
+  const rows = marksFor(yr);
+  if (rows.length) {
+    check(`a peak taken in ${yr} is marked`, rows.every(r => r.peakYearMarked),
+      rows.map(r => `${r.who} ${r.peakYear}`).join(' | '));
+  }
+}
+check('and a peak taken in an ordinary season is not',
+  marks.filter(r => ![2020, 2021, 2022].includes(r.peakYear))
+    .every(r => !r.peakYearMarked),
+  marks.filter(r => ![2020, 2021, 2022].includes(r.peakYear) && r.peakYearMarked)
+    .map(r => `${r.who} ${r.peakYear}`).join(' | ') || 'none wrongly marked');
+check('at least one row actually carries it, so the check is not vacuous',
+  marks.some(r => r.peakYearMarked),
+  marks.filter(r => r.peakYearMarked).map(r => `${r.who} ${r.peakYear}`).join(' | '));
+/* ⚠️ The year is still readable as a number beside the mark — `Number('2021*')`
+   is NaN, which is the trap the board's ⁕ already sprang once on the season
+   labels. */
+check('and the year beside it is still a year',
+  marks.every(r => Number.isFinite(r.peakYear) && r.peakYear > 2000),
+  marks.slice(0, 4).map(r => `${r.who}:${r.peakYear}`).join(' | '));
+/* An asterisk without a sentence is a warning rather than a fact. */
+check('the hover says what the mark means',
+  await b.ev(`[...document.querySelectorAll('#scoreRank .rankrow')]
+    .some(r => /played under the pandemic/.test(r.getAttribute('title') || ''))`));
+
+/* ⚠️ Sorted on peak the year gets a column of its own, and the mark has to
+   follow it there — a mark that appeared under one sort and not the other would
+   read as a property of the sort. */
+await b.ev(`window.BST.score.rank('peak')`);
+await b.wait(200);
+const peakMarks = await b.ev(`window.BST.score.ranks()`);
+check('the Season column carries the same mark when the table is sorted on peak',
+  peakMarks.filter(r => [2020, 2021, 2022].includes(r.peakYear))
+    .every(r => r.peakYearMarked)
+  && peakMarks.some(r => r.peakYearMarked),
+  peakMarks.slice(0, 6).map(r => `${r.who} ${r.peakYear}${r.peakYearMarked ? '*' : ''}`)
+    .join(' | '));
+await b.ev(`window.BST.score.rank('total')`);
+await b.wait(200);
 /* ⚠️ And nobody is dropped for having won only in those seasons, which is what
    the removed reading did. */
 check('every competitor the chart knows about is in the table',
@@ -3239,10 +3305,18 @@ eq('the columns change with the sort',
     .join(','), '#,Competitor,Total,Peak,Season,Titles');
 const peakRows = await b.ev(`[...document.querySelectorAll('#scoreRank .rankrow')]
   .slice(0, 3).map(r => [...r.children].map(c => c.textContent.trim()))`);
+/* ⚠️ **A pandemic season carries a gold asterisk in this column**, so the year
+   is four digits and possibly a mark — Viktor AXELSEN peaks in 2021 and is
+   second here. Pinned to bare digits, this failed and printed row *0* as its
+   evidence, which is Kento MOMOTA in an ordinary 2019: a check whose detail
+   names a row that passed sends you looking in the wrong place. Both report the
+   row that actually broke. */
+const badYear = peakRows.find(r => !/^\d{4}\*?$/.test(r[4]));
 check('the season column is the year the peak was taken in',
-  peakRows.every(r => /^\d{4}$/.test(r[4])), JSON.stringify(peakRows[0]));
+  !badYear, JSON.stringify(badYear || peakRows[0]));
+const badTitles = peakRows.find(r => !/^\d+\s*of \d+$/.test(r[5]));
 check('and the titles column is that season’s, not the career’s',
-  peakRows.every(r => /^\d+\s*of \d+$/.test(r[5])), JSON.stringify(peakRows[0]));
+  !badTitles, JSON.stringify(badTitles || peakRows[0]));
 await b.ev(`window.BST.score.rank('total')`);
 await b.wait(200);
 eq('and back again for a total',
