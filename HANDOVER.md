@@ -2838,6 +2838,70 @@ Capture a top-layer element **without** `captureBeyondViewport` and clip to the 
 `shot.mjs`
 picks per shot: the season strip needs the whole document, the grid does not.
 
+### 4.10 The seasons a reader has already paid for *(built 6 Sep 2026)*
+
+A career is **one request per year** — up to twenty-one of them, serialised at 320ms — and
+before this the answers were kept for **five minutes**, in `sessionStorage`. A reload, a new
+tab or a coffee break and the whole walk ran again.
+
+⚠️⚠️ **Twenty of those twenty-one answers are never going to change again.** The 2012 season
+is over; it will read the same in 2030. A time-to-live is a guess at how long a fact stays
+true, and this fact does not stop being true — so a finished season is now stored with **no
+expiry at all**, and only the season being played gets the five minutes. Second visit to a
+career: **one request instead of twenty-one.**
+
+⚠️ **What is stored is the parsed season, not BWF's payload.** Measured across the recorded
+fixture set — 41 careers, 186 seasons:
+
+| | per career, mean | worst | ratio |
+|---|---|---|---|
+| BWF's JSON | 237KB | 1.04MB | — |
+| the parsed season | 25KB | 115KB | **9-10x smaller** |
+
+Against a ~5MB origin budget that is the difference between holding about five careers and
+holding about fifty, and the raw form carries nothing the app looks at twice. So
+`loadSeason` passes `store: false` to `getJSON` — the payload is not cached at all now,
+because every read of it goes through the parsed copy above it.
+
+⚠️ **The version stamp is not optional.** `SEASON_V` rides *inside* each record, not in its
+key: a stored season is the output of `parseSeason`, so a reader holding one from before a
+field was added would be handed a season missing it — and, with no expiry, would keep being
+handed it. Bump `SEASON_V` whenever that output changes shape. Inside the record rather than
+in the key so the stale copy is *overwritten* by the new one, instead of sitting there
+unreachable until the quota runs out.
+
+⚠️⚠️ **A full store makes room rather than giving up.** `cacheSet` swallows a quota error,
+which is right for a five-minute copy of one payload and wrong for something kept for ever:
+the budget would fill once and every career after that would go uncached permanently, with
+nothing to say so. A failed write drops the oldest quarter of the stored seasons and tries
+again — **and keeps trying**, because one round is not enough: dropping a quarter of a store
+that is a hair too full leaves it a hair too full, and the season that prompted the eviction
+is the one that ends up missing. That was a real failure in the first version, caught by
+squeezing the stub store to the width of three seasons and asking for a fourth.
+
+⚠️ **Oldest stored, not least recently read.** True recency would mean a write on every
+cache *hit* — a serialisation on the fast path that can itself throw when the store is full,
+paying to record that something was cheap. Re-reading a dropped season rewrites it, so over
+a few visits the effect is the same.
+
+⚠️ **The team ties are stored and filtered on the way out.** A stored copy has to answer
+every caller, and one written by a caller passing `includeTeam: false` would quietly hide
+them from a caller that wants them. `parseSeason` is called without options and its one
+option is applied to the result.
+
+⚠️ **Proved by counting what did not happen.** A cache that works makes the request *not*
+happen, and the run-wide fixture total hides one endpoint going quiet behind twenty others
+still talking — so `installFixtures` gained `asked(path)`, which counts one path across
+replays and live fall-throughs alike. Clearing `sessionStorage` is how a new tab is spelled
+from inside the suite: a whole career then comes back for **0 season requests**, and the
+same visit costs **38** once the store is dropped.
+
+⚠️ **BWF does occasionally correct an old result, so there is a way out.**
+`BST.seasonStore.forget()` drops every stored season (and nothing else — the ranking tables
+live in the same store on their own twelve-hour life). `fresh: true` overrules one season
+without waiting for a release, and `SEASON_V` invalidates everybody's. There is no button
+for it, which is a deliberate gap rather than an oversight: see Part 7.
+
 ### 4.5 Name handling
 
 BWF names need real work: sponsor prefixes, edition numerals, and surname extraction for
@@ -2996,6 +3060,14 @@ using the global `WebSocket`. Deployed on GitHub Pages. This worked well — kee
   weighting is settled and shipped, and this is an observation about a premise, not a
   measurement of one. Worth checking against BWF's actual regulations before the weighting
   is ever revisited.
+
+- **The stored seasons have no button.** Part 4.10 keeps a finished season for ever, which
+  is right — 2012 is over — and leaves one gap: if BWF corrects an old result, a reader is
+  shown the old one until they clear the store. `BST.seasonStore.forget()` does it from the
+  console and `SEASON_V` does it for everybody on the next release, but neither is something
+  a reader would find. Deliberately not built yet: a "reload this career" control is a
+  visible affordance for a rare event, and it wants a home rather than a corner. Worth
+  revisiting if a correction is ever actually noticed on the page.
 
 - **What are the pre-2019 category ids?** Seasons before about 2018 carry
   `tournament_category_id` values the weighting map does not know: **1, 2, 3, 4, 8,

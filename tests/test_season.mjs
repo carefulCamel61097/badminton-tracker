@@ -4269,6 +4269,70 @@ check('and the hover tells them apart',
   finals.some(t => /In the final/.test(t)) && finals.some(t => /Runner-up/.test(t)),
   finals.join(' | '));
 
+/* ---- the seasons a reader has already paid for ----
+
+   A career is one request to BWF per year, up to twenty-one of them serialised
+   at 320ms, and twenty of those answers are settled history. They are stored,
+   parsed, without an expiry.
+
+   ⚠️⚠️ **This can only be checked by counting what did not happen.** A cache
+   that works makes the request not happen, and the run-wide fixture total hides
+   one endpoint going quiet behind twenty others still talking - so
+   `fx.asked()` counts one path, replays and live fall-throughs together.
+
+   ⚠️ **sessionStorage is cleared first, which is the whole point of the
+   change.** The five-minute copy the request layer already kept covers a suite
+   that reloads a career twice in the same minute; it does not cover a reader
+   who closes the tab. Clearing it is how a new tab is spelled from in here.
+   =================================================================== */
+
+console.log('\n=== the seasons a reader has already paid for ===');
+
+const seasonAsks = () => (fx ? fx.asked('vue-player-tournaments') : 0);
+
+check('a career loads', await open('#p=34810&hl='));
+const held = await b.ev('window.BST.seasonStore.held()');
+check('its seasons are in the store that survives a reload',
+  held.seasons > 10, JSON.stringify(held));
+/* ⚠️ The claim that justifies storing the parsed form: across the recorded
+   fixtures BWF's payload averages **52KB a season** and the parsed one 5.6KB.
+   Asserted per season rather than in total, because by this point in the run
+   the store holds every career the suite has opened. */
+const perSeason = held.bytes / held.seasons;
+check('and a stored season weighs a parsed season, not the payload it came from',
+  perSeason > 500 && perSeason < 15000,
+  `${Math.round(perSeason)} bytes each, ${held.seasons} seasons, ${held.bytes} total`);
+
+const asksBefore = seasonAsks();
+await b.ev('sessionStorage.clear()');
+check('the sessions that go with a tab are gone',
+  await b.ev('sessionStorage.length === 0'));
+
+/* The same career again, with nothing but the durable store to answer from. */
+await b.ev(`location.hash = '#p=57945&hl='`);
+await b.until('!!window.BST && window.BST.ready', { timeout: 180000 });
+await open('#p=34810&hl=');
+eq('and the whole career comes back without asking BWF for a season',
+  seasonAsks() - asksBefore, 0);
+check('with the strip whole', (await squares(2012)).length > 10,
+  `${(await squares(2012)).length} squares`);
+
+/* ⚠️ And the escape hatch really does empty it, because a season kept for ever
+   needs one: BWF corrects an old result now and then. */
+const dropped = await b.ev('window.BST.seasonStore.forget()');
+check('forgetting drops every stored season', dropped > 10, `${dropped} dropped`);
+eq('and the store says so',
+  (await b.ev('window.BST.seasonStore.held()')).seasons, 0);
+
+const asksAfter = seasonAsks();
+await b.ev(`location.hash = '#p=57945&hl='`);
+await b.until('!!window.BST && window.BST.ready', { timeout: 180000 });
+await open('#p=34810&hl=');
+check('so the next visit asks BWF again', seasonAsks() > asksAfter,
+  `${seasonAsks() - asksAfter} requests`);
+check('and the strip is whole either way', (await squares(2012)).length > 10,
+  `${(await squares(2012)).length} squares`);
+
 /* ---- the winners page ---- */
 
 await b.ev(`document.querySelector('#pageNav [data-page="winners"]').click()`);

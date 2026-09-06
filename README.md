@@ -87,6 +87,24 @@ The record is identical either way, so the only thing that separates them is whe
 last day has passed. `#now=YYYY-MM-DD` pins what the page thinks today is, which is the
 only way to see finals day without waiting for one.
 
+
+## What the browser keeps
+
+⚠️ **A finished season is stored and never asked for again.** A career is one request to BWF
+per year, up to twenty-one of them at a third of a second apart, and twenty of those answers
+are settled history: 2012 is over and will read the same in 2030. So the seasons are kept in
+the browser with no expiry, and only the season being played now is re-fetched. Coming back
+to a career you have already looked at costs **one request instead of twenty-one**.
+
+What is kept is the *parsed* season rather than BWF's payload, which is nine to ten times
+larger and never read twice. When the space runs out the oldest quarter is dropped and the
+newest kept, so the careers you keep returning to are the ones that stay.
+
+⚠️ **Nothing here is sent anywhere.** It is your browser's own storage, on this site's
+origin, and it never leaves the machine. If BWF corrects an old result and you are still
+being shown the old one, `BST.seasonStore.forget()` in the console drops the lot; the next
+visit fetches it again.
+
 ## Four pages
 
 **Seasons**, **Compare**, **Tournament** and **Winners**, on a tab bar under the player's

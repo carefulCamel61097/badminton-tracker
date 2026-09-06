@@ -48,6 +48,15 @@ const REQ_GAP_MS = 320;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const RANK_TTL_MS = 12 * 60 * 60 * 1000;   // ranking tables move once a week
 const CACHE_PREFIX = 'bst:';
+const SEASON_PREFIX = CACHE_PREFIX + 's:';
+
+/* ⚠️ **Bump this whenever `parseSeason`'s output changes shape.** A stored
+   season is the parsed form, not BWF's payload, so a reader that has one from
+   before a field was added would be handed a season missing it — and, because
+   past seasons never expire, would keep being handed it. The version rides
+   *inside* the record rather than in the key, so the old copy is overwritten by
+   the new one instead of sitting there unreachable until the quota runs out. */
+const SEASON_V = 1;
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -129,6 +138,10 @@ function cacheSet(key, value, persist) {
  * @param {boolean} [opts.fresh]   skip the cache read but still write, for a
  *   live refresh that is asking precisely because the cached copy is stale
  * @param {boolean} [opts.persist] use the 12-hour localStorage cache
+ * @param {boolean} [opts.store]   `false` to neither read nor write the raw
+ *   payload, for a caller that keeps a better cache of its own — see
+ *   `loadSeason`, where the raw copy is nine times the size of the one that
+ *   actually gets read
  */
 export function getJSON(path, params, opts = {}) {
   const qs = new URLSearchParams(params || {}).toString();
@@ -136,7 +149,9 @@ export function getJSON(path, params, opts = {}) {
   const key = CACHE_PREFIX + url;
   const ttl = opts.persist ? RANK_TTL_MS : CACHE_TTL_MS;
 
-  const hit = opts.fresh ? null : cacheGet(key, opts.persist, ttl);
+  const store = opts.store !== false;
+
+  const hit = opts.fresh || !store ? null : cacheGet(key, opts.persist, ttl);
   if (hit !== null) return Promise.resolve(hit);
 
   /* ⚠️ Two goes by default, because the retry is there for **rate limiting** —
@@ -153,7 +168,7 @@ export function getJSON(path, params, opts = {}) {
         const text = await res.text();
         if (!text.trim()) continue;              // rate-limited -> retry once
         const data = JSON.parse(text);
-        cacheSet(key, data, opts.persist);
+        if (store) cacheSet(key, data, opts.persist);
         return data;
       } catch (e) {
         if (attempt) throw e;
@@ -165,6 +180,148 @@ export function getJSON(path, params, opts = {}) {
   return enqueue(run, opts.priority);
 }
 
+/* ======================== the seasons a reader has already paid for ========
+
+   A career is one request per year — twenty-one of them, serialised at 320ms,
+   before the strip is whole — and the answer to twenty of those questions is
+   **never going to change again**. The 2012 season is over. It will read the
+   same in 2030.
+
+   ⚠️ What is stored is the **parsed** season, not BWF's payload. Measured
+   across the recorded fixture set — 41 careers, 186 seasons — a career is 237KB
+   of raw JSON on average and reaches 1MB, against 25KB parsed: a ratio of
+   **nine to ten times**. Against a ~5MB origin budget that is the difference
+   between holding five careers and holding fifty, and the raw form carries
+   nothing the app ever looks at twice.
+
+   ⚠️ **A finished season has no expiry**, because a time-to-live is a guess at
+   how long a fact stays true and this fact does not stop being true. Only the
+   season being played now gets one. That is what turns a second visit to a
+   career into a single request instead of twenty-one.
+
+   ⚠️ BWF does occasionally correct an old result. The version stamp above is
+   the deliberate way to invalidate everything at once, and `fresh: true` is the
+   way to overrule a single season without waiting for a release.
+   ==================================================================== */
+
+/**
+ * How long a stored season stays good, in ms, or `null` for "for ever".
+ *
+ * Pure, and takes the year rather than reading the clock, so the rule can be
+ * checked without waiting for a January.
+ */
+export function seasonTtl(year, thisYear) {
+  return Number(year) < Number(thisYear) ? null : CACHE_TTL_MS;
+}
+
+const seasonKey = (playerId, year) => `${SEASON_PREFIX}${playerId}:${year}`;
+
+function seasonGet(playerId, year, ttl) {
+  const s = store(true);
+  if (!s) return null;
+  try {
+    const raw = s.getItem(seasonKey(playerId, year));
+    if (!raw) return null;
+    const rec = JSON.parse(raw);
+    // A record written by an older parse is a miss, and the write that follows
+    // replaces it.
+    if (!rec || rec.v !== SEASON_V || !Array.isArray(rec.d)) return null;
+    if (ttl != null && Date.now() - rec.t > ttl) return null;
+    return rec.d;
+  } catch { return null; }
+}
+
+/**
+ * The oldest quarter of the stored seasons, dropped. Returns how many went.
+ *
+ * ⚠️ **Oldest stored, not least recently read.** True recency would mean a
+ * write on every cache *hit*, which costs a serialisation on the fast path and
+ * can itself throw when the store is full — paying to record that something was
+ * cheap. Re-reading a season it has dropped rewrites it, so the effect over a
+ * few visits is the same: what a reader keeps coming back to stays.
+ *
+ * ⚠️ A quarter, not one. Evicting a single entry per failed write turns one
+ * slow career into hundreds of `setItem` attempts against a full store.
+ */
+function evictSeasons(s, keep) {
+  const mine = [];
+  for (let i = 0; i < s.length; i++) {
+    const k = s.key(i);
+    if (!k || k.indexOf(SEASON_PREFIX) !== 0 || k === keep) continue;
+    let t = 0;
+    try { t = Number(JSON.parse(s.getItem(k)).t) || 0; } catch { t = 0; }
+    mine.push({ k, t });
+  }
+  if (!mine.length) return 0;
+  mine.sort((a, b) => a.t - b.t);
+  const doomed = mine.slice(0, Math.max(1, Math.ceil(mine.length / 4)));
+  for (const { k } of doomed) s.removeItem(k);
+  return doomed.length;
+}
+
+/**
+ * ⚠️⚠️ **Full when it fills, rather than silently stopping.** `cacheSet`
+ * swallows a quota error, which is right for a five-minute copy of one payload
+ * and wrong here: the seasons that never expire would fill the budget once and
+ * then every career after that would go uncached for ever, with nothing to say
+ * so. So a failed write makes room and tries again.
+ *
+ * ⚠️ **And keeps trying.** One round of eviction is not enough on its own —
+ * dropping a quarter of a store that is a hair too full leaves it a hair too
+ * full, and the season that prompted the eviction is the one that ends up
+ * missing. It stops when a write succeeds or when there is nothing left to
+ * drop, so it always terminates.
+ */
+function seasonSet(playerId, year, list) {
+  const s = store(true);
+  if (!s) return false;
+  const key = seasonKey(playerId, year);
+  const rec = JSON.stringify({ v: SEASON_V, t: Date.now(), d: list });
+  for (;;) {
+    try { s.setItem(key, rec); return true; } catch { /* full — make room */ }
+    let freed = 0;
+    try { freed = evictSeasons(s, key); } catch { return false; }
+    if (!freed) return false;
+  }
+}
+
+/**
+ * What the cache is holding, for anyone who wants to see it working.
+ *
+ * ⚠️ `bytes` counts the stored strings, not the browser's own accounting, which
+ * charges for keys as well and in UTF-16. It is the right order of magnitude
+ * and not a quota.
+ */
+export function seasonsHeld() {
+  const s = store(true);
+  const out = { seasons: 0, bytes: 0 };
+  if (!s) return out;
+  try {
+    for (let i = 0; i < s.length; i++) {
+      const k = s.key(i);
+      if (!k || k.indexOf(SEASON_PREFIX) !== 0) continue;
+      out.seasons++;
+      out.bytes += (s.getItem(k) || '').length;
+    }
+  } catch { /* best effort */ }
+  return out;
+}
+
+/** Everything this cache holds, dropped. The way back if BWF corrects a result. */
+export function forgetSeasons() {
+  const s = store(true);
+  if (!s) return 0;
+  const doomed = [];
+  try {
+    for (let i = 0; i < s.length; i++) {
+      const k = s.key(i);
+      if (k && k.indexOf(SEASON_PREFIX) === 0) doomed.push(k);
+    }
+    for (const k of doomed) s.removeItem(k);
+  } catch { /* best effort, like every other write here */ }
+  return doomed.length;
+}
+
 /* ============================ player ============================ */
 
 /**
@@ -172,13 +329,32 @@ export function getJSON(path, params, opts = {}) {
  *
  * drawCount=1 is what makes `results` come back as a plain array rather than a
  * paginated object (Part 3.5); parseSeason tolerates both regardless.
+ *
+ * ⚠️ The cache holds the season **with its team events**, and the caller's
+ * `includeTeam` is applied on the way out rather than on the way in. A stored
+ * copy has to answer every caller that asks for it, and one written by a caller
+ * that did not want team ties would quietly hide them from one that does.
  */
 export async function loadSeason(playerId, year, opts = {}) {
+  const ttl = seasonTtl(year, new Date().getFullYear());
+  const kept = opts.fresh ? null : seasonGet(playerId, year, ttl);
+  if (kept) return withTeam(kept, opts);
+
   const raw = await getJSON('vue-player-tournaments', {
     playerId, isPara: 0, drawCount: 1, activeTab: 0, tmtYear: year,
-  }, opts);
-  return parseSeason(raw, opts);
+    /* ⚠️ The raw payload is not stored at all. Every read of it goes through
+       the cache above, so a second copy nine times the size would be written,
+       never looked at, and counted against the same browser. */
+  }, { store: false, ...opts });
+
+  const season = parseSeason(raw);
+  seasonSet(playerId, year, season);
+  return withTeam(season, opts);
 }
+
+/* The one line of `parseSeason` that cannot be baked into a stored season. */
+const withTeam = (season, opts) =>
+  (opts.includeTeam === false ? season.filter(t => !t.team) : season);
 
 /**
  * Who a player id belongs to: name, country and slug.

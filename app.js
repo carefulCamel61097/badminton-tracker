@@ -15,7 +15,7 @@ import {
   loadSeason, loadPlayer, loadDraws, searchPlayers, loadTopRanked, loadRoster,
   loadWorldRank, loadRaceRank, loadLastMatch, rankingFor,
   RANKING_CATEGORIES, queueDepth, loadSchedule, loadDayMatches, loadWinners,
-  loadDrawList, loadDrawData,
+  loadDrawList, loadDrawData, seasonsHeld, forgetSeasons,
 } from './api.js';
 import {
   positionInfo, tournamentRunning, fillFraction, drawForKind, dominantDraw, seasonKinds,
@@ -4477,6 +4477,12 @@ window.BST = {
   // How much work is outstanding. `ready` is derived from it; exposing the
   // number itself is what lets a probe say *why* something felt slow.
   queueDepth,
+  /* The stored seasons, and the way to drop them.
+     ⚠️ **The only escape hatch there is**, because a finished season is kept
+     without an expiry. If BWF corrects an old result, `BST.seasonStore.forget()`
+     from the console is what fetches it again — there is no button for it, and
+     the version stamp in `api.js` is the way to invalidate everybody's. */
+  seasonStore: { held: seasonsHeld, forget: forgetSeasons },
   positionInfo, fillFraction,
   top: () => topCache.get(topCat) || null,
   showTop,

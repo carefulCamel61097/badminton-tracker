@@ -116,7 +116,25 @@ export async function installFixtures(send, sessionId, opts = {}) {
     }, sessionId).catch(() => {});
   };
 
-  return { handle, stats, record };
+  /**
+   * How many times the app actually went out for a path, replayed or live.
+   *
+   * ⚠️ Exists because "did the cache work" cannot be asked any other way from
+   * a suite: a cache that works makes the request *not happen*, and a total
+   * count of fixtures served hides one endpoint going quiet behind twenty
+   * others still talking. Counts misses too, so a live fall-through cannot
+   * masquerade as a cache hit.
+   */
+  const asked = prefix => {
+    let n = 0;
+    for (const [url, times] of seen) {
+      if (url.replace(/^https?:\/\/[^/]+\/api\//, '').indexOf(prefix) === 0) n += times;
+    }
+    for (const url of stats.misses) if (url.indexOf(prefix) === 0) n += 1;
+    return n;
+  };
+
+  return { handle, stats, record, asked };
 }
 
 /** One-line summary for the end of a suite. */
