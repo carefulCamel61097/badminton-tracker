@@ -484,6 +484,51 @@ console.log('\n=== a dash is not a result ===');
 eq('BWF writes "-" for some junior events', positionInfo('-').tier, 'na');
 eq('same as N/A', positionInfo('N/A').tier, 'na');
 
+console.log('\n=== a team tie BWF did not file as a team event ===');
+
+/* ⚠️⚠️ Reported from the Seasons page: the Asian Games team competition was on
+   the strip with the Team toggle off. `isTeamEvent` reads the category, and the
+   category is wrong for exactly these events — the Asian Games team comes back
+   as **category 1**, the Commonwealth Games team as **74**, the Badminton Asia
+   Team Championships as **1**, and the East Asian Games team with **no category
+   at all**. None of those is 17 or 21, so nothing hid them, and a tie drew as a
+   square with no result in it.
+
+   The signal is the one Part 3 already records: a draw named bare `Singles` or
+   `Doubles`, with no gender, is a tie. */
+const tie = (name, cat, drawNames) => parseSeason({ results: [{
+  tournament_id: 1,
+  draws: drawNames.map(dn => ({ name: dn, position: 'N/A', match_win: 2, match_lose: 1 })),
+  tournament_model: { id: 1, name, tournament_category_id: cat, start_date: '2014-09-19 00:00:00' },
+}] })[0];
+
+check('the Asian Games team event is a team event, whatever BWF filed it as',
+  tie('17th Asian Games Incheon 2014', 1, ['Singles']).team);
+check('so is the Commonwealth Games team, under category 74',
+  tie('Glasgow 2014 Commonwealth Games - Mixed Team', 74, ['Singles']).team);
+check('and one with no category at all',
+  tie('Hong Kong 2009 East Asian Games – Badminton', null, ['Singles']).team);
+check('and the Badminton Asia Team Championships',
+  tie('Badminton Asia Team Championships 2016', 1, ['Singles', 'Doubles']).team);
+/* ⚠️ One bare draw is enough. The 2014 European U17 Team Championships comes
+   back as `Doubles` and `Mixed`, and `Mixed` canonicalises to XD — a rule
+   wanting every draw to be bare let that one through. */
+check('one bare draw is enough, even beside a draw that canonicalises',
+  tie('2014 European U17 Team Championships', null, ['Doubles', 'Mixed']).team);
+
+/* ⚠️⚠️ And the individual edition of the very same games is **not** a team
+   event. BWF tells the two apart by one word in the name and by nothing else,
+   so a rule that caught both would delete the Asian Games title from every
+   Asian career on the site. */
+check('the individual Asian Games is not a team event',
+  !tie('17th Asian Games 2014', 1, ['MS']).team);
+check('nor is an Olympics', !tie('London 2012 Olympic Games', 20, ['MS']).team);
+check('nor a spelled-out Olympic draw',
+  !tie('Paris 2024 Olympic Games', 20, ["Men's Singles"]).team);
+check('nor an ordinary World Tour event', !tie('Malaysia Open 2024', 23, ['MS', 'WD']).team);
+check('and the category still settles the ones BWF does file properly',
+  tie('TotalEnergies BWF Thomas & Uber Cup Finals 2024', 21, ['MS']).team);
+
 console.log('\n=== the Olympics are not the World Championships ===');
 check('recognised by name', isOlympics('Paris 2024 Olympic Games Badminton Competition'));
 check('however they are written', isOlympics('Tokyo 2020 Olympic Games Badminton')
@@ -1938,6 +1983,25 @@ console.log('\n=== careers from before the World Tour ===');
 
 const lin = career(50906);          // LIN Dan
 const lcw = career(50152);          // LEE Chong Wei
+
+/* ⚠️⚠️ **Both halves of the 2014 Asian Games are in LIN Dan's record**, one word
+   apart, and they have to come out on opposite sides of the Team toggle. This is
+   the check that would have caught the tie on the strip. */
+const games2014 = lin.flatMap(s => s.tournaments).filter(t => /17th Asian Games/i.test(t.name));
+eq('both halves of the 2014 Asian Games are in the record', games2014.length, 2);
+check('the team competition is flagged as one',
+  games2014.filter(t => t.team).map(t => t.name).join() === '17th Asian Games Incheon 2014',
+  games2014.map(t => `${t.name}=${t.team}`).join(' | '));
+check('and the individual one is not',
+  games2014.filter(t => !t.team).map(t => t.name).join() === '17th Asian Games 2014',
+  games2014.map(t => `${t.name}=${t.team}`).join(' | '));
+/* ⚠️ Which is what keeps the title itself: the individual Asian Games is a
+   Regional Games square on the grid, and hiding both would have taken it. */
+eq('so the individual one still reaches the grid as a Regional Games square',
+  gridGroup(games2014.find(t => !t.team)), 'GAMES');
+check('while the tie reaches nothing', gridGroup(games2014.find(t => t.team)) == null,
+  String(gridGroup(games2014.find(t => t.team))));
+
 check('LIN Dan has a career recorded', lin.length > 8, `${lin.length} seasons`);
 check('and LEE Chong Wei', lcw.length > 8, `${lcw.length} seasons`);
 

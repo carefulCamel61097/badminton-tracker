@@ -105,6 +105,18 @@ origin, and it never leaves the machine. If BWF corrects an old result and you a
 being shown the old one, `BST.seasonStore.forget()` in the console drops the lot; the next
 visit fetches it again.
 
+
+⚠️ **A team tie is recognised by its draws, not by BWF's category.** The Asian Games team
+competition is filed under category 1, the Commonwealth Games team under 74, the East Asian
+Games team under nothing at all — none of them the team ids — so the only thing that holds
+still is that a tie names its draws bare `Singles` and `Doubles`, with no gender. Ties are
+filed under the team level whatever BWF said, so one toggle reaches all of them.
+
+⚠️ **The levels BWF ships no name for start switched off**, behind the "more" button, with
+one click for all of them. Which ones those are is *derived*: a level stays on if anything it
+holds is a senior individual event — category 1 alone holds the 2017 World Championships, two
+Asian Championships, the Asian Games and the Commonwealth Games as well as junior events.
+
 ## Four pages
 
 **Seasons**, **Compare**, **Tournament** and **Winners**, on a tab bar under the player's

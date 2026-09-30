@@ -1735,6 +1735,68 @@ the page opens on a U19 Open — and **cancelled events**, on `status.code` rath
 name, the same rule `harvest-calendar.mjs` uses and for the same reason. BWF's own `nextTmt` that
 day was "Abu Dhabi Masters 2026 (Cancelled)".
 
+### 3.4y Three ways a square could not be switched off *(fixed 30 Sep 2026)*
+
+Three reports from the Seasons page, one cause behind two of them: **the strip filters by
+level, and a level is whatever category BWF filed the tournament under.** Where that
+category is wrong or missing, nothing on the page can reach the square.
+
+⚠️⚠️ **A team tie BWF did not file as a team event.** `isTeamEvent` reads the category, and
+the category is wrong for exactly the events a reader meets first:
+
+| event | category | is 17 or 21? |
+|---|---|---|
+| Asian Games team competition | **1** | no |
+| Commonwealth Games team | **74** | no |
+| Badminton Asia Team Championships | **1** | no |
+| East Asian Games team | **none at all** | no |
+
+So the Team toggle did not hide them and a tie sat on the strip as a square with no result
+in it. The signal is the one Part 3 already records: **a draw named bare `Singles` or
+`Doubles`, with no gender, is a tie** — an individual event names its draws `MS`, `WS`, …
+or spells them out with a gender, and never just "Singles". One bare draw is enough, not
+all of them: the 2014 European U17 Team Championships comes back as `Doubles` and `Mixed`,
+and `Mixed` canonicalises to XD.
+
+⚠️ Matched on the bare name rather than through `kindOf`, which answers 'team' for any draw
+name it does not recognise — a regional event with an unmet spelling would then be hidden by
+default, losing a real individual result, which is the worse mistake.
+
+⚠️ And the tie is then **filed under the team level**, the same move the Olympics already
+get: a tie whose category is not a team category has a category that means nothing, and
+leaving it there put the square on the far side of the only chip that could switch it off.
+
+⚠️⚠️ **A tournament BWF filed under no category at all had no chip.** `seasonLevels` dropped
+them, `levelShown` asks whether a level is hidden, and nothing could ever put that one in
+the set — so AN Se Young's two junior Asia U17 events sat on her strip with **every** toggle
+switched off. They get `NO_LEVEL`, drawn as "Unfiled", and behave like any other level.
+
+#### The levels with no name, off by default
+
+The "more" panel holds every id the ladder does not know. They are junior, para, masters and
+invitational events, they draw as "Level 12" because there is nothing else to call them, and
+a career opens cleaner without them — so they start off, and the panel gained an **All /
+None** pair, because eleven checkboxes is eleven re-renders to see a career whole.
+
+⚠️⚠️ **Derived from what the level holds, never from the id being unmapped.** The first
+version switched off every id `LEVEL_ORDER` does not know, and the data says why that is
+wrong: **category 1 is a grab-bag.** It holds the 2017 World Championships, the 2010 and
+2012 Asian Championships, the Asian Games and the Commonwealth Games — beside junior
+championships. The blanket rule took LIN Dan's 2014 Asian Games title off his strip. So the
+question asked of a level is whether *anything it holds* is a senior individual event the
+grid would draw, which `gridGroup` already answers and no list here can drift from.
+
+⚠️ Asked over every tournament loaded so far, and it can put a level **back**: a career walks
+backwards through the years, so a level whose only senior title is in 2014 would otherwise be
+switched off by the ten seasons that arrive first and stay off.
+
+#### Size by weight is off by default
+
+Changed at the user's request. Sizing by weight is a real reading of a career and it is also
+the one that makes a season of small titles look like a thin one; the plain grid of equal
+squares is what a reader wants first. ⚠️ The hash flipped with it — `sz=1` now means on, and
+`sz=0` from an older link still reads as off.
+
 ### 3.4x Ranking the seasons, not the careers *(built 6 Sep 2026)*
 
 Asked for by the user, and for a reason worth keeping: **"it would show how impressive

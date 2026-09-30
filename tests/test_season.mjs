@@ -235,6 +235,16 @@ check('every square in a row belongs to that row\'s season',
 /* ============================ geometry still holds ============================ */
 
 console.log('\n=== the box is sized by weight, the slot is not ===');
+/* ⚠️ **Size by weight is off by default** — changed 30 Sep 2026 — and this block
+   is the one that tests it, so it switches it on first and puts it back at the
+   end. The default itself is checked below. */
+eq('it is off when the page opens', await b.ev('window.BST.state.sized'), false);
+eq('and the checkbox agrees', await b.ev(`document.getElementById('sized').checked`), false);
+await b.ev(`document.getElementById('sized').click()`);
+await b.wait(150);
+eq('switching it on is one click', await b.ev('window.BST.state.sized'), true);
+check('and the link carries it, because it is no longer the default',
+  await b.ev(`location.hash.includes('sz=1')`), await b.ev('location.hash'));
 await ladders(2026);
 const y2026 = await squares(2026);
 check('every slot is 52px wide, whatever the tournament weighed',
@@ -253,6 +263,12 @@ check('no label is ever smaller than 9px', all.every(s => s.font >= 9),
 check('no level under a square is left blank',
   all.every(s => s.level.trim().length > 0),
   all.filter(s => !s.level.trim()).map(s => s.name).join(', '));
+
+/* Back to the default, so nothing below inherits a sized strip. */
+await b.ev(`document.getElementById('sized').click()`);
+await b.wait(150);
+eq('and off again leaves the link alone',
+  await b.ev(`location.hash.includes('sz=')`), false);
 
 console.log('\n=== the gauge, against the real ladder ===');
 eq('a title fills the square', asia.pct, '100%');
@@ -538,20 +554,36 @@ await b.ev(`document.getElementById('moreBtn').click()`);
 const checks = await b.ev(`[...document.querySelectorAll('#morePanel input')].map(i => ({
   cat: i.dataset.cat, checked: i.checked }))`);
 check('the menu is checkmarks, one per level', checks.length >= 5, JSON.stringify(checks.slice(0, 4)));
-check('all ticked to begin with', checks.every(c => c.checked));
+/* ⚠️ **Unticked to begin with** — changed 30 Sep 2026. These are the ids BWF
+   ships no name for, and the ones that hold nothing the grid would draw are
+   junior, para and invitational events; a career opens cleaner without them and
+   they are one click away. The ones that *do* hold a senior title stay on, which
+   is why this is "some", not "all": see the Asian Games below. */
+check('the ones holding nothing of note start off',
+  checks.some(c => !c.checked), JSON.stringify(checks));
+check('and the button says how many that is',
+  /off/.test(await b.ev(`document.getElementById('moreBtn').textContent`)),
+  await b.ev(`document.getElementById('moreBtn').textContent.trim()`));
 
 const before = (await squares()).length;
+/* ⚠️ The *same* box on the way back, named rather than "the first ticked
+   one" — a level that holds a senior title is ticked already, so the naive
+   version put one level on and took a different one off. */
+const toggled = await b.ev(`(() => {
+  const i = [...document.querySelectorAll('#morePanel input')].find(x => !x.checked);
+  i.checked = true;
+  i.dispatchEvent(new Event('change', { bubbles: true }));
+  return i.dataset.cat;
+})()`);
+check('ticking one adds its tournaments back',
+  (await squares()).length > before,
+  `${before} -> ${(await squares()).length}`);
 await b.ev(`(() => {
-  const i = document.querySelector('#morePanel input');
+  const i = document.querySelector('#morePanel input[data-cat="${toggled}"]');
   i.checked = false;
   i.dispatchEvent(new Event('change', { bubbles: true }));
 })()`);
-check('unticking one drops its tournaments',
-  (await squares()).length < before,
-  `${before} -> ${(await squares()).length}`);
-check('and the button now says how many are off',
-  /off/.test(await b.ev(`document.getElementById('moreBtn').textContent`)),
-  await b.ev(`document.getElementById('moreBtn').textContent.trim()`));
+eq('and unticking the same one takes them away again', (await squares()).length, before);
 
 console.log('\n=== a doubles ranking belongs to the pair ===');
 // BWF files a doubles ranking against player1_id only, and in mixed doubles
@@ -4138,6 +4170,86 @@ await b.ev(`location.hash = '#p=57945&pg=seasons&now=2026-08-23'`);
 await b.until(`window.BST.tmt.today() === '2026-08-23'`, { timeout: 30000 });
 await b.ev(`document.querySelector('#pageNav [data-page="seasons"]').click()`);
 eq('starting on the seasons', await onPage(), 'seasons');
+
+
+/* ---- the levels BWF ships no name for ----
+
+   ⚠️⚠️ Reported by the user: AN Se Young's strip held three junior results with
+   every toggle switched off. They are filed under **no category at all**, and a
+   level with no category had no chip — `levelShown` asks whether a level is
+   hidden and nothing could ever put that one in the set. They have a chip now,
+   and the whole panel has one control.
+   ==================================================================== */
+
+const panelRows = () => b.ev(`[...document.querySelectorAll('#morePanel label')]
+  .map(l => l.querySelector('span').textContent
+    + (l.querySelector('input').checked ? '' : ' off'))`);
+
+check('AN Se Young loads for the level panel', await open('#p=87442'));
+const unfiled = await panelRows();
+check('the levels with no name of their own are in the panel',
+  unfiled.length > 3, unfiled.join(' | '));
+check('including the ones BWF filed under nothing at all',
+  unfiled.some(r => /^Unfiled/.test(r)), unfiled.join(' | '));
+/* ⚠️ And they are off to begin with, which is the point of the report. */
+const asyStrip = await squares();
+check('so no junior result is left on the strip at the default',
+  !asyStrip.some(s => /U17|U15|Junior/i.test(s.name)),
+  asyStrip.filter(s => /U17|U15|Junior/i.test(s.name)).map(s => s.name).join(' | ') || 'none left');
+
+/* ⚠️ One click for the lot, because eleven checkboxes is eleven re-renders to
+   see a career whole. */
+await b.ev(`document.getElementById('moreBtn').click()`);
+await b.wait(150);
+await b.ev(`document.querySelector('#morePanel button[data-all="on"]').click()`);
+await b.wait(250);
+check('All switches every one of them on',
+  (await panelRows()).every(r => !/ off$/.test(r)), (await panelRows()).join(' | '));
+const withJunk = (await squares()).length;
+await b.ev(`document.querySelector('#morePanel button[data-all="off"]').click()`);
+await b.wait(250);
+check('and None switches them all back off',
+  (await panelRows()).every(r => / off$/.test(r)), (await panelRows()).join(' | '));
+check('which is fewer squares than All drew', (await squares()).length < withJunk,
+  `${(await squares()).length} vs ${withJunk}`);
+
+/* ⚠️⚠️ **The default is derived from what a level holds, not from its id being
+   unmapped.** Category 1 is a grab-bag: the 2017 World Championships, the 2010
+   and 2012 Asian Championships, the Asian Games and the Commonwealth Games are
+   all filed under it, beside junior championships. A blanket rule took LIN Dan's
+   Asian Games title off his strip, which is how this was caught. */
+/* ⚠️ `hl=` again, for the reason the Bitburger block records: `readHash` only
+   touches the hidden levels when the link carries them, so the All/None clicks
+   just above would otherwise still be in force here. Empty means "the
+   defaults", which is exactly what this is checking. */
+check('LIN Dan loads', await open('#p=50906&hl='));
+const lin2014 = (await squares(2014)).map(s => s.name);
+check('his 2014 Asian Games title is on the strip at the default',
+  lin2014.some(nm => /Asian Games/i.test(nm)), lin2014.join(' | '));
+check('and his Asian Championships with it',
+  lin2014.some(nm => /Asia Champs/i.test(nm)), lin2014.join(' | '));
+
+/* ⚠️⚠️ **And the team half of the same Games is not**, which was the other half
+   of the report. BWF ships "17th Asian Games Incheon 2014" and "17th Asian Games
+   2014" one word apart under the same category 1, and the team one has no
+   individual result in it. It is filed on the Team chip now, which is off. */
+check('the team competition of the same Games is not',
+  !lin2014.some(nm => /Incheon/i.test(nm)), lin2014.join(' | '));
+check('it is on the Team chip, where it can be switched on',
+  await b.ev(`(() => {
+    const chip = [...document.querySelectorAll('#levels .chip')]
+      .find(c => c.dataset.cat === '21');
+    return !!chip && !chip.classList.contains('on');
+  })()`));
+await b.ev(`(() => [...document.querySelectorAll('#levels .chip')]
+  .find(c => c.dataset.cat === '21').click())()`);
+await b.wait(250);
+check('and switching it on brings it back',
+  (await squares(2014)).some(s => /Incheon/i.test(s.name)),
+  (await squares(2014)).map(s => s.name).join(' | '));
+await b.ev(`(() => [...document.querySelectorAll('#levels .chip')]
+  .find(c => c.dataset.cat === '21').click())()`);
+await b.wait(250);
 
 /* ---- the level chips, on the seasons page ----
 

@@ -20,8 +20,8 @@ import {
 import {
   positionInfo, tournamentRunning, fillFraction, drawForKind, dominantDraw, seasonKinds,
   defaultKind, seasonLevels, levelLabel, levelAbbr, boxSize, isTeamEvent,
-  drawLadder, BOX_H, LEVEL, LEVEL_ORDER,
-  careerRows, gridSections, sectionCells, gridYears, gridGroupLabel, seasonLabels, GRID_ORDER,
+  drawLadder, BOX_H, LEVEL, LEVEL_ORDER, NO_LEVEL,
+  careerRows, gridGroup, gridSections, sectionCells, gridYears, gridGroupLabel, seasonLabels, GRID_ORDER,
   ERAS, ERA_DEFAULT, eraKey, gridOrder,
   seasonResults, tournamentSeason,
   HONOUR_STEPS, HONOUR_DEFAULT, honourStep, honourScale, honourRung,
@@ -85,7 +85,11 @@ const state = {
   playerId: null,
   player: null,          // {id, name, country, countryCode}
   kind: null,            // 'singles' | 'doubles'
-  sized: true,
+  /* ⚠️ **Off by default.** Sizing by weight is a real reading of a career and
+     it is also the one that makes a Super 100 season look like a thin one; the
+     plain grid of equal squares is what a reader wants first, and the toggle is
+     right there. Changed 30 Sep 2026 at the user's request. */
+  sized: false,
   hiddenLevels: null,    // level keys switched off
   touchedLevels: null,   // level keys the reader has actually clicked
   hiddenYears: new Set(),
@@ -120,18 +124,46 @@ const RECENT_MAX = 30;
 /* ============================ what gets drawn ============================ */
 
 /**
- * Team events are off unless explicitly switched on. They carry no individual
- * position — BWF returns "N/A" — so at full weight they are the largest and
- * emptiest squares in the strip: maximum prominence, zero information.
+ * Two kinds of level are off unless explicitly switched on.
  *
- * Applied to every season as it arrives, but never to a level the reader has
- * already decided about: switching team events on and then loading another
- * season should not switch them off again.
+ * **Team events**, because they carry no individual position — BWF returns
+ * "N/A" — so at full weight they are the largest and emptiest squares in the
+ * strip: maximum prominence, zero information.
+ *
+ * **Levels BWF ships no name for and that hold nothing the grid will take.**
+ * These draw as "Level 12" because there is nothing else to call them, and they
+ * are junior, para, masters and invitational events. Changed 30 Sep 2026 at the
+ * user's request, that a career should open without them.
+ *
+ * ⚠️⚠️ **Derived from what the level holds, never from the id being unmapped.**
+ * The first version switched off every id `LEVEL_ORDER` does not know, and that
+ * is wrong in a way only the data shows: **category 1 is a grab-bag**. It holds
+ * the 2017 World Championships, the 2010 and 2012 Asian Championships, the
+ * Asian Games and the Commonwealth Games — alongside junior championships. A
+ * blanket rule took LIN Dan's 2014 Asian Games title off his strip. So the
+ * question asked of a level is whether *anything it holds* is a senior,
+ * individual event the grid would draw, which `gridGroup` already answers, and
+ * which no list here can drift away from.
+ *
+ * ⚠️ Asked over every tournament loaded so far rather than the arriving season
+ * alone, and it can put a level **back**: a career walks backwards through the
+ * years, so a level whose only senior title is in 2014 would otherwise be
+ * switched off by the ten seasons that arrive before it and stay off.
+ *
+ * Never applied to a level the reader has decided about: switching team events
+ * on and then loading another season must not switch them off again.
  */
 function applyLevelDefaults(tournaments) {
   if (!state.hiddenLevels) { state.hiddenLevels = new Set(); state.touchedLevels = new Set(); }
-  for (const c of seasonLevels(tournaments)) {
-    if (isTeamEvent(c) && !state.touchedLevels.has(String(c))) state.hiddenLevels.add(String(c));
+  const all = allTournaments().concat(tournaments || []);
+  const worthy = new Set(all.filter(t => gridGroup(t) != null).map(t => levelKey(t.cat)));
+  for (const c of seasonLevels(all)) {
+    const key = levelKey(c);
+    if (state.touchedLevels.has(key)) continue;
+    if (isTeamEvent(c)) { state.hiddenLevels.add(key); continue; }
+    if (LEVEL_ORDER.includes(c)) continue;
+    if (worthy.has(key)) state.hiddenLevels.delete(key);
+    else state.hiddenLevels.add(key);
   }
 }
 
@@ -140,7 +172,11 @@ const allTournaments = () => state.seasons.flatMap(s => s.tournaments);
 /* Levels are held as what is *hidden*. Holding the shown set meant that a
    season containing a level an earlier one did not — and historical seasons are
    full of them — was filtered away silently. */
-const levelShown = cat => !state.hiddenLevels || !state.hiddenLevels.has(String(cat));
+/* ⚠️ One key per level, and `null` is a level. A tournament BWF filed under no
+   category is `NO_LEVEL` here, so it has a chip like everything else and the
+   toggle can reach it. */
+const levelKey = cat => (cat == null || cat === '' ? NO_LEVEL : String(cat));
+const levelShown = cat => !state.hiddenLevels || !state.hiddenLevels.has(levelKey(cat));
 
 const visibleSeasons = () => state.seasons
   .filter(s => !state.hiddenYears.has(s.year))
@@ -273,7 +309,7 @@ function renderLevels() {
   const present = seasonLevels(all);
   const named = present.filter(c => LEVEL_ORDER.includes(c));
   const rest = present.filter(c => !LEVEL_ORDER.includes(c));
-  const count = c => all.filter(t => t.cat === c).length;
+  const count = c => all.filter(t => levelKey(t.cat) === levelKey(c)).length;
 
   $('levels').innerHTML = named.map(c => {
     const on = levelShown(c);
@@ -289,9 +325,16 @@ function renderLevels() {
 
   const off = rest.filter(c => !levelShown(c)).length;
   btn.innerHTML = `${rest.length} more${off ? ` · ${off} off` : ''} <span class="caret">▾</span>`;
-  $('morePanel').innerHTML = rest.map(c =>
-    `<label><input type="checkbox" data-cat="${c}"${levelShown(c) ? ' checked' : ''}>`
-    + `<span>${esc(levelLabel(c))}</span><span class="n">${count(c)}</span></label>`).join('');
+  /* ⚠️ One click for the lot. Eleven checkboxes is eleven clicks and eleven
+     re-renders to see a career whole, which is the one thing somebody opens
+     this panel to do. The pair reuses the `.tabs` row the top-ranked panel
+     already has rather than inventing a control. */
+  $('morePanel').innerHTML =
+    `<div class="tabs"><button type="button" data-all="on"${off ? '' : ' disabled'}>All ${rest.length}</button>`
+    + `<button type="button" data-all="off"${off === rest.length ? ' disabled' : ''}>None</button></div>`
+    + rest.map(c =>
+      `<label><input type="checkbox" data-cat="${esc(levelKey(c))}"${levelShown(c) ? ' checked' : ''}>`
+      + `<span>${esc(levelLabel(c))}</span><span class="n">${count(c)}</span></label>`).join('');
 }
 
 /* ---------- who you are looking at ---------- */
@@ -3129,6 +3172,22 @@ $('morePanel').addEventListener('change', e => {
   toggleLevel(box.dataset.cat);
 });
 
+/* All of them, or none of them, in one click. Marked touched either way, so a
+   season arriving afterwards does not quietly switch them back off again. */
+$('morePanel').addEventListener('click', e => {
+  const btn = e.target.closest('button[data-all]');
+  if (!btn) return;
+  const on = btn.dataset.all === 'on';
+  for (const c of seasonLevels(allTournaments())) {
+    if (LEVEL_ORDER.includes(c)) continue;
+    const key = levelKey(c);
+    state.touchedLevels.add(key);
+    if (on) state.hiddenLevels.delete(key); else state.hiddenLevels.add(key);
+  }
+  writeHash();
+  render();
+});
+
 /**
  * A panel left open over the seasons is in the way; anything outside closes it.
  *
@@ -4305,7 +4364,9 @@ $('tmtDraws').addEventListener('click', e => {
 function readHash() {
   const h = new URLSearchParams(location.hash.replace(/^#/, ''));
   if (h.has('k')) state.kind = h.get('k');
-  if (h.has('sz')) { state.sized = h.get('sz') !== '0'; $('sized').checked = state.sized; }
+  /* ⚠️ Read as "is it on", not "is it not off" — the default moved, and
+     `sz=0` from an older link still reads as off either way. */
+  if (h.has('sz')) { state.sized = h.get('sz') === '1'; $('sized').checked = state.sized; }
   if (h.has('hy')) state.hiddenYears = new Set(h.get('hy').split('.').map(Number).filter(Boolean));
   if (h.has('hl')) {
     state.hiddenLevels = new Set(h.get('hl').split('.').filter(Boolean));
@@ -4394,7 +4455,7 @@ function writeHash() {
   const p = new URLSearchParams();
   if (state.playerId) p.set('p', state.playerId);
   if (state.kind) p.set('k', state.kind);
-  if (!state.sized) p.set('sz', '0');
+  if (state.sized) p.set('sz', '1');
   if (state.hiddenYears.size) p.set('hy', [...state.hiddenYears].join('.'));
   if (state.hiddenLevels && state.hiddenLevels.size) p.set('hl', [...state.hiddenLevels].join('.'));
   if (page !== 'seasons') p.set('pg', page);

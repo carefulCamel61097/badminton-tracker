@@ -124,12 +124,23 @@ export function isOlympics(name) {
  * way to filter them — visible but unreachable.
  */
 export function seasonLevels(season) {
-  const present = new Set((season || []).map(t => t.cat).filter(c => c != null));
+  const rows = season || [];
+  const present = new Set(rows.map(t => t.cat).filter(c => c != null && c !== ''));
   const known = LEVEL_ORDER.filter(c => present.has(c));
   const unknown = [...present].filter(c => !LEVEL_ORDER.includes(c))
     .sort((a, b) => (Number(a) || 0) - (Number(b) || 0));
-  return known.concat(unknown);
+  /* ⚠️⚠️ **A tournament BWF files under no category at all still needs a
+     chip.** Filtering them out of this list left them with no control anywhere
+     on the page: `levelShown` asks whether the level is hidden, nothing could
+     ever put them in that set, and AN Se Young's two junior Asia U17 events sat
+     on her strip with every toggle switched off. They get the one level key
+     that is not a category — reported 30 Sep 2026. */
+  const unfiled = rows.some(t => t.cat == null || t.cat === '');
+  return unfiled ? known.concat(unknown, [NO_LEVEL]) : known.concat(unknown);
 }
+
+/** The level key for a tournament BWF gave no category. */
+export const NO_LEVEL = 'none';
 
 /**
  * Areas, not sides. The basis is BWF's own Top Committed Player Programme:
@@ -186,6 +197,7 @@ export function boxSize(catId, sized = true) {
  * quietly shrink a season nobody has looked at.
  */
 export function levelLabel(catId) {
+  if (catId === NO_LEVEL) return 'Unfiled';
   const l = LEVEL[catId];
   if (l) return l.label;
   return catId == null ? '' : `Level ${catId}`;
@@ -193,6 +205,7 @@ export function levelLabel(catId) {
 
 /** The level as it fits under a square: abbreviated only where it has to be. */
 export function levelAbbr(catId) {
+  if (catId === NO_LEVEL) return 'Unfiled';
   const l = LEVEL[catId];
   if (!l) return catId == null ? '' : `Lv ${catId}`;
   return l.abbr || l.label || '';
@@ -666,6 +679,34 @@ export const DOUBLES_DRAWS = ['MD', 'WD', 'XD'];
  * individual position, so they render as empty squares and default off (Part
  * 2.3), but dropping them here would make the toggle impossible.
  */
+/* ⚠️⚠️ **A team tie BWF did not file as one.** `isTeamEvent` reads the
+   category, and the category is wrong for exactly the events a reader is most
+   likely to meet: the Asian Games team competition comes back as category 1,
+   the Commonwealth Games team as 74, the Badminton Asia Team Championships as 1
+   and the East Asian Games team with no category at all. None of those is 17 or
+   21, so the Team toggle did not hide them and a team tie sat on the strip as a
+   square with no result in it.
+
+   The signal is the one Part 3 of the handover already records: **a draw named
+   bare `Singles` or `Doubles`, with no gender, is a team tie** — an individual
+   event names its draws `MS`, `WS`, `MD`, `WD`, `XD` or spells them out with a
+   gender, and never just "Singles".
+
+   ⚠️ Matched on the *bare* name rather than through `kindOf`, which answers
+   'team' for any draw name it does not recognise. A junior or regional event
+   with a spelling this project has not met would then be classed as a team tie
+   and hidden by default — losing a real individual result, which is the worse
+   of the two mistakes.
+
+   ⚠️ **One bare draw is enough**, not all of them: the 2014 European U17 Team
+   Championships comes back as `Doubles` and `Mixed`, and `Mixed` canonicalises
+   to XD, so a rule wanting every draw to be bare let that tie through. No
+   individual event names a draw without a gender, so one of them is the signal. */
+const BARE_TIE = /^(singles|doubles)$/i;
+/** Where a tie goes when BWF's own category does not say it is one. */
+const TEAM_LEVEL = 21;
+const isTeamTie = draws => draws.some(d => BARE_TIE.test(String(d.raw || '').trim()));
+
 export function parseSeason(raw, opts = {}) {
   const results = raw && raw.results;
   const list = Array.isArray(results) ? results
@@ -676,7 +717,26 @@ export function parseSeason(raw, opts = {}) {
     const tm = t.tournament_model || {};
     // The Olympics share category 20 with the World Championships and are
     // told apart only by name, so that is settled here, once.
-    const cat = isOlympics(tm.name) ? 'OLY' : tm.tournament_category_id;
+    const filed = isOlympics(tm.name) ? 'OLY' : tm.tournament_category_id;
+    const draws = (t.draws || []).map(dr => ({
+      event: dr.event_id,
+      // Canonical code where there is one, BWF's own wording otherwise —
+      // which is what leaves a team tie as "SINGLES"/"DOUBLES".
+      name: canonicalDraw(dr.name) || String(dr.name || '').toUpperCase(),
+      raw: String(dr.name || ''),
+      position: dr.position,
+      win: dr.match_win,
+      lose: dr.match_lose,
+      games: { win: dr.game_win, lose: dr.game_lose },
+      points: { player: dr.score_player, opponent: dr.score_opponent },
+    }));
+    /* ⚠️ **Filed under the level it actually is**, the same move the
+       Olympics get two lines up. A tie whose category is not a team category
+       has a category that means nothing — the Asian Games team competition is
+       category 1, the same id as the individual one — and leaving it there put
+       the tie on the Team chip's far side, where nothing could switch it off.
+       Labelled, sized and filtered as the team event it is. */
+    const cat = !isTeamEvent(filed) && isTeamTie(draws) ? TEAM_LEVEL : filed;
     return {
       tournamentId: t.tournament_id != null ? t.tournament_id : tm.id,
       name: tm.name || '',
@@ -690,18 +750,7 @@ export function parseSeason(raw, opts = {}) {
       end: String(tm.end_date || '').slice(0, 10),
       location: t.location || '',
       url: t.tmt_url || '',
-      draws: (t.draws || []).map(dr => ({
-        event: dr.event_id,
-        // Canonical code where there is one, BWF's own wording otherwise —
-        // which is what leaves a team tie as "SINGLES"/"DOUBLES".
-        name: canonicalDraw(dr.name) || String(dr.name || '').toUpperCase(),
-        raw: String(dr.name || ''),
-        position: dr.position,
-        win: dr.match_win,
-        lose: dr.match_lose,
-        games: { win: dr.game_win, lose: dr.game_lose },
-        points: { player: dr.score_player, opponent: dr.score_opponent },
-      })),
+      draws,
     };
   });
 
