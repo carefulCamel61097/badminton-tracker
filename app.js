@@ -1490,7 +1490,7 @@ function renderWinners() {
         /* ⚠️ An empty row is drawn as a gap, not closed up. A season with no
            Tour Finals — every season before 2008 — should show the hole where
            it goes rather than quietly becoming a different shape. */
-        const h = Math.round(pyramidScale(row.tiers[row.tiers.length - 1]) * unit);
+        const h = Math.round(pyramidScale(row.tiers[row.tiers.length - 1], year) * unit);
         return `<div class="pyrrow is-empty" style="height:${h}px"
           title="no ${esc(row.label)} this season"></div>`;
       }
@@ -1501,9 +1501,14 @@ function renderWinners() {
            dimming the tile alone left a full-strength Olympic badge floating
            beside a square that had receded. */
         const off = pickedOff(t.id) ? ' faded' : '';
-        const tile = `<span class="pyrtile t-${esc(String(t.tier))}${t.mark ? ' is-moved' : ''}${off}"
+        /* ⚠️ `is-top`, not `t-OLY`. Every square on a line is the same size now,
+           so the gold ring is what says which one outranks the rest — the rule
+           the Olympics has followed since the board was built, applied to all
+           three paired rows. */
+        const tile = `<span class="pyrtile t-${esc(String(t.tier))}${t.top ? ' is-top' : ''}${t.mark ? ' is-moved' : ''}${off}"
           style="width:${side}px;height:${side}px"
           data-tier="${esc(String(t.tier))}" data-level="${esc(t.level)}"
+          data-top="${t.top ? '1' : ''}"
           data-id="${esc(String(t.id))}"
           data-mark="${esc(t.mark ? t.mark.kind : '')}"
           title="${esc(tileTitle(t, year))}">${winnerFace(t.who, side)}</span>`;
@@ -1721,7 +1726,14 @@ function scoreTop() {
   for (const kind of WIN_KINDS) {
     const file = win.files[kind];
     if (!file) continue;
-    for (const p of dominationSeasons(file).people) {
+    /* ⚠️⚠️ **Through the chips, like everything else on this page.** Read off the
+       raw file this was the height of a board nobody was looking at: switching a
+       continent off makes every denominator smaller and so every peak *higher*,
+       and the axis stayed where the unfiltered numbers put it. On the default two
+       continents that left the men's top at 60 while MOMOTA's 2019 reached 68.4,
+       and his line ran off the top of the plot. The axis has to be scaled to the
+       board being drawn. */
+    for (const p of dominationSeasons(winnersWithin(file, win.confs)).people) {
       if (p.peak > best) best = p.peak;
     }
   }

@@ -48,9 +48,11 @@ import {
  * came out looking like the bigger prize. One square is marked out and the other
  * is the plain case. Every other tier says its rank by size, which is what the
  * whole page is built on. */
-export const TIER_RING = {
-  OLY: { colour: '#ffd24a', width: 2 },
-};
+/* ⚠️ Keyed on the **tile**, not on the tier: three rows hold two tiers now and
+   the ring belongs to whichever of them outranks its line. `pyramidOutranks`
+   decides, in the model, so the canvas and the page cannot disagree about which
+   square is marked. */
+export const TIER_RING = { colour: '#ffd24a', width: 2 };
 
 /* One colour per player, cycled.
  *
@@ -314,9 +316,9 @@ export function posterLayout(file, opts) {
      matters before 2011: those seasons put Superseries squares on the Super
      1000 row, so that row is shorter there than it is in 2013, and a height
      table keyed on the row would have left a hole above them. */
-  const rowHeight = row => (row.tiles.length
+  const rowHeight = (row, year) => (row.tiles.length
     ? Math.max(...row.tiles.map(t => Math.round(t.scale * P.unit)))
-    : Math.round(pyramidScale(row.tiers[row.tiers.length - 1]) * P.unit));
+    : Math.round(pyramidScale(row.tiers[row.tiers.length - 1], year) * P.unit));
   /* ⚠️ A badged tile is given the badge's width on **both** sides, so the
      photograph sits in the middle of its own slot. That is the same trick the
      page plays with `padding-right` on `.pyrmajor`, and it is not optional:
@@ -331,7 +333,7 @@ export function posterLayout(file, opts) {
   let x = P.pad;
   for (const year of years) {
     const rows = pyramidSeason(seasons.byYear.get(year), players, year);
-    const rowH = rows.map(rowHeight);
+    const rowH = rows.map(r => rowHeight(r, year));
     const inner = Math.max(...rows.map(rowWidth), Math.round(P.unit));
     const w = inner + P.colPad * 2;
     columns.push({
@@ -686,7 +688,7 @@ function drawPosterFoot(ctx, width, height, footH, avatar, legend) {
  * square deletes the shape of the season, which is what the board is for.
  */
 function drawTile(ctx, t, x, y, side, faces, lit = true) {
-  const ring = TIER_RING[String(t.tier)];
+  const ring = t.top ? TIER_RING : null;
   ctx.save();
   roundRect(ctx, x, y, side, side, 3);
   ctx.clip();

@@ -419,9 +419,22 @@ Worlds — so that row simply holds two.)
 Championships, the Tour Finals with the Super 1000s, and the Super 750s alone on the base.
 Four rows rather than six, because six rows of faces is a column too tall to read as one
 picture across twenty seasons — and pairing the Tour Finals with the Super 1000s fixes a row
-that was always slightly absurd, holding exactly one square every season. Squares keep their
-**own** sizes inside a row, so the pairing is a layout decision and never a claim that two
-tiers are worth the same.
+that was always slightly absurd, holding exactly one square every season.
+
+⚠️⚠️ **Every square on a line is the same size, and the gold ring is the ranking.** Two sizes
+on a row of faces read as a layout accident rather than as a ranking, which is why the
+Olympics has been drawn at the Worlds size with a ring since the board was built. With three
+rows holding two tiers, that exception became the rule: the Olympics, the Continental Games
+and the Tour Finals wear the ring, and the Worlds, the Continental Championships and the
+Super 1000 are the plain case beside them. Size still ranks *between* rows, and the honours
+board on the Compare page still ranks every tier apart — that is a claim about worth, and
+this is a row of portraits.
+
+**A row reads hardest first**, not oldest first, so the Tour Finals leads its row despite
+being played in December. The continental row goes by **confederation** instead — Asian
+Games, Asian Championships, European Games, European Championships — because two titles from
+one confederation are the same circle of countries four years apart and belong beside each
+other.
 
 ⚠️ **The two are drawn the same size, and a gold ring is what tells them apart.** Only the
 Olympic square wears one: one marked square beside a plain one is the ranking, and ringing
@@ -758,11 +771,12 @@ grew by about two continental titles, so LCW's seasons are divided by more and n
 is added on top. AXELSEN's own second place is an Olympic gold, two world titles, three
 European Championships and the 2023 European Games.
 
-⚠️ **Two caveats worth knowing before reading 234 as the whole truth.** LEE Chong Wei's own
-Asian Championships title is **2006**, a season before this board begins. And BWF carries no
-order of play for most of the continental championships between 2007 and 2013, so 64 of the
-100 held in that span are here and the rest are simply absent — a gap that falls on exactly
-the years these two careers were in.
+⚠️ **Worth knowing before reading 234 as the whole truth.** LEE Chong Wei's one
+continental title is the **2016** Asian Championships, and the seasons where he might have
+added to it are the ones the harvest cannot see: BWF carries no order of play for most
+continental championships between 2007 and 2013, so 64 of the 100 held in 2007-2026 are here
+and 36 are absent — a gap falling on exactly the years these two careers were in. (His 2006
+is on BWF's record and holds no continental title either: an Asian Games **bronze** in Doha.)
 
 ⚠️ **The Olympics has always outranked the World Championships here**, 6.854 to 4.236. What
 makes them look equal is `pyramidScale`, which draws an Olympic square at the Worlds size and

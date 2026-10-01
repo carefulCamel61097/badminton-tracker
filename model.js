@@ -2930,10 +2930,16 @@ function gridOf(courts, rows) {
    always slightly absurd, the Tour Finals alone on a line holding exactly one
    square every season.
 
-   ⚠️ Squares keep their **own** sizes inside a paired row, so the pairing is a
-   layout decision and never a claim that the two tiers are worth the same. The
-   Olympic square has always been the exception the other way — see
-   `pyramidScale`.
+   ⚠️⚠️ **Every square in a row is the same size, and a gold ring is what says
+   one of them outranks the rest.** Two sizes on one line of faces read as a
+   layout accident rather than as a ranking — which is exactly why the Olympics
+   has been drawn at the Worlds size with a gold ring since the board was built.
+   That was a one-off exception; now that three of the four rows hold two tiers it
+   is the rule, and the ring means one learnable thing everywhere: *this is the
+   bigger prize on this line*. `pyramidScale` draws every tier at its row's
+   **lowest** rung and `pyramidOutranks` says which square wears the ring. The
+   honours board is untouched and still ranks all of them apart by size, because
+   that is a claim about worth and this is a row of portraits.
    ==================================================================== */
 
 /* ⚠️ No `label`: the row's name is built from its tiers by `pyramidRowLabel`, in
@@ -2960,6 +2966,38 @@ export function isContinentalTier(tier) {
 export function pyramidRow(tier) {
   const row = PYRAMID_ROWS.find(r => r.tiers.some(t => String(t) === String(tier)));
   return row ? row.key : null;
+}
+
+/**
+ * The row a tier is drawn on in a given season, or null.
+ *
+ * ⚠️ Takes the season because the rows are not fixed: before 2011 the elite row's
+ * Super 1000 half is a second Superseries half instead, so the tier that sets
+ * that row's size is different. See `rowsFor`.
+ */
+function rowOf(tier, season) {
+  return rowsFor(season).find(r => r.tiers.some(t => String(t) === String(tier))) || null;
+}
+
+/**
+ * The rung every square in a tier's row is drawn at: the row's **lowest**.
+ *
+ * Listed last in `tiers`, which is also the rung an empty row is drawn at — one
+ * fact, read the same way whether the row has anything in it or not.
+ */
+function rowBase(tier, season) {
+  const row = rowOf(tier, season);
+  return row ? row.tiers[row.tiers.length - 1] : tier;
+}
+
+/**
+ * Whether this square outranks the rest of its row, and so wears the gold ring.
+ *
+ * ⚠️ Derived from the row rather than listed, so a tier moved from one row to
+ * another cannot end up ringed on a line it is the smallest thing on.
+ */
+export function pyramidOutranks(tier, season) {
+  return String(rowBase(tier, season)) !== String(tier);
 }
 
 /* Anything junior, para, masters, student or invitational. These are real
@@ -3349,6 +3387,46 @@ export function settleWinnerOrder(file) {
 }
 
 
+/* ===================== the order squares are drawn in =====================
+
+   Left to right inside a row, and the rule is not the same for every row.
+
+   ⚠️ **Tier first, then date.** The reader's own call, 1 Oct 2026: the Tour
+   Finals goes at the *front* of the row it shares with the Super 1000s, not at
+   the back where December puts it. The same rule gives the Olympics the head of
+   the majors row in a year that held both. Within one tier the order is still
+   the calendar.
+
+   ⚠️⚠️ **Except the continental row, which goes by confederation first**: Asian
+   Games, Asian Championships, European Games, European Championships. Two
+   continental titles from the same confederation belong beside each other —
+   they are the same circle of countries, four years apart — and a tier-first
+   order would have split them across the row with Europe's games in between.
+   ==================================================================== */
+
+const byDate = (a, b) => String(a.date).localeCompare(String(b.date));
+
+/** Where a tier sits in its own row, for ordering. */
+const tierPlace = (row, tier) =>
+  row.tiers.findIndex(t => String(t) === String(tier));
+
+/** Where a title's confederation sits in `CONFEDERATIONS`, unknown last. */
+const confPlace = t => {
+  const i = CONFEDERATIONS.findIndex(c => c.key === titleConf(t));
+  return i < 0 ? CONFEDERATIONS.length : i;
+};
+
+function sortTiles(row, list) {
+  const out = list.slice();
+  if (row.key === 'cont') {
+    out.sort((a, b) => (confPlace(a) - confPlace(b))
+      || (tierPlace(row, a.tier) - tierPlace(row, b.tier)) || byDate(a, b));
+  } else {
+    out.sort((a, b) => (tierPlace(row, a.tier) - tierPlace(row, b.tier)) || byDate(a, b));
+  }
+  return out;
+}
+
 export function pyramidSeason(won, players, season) {
   const all = won || [];
   const flat = flatSupers(season);
@@ -3356,8 +3434,7 @@ export function pyramidSeason(won, players, season) {
      filtered per row — a row cannot know how many the row below it took. */
   let top = null, bottom = null;
   if (flat) {
-    const supers = all.filter(t => pyramidRow(t.tier) === 's750')
-      .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    const supers = all.filter(t => pyramidRow(t.tier) === 's750').slice().sort(byDate);
     const half = Math.floor(supers.length / 2);
     top = supers.slice(0, half);
     bottom = supers.slice(half);
@@ -3370,9 +3447,9 @@ export function pyramidSeason(won, players, season) {
        outright would have dropped every Superseries Finals from 2007 to 2010 the
        day the Finals stopped having a row to itself. */
     const own = all.filter(t => pyramidRow(t.tier) === row.key);
-    const raw = (flat && row.key === 'elite' ? own.concat(top)
+    const raw = sortTiles(row, flat && row.key === 'elite' ? own.concat(top)
       : flat && row.key === 's750' ? bottom
-        : own).slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
+        : own);
     return {
       key: row.key,
       label: pyramidRowLabel(row, season),
@@ -3384,7 +3461,10 @@ export function pyramidSeason(won, players, season) {
         tier: t.tier,
         name: t.name,
         date: t.date,
-        scale: pyramidScale(t.tier),
+        scale: pyramidScale(t.tier, season),
+        /* Whether this square wears the gold ring: it is the bigger prize on a
+           line where everything is drawn the same size. */
+        top: pyramidOutranks(t.tier, season),
         /* One competitor, which is a player in the singles draws and a pair in
            the doubles ones. `who.faces` is what a split square reads. */
         who: winnerOf(players, titleWinnerIds(t)),
@@ -3513,13 +3593,17 @@ export function pyramidLabel(tier, season) {
 /**
  * How big a pyramid square is, as a multiple of the base.
  *
- * The honours ladder everywhere else — except that the Olympics is drawn at the
- * *Worlds* size rather than a rung above it. See the warning at the top of this
- * section: they share a row, and on a row of faces the gold ring is the better
- * way to say which is which.
+ * The honours ladder, read at the **row's** rung rather than the tier's: every
+ * square on a line is the same size and the gold ring says which one outranks
+ * the others. See the warning at the top of this section.
+ *
+ * ⚠️ The season matters. Before 2011 the elite row is Superseries Finals over a
+ * dealt half of the twelve Superseries, so its base is the Superseries rung and
+ * not the Super 1000 one — and a size that ignored the season would draw those
+ * four columns a rung too large.
  */
-export function pyramidScale(tier) {
-  return honourScale(String(tier) === 'OLY' ? 20 : tier);
+export function pyramidScale(tier, season) {
+  return honourScale(rowBase(tier, season));
 }
 
 /** The edition year BWF's own name claims, or null. */

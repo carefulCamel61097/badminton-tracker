@@ -2354,19 +2354,36 @@ eq('and 2013, which had two ranks, does not split evenly',
   pyrs.find(p => p.year === '2013').rows.slice(2).join(','), '6,8');
 
 /* ⚠️ Sizes come from the honours ladder, so the summit must actually be the
-   biggest square on the page and a Super 750 the smallest. */
-const pyrSizes = JSON.parse(await b.ev(`JSON.stringify(
-  ['OLY','20','22','23','24'].map(t => {
-    const el = document.querySelector('.pyrtile.t-' + t);
-    return [t, el ? Math.round(el.getBoundingClientRect().width) : 0];
-  }))`));
-const px = Object.fromEntries(pyrSizes);
-/* ⚠️ The two summit tiers are the one place size does *not* rank: they share a
-   row, and the gold ring carries the difference. Everything below them steps. */
+   biggest square on the page and a Super 750 the smallest.
+   ⚠️⚠️ **Read inside one column.** `querySelector` takes the first match on the
+   page, and before 2011 the elite row stands at the *Superseries* rung — so a
+   page-wide query compared 2007's Tour Finals with 2011's Super 1000 and called
+   the ladder broken. 2024 holds every tier at once. */
+const sizeIn = async (year, tier) => b.ev(`(() => {
+  const col = document.querySelector('.pyrseason[data-year="${year}"]');
+  const el = col && col.querySelector('.pyrtile.t-${tier}');
+  return el ? Math.round(el.getBoundingClientRect().width) : 0;
+})()`);
+/* Each pair is read in a season that actually held both halves of it: 2021 is
+   the one year with an Olympics and a Worlds, and 2023 held the Asian Games and
+   the Asian Championships. 2024 has every rung below them. */
+const px = {
+  OLY: await sizeIn(2021, 'OLY'), 20: await sizeIn(2021, '20'),
+  GAMES: await sizeIn(2023, 'GAMES'), 11: await sizeIn(2023, '11'),
+  22: await sizeIn(2024, '22'), 23: await sizeIn(2024, '23'),
+  24: await sizeIn(2024, '24'), '11b': await sizeIn(2024, '11'),
+};
+const pyrSizes = JSON.stringify(px);
+/* ⚠️⚠️ **Size ranks between rows and never inside one.** Every square on a line is
+   drawn at the row's lowest rung and a gold ring says which of them outranks the
+   rest — two sizes on a row of faces read as a layout accident rather than as a
+   ranking. So the three pairs match and the four rows step. */
 eq('the Olympics is drawn at the Worlds size', px.OLY, px['20']);
-check('the Worlds outranks the Tour Finals', px['20'] > px['22'], JSON.stringify(pyrSizes));
-check('the Tour Finals outranks a Super 1000', px['22'] > px['23'], JSON.stringify(pyrSizes));
-check('and a Super 1000 outranks a Super 750', px['23'] > px['24'], JSON.stringify(pyrSizes));
+eq('a Continental Games at the Continental Championships size', px.GAMES, px['11']);
+eq('and the Tour Finals at the Super 1000 size', px['22'], px['23']);
+check('the summit outranks the continental row', px.OLY > px['11'], pyrSizes);
+check('which outranks the elite row', px['11b'] > px['23'], pyrSizes);
+check('and a Super 1000 outranks a Super 750', px['23'] > px['24'], pyrSizes);
 
 /* ⚠️ The slider was in the markup and wired to nothing for a whole commit: the
    photographs were fixed at a size where a Super 750 face was unreadable and
@@ -2464,14 +2481,17 @@ const colAt = async y => (await cols()).find(c => c.year === y);
 /* The Superseries era, named as the Superseries era. This is what the reader
    was looking at when they asked whether the two tiers were distinguished: they
    are, from 2011 — and before that the tier did not exist. */
+/* ⚠️ The elite row's **Super 1000**, not its first tile: the Tour Finals leads
+   that row now, and it is a different rung with a different name. */
+const eliteS1000 = col => col.rows[2].find(t => t.tier === '23');
 const y2013 = await colAt(2013);
 check('a 2013 Super 1000 hover says Superseries Premier',
-  y2013.rows[2][0].level === 'Superseries Premier'
-    && /Superseries Premier/.test(y2013.rows[2][0].title),
-  JSON.stringify(y2013.rows[2][0]));
+  eliteS1000(y2013).level === 'Superseries Premier'
+    && /Superseries Premier/.test(eliteS1000(y2013).title),
+  JSON.stringify(eliteS1000(y2013)));
 eq('and the row below it says Superseries', y2013.rows[3][0].level, 'Superseries');
 const y2023 = await colAt(2023);
-eq('the identical rung in 2023 says Super 1000', y2023.rows[2][0].level, 'Super 1000');
+eq('the identical rung in 2023 says Super 1000', eliteS1000(y2023).level, 'Super 1000');
 eq('and the one below it Super 750', y2023.rows[3][0].level, 'Super 750');
 
 
@@ -2929,11 +2949,13 @@ eq('and the world champion square is bare', summit.wch.ring, 'none');
 check('and the one that is left is not drawn under the photograph',
   !/inset/.test(summit.oly.ring), summit.oly.ring);
 
-/* Nothing else on the board is ringed at all. Rank is said by size on this page,
-   and a ring nobody can see is worse than no ring — it is a claim the drawing
-   does not make. */
-check('and no other tier is ringed',
-  await b.ev(`['20', '22', '23', '24'].every(t => {
+/* ⚠️⚠️ **One ring to a row, and it is the top half of a pair that wears it.**
+   Three rows hold two tiers, so three tiers are ringed — Olympics, Continental
+   Games, Tour Finals — and the three they are paired with are the plain case.
+   One marked square beside a plain one *is* the ranking; ringing both would make
+   them a matched pair in two liveries. */
+check('the lower half of every pair is plain',
+  await b.ev(`['20', '11', '23', '24'].every(t => {
     const el = document.querySelector('.pyrtile.t-' + t);
     return !el || getComputedStyle(el).boxShadow === 'none';
   })`),
@@ -3140,6 +3162,40 @@ for (const yr of [2020, 2021, 2022]) {
    plan to be called out. The three Covid columns are the claim. */
 eq('and the reasons are written where the line goes strange',
   (await b.ev(`window.BST.score.why()`)).join(','), 'Covid,Covid,Covid');
+
+/* ⚠️⚠️ **Every point it draws has to be inside the plot, under every setting of
+   the chips.** This is the invariant the axis exists to keep and the one that
+   failed: `scoreTop` was reading the *unfiltered* file, and switching a continent
+   off makes every denominator smaller and so every peak higher — so on the
+   default two continents the men's axis topped out at 60 while MOMOTA's 2019
+   reached 68.4 and his line ran off the top of the chart. Reported by the reader,
+   1 Oct 2026.
+
+   Checked geometrically rather than from the model, because a top that is right
+   in the numbers and wrong in pixels is exactly what happened. */
+const plotBox = () => b.ev(`(() => {
+  const r = document.querySelector('#scoreChart').getBoundingClientRect();
+  return { top: Math.round(r.top), bottom: Math.round(r.bottom) };
+})()`);
+for (const wc of ['AS.EU', 'AS', '', 'AS.EU.PA.AF.OC']) {
+  await b.ev(`window.BST.winners.confs(${JSON.stringify(wc.split('.').filter(Boolean))})`);
+  await b.until(`window.BST.score.marks().length > 5`, { timeout: 60000 });
+  const boxc = await plotBox();
+  const above = (await b.ev(`window.BST.score.marks()`))
+    .filter(m2 => m2.y < boxc.top - 1);
+  check(`no point is drawn above the plot with wc=${wc || '(none)'}`,
+    above.length === 0,
+    above.map(m2 => `${m2.year}@${m2.y} vs ${boxc.top}`).join(' ') || 'all inside');
+}
+await b.ev(`window.BST.winners.confs(['AS', 'EU'])`);
+await b.until(`window.BST.score.marks().length > 5`, { timeout: 60000 });
+/* And the top is not simply enormous to be safe: it is the best season rounded
+   up to the next ten, so the tallest line reaches most of the way up. */
+const topNow = await b.ev(`window.BST.score.top()`);
+const bestNow = Math.max(...(await b.ev(`window.BST.score.model().people`)).map(p => p.peak));
+check('and the axis is the best season rounded up, not padded for safety',
+  topNow >= bestNow && topNow - bestNow < 0.1,
+  `top ${topNow} against a best of ${bestNow.toFixed(3)}`);
 
 /* ⚠️ The axis is scaled to the best season in **either** draw, and never to the
    selection. Fitted to what was on screen it rescaled every time a name was

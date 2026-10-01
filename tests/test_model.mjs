@@ -19,7 +19,7 @@ import {
   pyramidReigns, reignLanes, reignStep, REIGN_STEPS, REIGN_DEFAULT,
   titleWinnerIds, titleWinnerKey, winnerOf, pairName, winnerRegistry, usableAvatar,
   settleWinnerOrder,
-  flatSupers, PREMIER_FROM, pyramidScale,
+  flatSupers, PREMIER_FROM, pyramidScale, pyramidOutranks,
   parseSeason, seasonDisciplines, drawFor, drawForKind, dominantDraw,
   kindOf, seasonKinds, defaultKind, seasonLevels,
   positionInfo, tournamentRunning, fillFraction, boxSize, boxScale, levelLabel, isTeamEvent,
@@ -2523,10 +2523,21 @@ eq('the summit holds the Worlds', pyRows[0].tiles.length, 1);
 eq('and knows who won it', pyRows[0].tiles[0].who.n, 'A ONE');
 eq('the continental row is empty in a season with none', pyRows[1].tiles.length, 0);
 eq('and the elite row holds the Finals beside the Super 1000', pyRows[2].tiles.length, 2);
-/* ⚠️ Each square keeps its **own** size inside a paired row, so the pairing is a
-   layout decision and never a claim that the two tiers are worth the same. */
-check('at their own two sizes', pyRows[2].tiles[0].scale !== pyRows[2].tiles[1].scale,
+/* ⚠️⚠️ **At one size, with a gold ring on the one that outranks the other.** Two
+   sizes on a line of faces read as a layout accident rather than as a ranking —
+   which is why the Olympics has been drawn at the Worlds size since the board was
+   built. Three of the four rows hold two tiers now, so that exception became the
+   rule. Settled with the reader, 1 Oct 2026. */
+check('at one size, the lowest rung on the line',
+  pyRows[2].tiles.every(t => t.scale === honourScale(23)),
   pyRows[2].tiles.map(t => `${t.tier}@${t.scale.toFixed(3)}`).join(' '));
+check('and the Tour Finals wears the ring, the Super 1000 does not',
+  pyRows[2].tiles.filter(t => t.top).map(t => String(t.tier)).join() === '22',
+  pyRows[2].tiles.map(t => `${t.tier}:${t.top}`).join(' '));
+/* ⚠️ And it goes **first** in the row, not where December would put it. The
+   reader's call: the row reads hardest-first like every other ladder here. */
+eq('and goes first in the row, not in date order',
+  pyRows[2].tiles.map(t => String(t.tier)).join(' '), '22 23');
 eq('the base holds both Super 750s', pyRows[3].tiles.length, 2);
 eq('in the order they were played',
   pyRows[3].tiles.map(t => t.name).join(' '), 'India Open Japan Open');
@@ -2546,8 +2557,22 @@ eq('an Olympic square is drawn at the Worlds size',
 check('while the honours ladder still ranks it above',
   honourScale('OLY') > honourScale(20),
   `${honourScale('OLY').toFixed(3)} vs ${honourScale(20).toFixed(3)}`);
-eq('and every other tier is unchanged by it',
-  [22, 23, 24].map(t => pyramidScale(t) === honourScale(t)).join(), 'true,true,true');
+/* Each row is drawn at its **lowest** rung, so only the bottom tier of a row is
+   drawn at its own honours size. The others are the ones wearing a ring. */
+eq('every row is drawn at the honours size of its lowest rung',
+  [23, 24].map(t => pyramidScale(t) === honourScale(t)).join(), 'true,true');
+eq('and the one above it comes down to meet it',
+  pyramidScale(22), honourScale(23));
+eq('as the Continental Games comes down to the Championships',
+  pyramidScale('GAMES'), honourScale(11));
+check('which is exactly the squares that wear a ring',
+  ['OLY', 'GAMES', 22].every(t => pyramidOutranks(t))
+  && [20, 11, 23, 24].every(t => !pyramidOutranks(t)));
+/* ⚠️ Before 2011 the elite row is Superseries Finals over a dealt half of the
+   twelve Superseries, so its base is the Superseries rung — and a size that
+   ignored the season would draw those four columns a rung too large. */
+eq('and in a flat season the Finals comes down to the Superseries',
+  pyramidScale(22, 2009), honourScale(24));
 
 /* ⚠️ An empty row is kept. A season with no Tour Finals should show a hole
    where it goes, not close the gap and pretend the shape is different. */
@@ -2964,7 +2989,8 @@ const py2013 = pyramidSeason(winSeasons.byYear.get(2013), winMS.players, 2013);
 eq('the row names follow the season as well', py2013.map(r => r.label).join(' / '),
   'Olympics · Worlds / Continental Games · Continental Champs'
   + ' / Superseries Finals · Superseries Premier / Superseries');
-eq('and so do the tiles', py2013[2].tiles[0].level, 'Superseries Premier');
+eq('and so do the tiles',
+  py2013[2].tiles.find(t => String(t.tier) === '23').level, 'Superseries Premier');
 
 /* ⚠️ Before 2011 there was no Premier tier at all: the twelve Superseries were
    one rank. Drawn literally that is a slab under an empty row, which reads as a
@@ -3258,9 +3284,12 @@ near('and 57.1 once the Worlds is weighted', ax2022.score * 100, 57.1, 0.05);
    about two continental titles, so LCW's seasons are divided by more and nothing
    of his is added to the numerator.
 
-   ⚠️ LCW's own Asian Championships title is **2006**, a season before the board
-   starts. That is the pre-2007 gap (HANDOVER Part 7) costing one specific career,
-   and it is worth knowing before reading this number as the whole truth.
+   ⚠️ **And the rest of the answer is in a gap.** LCW's one continental title is the
+   2016 Asian Championships; BWF carries no order of play for most continental
+   championships between 2007 and 2013, so 64 of the 100 held are on this board and 36
+   are absent, over exactly the seasons these two were playing. Worth knowing before
+   reading 234 as the whole truth. (His 2006 is on BWF's record and holds no continental
+   title either: an Asian Games bronze in Doha.)
 
    Both totals are checked, because the gap is the claim and either one drifting
    would break it silently. */
@@ -3799,9 +3828,16 @@ check('a square with no mark takes no room for one',
    square then had a white one for a day, which read as the *brighter* of the two
    beside the gold and so quietly outranked it. The summit row is one marked
    square and one plain one. */
-eq('exactly one tier is ringed', Object.keys(TIER_RING).join(), 'OLY');
-eq('and it is gold', TIER_RING.OLY.colour, '#ffd24a');
-eq('the world championship square is not ringed', TIER_RING[20], undefined);
+/* ⚠️ One ring, keyed on the **tile** rather than on the tier: three rows hold two
+   tiers now and the ring belongs to whichever of them outranks its line, which
+   is a fact about the row and not about the tier. */
+eq('there is one ring and it is gold', TIER_RING.colour, '#ffd24a');
+eq('two pixels of it', TIER_RING.width, 2);
+check('and the model is what decides which square wears it',
+  pyramidSeason([{ tier: 22, name: 'F', date: '2026-12-11', w: 1 },
+    { tier: 23, name: 'K', date: '2026-01-06', w: 1 }], { 1: { n: 'A' } }, 2026)
+    .find(r => r.key === 'elite').tiles.map(t => `${t.tier}:${t.top ? 1 : 0}`)
+    .join(' ') === '22:1 23:0');
 
 check('the legend explains the squares', /square is a title/.test(slice.legend[0]),
   slice.legend.join(' / '));

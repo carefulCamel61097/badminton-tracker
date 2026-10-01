@@ -1357,7 +1357,14 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
    ⚠️ Not `inset`, and not `outline` either: outline is a single property and the
    footnote mark below needs it, so a Tokyo 2020 square — Olympic *and* displaced
    — could only have shown one of the two. */
-.pyrtile.t-OLY { box-shadow: 0 0 0 2px #ffd24a; }
+/* The square that outranks the rest of its line. Every row is drawn at one
+   size, so this ring is the ranking: the Olympics over the Worlds, a continental
+   games over a continental championships, the Tour Finals over a Super 1000.
+   ⚠️ Only ever **one** square in a row wears it. Ringing both made the pair read
+   as equals in two liveries, and a white ring on the plain case was the brighter
+   of the two against a dark ground, so the world champion came out looking like
+   the bigger prize. */
+.pyrtile.is-top { box-shadow: 0 0 0 2px #ffd24a; }
 
 .pyryear {
   font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums;
@@ -1428,7 +1435,7 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
 .pyrtile.faded .face,
 .pyrtile.faded .noface { opacity: .16; }
 .pyrmajor.faded .pyrbadge { opacity: .16; }
-.pyrtile.t-OLY.faded { box-shadow: 0 0 0 2px rgba(255, 210, 74, .18); }
+.pyrtile.is-top.faded { box-shadow: 0 0 0 2px rgba(255, 210, 74, .18); }
 .pyrtile.is-moved.faded { outline-color: rgba(255, 255, 255, .16); }
 /* Not the whole bar: the run's block of colour is the era band's silhouette in
    the same way the squares are the pyramid's, so it stays and its face, name

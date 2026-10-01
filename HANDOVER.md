@@ -920,7 +920,30 @@ championships it outranks.
 **The winners' pyramid pairs tiers two to a row**: Olympics+Worlds, Continental Games+Champs,
 Tour Finals+Super 1000, Super 750. Six rows of faces is a column too tall to read as one
 picture across twenty seasons, and pairing the Finals with the Super 1000s retires a row that
-held exactly one square every season. Squares keep their own sizes inside a row.
+held exactly one square every season.
+
+⚠️⚠️ **One size to a row, and the gold ring is the ranking** (the reader's call, same
+conversation). Two sizes on a line of faces read as a layout accident rather than as a
+ranking — which is precisely why the Olympics was already drawn at the Worlds size with a
+ring. Three rows hold two tiers now, so that one-off exception is the rule: `pyramidScale`
+draws every tier at its row's **lowest** rung and `pyramidOutranks` says which square wears
+the ring. The honours board is untouched and still ranks all of them apart by size.
+
+**A row reads hardest first**, not oldest first — the Tour Finals leads its row despite
+December. The continental row is the exception and goes by **confederation** first: Asian
+Games, Asian Championships, European Games, European Championships. See `sortTiles`.
+
+⚠️ **`pyramidScale` takes the season** for the same reason `rowsFor` does: before 2011 the
+elite row is Superseries Finals over a dealt half of the twelve Superseries, so its base is
+the Superseries rung and a size that ignored the season would draw those four columns a rung
+too large.
+
+⚠️ **The score's y-axis was scaled to a board nobody was looking at.** `scoreTop` read the
+*unfiltered* file, and switching a continent off makes every denominator smaller and so every
+peak higher — on the default two continents the men's axis topped out at 60 while Kento
+MOMOTA's 2019 reached 68.4, and his line ran off the top of the plot. Reported by the reader,
+1 Oct 2026. The browser suite now checks, geometrically and under four settings of the chips,
+that no drawn point sits above the plot.
 
 ⚠️⚠️ **A chip per confederation, and it moves the score.** Asia, Europe, Pan Am, Africa,
 Oceania; default Asia and Europe; travels in the link as `wc`. The reader overruled the
@@ -3337,6 +3360,25 @@ using the global `WebSocket`. Deployed on GitHub Pages. This worked well — kee
 
 - ~~**Continental championships and the multi-sport games, on the Winners board**~~ —
   settled and **built** 1 Oct 2026. See Part 2.11b for the design and 3.4za for the harvest.
+
+- **A continental title is closed, and the denominator is not.** Raised by the reader,
+  1 Oct 2026. The domination score is a share of one season, so a European's denominator
+  includes the Badminton Asia Championships, which they are not eligible to enter, and an
+  Asian's includes the European Championships. Measured over the twenty seasons on the men's
+  board: with the default two continents, **12.1% of the total mass is closed to a European
+  and 9.6% is closed to an Asian** — near enough symmetric, the gap being the two extra
+  Asian Games editions that fall in the window. With **Asia alone** it is 13.5% against 0%,
+  which is a real tilt, though that configuration is a deliberately regional question.
+
+  **Not acted on, and the reason is the metric rather than the effort.** A per-competitor
+  denominator — "a share of what *you* could have won" — is buildable: the files carry
+  every winner's country and about thirty countries ever win, so a country/confederation map
+  is small. But it would stop the score being a *share of one thing*: two players' numbers
+  would be fractions of different denominators, they would no longer sum to a season, and
+  "one player's rise is always somebody else's fall" — which the chart, the band and the
+  whole README rest on — would stop being true. The honest reading of the current number
+  is "how much of this season did you take", where the season is the one the chips describe.
+  Worth revisiting only with a clear answer to what the y-axis would then mean.
 
 - **The continental championships before 2014.** BWF carries no order of play for most of them
   between 2007 and 2013, so **64 of the 100 held across 2007-2026 are on the board** and 36 are
