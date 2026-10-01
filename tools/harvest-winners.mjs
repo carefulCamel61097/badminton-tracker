@@ -31,7 +31,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launch, sweepProfiles } from '../tests/browser.mjs';
-import { pyramidTier, PYRAMID_ROWS, canonicalDraw } from '../model.js';
+import {
+  pyramidTier, PYRAMID_ROWS, canonicalDraw, isContinentalTier, titleConf,
+} from '../model.js';
 
 const API = 'https://extranet-lv.bwfbadminton.com/api/';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -60,6 +62,19 @@ const TIER = arg('--tier', '');
 if (TIER) OUT = path.join(ROOT, 'data', `winners-${CODE}-s${TIER}.json`);
 const FROM = Number(arg('--from', TIER ? 2018 : 2007));
 const TO = Number(arg('--to', new Date().getUTCFullYear()));
+
+/* ⚠️⚠️ **A season already on disk is normally not asked for again**, which is what
+   makes a twenty-year harvest resumable — and it also means a *new tier* can
+   never reach a file that is already complete. `--add GAMES,11` tops up the
+   seasons that are there with only those tiers, merging rather than replacing,
+   which is how the continental titles arrived in October 2026 without re-running
+   twenty years of Super 750s. A few calls a season instead of thirteen.
+
+     node tools/harvest-winners.mjs --draw 1 --add GAMES,11
+
+   ⚠️ The merge is keyed on the tournament **id**, so running it twice is a no-op
+   rather than a double entry. */
+const ADD = new Set(arg('--add', '').split(',').map(s => s.trim()).filter(Boolean));
 
 sweepProfiles({ quiet: true });
 const b = await launch({ port: 9474, tag: 'winners' });
@@ -202,12 +217,13 @@ const save = () => {
   fs.writeFileSync(OUT, JSON.stringify(state));
 };
 
-const wanted = TIER
-  ? new Set([String(TIER)])
-  : new Set(PYRAMID_ROWS.flatMap(r => r.tiers).map(String));
+const wanted = ADD.size ? new Set([...ADD].map(String))
+  : TIER ? new Set([String(TIER)])
+    : new Set(PYRAMID_ROWS.flatMap(r => r.tiers).map(String));
 
 for (let year = FROM; year <= TO; year++) {
-  if (state.seasons[year]) { console.log(`${year}  (already)`); continue; }
+  const had = state.seasons[year];
+  if (had && !ADD.size) { console.log(`${year}  (already)`); continue; }
 
   /* ⚠️ No `category[]` filter. The 2017 World Championships is filed under
      "BWF Events" and the categories a filter would name have changed twice
@@ -220,9 +236,36 @@ for (let year = FROM; year <= TO; year++) {
     .map(t => ({ t, tier: pyramidTier(t) }))
     .filter(x => x.tier != null && wanted.has(String(x.tier)));
 
+  /* ⚠️⚠️ **One title per confederation per tier per season.** BWF lists the same
+     continental event twice in six of the twenty seasons, sometimes under two
+     sponsors — "Badminton Asia Championships 2008" beside "Yonex-Sunrise
+     Badminton Asia Championships 2008", on the same dates — and sometimes as the
+     team edition followed by the individual one with nothing in either name to
+     say which is which ("17th Asian Games Incheon 2014" and "17th Asian Games
+     2014", one word apart). Left alone that is a double-counted title, which on
+     a score that is a *share* inflates both the numerator and the denominator
+     and quietly moves everybody.
+
+     ⚠️ Recorded only on success, so the order does the work: a team edition
+     yields no final in this discipline — its draws are the bare
+     "Singles"/"Doubles" of a tie — and the individual one that follows then
+     takes the slot. Open tiers are not keyed at all: a season really does hold
+     eight Super 750s.
+
+     ⚠️ Carried over from what is already on disk too, so `--add` cannot duplicate
+     what a previous run collected. */
   const won = [];
   const missing = [];
+  const taken = new Set();
+  const slot = (tier, name) =>
+    (isContinentalTier(tier) ? `${tier}|${titleConf({ name })}` : null);
+  for (const t of (had || [])) {
+    const k = slot(t.tier, t.name);
+    if (k) taken.add(k);
+  }
   for (const { t, tier } of majors) {
+    const key = slot(tier, t.name);
+    if (key && taken.has(key)) continue;
     const end = String(t.end_date).slice(0, 10);
     let w = null;
     /* The last day first, then outwards.
@@ -252,6 +295,7 @@ for (let year = FROM; year <= TO; year++) {
       }
     }
     if (!w) { missing.push(t.name); continue; }
+    if (key) taken.add(key);
     for (const p of w) state.players[p.id] = { n: p.n, c: p.c, a: p.a, f: p.f };
     /* ⚠️ A singles winner stays a bare number and a pair is an array, rather
        than making everything an array and re-harvesting the two singles files
@@ -265,7 +309,16 @@ for (let year = FROM; year <= TO; year++) {
     });
   }
 
-  state.seasons[year] = won;
+  /* ⚠️ Merged on the tournament id, not appended: `--add` run twice must leave
+     the file exactly as the first run left it. Sorted by date so a season still
+     reads in the order it was played whatever order the tiers arrived in. */
+  if (had) {
+    const seen = new Set(had.map(x => String(x.id)));
+    state.seasons[year] = had.concat(won.filter(x => !seen.has(String(x.id))))
+      .sort((a, b2) => String(a.date).localeCompare(String(b2.date)));
+  } else {
+    state.seasons[year] = won;
+  }
   save();
 
   const byRow = TIER ? `tier ${TIER}` : PYRAMID_ROWS.map(r =>

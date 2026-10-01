@@ -36,7 +36,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { launch } from '../tests/browser.mjs';
-import { pyramidTier, PYRAMID_ROWS } from '../model.js';
+import {
+  pyramidTier, PYRAMID_ROWS, isContinentalTier, titleConf,
+} from '../model.js';
 
 const API = 'https://extranet-lv.bwfbadminton.com/api/';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -93,8 +95,29 @@ for (const year of [...years].sort((a, b2) => a - b2)) {
   /* The same classification the winners harvest uses, so the two cannot drift:
      everything is asked for and named by `pyramidTier`, because the category
      ids have changed twice and a filter on them does not survive. */
-  const tiers = live.map(t => pyramidTier(t))
-    .filter(t => t != null && wanted.has(String(t)));
+  /* ⚠️⚠️ **A continental entry carries its confederation** — `"11:AS"` rather
+     than `11` — because the chips on the winners page move the *denominator*.
+     With Asia alone switched on, the 2026 season a score is a share of holds the
+     Badminton Asia Championships and the Asian Games and not the four other
+     continental championships beside them, and a bare list of tiers cannot say
+     that. See `plannedTier` and `plannedConf`.
+
+     ⚠️ De-duplicated on the same key the winners harvest uses, for the same
+     reason: BWF lists the same continental event twice in six of twenty seasons
+     and a denominator that counted both would be weighing everybody against a
+     year that never existed. */
+  const seen = new Set();
+  const tiers = [];
+  for (const t of live) {
+    const tier = pyramidTier(t);
+    if (tier == null || !wanted.has(String(tier))) continue;
+    if (!isContinentalTier(tier)) { tiers.push(tier); continue; }
+    const conf = titleConf(t);
+    const key = `${tier}:${conf}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    tiers.push(key);
+  }
   planned[year] = tiers;
   const off = all.filter(t => t.status && String(t.status.code) === 'cancelled')
     .map(t => pyramidTier(t)).filter(t => t != null && wanted.has(String(t)));

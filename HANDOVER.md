@@ -831,19 +831,30 @@ eye totals a block of colour by area, not by edge length — and the argument fo
 the first place was **worth**, not width. It is the same reasoning as the strip's
 `side = sqrt(weight)` in 2.1, and the two views agree because of it.
 
-The multipliers, which are pleasant: every second rung is an exact power of φ.
+⚠️⚠️ **Rungs are counted in HALF steps since 1 Oct 2026** — see 2.11 — so `honourRung`
+returns 0, 1, 2, 3, 5, 6, 8, 10, 12, 14, 16 and everything that turns a rung into a size or a
+weight divides by two. A rung is still an integer and the ladder is still one geometric
+sequence; it has twice the resolution.
 
-| Rung | Level | ×side | at base 8 |
-|---|---|---|---|
-| 0 | Olympics | 6.854 | 55px |
-| 1 | Worlds | 5.388 | 43px |
-| 2 | Tour Finals | 4.236 | 34px |
-| 3 | **Continental · Super 1000** | 3.330 | 27px |
-| 4 | Super 750 | 2.618 | 21px |
-| 5 | Super 500 | 2.058 | 16px |
-| 6 | Super 300 | 1.618 | 13px |
-| 7 | Super 100 | 1.272 | 10px |
-| 8 | Unmapped | 1.000 | 8px |
+The multipliers, which are pleasant: every second half-rung is an exact power of φ.
+
+| Half-rung | Level | ×side | ×weight | at base 8 |
+|---|---|---|---|---|
+| 0 | Olympics | 6.854 | 6.854 | 55px |
+| 1 | Worlds | 6.077 | 5.388 | 49px |
+| 2 | Continental Games | 5.388 | 4.236 | 43px |
+| 3 | Continental Championships | 4.778 | 3.330 | 38px |
+| 5 | Tour Finals | 3.756 | 2.058 | 30px |
+| 6 | Super 1000 | 3.330 | 1.618 | 27px |
+| 8 | Super 750 | 2.618 | 1.000 | 21px |
+| 10 | Super 500 | 2.058 | 0.618 | 16px |
+| 12 | Super 300 | 1.618 | 0.382 | 13px |
+| 14 | Super 100 | 1.272 | 0.236 | 10px |
+| 16 | Unmapped | 1.000 | 0.146 | 8px |
+
+**Area stays proportional to weight**, which is the invariant tying the two columns together:
+`honourScale` and `titleWeight` each divide the half-rung by two, in two different functions,
+and a model test asserts the ratio rather than a comment asking for it.
 
 **A rung is not a place in `GRID_ORDER`.** Rows are *ordered* one way and *sized* another,
 because two levels can be worth the same without being the same thing — see 2.11. The rung
@@ -876,7 +887,68 @@ moving the bar can never introduce a scrollbar.
 The spine hangs off `.hboard`, not off the scroller, so `left: 50%` stays true when the
 board is wider than the page.
 
-### 2.11 The Continentals share the Super 1000 rung — settled 22 Aug 2026
+### 2.11b Half steps, and the continental events on the board — settled 1 Oct 2026
+
+The reader finally pinned down what had been bothering them for a year: *"I never really
+realized that Asian Games and Asian Championships are two separate things and that one of them
+is only once every four years."* Both are now on the ladder and on the winners' board, and the
+arrangement is theirs.
+
+**The ladder gains half steps (√φ).** Full φ steps all the way would put an Olympic gold at
+φ\u2076 = 17.9 Super 750s once two tiers are inserted above the Tour Finals, which nobody
+believes. Their rule instead, read as "the step up to this tier":
+
+| step | size | why |
+|---|---|---|
+| Super 1000 → Tour Finals | half | *"most people would agree that World Tour Finals aren't worth that much more than Super 1000s"* |
+| Tour Finals → Continental Championships | full | a continental title is a rank above a tour title |
+| Cont. Champs → Continental Games | half | same circle of countries, one every four years |
+| Cont. Champs → World Championships | full | continental to global |
+| Cont. Games → Olympics | full | continental to global |
+| World Championships → Olympics | half | every four years against every year, at world level |
+
+⚠️⚠️ **It closes, and it leaves the Olympics exactly where it already was**: 6.854 Super 750s,
+unchanged. Two tiers were inserted beneath it and the top of the ladder did not move. That is
+what the half steps buy.
+
+**Row order is global-before-continental at each height**: Olympics, Worlds, Continental Games,
+Continental Championships, Tour Finals, then the five Supers. The reader's own reasoning, and
+the better one — the first four read as two columns of the same shape rather than four
+unrelated rows. The order it replaced put the Games, a quadrennial, *below* the annual
+championships it outranks.
+
+**The winners' pyramid pairs tiers two to a row**: Olympics+Worlds, Continental Games+Champs,
+Tour Finals+Super 1000, Super 750. Six rows of faces is a column too tall to read as one
+picture across twenty seasons, and pairing the Finals with the Super 1000s retires a row that
+held exactly one square every season. Squares keep their own sizes inside a row.
+
+⚠️⚠️ **A chip per confederation, and it moves the score.** Asia, Europe, Pan Am, Africa,
+Oceania; default Asia and Europe; travels in the link as `wc`. The reader overruled the
+drawing-only version, and was right: *"If we have a ranking of legends and suddenly we see
+Stoeva Stoeva sisters up there because they're winning a lot of continental stuff people will
+be very confused."* Because the chip moves the denominator, a sent link has to carry it or it
+is a link to different numbers. `winnersWithin` filters the titles **and** the planned
+calendar together, which is the only thing stopping a chip putting a score above 100.
+
+**The Commonwealth Games is excluded, and the reason is the chips.** It spans four of the five
+confederations, so no chip owns it, and a title no chip governs is one whose weight sits in
+every denominator with no way to take it out. BWF's calendar is also missing the *individual*
+event for Glasgow 2014. It stays on a player's own Compare grid.
+
+**What it did to the board**, measured 1 Oct 2026 across all five disciplines. Men's singles
+turns over twice: the ladder alone swaps LIN Dan and LEE Chong Wei (290 to 268), and the
+continental titles then widen it to **318 to 234** with Viktor AXELSEN second on 246 — LIN Dan
+won five continental titles to LCW's one while every denominator grew. Elsewhere it is small:
+MARIN and YAMAGUCHI swap second and third, two pairs swap seventh and eighth, mixed doubles
+does not move.
+
+⚠️ **2021 came inside the pandemic correction** and the rule did not change — the data moved
+under it. It held its European Championships and lost its Asian one, so by weight it now falls
+*below* a normal season of the era instead of above one, and `Math.max` reaches it. That is
+the season the correction most needed to reach: 2.3% of the players in those draws were
+Chinese. It can still only ever lower a score.
+
+### 2.11 The Continentals share the Super 1000 rung — settled 22 Aug 2026, superseded 1 Oct 2026
 
 They used to sit between Super 750 and Super 500 in `GRID_ORDER`, and therefore one rung
 *below* a Super 750 on the honours ladder. That was wrong twice over.
@@ -1734,6 +1806,55 @@ board — the year list is all 308 events including juniors, para and Future Ser
 the page opens on a U19 Open — and **cancelled events**, on `status.code` rather than on the
 name, the same rule `harvest-calendar.mjs` uses and for the same reason. BWF's own `nextTmt` that
 day was "Abu Dhabi Masters 2026 (Cancelled)".
+
+### 3.4za Harvesting the continental events *(1 Oct 2026)*
+
+308 titles across five disciplines, from `vue-grouped-year-tournaments` and the same
+`day-matches` route the rest of the harvest uses. `node tools/harvest-winners.mjs --draw N
+--add GAMES,11` tops up seasons already on disk rather than skipping them, merging on the
+tournament id so a second run is a no-op.
+
+⚠️⚠️ **The category is useless before 2015 and the name is all there is.** The Asian
+Championships has arrived as "BWF Events" (2008-2014), "Grand Prix Gold" (2010), "Grand Prix"
+(2012) and "Continental Individual Championships" (2015+); the 2022 All Africa is
+"International Challenge"; the 2023 **European Games** is filed under the *Championships*
+category, so a category rule would make the quadrennial an annual every fourth year. Same
+lesson as `isRegionalGames`, reached independently.
+
+⚠️⚠️ **The continent is not adjacent to the word.** "Oceania **Individual** Championships",
+"All Africa **Individual** Championships", "African **Senior Individual** Championship", "XVI
+Pan American **Badminton** Championships" — an adjacent pattern catches Europe and Asia and
+misses most of the other three confederations. `CONT_CHAMPS_NAME` uses a bounded gap, which
+then needs `NOT_CONTINENTAL`: the **club** championships and Badminton Asia's four
+**sub-regional** ones ("Badminton Asia Southeast Asia Regional Championships") both clear a gap
+that wide.
+
+⚠️ **`Pan Am`, not `Pan American`.** BWF writes that games five ways and the existing
+`REGIONAL_GAMES` insisted on the full word, so four Pan American Games were sitting in
+Unmapped on the Compare grid as well.
+
+⚠️ **`under 19` is not `u19`.** "Badminton Asia Regional Under 17 & 15 (West Asia)
+Championships 2021" has an empty category and neither *junior* nor *youth* in it; it was the
+one age-group event in twenty seasons of calendars that reached the board as a senior Asian
+Championships.
+
+⚠️ **BWF lists the same continental event twice in six of twenty seasons** — two sponsors on
+one date ("Badminton Asia Championships 2008" beside "Yonex-Sunrise Badminton Asia
+Championships 2008"), or the team edition followed by the individual one with nothing in either
+name to say which ("17th Asian Games Incheon 2014" and "17th Asian Games 2014"). Both harvests
+now key continental titles on `tier|confederation|season` and record only on success, so the
+team edition — which yields no final in any one discipline — loses the slot to the individual
+one that follows.
+
+⚠️ **`planned` entries carry their confederation** — `"11:AS"` rather than `11` — because the
+chips move the denominator of the season being played. A bare number still reads, so a file
+written before the chips needs no re-run.
+
+⚠️⚠️ **The coverage gap: 2007-2013.** BWF carries no order of play for most continental
+championships in those seasons, so **64 of the 100 held in 2007-2026 are on the board** and the
+rest are absent. 2014 onwards is complete apart from genuinely cancelled events. An empty
+continental row in 2009 is a gap in the records rather than a season without an Asian
+Championships, and it falls on exactly the years LIN Dan and LEE Chong Wei were in. See Part 7.
 
 ### 3.4z Two Finals in the wrong row *(fixed 1 Oct 2026)*
 
@@ -3214,17 +3335,24 @@ using the global `WebSocket`. Deployed on GitHub Pages. This worked well — kee
   a panel that lists the mapping and says it was traced through `tournament_series_id`
   rather than guessed. Raised by the user, 1 Oct 2026.
 
-- **Continental championships and the multi-sport games, on the Winners board.** Settled in
-  discussion, 1 Oct 2026, not yet built. The ladder gains half steps (√φ) so that Super 1000
-  → Finals, Champs → Games and Worlds → Olympics are half steps while Finals → Continental
-  and Continental → global are full ones; this leaves the Olympics at exactly its present
-  6.854. Rows run Olympics · Worlds · Continental Games · Continental Championships ·
-  Finals · Super 1000 ·… The Winners pyramid pairs them two to a row. Per-continent toggles
-  change the **score**, not only the drawing — a ranking of legends with a European-only
-  career high in it would confuse more than it explained — so the toggle has to travel in
-  the link. Measured for the default: of 1210 titles across twenty seasons and five
-  disciplines, **Asia won 89.3% and Europe 10.5%**; Pan Am, Africa and Oceania have three
-  between them.
+- ~~**Continental championships and the multi-sport games, on the Winners board**~~ —
+  settled and **built** 1 Oct 2026. See Part 2.11b for the design and 3.4za for the harvest.
+
+- **The continental championships before 2014.** BWF carries no order of play for most of them
+  between 2007 and 2013, so **64 of the 100 held across 2007-2026 are on the board** and 36 are
+  simply absent; `day-matches` answers for none of them and the `vue-tournament-draw-data`
+  fallback 500s or comes back empty. 2014 onwards is complete apart from genuinely cancelled
+  events. This is not cosmetic: it falls on exactly the seasons LIN Dan and LEE Chong Wei were
+  in, and the men's singles ranking now turns on how many continental titles each of them won.
+  Same shape of problem as the pre-2006 gap below and probably the same lead — ask
+  badmintonranks.com where their data came from rather than scrape it. Raised 1 Oct 2026.
+
+- **An empty continental row does not say which kind of empty it is.** The board's own standard
+  is that *"an empty row is a claim too"* — hover a gap on the honours board and it says
+  whether they never got that far or never entered. The winners' pyramid has no equivalent, so
+  2009's empty continental row reads as "nobody won one" when it means "BWF has no record of
+  who did". The legend says so in words; the column does not. Worth a per-season mark, of the
+  kind `pyramidSeasonMarks` already draws for a displaced title.
 
 - **The stored seasons have no button.** Part 4.10 keeps a finished season for ever, which
   is right — 2012 is over — and leaves one gap: if BWF corrects an old result, a reader is

@@ -27,7 +27,7 @@ export const LEVEL = {
   5:  { label: 'Challenge',   weight: 0.40 },
   6:  { label: 'Series',      weight: 0.40 },
   7:  { label: 'Future',      weight: 0.40 },
-  11: { label: 'Continental', weight: 1.00, abbr: 'Cont.' },
+  11: { label: 'Continental Champs', weight: 1.00, abbr: 'Cont.' },
   17: { label: 'Cont. Team',  weight: 1.00, abbr: 'C. Team', team: true },
   20: { label: 'Worlds',      weight: 1.00 },
   21: { label: 'Team event',  weight: 1.00, abbr: 'Team', team: true },
@@ -920,8 +920,17 @@ export function drawForKind(tmt, kind, preferred) {
 /**
  * Sections, left to right: hardest to win on the left, Super 100 on the right.
  * The same judgement as LEVEL_ORDER, minus everything the grid does not show.
+ *
+ * ⚠️⚠️ **Global before continental, at each height.** Olympics, then the World
+ * Championships, then the Continental Games, then the Continental
+ * Championships. The reader's own reasoning, 1 Oct 2026, and it is the better
+ * order: the first pair is every-four-years and every-year at world level, the
+ * second is the same pair one circle smaller, so the eye reads two columns of
+ * the same shape rather than four unrelated rows. The order this replaced ran
+ * Olympics, Worlds, Tour Finals, Continental, Games — which put the Games, a
+ * quadrennial, *below* the annual championships it outranks.
  */
-export const GRID_ORDER = ['OLY', 20, 22, 11, 'GAMES', 23, 24, 25, 26, 27, 'OTHER'];
+export const GRID_ORDER = ['OLY', 20, 'GAMES', 11, 22, 23, 24, 25, 26, 27, 'OTHER'];
 
 /* ============================== the two eras ==============================
 
@@ -1090,8 +1099,14 @@ function isJunior(tmt) {
  * ⚠️ **"Olympic Games" must not match**, which is why the continents are named
  * rather than matching "games". The Youth Olympics are already gone, as junior.
  */
+/* ⚠️ `pan[\s-]?am(erican)?`, not `pan[\s-]?american`. BWF writes the same event five
+   ways — "2007 Pan Am Games", "XVI Pan Am Games, Guadalajara 2011", "XVII Pan
+   Am Games Toronto 2015", "Pan Am Games LIMA2019" and "XIX Panamerican Games
+   Santiago 2023" — and a pattern that insisted on the full word caught only the
+   last of the five. Measured against BWF's own calendars for 2007-2026,
+   1 Oct 2026: four Pan American Games were landing in Unmapped. */
 const REGIONAL_GAMES =
-  /\b(asian|commonwealth|european|pan[\s-]?american|african|all[\s-]?africa)\s+games\b/i;
+  /\b(asian|commonwealth|european|pan[\s-]?am(erican)?|african|all[\s-]?africa)\s+games\b/i;
 
 /* Sub-regional games — a slice of one continent, not a continent. Left in
    Unmapped, where they already were: an East Asian Games title and an Asian
@@ -1100,9 +1115,91 @@ const REGIONAL_GAMES =
 const SUB_REGIONAL_GAMES =
   /\b(east\s+asian|south[\s-]?east\s+asian|sea|mediterranean|islamic\s+solidarity|bolivarian|south\s+american|central\s+american|west\s+asian)\s+games\b/i;
 
-function isRegionalGames(name) {
+export function isRegionalGames(name) {
   const n = String(name || '');
   return !SUB_REGIONAL_GAMES.test(n) && REGIONAL_GAMES.test(n);
+}
+
+/* ===================== which confederation owns a title =====================
+
+   The five bodies that actually run the continental circuit. Keys rather than
+   labels everywhere, because they travel in the link: a shared board has to
+   open on the continents the sender had switched on, or the score it shows is
+   not the score they were looking at. See `confederationOf` for why this is
+   derived from the tournament's *name*.
+   ==================================================================== */
+
+export const CONFEDERATIONS = [
+  { key: 'AS', label: 'Asia',    full: 'Badminton Asia' },
+  { key: 'EU', label: 'Europe',  full: 'Badminton Europe' },
+  { key: 'PA', label: 'Pan Am',  full: 'Badminton Pan Am' },
+  { key: 'AF', label: 'Africa',  full: 'Badminton Confederation of Africa' },
+  { key: 'OC', label: 'Oceania', full: 'Badminton Oceania' },
+];
+
+/**
+ * The two that are on by default.
+ *
+ * ⚠️⚠️ **Derived, not chosen.** Every title on all five boards, split by the
+ * winner's confederation. Measured 1 Oct 2026 over the **1210 titles that are
+ * open to the world** — everything on these boards but the continental events
+ * themselves, so the figure cannot be an artefact of what was just harvested:
+ * **Asia 89.3%, Europe 10.5%**, and Pan Am, Africa and Oceania have *two
+ * between them*, a Canadian in 2026 and an Australian pair in 2009. So these two are where the sport is, and
+ * the other three are switched on by a reader who wants to ask a different
+ * question rather than left on for a completeness nobody is reading.
+ *
+ * ⚠️ Europe is in it on current evidence as much as on history. Viktor AXELSEN
+ * and Anders ANTONSEN, Carolina MARIN, and a French squad deep enough to hold
+ * seeds in three draws make a European Championships a tournament a world top
+ * ten has to win. In 2008 it would have been a harder call.
+ */
+export const CONF_DEFAULT = ['AS', 'EU'];
+
+/* ⚠️ Oceania and Pan Am are tested **before** Africa and Asia, because the
+   names overlap and the more specific one has to win: "Pan American" contains
+   "America", and nothing else in the list is a prefix of anything. */
+const CONF_BY_NAME = [
+  [/\boceania\b/i, 'OC'],
+  [/\bpan[\s-]?am(erican)?\b|\bamericas?\b/i, 'PA'],
+  [/\b(africa|african)\b/i, 'AF'],
+  [/\beurop(e|ean)\b/i, 'EU'],
+  [/\basian?\b/i, 'AS'],
+];
+
+/**
+ * Which confederation's event this is, by name, or null.
+ *
+ * ⚠️⚠️ **By name, like everything else about these events.** The same argument
+ * `isRegionalGames` makes: BWF has filed the Asian Games under four different
+ * category ids and under none at all, so no id rule can be written. The name is
+ * the only thing that holds still.
+ *
+ * ⚠️⚠️ **The Commonwealth Games comes back null, and that is the decision.** It
+ * is not a continental event at all — it spans four of these five
+ * confederations — so there is no chip that could honestly switch it on or off,
+ * and a title no chip governs is a title that cannot sit on a board whose
+ * denominator a chip moves. BWF's own calendar also has no *individual* entry
+ * for Glasgow 2014, only the mixed team event, so a Commonwealth row would show
+ * a hole that is a gap in the data rather than a fact about the sport. It stays
+ * where it already is on a player's own grid, in the Continental Games section,
+ * and it does not reach the winners' board. Settled 1 Oct 2026.
+ *
+ * ⚠️ The Olympics is null too, for the opposite reason: it is everybody's, so
+ * no continent owns it. Nothing asks — `pyramidTier` matches it first.
+ */
+export function confederationOf(name) {
+  const n = String(name || '');
+  if (!n) return null;
+  for (const [re, key] of CONF_BY_NAME) if (re.test(n)) return key;
+  return null;
+}
+
+/** The keys that are real, in `CONFEDERATIONS` order, with the default for none. */
+export function confKeys(list) {
+  const want = new Set((list || []).map(String));
+  const kept = CONFEDERATIONS.filter(c => want.has(c.key)).map(c => c.key);
+  return kept;
 }
 
 /**
@@ -1150,11 +1247,75 @@ const startYear = tmt => Number(String((tmt && tmt.start) || '').slice(0, 4)) ||
  */
 export const FINALS_NAME = /(super\s*series|world\s*tour).{0,24}\bfinals\b/i;
 
+/**
+ * A continental championships, under every name BWF has given one.
+ *
+ * ⚠️⚠️ **One pattern, used by both classifiers** — the lesson `FINALS_NAME`
+ * above was written to record, applied in advance this time rather than after a
+ * reader found two titles in the wrong row.
+ *
+ * ⚠️⚠️ **The gap is the whole difficulty.** The pattern this replaced wanted the
+ * continent *adjacent* to the word, and BWF puts something between them in more
+ * years than not: "Oceania **Individual** Championships", "All Africa
+ * **Individual** Championships", "African **Senior Individual** Championship",
+ * "XX Pan Am **Individual** Championships", "2015 African **Continental**
+ * Championships", "XVI Pan American **Badminton** Championships". Measured over
+ * BWF's own calendars for 2007-2026, 1 Oct 2026: an adjacent pattern catches the
+ * European and Asian championships and misses most of the other three
+ * confederations outright.
+ *
+ * A bounded gap then needs an exclusion list, which `NOT_CONTINENTAL` is:
+ * widening the pattern is what lets the **club** championships and the
+ * **sub-regional** ones in.
+ */
+export const CONT_CHAMPS_NAME =
+  /\b(asian?|europ(e|ean)|africa[n]?|oceania|americas?|pan[\s-]?am(erican)?)\b.{0,26}\bchampionships?\b/i;
+
+/**
+ * Named like a continental championships and not one.
+ *
+ * ⚠️ **The club championships.** "2014 European Club Championships" is a
+ * fortnight of European league sides and it clears the bounded gap on the word
+ * *Club*. Five of them are in the recorded calendars.
+ *
+ * ⚠️⚠️ **Half a continent is not a continent.** Badminton Asia runs four
+ * sub-regional championships of its own — Southeast, South, Central and West
+ * Asia — and every one of them is literally called "Badminton Asia <region>
+ * Regional Championships", so they all read as an Asian Championships through a
+ * gap this wide. They are excluded for the reason `SUB_REGIONAL_GAMES` gives:
+ * a South Asia title and an Asian Championships title are not the same claim.
+ * One word — *Regional* — catches all four families, now and as they are added.
+ */
+const NOT_CONTINENTAL = /\bclub\b|\bregional\s+championships?\b/i;
+
+/**
+ * Whether a tournament name is a continental championships.
+ *
+ * ⚠️ Does **not** rule out team, junior, para or veterans editions: those are
+ * recognised from the payload by `gridGroup` and from the name by `pyramidTier`,
+ * and both do it before they reach here. This answers one question only.
+ */
+export function isContinentalChamps(name) {
+  const n = String(name || '');
+  return !NOT_CONTINENTAL.test(n) && CONT_CHAMPS_NAME.test(n);
+}
+
+/* ⚠️ A test may be a **function** as well as a pattern, which is what lets the
+   continental rule carry its own exclusions without `gridGroup` having to know
+   about them. `majorByName` is the only reader. */
 const MAJOR_BY_NAME = [
   [/\bworld\s+championships?\b/i, 20],
   [FINALS_NAME, 22],
-  [/\b(asian?|europ(e|ean)|africa[n]?|oceania|americas?|pan\s?americ\w*)\s+championships?\b/i, 11],
+  [isContinentalChamps, 11],
 ];
+
+/** The first `MAJOR_BY_NAME` rule a name answers to, or null. */
+function majorByName(name) {
+  for (const [test, group] of MAJOR_BY_NAME) {
+    if (typeof test === 'function' ? test(name) : test.test(name)) return group;
+  }
+  return null;
+}
 
 /**
  * The grid section a tournament belongs to, or null if it does not belong in the
@@ -1205,7 +1366,8 @@ export function gridGroup(tmt) {
      Dubai World Superseries Finals; category 3 is Grand Prix Gold *and* some
      Continental Championships. Mapping first put the 2017 season-ending Finals
      in the Super 1000 block — the id was right and the tournament was not. */
-  for (const [re, group] of MAJOR_BY_NAME) if (re.test(name)) return group;
+  const named = majorByName(name);
+  if (named != null) return named;
 
   /* Before the Superseries, the id is not evidence of anything, so nothing is
      read off it: whatever the rescues above have not placed goes to Unmapped,
@@ -1243,7 +1405,12 @@ const ERA_CODE = new Map([['22', 'SSF']]);
    "Superseries Pr" and "Regional Games" lost its last letter, both of which read
    as a bug rather than as an abbreviation. Only the names that overflow are
    shortened, and the full one stays on the row's tooltip. */
-const SHORT = new Map([['8', 'SS Premier'], ['3', 'GP Gold'], ['GAMES', 'Games']]);
+const SHORT = new Map([['8', 'SS Premier'], ['3', 'GP Gold'],
+  /* ⚠️ Both continental rows overflow twelve characters now they are named as
+     a pair — 'Continental Games' is seventeen and 'Continental Champs' is
+     eighteen — so both are shortened, and the gutter keeps them distinguishable
+     by the word that differs rather than by the word they share. */
+  ['GAMES', 'Cont. Games'], ['11', 'Cont. Champs']]);
 
 /* The Tour Finals is the one that only overflows once it has been *renamed*:
    'Tour Finals' fits and 'Superseries Finals' does not, so unlike the two above
@@ -1269,7 +1436,12 @@ export function gridGroupShort(group, era) {
    in `LEVEL`. Deliberately not added to it: `LEVEL` is the strip's table, keyed
    on the `cat` a tournament actually arrives with, and every key in it has to
    have a chip position. Nothing ever arrives as 'GAMES' or 'OTHER'. */
-const SECTION_LABEL = new Map([['OTHER', 'Unmapped'], ['GAMES', 'Regional Games']]);
+/* ⚠️ 'Continental Games' rather than 'Regional Games' (renamed 1 Oct 2026).
+   The two sit next to each other now, and a reader looking at "Regional Games"
+   above "Continental Champs" has no way to tell that both words mean the same
+   circle of countries. Naming them the same thing twice is what says they are a
+   pair: one every four years, one every year. */
+const SECTION_LABEL = new Map([['OTHER', 'Unmapped'], ['GAMES', 'Continental Games']]);
 
 export function gridGroupLabel(group, era) {
   if (era === 'ss' && ERA_LABEL.has(String(group))) return ERA_LABEL.get(String(group));
@@ -1570,66 +1742,108 @@ const HONOUR_SIDE_RATIO = Math.sqrt(PHI);
  * Levels that take no rung of their own, and the level whose rung they share.
  *
  * Names its partner rather than meaning "the one above me in `GRID_ORDER`", so
- * that where a level is *listed* and what it is *worth* stay independent. The
- * Continentals are listed above the Super 1000s and sized with them; under the
- * positional rule they would have silently inherited the Tour Finals instead.
+ * that where a level is *listed* and what it is *worth* stay independent.
  *
- * ⚠️ **The Continental Championships are a peer of the Super 1000, not a step
- * below the Super 750.** Two reasons, and the second is the one that bites:
+ * ⚠️ **The Continentals used to be in here, sharing the Super 1000's rung**, and
+ * the argument for it was that giving them a rung of their own broke the Super
+ * ladder: with Continental between them, Super 1000 → Super 750 was one step
+ * and Super 750 → Super 500 was two, so the official five-rung ladder came out
+ * unevenly spaced for a reason that had nothing to do with the Super events.
  *
- * 1. It is what this project already decided. Part 2.2 settled the
- *    Continentals at full weight — "an Asian Championships title is a major" —
- *    and a ladder that ranks them under a Super 750 contradicts the strip.
- * 2. A rung of their own **breaks the Super ladder**. With Continental sitting
- *    between them, Super 1000 → Super 750 was one step and Super 750 → Super
- *    500 was two, so the official five-rung ladder came out unevenly spaced for
- *    a reason that had nothing to do with the Super events. Sharing a rung puts
- *    Super 1000/750/500/300/100 back on five consecutive steps, and listing the
- *    Continentals *above* the Super 1000 leaves the five as an unbroken run of
- *    rows as well as an unbroken run of sizes.
+ * `HALF_STEP` is what answers that without the sharing. Rungs are counted in
+ * **half steps**, so the Continental Championships and the Continental Games can
+ * each have one of their own and the five Super levels still sit on five evenly
+ * spaced rungs — 6, 8, 10, 12, 14, a full step apart every time.
  *
- * Sharing rather than promoting is deliberate. A Continental title is not
- * uniform — the Asian Championships is arguably harder than any Super 1000 and
- * the Oceania one is not — so "about a Super 1000, and we are not going to
- * pretend to know better continent by continent" is the honest claim. Ranking
- * it *above* the Super 1000 would be asserting something about Europe that is
- * not true.
+ * ⚠️ The Superseries-era tiers stay, and still share the rung of the modern tier
+ * they are drawn over rather than being handed a ladder of their own. That is
+ * what keeps the *sizes* identical in both eras: switching vocabulary must not
+ * resize an Olympic square, or the two readings could not be held against each
+ * other at all. It also leaves the Super 500's rung simply unused in Superseries
+ * mode, so the extra size step between Superseries and Grand Prix Gold is drawn
+ * rather than closed up — which is honest, because that gap was real.
  */
-/* ⚠️ The Superseries-era tiers share the rung of the modern tier they are drawn
-   over, rather than being handed a ladder of their own. That is what keeps the
-   *sizes* identical in both eras: switching vocabulary must not resize an
-   Olympic square, or the two readings could not be held against each other at
-   all. It also leaves the Super 500's rung simply unused in Superseries mode,
-   so the extra size step between Superseries and Grand Prix Gold is drawn
-   rather than closed up — which is honest, because that gap was real. */
 const SHARES_RUNG = new Map([
-  [11, 23], ['GAMES', 23], [8, 23], [2, 24], [3, 26], [4, 27],
+  [8, 23], [2, 24], [3, 26], [4, 27],
 ]);
 
-/* Derived from GRID_ORDER and the map above, never written out. A level added
-   to the order gets its own rung automatically, and the two cannot drift.
+/* ========================= the ladder's half steps =========================
+
+   ⚠️⚠️ **Every rung is counted in half steps**, so a level can sit √φ above
+   the one below it as well as a whole φ. The rungs stay integers and the ladder
+   stays one geometric sequence; it just has twice the resolution, and the
+   exponent is halved wherever a rung is turned into a size or a weight.
+
+   The reader's design, 1 Oct 2026, and the problem it solves is real: once the
+   Continental Games and the Continental Championships are both on the ladder,
+   full steps all the way up put the Olympics at φ^6 = 17.9 Super 750s, which
+   nobody believes. Their rule instead:
+
+     Super 1000  → Tour Finals            half   — "world tour finals aren't
+                                                   worth that much more than
+                                                   Super 1000s"
+     Tour Finals → Continental Champs     full   — a continental title is a
+                                                   rank above a tour title
+     Cont Champs → Continental Games      half   — same circle of countries,
+                                                   one every four years
+     Cont Champs → World Championships    full   — continental to global
+     Cont Games  → Olympics               full   — continental to global
+     World Chps  → Olympics               half   — every four years against
+                                                   every year, at world level
+
+   ⚠️⚠️ **It closes, and it leaves the Olympics exactly where it already was.**
+   Olympics 6.854 — φ^4, unchanged — Worlds 5.388, Continental Games 4.236,
+   Continental Champs 3.330, Tour Finals 2.058, Super 1000 1.618, Super 750 1.
+   Two tiers were inserted above the Tour Finals and the top of the ladder did
+   not move: that is the arithmetic the half steps buy, and it is why the whole
+   twenty-year board can gain two rows without every Olympic square growing.
+
+   What it costs, measured across all five disciplines (1 Oct 2026): LIN Dan and
+   LEE Chong Wei swap first and second on career total, 290 to 268. That is not a
+   side effect, it is the change — demoting the Tour Finals from φ^2 to φ^1.5
+   takes a rung off four of LEE Chong Wei's biggest titles, and he has no Olympic
+   or world gold to put back. Carolina MARIN and Akane YAMAGUCHI swap second and
+   third, 185 to 184; mixed doubles does not move at all.
+   ==================================================================== */
+
+/* The levels that sit **half** a step below the level listed above them in
+   `GRID_ORDER`. Everything else is a full step, which is why this names the
+   exceptions rather than every gap. */
+const HALF_STEP = new Set(['20', 'GAMES', '11', '23']);
+
+/* Derived from GRID_ORDER and the two maps above, never written out. A level
+   added to the order gets its own rung automatically, and the two cannot drift.
 
    Two passes, because a sharer can be listed either side of its partner: the
    rungs are handed out to the levels that earn one, in order, and the sharers
-   are then given their partner's. That is also what keeps the five Super levels
-   on five consecutive rungs — the Continentals take no rung out of the run
-   however they are ordered against it. */
+   are then given their partner's. */
 const RUNGS = (() => {
   const rung = new Map();
-  let r = -1;
+  let r = 0;
+  let first = true;
   for (const g of GRID_ORDER) {
     if (SHARES_RUNG.has(g)) continue;
-    rung.set(String(g), ++r);
+    // Half a step where this level is listed as a half step down, a whole one
+    // otherwise. The top of the ladder is rung 0 and steps down from nothing.
+    if (!first) r += HALF_STEP.has(String(g)) ? 1 : 2;
+    first = false;
+    rung.set(String(g), r);
   }
   for (const [g, peer] of SHARES_RUNG) {
     const shared = rung.get(String(peer));
     if (shared != null) rung.set(String(g), shared);
   }
-  return { rung, last: Math.max(r, 0) };
+  return { rung, last: r };
 })();
 
 /**
  * Which rung of the size ladder a level sits on, counting from the top.
+ *
+ * ⚠️ **In half steps**, so the numbers are twice what a reader counting rows
+ * would expect: the Olympics is 0, the World Championships is 1 and the Super
+ * 750 is 8. Everything that turns a rung into a size or a weight divides by two
+ * — see `honourScale` and `titleWeight` — and nothing else should be reading
+ * this as a count of anything.
  *
  * Not the same as its place in `GRID_ORDER`: rows are ordered one way and sized
  * another, because two levels can be worth the same without being the same
@@ -1657,7 +1871,10 @@ export function honourRung(group) {
  * comparing two boards.
  */
 export function honourScale(group) {
-  return Math.pow(HONOUR_SIDE_RATIO, RUNGS.last - honourRung(group));
+  /* ⚠️ `/ 2` because the rungs are half steps. Without it every size on the
+     board would be squared against the ladder it is supposed to be drawing, and
+     an Olympic square would be 47 times a Super 100 rather than 5.4. */
+  return Math.pow(HONOUR_SIDE_RATIO, (RUNGS.last - honourRung(group)) / 2);
 }
 
 /**
@@ -1861,7 +2078,12 @@ const SUFFIX_GROUP = { 1000: 23, 750: 24, 500: 25, 300: 26, 100: 27 };
 export function scheduleGroup(t) {
   const name = String((t && t.name) || '');
   if (isOlympics(name)) return 'OLY';
-  for (const [re, group] of MAJOR_BY_NAME) if (re.test(name)) return group;
+  /* ⚠️ The regional games, for the same reason the majors are matched by name:
+     `vue-tmt-schedule` carries no category at all, so the 2026 Asian Games would
+     otherwise rank below a Super 100 in the week it is on. */
+  if (isRegionalGames(name)) return 'GAMES';
+  const named = majorByName(name);
+  if (named != null) return named;
 
   const m = /suffix[_-](\d+)/i.exec(String((t && t.catLogo) || ''));
   const g = m ? SUFFIX_GROUP[m[1]] : null;
@@ -2685,19 +2907,54 @@ function gridOf(courts, rows) {
    honours board still ranks an Olympic gold above a world title, because that is
    a claim about *worth* and this is a row of portraits.
 
-   ⚠️ **No team events, and no regional multi-sport games.** Team events would
-   rank a player by the country they were born in. The Asian Games, the
-   Commonwealth Games and the European Games would each do the same thing more
-   quietly: every one of them is closed to most of the world, so including any
-   one of them picks a region. They are in the data and deliberately left out.
+   ⚠️ **No team events.** A team title ranks a player by the country they were
+   born in, which is not what any of this is measuring.
+
+   ⚠️⚠️ **The continental events are on the board, and they are governed by a
+   chip.** They were left off for a year on the argument that every one of them
+   is closed to most of the world, so including any of them picks a region — and
+   that argument was right about the problem and wrong about the answer. The
+   answer is to let the reader say which regions, and to make the chip move the
+   **score** as well as the drawing, because a ranking of legends with a
+   continent switched on that the reader did not want is a ranking they cannot
+   trust. Default Asia and Europe, which is where 99.8% of these titles are won
+   — see `CONF_DEFAULT`. Settled with the reader, 1 Oct 2026.
+
+   ⚠️⚠️ **Two tiers to a row.** Four rows became six when the continental events
+   arrived, and six rows of faces is a column tall enough that a twenty-season
+   board no longer reads as one picture. So the rows pair: Olympics with the
+   Worlds (as they always did), the Continental Games with the Continental
+   Championships, and the Tour Finals with the Super 1000s — the reader's own
+   judgement, and the right one: "most people would agree that World Tour Finals
+   aren't worth that much more than Super 1000s". It also fixes a row that was
+   always slightly absurd, the Tour Finals alone on a line holding exactly one
+   square every season.
+
+   ⚠️ Squares keep their **own** sizes inside a paired row, so the pairing is a
+   layout decision and never a claim that the two tiers are worth the same. The
+   Olympic square has always been the exception the other way — see
+   `pyramidScale`.
    ==================================================================== */
 
+/* ⚠️ No `label`: the row's name is built from its tiers by `pyramidRowLabel`, in
+   the season's own vocabulary, so a 2008 row says "Superseries Finals ·
+   Superseries" where a 2024 one says "Tour Finals · Super 1000". A literal label
+   here was dead for a year and would have drifted the moment the pairing moved. */
 export const PYRAMID_ROWS = [
-  { key: 'major',  label: 'Olympics · Worlds', tiers: ['OLY', 20] },
-  { key: 'finals', label: 'Tour Finals',       tiers: [22] },
-  { key: 's1000',  label: 'Super 1000',        tiers: [23] },
-  { key: 's750',   label: 'Super 750',         tiers: [24] },
+  { key: 'major', tiers: ['OLY', 20] },
+  { key: 'cont',  tiers: ['GAMES', 11] },
+  { key: 'elite', tiers: [22, 23] },
+  { key: 's750',  tiers: [24] },
 ];
+
+/* The tiers a continent chip governs. Everything else on the board is open to
+   the world and is drawn and counted whatever the chips say. */
+const CONTINENTAL_TIERS = new Set(['GAMES', '11']);
+
+/** Whether a tier is one the continent chips can switch off. */
+export function isContinentalTier(tier) {
+  return CONTINENTAL_TIERS.has(String(tier));
+}
 
 /** Which pyramid row a tier belongs to, or null if it is not on the pyramid. */
 export function pyramidRow(tier) {
@@ -2709,7 +2966,20 @@ export function pyramidRow(tier) {
    tournaments with real winners and they are not what this chart is about;
    without the reject list "BWF World Junior Championships" reads as the World
    Championships and "Youth Olympic Games" as the Olympics. */
-const NOT_SENIOR = /junior|para[- ]|youth|university|student|masters cup|u1[13579]\b|senior championships|invitation/i;
+/* ⚠️ `universit`, not `university`: "3rd European Universities Games
+   Zagreb-Rijeka 2016" is filed as a multi-sport games and clears the continental
+   pattern on the word *European*. And three families that only became reachable
+   once the continental rules widened the net — **AirBadminton**, which is a
+   different sport played on sand with a different shuttle and has a full set of
+   continental championships of its own; the **Gymnasiade**, which is schools; and
+   **World Abilitysport**, which is para under a name that does not say so. */
+/* ⚠️ **`under 19` is not `u19`.** Badminton Asia runs its age groups under both
+   spellings and only one of them was caught: "Badminton Asia Regional Under 17 & 15
+   (West Asia) Championships 2021" has an empty category and the words *junior* and
+   *youth* nowhere in it, so it was the one event in twenty seasons of calendars that
+   reached the board as a senior Asian Championships. `u\d{2}` also replaces
+   `u1[13579]`, which could not see a U21 or a U18. */
+const NOT_SENIOR = /junior|para[- ]|youth|universit|student|masters cup|u\d{2}\b|\bunder[\s-]*\d{2}\b|senior championships|invitation|airbadminton|gymnasiade|abilitysport/i;
 
 /* A team event under any of its names. `category` says so in the modern era and
    does not in 2014, where the Asian Games team competition is called
@@ -2717,7 +2987,11 @@ const NOT_SENIOR = /junior|para[- ]|youth|university|student|masters cup|u1[1357
    2014" — the same event, one word apart. */
 /* ⚠️ Not a bare `cup`: that was the first version, and it would reject any
    World Tour event that happens to be named one. The team cups are named. */
-const TEAM = /\bteam\b|thomas|uber|sudirman/i;
+/* ⚠️ `teams?` and `qualification` were both added for the continental circuit:
+   "2008 Oceania **Teams** Event" is plural, and Badminton Europe runs a full
+   round of "European Mixed Team Championships **Qualification** - <country>"
+   fixtures that are team ties with a country in the name. */
+const TEAM = /\bteams?\b|thomas|uber|sudirman|qualification/i;
 
 /* ⚠️ Names before categories, for the same reason `gridGroup` does it: the
    category string is not a tier. "World Superseries Premier" holds both the
@@ -2770,8 +3044,39 @@ export function pyramidTier(entry) {
   if (TEAM.test(name) || /team/i.test(cat)) return null;
 
   for (const [re, tier] of PYRAMID_BY_NAME) if (re.test(name)) return tier;
+
+  /* ⚠️⚠️ **Only where a confederation owns it.** The chips are per confederation,
+     so a continental title no chip governs could not be switched off — and a
+     title on this board that the reader cannot switch off is one whose weight is
+     silently in every denominator. That is the whole reason the Commonwealth
+     Games is not here: see `confederationOf`.
+
+     ⚠️ Before the category and after the names, for the reason the comment above
+     `PYRAMID_BY_NAME` gives. BWF has filed the Asian Championships as "BWF
+     Events", "Grand Prix Gold" and "Continental Individual Championships" in
+     different years, and the 2023 European Games under the *Championships*
+     category — so a category rule would make the Games an annual event every
+     fourth year. */
+  if (confederationOf(name)) {
+    if (isRegionalGames(name)) return 'GAMES';
+    if (isContinentalChamps(name)) return 11;
+  }
+
   for (const [re, tier] of PYRAMID_BY_CATEGORY) if (re.test(cat)) return tier;
   return null;
+}
+
+/**
+ * Which confederation a harvested title belongs to, or null.
+ *
+ * ⚠️ **Derived from the name, not stored in the file.** One less field to
+ * re-harvest twenty seasons for, and it means a file written before the chips
+ * existed answers correctly the moment the code does. The name is already the
+ * only thing these events can be classified by — see `confederationOf` — so
+ * deriving the confederation from it adds no new assumption.
+ */
+export function titleConf(title) {
+  return confederationOf(title && title.name);
 }
 
 /**
@@ -2807,15 +3112,15 @@ export function flatSupers(season) {
 
 /**
  * The rows to draw for a season: `PYRAMID_ROWS`, except that before 2011 the
- * Super 1000 row is a second Superseries row rather than a tier of its own.
+ * Super 1000 half of the elite row is a second Superseries half instead.
  */
 function rowsFor(season) {
   if (!flatSupers(season)) return PYRAMID_ROWS;
-  return PYRAMID_ROWS.map(r => (r.key === 's1000'
+  return PYRAMID_ROWS.map(r => (r.key === 'elite'
     // ⚠️ `tiers` drives both the row's name and the height an empty row is
-    // drawn at, so overriding it here is what makes the upper row say
-    // "Superseries" and stand at the Superseries size.
-    ? { ...r, tiers: [24] }
+    // drawn at, so overriding it here is what makes the row say "Superseries
+    // Finals · Superseries" and stand at the Superseries size.
+    ? { ...r, tiers: [22, 24] }
     : r));
 }
 
@@ -3059,10 +3364,15 @@ export function pyramidSeason(won, players, season) {
   }
 
   return rowsFor(season).map(row => {
-    const raw = flat && row.key === 's1000' ? top
+    /* ⚠️ The elite row keeps its **own** titles and gains the dealt half, rather
+       than being replaced by it. Pre-2011 that row holds the season-ending
+       Finals as well as six Superseries, and a branch that handed it `top`
+       outright would have dropped every Superseries Finals from 2007 to 2010 the
+       day the Finals stopped having a row to itself. */
+    const own = all.filter(t => pyramidRow(t.tier) === row.key);
+    const raw = (flat && row.key === 'elite' ? own.concat(top)
       : flat && row.key === 's750' ? bottom
-        : all.filter(t => pyramidRow(t.tier) === row.key)
-          .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+        : own).slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
     return {
       key: row.key,
       label: pyramidRowLabel(row, season),
@@ -3259,6 +3569,72 @@ export function pyramidDisplaced(title, season) {
       note: `the ${edition} event, held in ${season}` };
   }
   return null;
+}
+
+/* ==================== what a planned entry says ====================
+
+   `planned[year]` is what the season was *meant* to hold, and it exists for one
+   column: the year being played. See `dominationSeasons`.
+
+   ⚠️⚠️ **An entry is a tier, or a tier and the confederation that owns it** —
+   `23` and `"11:AS"`. It has to carry the confederation because the chips move
+   the *denominator*: with Asia alone switched on, the 2026 season a score is a
+   share of is the one that holds the Badminton Asia Championships and the Asian
+   Games and not the European, Pan Am, African and Oceania championships beside
+   them. A bare list of tiers cannot answer that, and the current season is
+   exactly where getting it wrong inflates every score on the board.
+
+   ⚠️ A bare number still reads correctly, so a `data/winners-*.json` harvested
+   before the chips existed needs no re-run to keep working — it simply has no
+   continental entries to filter.
+   ==================================================================== */
+
+/** The tier a `planned` entry names. */
+export function plannedTier(entry) {
+  const s = String(entry);
+  const i = s.indexOf(':');
+  const t = i < 0 ? s : s.slice(0, i);
+  return /^\d+$/.test(t) ? Number(t) : t;
+}
+
+/** The confederation a `planned` entry names, or null for the open ones. */
+export function plannedConf(entry) {
+  const s = String(entry);
+  const i = s.indexOf(':');
+  return i < 0 ? null : (s.slice(i + 1) || null);
+}
+
+/**
+ * The file as the chosen continents leave it.
+ *
+ * ⚠️⚠️ **Both halves, or neither.** The titles *and* the planned calendar, so the
+ * board and the denominator can never be filtered differently — which is the
+ * one way a continent chip could put a score above 100. Everything downstream
+ * takes the file this returns and has no idea a chip exists.
+ *
+ * ⚠️ Applied at the door, next to `settleWinnerOrder`, for the reason that one
+ * gives: the file on disk keeps saying what BWF said, and *which continents this
+ * reading counts* is one decision made once rather than in each of the four
+ * views that draw a title.
+ *
+ * @param {object} file  a parsed `data/winners-*.json`
+ * @param {string[]} confs  confederation keys to keep
+ * @returns {object} a copy; the argument is not touched
+ */
+export function winnersWithin(file, confs) {
+  if (!file) return file;
+  const keep = new Set(confKeys(confs));
+  const seasons = {};
+  for (const [y, list] of Object.entries(file.seasons || {})) {
+    seasons[y] = (list || []).filter(t =>
+      !isContinentalTier(t.tier) || keep.has(titleConf(t)));
+  }
+  const planned = {};
+  for (const [y, list] of Object.entries(file.planned || {})) {
+    planned[y] = (list || []).filter(e =>
+      !isContinentalTier(plannedTier(e)) || keep.has(plannedConf(e)));
+  }
+  return { ...file, seasons, planned };
 }
 
 /**
@@ -3463,16 +3839,22 @@ const SCORE_BASE = honourRung(24);
 /**
  * What one title is worth, in Super 750s.
  *
- * Olympics 6.854 · Worlds 4.236 · Tour Finals 2.618 · Super 1000 1.618 ·
- * Super 750 1. Seven Super 750s to an Olympic gold, which is about the trade
- * anybody who has watched the sport would make.
+ * Olympics 6.854 · Worlds 5.388 · Continental Games 4.236 · Continental Champs
+ * 3.330 · Tour Finals 2.058 · Super 1000 1.618 · Super 750 1. Seven Super 750s
+ * to an Olympic gold, which is about the trade anybody who has watched the sport
+ * would make.
+ *
+ * ⚠️ `/ 2` for the same reason `honourScale` has it: the rungs are half steps.
+ * The two divisions have to agree or area stops being proportional to weight,
+ * which is the one invariant tying the board's sizes to its arithmetic — and a
+ * test asserts it rather than a comment asking for it.
  */
 export function titleWeight(tier) {
-  return Math.pow(PHI, SCORE_BASE - honourRung(tier));
+  return Math.pow(PHI, (SCORE_BASE - honourRung(tier)) / 2);
 }
 
 /** The tiers the board holds, best first — for saying the ladder out loud. */
-export const SCORE_TIERS = ['OLY', 20, 22, 23, 24];
+export const SCORE_TIERS = ['OLY', 20, 'GAMES', 11, 22, 23, 24];
 
 /**
  * Every player's season-by-season share of what there was to win.
@@ -3521,7 +3903,7 @@ export function dominationSeasons(file, opts = {}) {
     const plan = plannedAll[year];
     const forecast = ongoing && Array.isArray(plan) && plan.length > 0;
     const plannedMass = forecast
-      ? plan.reduce((n, t) => n + titleWeight(t), 0) : 0;
+      ? plan.reduce((n, t) => n + titleWeight(plannedTier(t)), 0) : 0;
     const mass = forecast ? Math.max(played, plannedMass) : played;
     const by = new Map();
     for (const t of list) {

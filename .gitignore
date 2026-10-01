@@ -4,3 +4,6 @@ tests/fixtures/
 tests/shots/
 Thumbs.db
 .DS_Store
+
+# A one-off probe output, regenerable with `node tools/probe-continental.mjs`.
+tools/continental-probe.json

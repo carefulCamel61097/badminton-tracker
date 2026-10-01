@@ -1153,10 +1153,11 @@ const wtRows = await eraRows();
 check('the rows are named in World Tour words',
   wtRows.some(r => r.label === 'Super 1000') && wtRows.some(r => r.label === 'Tour Finals'),
   wtRows.map(r => r.label).join(' | '));
-/* Every tier's name fits the gutter as it is; only the regional games needs a
-   short form, which is why the era switch is where this first bit. */
-check('and only the regional games needs shortening',
-  wtRows.filter(r => r.label !== r.full).every(r => r.g === 'GAMES'),
+/* Every tier's name fits the gutter as it is; the two continental sections do
+   not, now that they are named as a pair — 'Continental Games' is seventeen
+   characters and 'Continental Champs' is eighteen. */
+check('and only the two continental rows need shortening',
+  wtRows.filter(r => r.label !== r.full).every(r => r.g === 'GAMES' || r.g === '11'),
   wtRows.filter(r => r.label !== r.full).map(r => `${r.label}/${r.full}`).join(' | ') || 'none');
 check('and the marked squares are the ones from before the World Tour',
   froms(wtRows).length > 0 && froms(wtRows).every(f => /Superseries|Grand Prix/.test(f)),
@@ -1319,10 +1320,11 @@ check('every square in a row is square, and the same size as its neighbours',
 /* Counted in rungs of the ladder, not in rows on screen and not in places in
    the order. Two things make those three different numbers: SHI Yu Qi has never
    played a Super 100, so Super 300 sits directly above Unmapped on his board and
-   the step between them is *two* rungs; and the Continentals share a rung with
-   the Super 1000s, so they are two places apart in the order and no distance at
-   all in size. An adjacency check would call both of those bugs, and they are
-   the opposite. */
+   the step between them is *two full* rungs; and the rungs themselves are
+   counted in **halves**, so four of the gaps on this ladder are half a rung. An
+   adjacency check would call both of those bugs, and they are the opposite.
+   ⚠️ Everything below divides a rung count by two for that reason — the same
+   division `honourScale` and `titleWeight` make. */
 const order = await b.ev('window.BST.honours.order()');
 const rungOf = {};
 for (const g of order) rungOf[String(g)] = await b.ev(`window.BST.honours.rung(${JSON.stringify(g)})`);
@@ -1330,36 +1332,42 @@ const rungs = g => rungOf[String(g)];
 const bottom = Math.max(...Object.values(rungOf));
 const areaRatio = (a, b2) => Math.pow(a.side.h, 2) / Math.pow(b2.side.h, 2);
 
-check('each rung of the ladder is φ times the AREA of the one below it',
+check('a full rung of the ladder is φ times the AREA of the one below it',
   painted.every((r, i) => {
     if (i === 0) return true;
     const steps = rungs(r.group) - rungs(painted[i - 1].group);
-    return Math.abs(areaRatio(painted[i - 1], r) - Math.pow(PHI, steps))
-      < 0.14 * Math.max(steps, 1);
+    return Math.abs(areaRatio(painted[i - 1], r) - Math.pow(PHI, steps / 2))
+      < 0.14 * Math.max(steps / 2, 1);
   }),
   painted.map((r, i) => i === 0 ? `${r.group}=${r.side.h}`
     : `${r.group}=${r.side.h}(×${areaRatio(painted[i - 1], r).toFixed(2)}`
-      + ` over ${rungs(r.group) - rungs(painted[i - 1].group)})`).join(' '));
+      + ` over ${(rungs(r.group) - rungs(painted[i - 1].group)) / 2})`).join(' '));
 
 /* The same claim stated as one number: every painted row sits on a single
    geometric ladder, so `side ÷ √φ^rung` is the same for all of them. Immune to
    which levels a career happens to contain. */
-const feet = painted.map(r => r.side.h / Math.pow(Math.sqrt(PHI), bottom - rungs(r.group)));
+const feet = painted.map(r =>
+  r.side.h / Math.pow(Math.sqrt(PHI), (bottom - rungs(r.group)) / 2));
 check('so every row on screen sits on one ladder with one base',
   feet.every(v => Math.abs(v - feet[0]) < 0.25),
   feet.map(v => v.toFixed(2)).join(' '));
 
-/* The Continentals are a peer of the Super 1000, not a step under the 750:
-   settled at full weight in HANDOVER 2.2, and giving them a rung of their own
-   pushed every Super below them down one, so the official five-level ladder came
-   out unevenly spaced for a reason that had nothing to do with the Supers. */
-check('a Continental square is exactly a Super 1000 square',
-  sideOf(11) != null && Math.abs(sideOf(11) - sideOf(23)) < 1.5,
+/* ⚠️ The Continentals used to be **exactly** a Super 1000 square, sharing its
+   rung, because a rung of their own pushed every Super below them down one. Half
+   steps are what let them have one: they now sit a full step above the Tour
+   Finals and the five Supers are still evenly spaced. */
+check('a Continental Championships square is bigger than a Super 1000 one',
+  sideOf(11) != null && sideOf(11) > sideOf(23),
   `CON ${sideOf(11)} vs S1000 ${sideOf(23)}`);
-check('and bigger than a Super 750, where it used to sit',
-  sideOf(11) > sideOf(24), `CON ${sideOf(11)} vs S750 ${sideOf(24)}`);
-check('so the five Supers sit on five consecutive rungs, nothing wedged between',
-  [23, 24, 25, 26, 27].every((g, i, a) => i === 0 || rungs(g) === rungs(a[i - 1]) + 1),
+check('and bigger than the Tour Finals, by a full step',
+  sideOf(22) != null
+  && Math.abs(Math.pow(sideOf(11) / sideOf(22), 2) - PHI) < 0.12,
+  `CON ${sideOf(11)} vs WTF ${sideOf(22)}`);
+check('but smaller than the World Championships',
+  sideOf(20) == null || sideOf(11) < sideOf(20),
+  `CON ${sideOf(11)} vs WCH ${sideOf(20)}`);
+check('so the five Supers are evenly spaced, a full rung apart, nothing wedged between',
+  [23, 24, 25, 26, 27].every((g, i, a) => i === 0 || rungs(g) === rungs(a[i - 1]) + 2),
   [23, 24, 25, 26, 27].map(g => `${g}@${rungs(g)}`).join(' '));
 /* And they are an unbroken run of rows, not only of sizes: the Continentals are
    listed above the Super 1000, so nothing at all sits between one Super row and
@@ -1370,11 +1378,11 @@ check('and run as consecutive rows down the board',
   board.slice(firstSup, firstSup + supRows.length).map(r => r.group).join(',')
   === supRows.join(','),
   board.map(r => r.group).join(' '));
-/* Two levels share the Super 1000's rung now — the Continentals and the
-   regional multi-sport games — and both are listed above it, so the row
-   immediately above the Super run is one of them. */
-check('with a row that shares their rung directly above the first of them',
-  board[firstSup - 1] && ['11', 'GAMES'].includes(board[firstSup - 1].group),
+/* And the row immediately above the Super run is the Tour Finals, which is
+   where the reader put the continentals' floor: everything continental is above
+   it, every Super below. */
+check('with the Tour Finals directly above the first of them',
+  board[firstSup - 1] && board[firstSup - 1].group === '22',
   board.map(r => r.group).join(' '));
 const supers = [23, 24, 25, 26, 27].filter(g => sideOf(g) != null);
 check('and every step down the painted Super ladder is the same step',
@@ -1445,7 +1453,7 @@ const zoomAfter = (await b.ev('window.BST.honours.rows()'))
 check('the slider makes every row bigger', zoomAfter.every((h, i) => h > zoomBefore[i]),
   `${zoomBefore[0]} -> ${zoomAfter[0]}`);
 const zoomFeet = zoomAfter.map((h, i) =>
-  h / Math.pow(Math.sqrt(PHI), bottom - rungs(painted[i].group)));
+  h / Math.pow(Math.sqrt(PHI), (bottom - rungs(painted[i].group)) / 2));
 check('and the ladder survives it — every row still shares one base',
   zoomFeet.every(v => Math.abs(v - zoomFeet[0]) < 0.35),
   zoomFeet.map(v => v.toFixed(2)).join(' '));
@@ -2327,14 +2335,23 @@ check('every season has all four rows', pyrs.every(p => p.rows.length === 4),
 /* ⚠️ Before 2011 there was no Superseries Premier tier — all twelve Superseries
    were one rank — so those seasons are dealt across *both* Super rows at the
    one size rather than drawn as a slab under an empty row. The equal size is
-   what says they were equal; see `flatSupers`. */
+   what says they were equal; see `flatSupers`.
+
+   ⚠️ The upper row is the **elite** row and holds that season's Tour Finals as
+   well as its six dealt Superseries, which is why this is 7 and 6 rather than 6
+   and 6. The Finals keeps its own size inside the row. */
 const y2009 = pyrs.find(p => p.year === '2009');
-eq('2009 fills both Super rows, because its twelve were one rank',
-  y2009.rows.slice(2).join(','), '6,6');
-check('but it did have a summit and a season-ending final',
-  y2009.rows[0] === 1 && y2009.rows[1] === 1, JSON.stringify(y2009.rows));
+eq('2009 deals its twelve across both Super rows, with the Finals in the upper one',
+  y2009.rows.slice(2).join(','), '7,6');
+check('and it did have a summit', y2009.rows[0] === 1, JSON.stringify(y2009.rows));
+/* ⚠️ 2009's continental row is empty, and that is a gap in BWF's records rather
+   than a fact about the season: there is no order of play to read a winner from
+   for the 2009 Asian, African or Pan Am championships. The continental harvest is
+   complete from 2014 and patchy before it — see HANDOVER Part 7. */
+eq('its continental row is empty, which is the harvest and not the season',
+  y2009.rows[1], 0);
 eq('and 2013, which had two ranks, does not split evenly',
-  pyrs.find(p => p.year === '2013').rows.slice(2).join(','), '5,8');
+  pyrs.find(p => p.year === '2013').rows.slice(2).join(','), '6,8');
 
 /* ⚠️ Sizes come from the honours ladder, so the summit must actually be the
    biggest square on the page and a Super 750 the smallest. */
@@ -2456,19 +2473,133 @@ eq('and the row below it says Superseries', y2013.rows[3][0].level, 'Superseries
 const y2023 = await colAt(2023);
 eq('the identical rung in 2023 says Super 1000', y2023.rows[2][0].level, 'Super 1000');
 eq('and the one below it Super 750', y2023.rows[3][0].level, 'Super 750');
+
+
+/* ==================== which continents count ====================
+
+   ⚠️⚠️ **The chips move the score, not only the drawing.** That is the reader's
+   decision and the reason it is not a filter: a ranking of the greats with a
+   continent counted that the reader did not ask for is a ranking they cannot
+   trust. So what is checked here is the *denominator* as much as the squares —
+   and that the chips travel in the link, because a board that is sent has to
+   show the numbers its sender saw.
+   ==================================================================== */
+
+console.log('\n--- the continent chips ---');
+
+const confChips = () => b.ev('window.BST.winners.chips()');
+const confsNow = () => b.ev('window.BST.winners.confs()');
+
+const chipRow = await confChips();
+eq('five chips, one per confederation', chipRow.length, 5);
+eq('named for the confederations, in their own order',
+  chipRow.map(c => c.key).join(' '), 'AS EU PA AF OC');
+check('Asia and Europe are on by default, and nothing else is',
+  chipRow.filter(c => c.on).map(c => c.key).join(' ') === 'AS EU',
+  chipRow.map(c => `${c.key}:${c.on}`).join(' '));
+check('and every chip says so to a screen reader too',
+  chipRow.every(c => c.on === c.pressed));
+/* ⚠️ The count on the tooltip is read off the **unfiltered** file, so a chip that
+   is off still says what switching it on would add. A chip whose own answer
+   depended on whether it was pressed would be useless. */
+check('a chip that is off still says how many titles it holds',
+  chipRow.filter(c => !c.on).every(c => /\d+ titles?/.test(c.title)),
+  chipRow.filter(c => !c.on).map(c => c.title).join(' | '));
+
+/* The continental row is row 1, under the summit. 2024 held all five
+   championships plus the African Games, so it is the season that shows the chips
+   doing something. */
+const contRow = async y => (await colAt(y)).rows[1];
+const defaultCont = await contRow(2024);
+eq('2024 draws two continental squares with Asia and Europe on', defaultCont.length, 2);
+
+/* Off the drawn table, in 'total' mode, which is what the reader is looking at
+   when they wonder whether a chip changed a number. */
+const scoreTotal = async name => {
+  const list = await b.ev('window.BST.score.ranks()');
+  const hit = (list || []).find(r => new RegExp(name).test(r.who || ''));
+  return hit ? hit.total : null;
+};
+
+await b.ev(`window.BST.winners.chip('OC')`);
+eq('clicking Oceania adds it, in confederation order', (await confsNow()).join(' '), 'AS EU OC');
+eq('and a third square appears in 2024', (await contRow(2024)).length, 3);
+await b.ev(`window.BST.winners.chip('OC')`);
+eq('clicking it again takes it away', (await confsNow()).join(' '), 'AS EU');
+eq('and the square goes with it', (await contRow(2024)).length, 2);
+
+/* ⚠️⚠️ **The denominator moves with the drawing.** This is the whole argument for
+   the chips, and the one thing a drawing-only toggle would have got wrong: with
+   Europe switched off, a score is a share of a season that does not hold the
+   European Championships. Viktor AXELSEN has three of them, so his total has to
+   *fall* when Europe goes — while somebody with none of them rises, because the
+   season they are a share of got smaller. */
+await b.ev(`window.BST.winners.confs(['AS', 'EU'])`);
+await b.ev(`location.hash = '#pg=winners&wv=score'`);
+await b.until(`!!document.querySelector('#scoreRank .rankrow')`, { timeout: 60000 });
+const axeBoth = await scoreTotal('AXELSEN');
+const linBoth = await scoreTotal('LIN Dan');
+await b.ev(`window.BST.winners.confs(['AS'])`);
+await b.until(`!!document.querySelector('#scoreRank .rankrow')`, { timeout: 60000 });
+const axeAsia = await scoreTotal('AXELSEN');
+const linAsia = await scoreTotal('LIN Dan');
+check('switching Europe off lowers the man with three European titles',
+  axeBoth != null && axeAsia != null && axeAsia < axeBoth,
+  `AXELSEN ${axeBoth} → ${axeAsia}`);
+check('and raises the man with none, because the season got smaller',
+  linBoth != null && linAsia != null && linAsia > linBoth,
+  `LIN Dan ${linBoth} → ${linAsia}`);
+
+/* ⚠️ All five off is a real answer, not an error: it is the board as it stood
+   before the continental events were harvested. */
+await b.ev(`window.BST.winners.confs([])`);
+eq('every chip off is allowed', (await confsNow()).length, 0);
+check('and no chip is lit', (await confChips()).every(c => !c.on));
+
+/* ⚠️⚠️ **The link carries the choice**, because the choice is a number rather than
+   a view. An empty `wc` is a link to the board with every continental title off,
+   and a link with no `wc` at all is claiming the default. */
+check('a non-default choice reaches the link',
+  /[#&]wc=/.test(await b.ev('location.hash')), await b.ev('location.hash'));
+await b.ev(`location.hash = '#pg=winners&wc=AS.OC'`);
+eq('and a link brings it back', (await confsNow()).join(' '), 'AS OC');
+await b.ev(`location.hash = '#pg=winners&wc='`);
+eq('an empty one means none of them', (await confsNow()).length, 0);
+await b.ev(`location.hash = '#pg=winners'`);
+await b.until(`!!document.querySelector('.pyrseason')`, { timeout: 60000 });
+eq('and a link with none at all claims the default', (await confsNow()).join(' '), 'AS EU');
+/* ⚠️ Shown on **both** views, unlike every other control on this page. A score
+   with no way to see which continents it counts is a number the reader cannot
+   check. */
+await b.ev(`location.hash = '#pg=winners&wv=score'`);
+await b.until(`!!document.querySelector('#scoreRank .rankrow')`, { timeout: 60000 });
+check('the chips are still there on the score view',
+  !(await b.ev(`document.getElementById('winConf').hidden`))
+  && (await confChips()).length === 5);
+await b.ev(`location.hash = '#pg=winners'`);
+await b.until(`!!document.querySelector('.pyrseason')`, { timeout: 60000 });
 /* ⚠️ And the seasons before it had *one* Superseries rank, drawn as two rows of
    equally sized squares rather than as a slab under a hole. Both halves have to
    say Superseries and both have to be the same size — a larger upper row would
    assert a Premier tier that did not exist for another four years. */
 const y2009c = await colAt(2009);
-eq('2009 fills both Super rows', y2009c.rows.slice(2).map(r => r.length).join(','), '6,6');
-eq('and both of them say Superseries',
-  [...new Set(y2009c.rows.slice(2).flat().map(t => t.level))].join(), 'Superseries');
-check('with the two rows drawn at the same size',
+/* ⚠️ Seven in the upper row, not six: it is the **elite** row and holds that
+   season's Superseries Finals beside the six dealt Superseries. The dealing is a
+   claim about the twelve Superseries, so the Superseries are what is counted. */
+const ss2009 = y2009c.rows.slice(2).map(r => r.filter(t => t.tier === '24'));
+eq('2009 deals its twelve across both Super rows',
+  ss2009.map(r => r.length).join(','), '6,6');
+eq('and both halves say Superseries',
+  [...new Set(ss2009.flat().map(t => t.level))].join(), 'Superseries');
+eq('with the Finals beside them, named for its own era',
+  y2009c.rows[2].filter(t => t.tier === '22').map(t => t.level).join(),
+  'Superseries Finals');
+check('with the two halves drawn at the same size',
   await b.ev(`(() => {
     const col = document.querySelector('.pyrseason[data-year="2009"]');
     const rows = [...col.querySelectorAll('.pyrrow')];
-    const w = r => Math.round(r.querySelector('.pyrtile').getBoundingClientRect().width);
+    const w = r => Math.round([...r.querySelectorAll('.pyrtile')]
+      .filter(t => t.dataset.tier === '24')[0].getBoundingClientRect().width);
     return w(rows[2]) === w(rows[3]);
   })()`));
 check('while 2011, which had both, does not', await b.ev(`(() => {
@@ -2501,16 +2632,24 @@ check('the badge is beside the photograph, never over it',
 /* ---- 2020, put back together ---- */
 
 const moved = (await cols()).filter(c => c.moved).map(c => c.year);
-eq('three seasons carry an asterisk', moved.join(' '), '2010 2020 2021');
+/* ⚠️ 2023 joined them with the continental events: BWF played the **Asian Games
+   2022** in October 2023, so its name says one season and its date says another.
+   Derived from the titles rather than listed, so nobody had to remember that the
+   games ran a year late. */
+eq('four seasons carry an asterisk', moved.join(' '), '2010 2020 2021 2023');
 
 /* ⚠️ The bug this fixes: BWF files the delayed Finals under the year it was
    played, so the pyramid drew *two* Tour Finals in 2021 and none in 2020, while
    the career grid one page over had already moved it. */
-eq('the 2020 season has its Tour Finals', (await colAt(2020)).rows[1].length, 1);
+/* ⚠️ Row **2**, not row 1. The Tour Finals used to have a row of its own directly
+   under the summit; it now shares the elite row with the Super 1000s and row 1 is
+   the continental pair. */
+const finalsIn = col => col.rows[2].filter(t => t.tier === '22');
+eq('the 2020 season has its Tour Finals', finalsIn(await colAt(2020)).length, 1);
 check('and it says so on the hover',
-  /played in 2021/.test((await colAt(2020)).rows[1][0].title),
-  (await colAt(2020)).rows[1][0].title);
-eq('2021 is left with exactly one', (await colAt(2021)).rows[1].length, 1);
+  /played in 2021/.test(finalsIn(await colAt(2020))[0].title),
+  finalsIn(await colAt(2020))[0].title);
+eq('2021 is left with exactly one', finalsIn(await colAt(2021)).length, 1);
 /* And the one it must not move: an Olympics is not the conclusion of a season. */
 eq('the Tokyo Olympics stays in 2021, marked rather than moved',
   (await colAt(2021)).rows[0][0].mark, 'held');
@@ -2896,7 +3035,7 @@ const floorMS = await b.ev(`window.BST.score.floor()`);
    whole year — it was a 69 against its own three titles. The rule is not to drop
    a season's leader, so the bar comes down to keep it: twelve lines, not seven.
    The women's board does not move. */
-eq('the bar starts where the data puts it', floorMS, 15);
+eq('the bar starts where the data puts it', floorMS, 20);
 check('and it says so is derived', await b.ev(`window.BST.score.auto()`));
 const wantMarks = scoreModelMS.people
   .filter(p => p.peak * 100 >= floorMS - 1e-9)
@@ -2968,8 +3107,11 @@ for (const yr of [2020, 2021, 2022]) {
     stripAt(yr) && `${stripAt(yr).text} marked=${stripAt(yr).marked}`);
 }
 /* And the count itself is untouched: the colour is the warning, the figure is
-   the fact. 2021 really did hold ten. */
-eq('while the number it shows is still the plain count', stripAt(2021).text, '10');
+   the fact. 2021 really did hold eleven, and is now weighed against fourteen —
+   it held its European Championships and lost its Asian one, so by weight it
+   falls below a normal season of the era instead of above one, and the pandemic
+   correction reaches it. The strip says both numbers, which is the point. */
+eq('while the numbers it shows are still plain counts', stripAt(2021).text, '11/14');
 check('and an ordinary season is not marked',
   !stripAt(2019).marked && !stripAt(2023).marked,
   `2019=${stripAt(2019).marked} 2023=${stripAt(2023).marked}`);
@@ -2993,8 +3135,11 @@ for (const yr of [2020, 2021, 2022]) {
    2021, which held ten, the same as 2018 and 2019: what was wrong with 2021 was
    not how many but which. The pandemic set is named from the tournament list
    instead (`COVID_SEASONS`), and the faint columns are the union of the two. */
+/* ⚠️ No 'ongoing' at the end any more: 2026's calendar now holds its continental
+   events too, so the season being played is no longer short enough of its own
+   plan to be called out. The three Covid columns are the claim. */
 eq('and the reasons are written where the line goes strange',
-  (await b.ev(`window.BST.score.why()`)).join(','), 'Covid,Covid,Covid,ongoing');
+  (await b.ev(`window.BST.score.why()`)).join(','), 'Covid,Covid,Covid');
 
 /* ⚠️ The axis is scaled to the best season in **either** draw, and never to the
    selection. Fitted to what was on screen it rescaled every time a name was
@@ -3248,28 +3393,39 @@ check('nothing in the link decides it either',
    as the table's — there is no reading under which the two could disagree. */
 const fullModel = await b.ev(`window.BST.score.model()`);
 const fullSeason = y => fullModel.seasons.find(s => s.year === y);
-/* 5.24 against its own three titles; 19.33 against a full World Tour season,
-   which is what 2023 and 2025 are weighed against too. */
+/* 5.24 against its own three titles; 28.04 against a full World Tour season,
+   which is what 2024 is weighed against too. */
 check('2020 is weighed against a full season it never held',
   fullSeason(2020).whole && fullSeason(2020).mass > 15,
   `mass ${fullSeason(2020).mass.toFixed(2)}, ${fullSeason(2020).played}`
   + ` of ${fullSeason(2020).planned}`);
 eq('the same denominator an ordinary season of the era gets',
-  fullSeason(2020).mass, fullSeason(2023).mass);
+  fullSeason(2020).mass, fullSeason(2024).mass);
 /* The strip is one bar per season in year order, so the year picks the index. */
 const fullStrip = await b.ev(`window.BST.score.strip()`);
 eq('and the strip under the axis says both numbers',
-  fullStrip[fullModel.years.indexOf(2020)].text, '3/12');
-/* ⚠️ 2021 held more than a normal season, so there is nothing to grow. It is
-   also the season with the thinnest field of the three — which this, being a
-   calendar correction, cannot see. */
-check('2021 is left exactly as it was played', !fullSeason(2021).whole,
-  `mass ${fullSeason(2021).mass.toFixed(2)}`);
+  fullStrip[fullModel.years.indexOf(2020)].text, '3/14');
+/* ⚠️⚠️ **2021 used to be left exactly as it was played**, because it held more than
+   a normal season — an Olympics, a Worlds and two Tour Finals. With the
+   continental events counted it falls the other side of the line: it kept its
+   European Championships and lost its Asian one. So the correction now reaches
+   the season whose field was thinnest of the three, which is the one it most
+   needed to reach. The guarantee is unchanged: a corrected denominator is never
+   smaller than what was played. */
+check('2021 is now weighed against a whole year too', fullSeason(2021).whole,
+  `mass ${fullSeason(2021).mass.toFixed(2)}, ${fullSeason(2021).played}`
+  + ` of ${fullSeason(2021).planned}`);
 
 const covidRanks = await b.ev(`window.BST.score.ranks()`);
+/* ⚠️⚠️ **The head of the table turned over on 1 Oct 2026**, and both moves are the
+   data rather than the arithmetic: the half-step ladder takes a rung off the Tour
+   Finals, which LEE Chong Wei won four times, and the continental events then add
+   five titles to LIN Dan and one to him while every denominator grows. Viktor
+   AXELSEN goes second on an Olympic gold, two world titles, three European
+   Championships and the 2023 European Games. */
 eq('the men’s singles reads the way the numbers put it',
   covidRanks.slice(0, 3).map(r => r.who).join(', '),
-  'LEE Chong Wei, LIN Dan, Viktor AXELSEN');
+  'LIN Dan, Viktor AXELSEN, LEE Chong Wei');
 /* ⚠️ There was an asterisk on *names*, marking a career the ranking was
    under-counting because the pandemic seasons had been set aside. Nothing is set
    aside now, so that mark is gone: it would point at nothing. */
@@ -3568,18 +3724,19 @@ eq('and it is drawn to the same height as the men’s',
 eq('a chosen bar survives the switch', await b.ev(`window.BST.score.floor()`), 40);
 
 /* ⚠️ A link without the bar in it is asking for the *default*, and the default
-   is derived per discipline — so the women's board settles far lower than the
-   men's, where two careers have taken 85 and 78 of a season. */
+   is derived per discipline — and which way round the two sit is itself derived:
+   with the continental titles counted the men's board settles above the women's,
+   where it used to settle below. */
 await b.ev(`location.hash = '#pg=winners&wv=score&wk=WS'`);
 await b.until(`window.BST.score.auto() && window.BST.score.marks().length > 5`,
   { timeout: 60000 });
 eq('but the derived one is the women’s own',
-  await b.ev(`window.BST.score.floor()`), 20);
+  await b.ev(`window.BST.score.floor()`), 15);
 
 await b.ev(`location.hash = '#pg=winners&wv=score'`);
 await b.until(`window.BST.winners.kind() === 'MS' && window.BST.score.marks().length > 5`,
   { timeout: 60000 });
-eq('and the men’s is theirs', await b.ev(`window.BST.score.floor()`), 15);
+eq('and the men’s is theirs', await b.ev(`window.BST.score.floor()`), 20);
 
 /* The score is a share of the same seasons the board draws, so the two cannot
    disagree about what a season held. */
@@ -3610,7 +3767,8 @@ await b.ev(`window.BST.score.view('score')`);
 await b.until(`window.BST.score.marks().length > 5`, { timeout: 60000 });
 eq('the note says what every tier is worth',
   (await b.ev(`window.BST.score.ladder()`)).join(' | '),
-  'Olympics6.854 | Worlds4.236 | Tour Finals2.618 | Super 10001.618 | Super 7501');
+  'Olympics6.854 | Worlds5.388 | Continental Games4.236 | Continental Champs3.33'
+  + ' | Tour Finals2.058 | Super 10001.618 | Super 7501');
 
 /* ⚠️ The tables mark short seasons with the **same rule the chart marks with**,
    not a second one — they were left on a fixed "fewer than six" test when the
@@ -3645,9 +3803,16 @@ check('the Worlds is the Worlds in either era',
    **rungs** rather than any title, and a rung has no season to be named for. */
 check('but the ladder itself is still stated in modern rungs',
   (await b.ev(`window.BST.score.ladder()`)).some(w => w.startsWith('Super 750')));
-eq('and the short ones are the ones the axis marked',
+/* ⚠️ **Only 2020 now.** The dimming means "there was barely anything to win",
+   which is a count and only a count — two thirds of the median season. With the
+   continental championships counted, 2022 holds ten of a median fifteen and the
+   year in progress already holds eleven, so both clear the bar; the threshold was
+   not moved to keep the old answer. Nothing is lost: the asterisk beside the year
+   is the union of this set with the named pandemic seasons, so 2022 keeps its mark
+   and its full-season denominator either way. */
+eq('and the short one is the one the axis marked',
   yearRows.filter(r => r.thin).map(r => r.cells[0].replace('*', '')).join(','),
-  '2020,2022,' + new Date().getUTCFullYear());
+  '2020');
 check('a short row is dimmed, not lit',
   await b.ev(`(() => {
     const tr = [...document.querySelectorAll('#scoreYears tr')].find(r => r.classList.contains('thin'));

@@ -34,6 +34,7 @@ import {
   winnersSeasons, pyramidReigns, reignLanes, REIGN_STEPS, REIGN_DEFAULT, reignStep,
   pyramidScale,
   dominationSeasons, thinSeasons, shortSeasonWhy, titleWeight, SCORE_TIERS,
+  CONFEDERATIONS, CONF_DEFAULT, confKeys, winnersWithin, titleConf,
   dominationRanking, rankMode, ranksSeasons, RANK_MODES, RANK_DEFAULT,
   COVID_SEASONS, isCovidSeason,
   bestScoreFloor, SCORE_FLOOR_MAX, SCORE_FLOOR_STEP,
@@ -1241,9 +1242,55 @@ const win = {
   /* Which ordering the dominators' table is in, and whether it is showing the
      whole board or the head of it. See `dominationRanking`. */
   rank: RANK_DEFAULT, rankAll: false,
+
+  /* ⚠️⚠️ **Which continents count.** Not a filter on the drawing: it moves the
+     *score*, because the reader's objection to a drawing-only toggle was the
+     right one — a ranking of legends with a continent counted that the reader
+     did not want is a ranking they cannot trust, and “the Stoeva sisters
+     suddenly up there” is a thing people would be confused by rather than
+     informed by. So this travels in the link (`wc`), like the bar and the era
+     names, and for the same reason: a shared board has to show the numbers its
+     sender was looking at.
+
+     Asia and Europe by default — see `CONF_DEFAULT` for the measurement behind
+     that. All five off is allowed and means the board this page drew before
+     October 2026. */
+  confs: CONF_DEFAULT.slice(),
 };
 
-const winFile = () => win.files[win.kind] || null;
+const winRaw = () => win.files[win.kind] || null;
+
+/* ⚠️ Memoised on the discipline **and** the chips, because every view asks for
+   the file and `winnersWithin` walks twenty seasons. Keyed rather than
+   invalidated by hand: a chip handler that forgot to clear a cache would leave
+   the board and the score disagreeing, which is the one failure this whole
+   arrangement exists to prevent. */
+let winShown = { key: '', file: null };
+
+/**
+ * The file as the chosen continents leave it — what every view draws and counts.
+ *
+ * ⚠️ `winFile`, not a new name, so there is **no** call site left reading the
+ * unfiltered file by accident. `winRaw` is for the chip counts and nothing else.
+ */
+const winFile = () => {
+  const raw = winRaw();
+  if (!raw) return null;
+  const key = `${win.kind}|${win.confs.join('.')}`;
+  if (winShown.key !== key) winShown = { key, file: winnersWithin(raw, win.confs) };
+  return winShown.file;
+};
+
+/** How many titles a confederation holds in the file on screen, for its chip. */
+function confCount(key) {
+  const raw = winRaw();
+  if (!raw) return 0;
+  let n2 = 0;
+  for (const list of Object.values(raw.seasons || {})) {
+    for (const t of list || []) if (titleConf(t) === key) n2++;
+  }
+  return n2;
+}
 
 /* ⚠️ Registered once, here, rather than in the render — `renderWinnersControls`
    runs on every redraw, and adding the listener there would stack a new one
@@ -2204,11 +2251,15 @@ function renderScoreFloor() {
  * ⚠️ Modern names here, deliberately, where the tables and the hover use the
  * season's own. These are the **rungs** rather than any particular title, and a
  * rung has no season to be named for — the note says in words that an older
- * season is weighed on the same five.
+ * season is weighed on the same ones.
+ *
+ * ⚠️ `gridGroupLabel`, not `levelLabel`: two of the seven rungs are sections of
+ * the grid rather than BWF category ids, so they have no entry in `LEVEL` and
+ * `levelLabel` would print 'GAMES'.
  */
 function renderScoreLadder() {
   $('scoreLadder').innerHTML = SCORE_TIERS.map(t =>
-    `<span class="wt">${esc(levelLabel(t))}`
+    `<span class="wt">${esc(gridGroupLabel(t))}`
     + `<b>${titleWeight(t).toFixed(3).replace(/0+$/, '').replace(/\.$/, '')}</b></span>`).join('');
 }
 
@@ -2575,6 +2626,13 @@ function renderWinnersControls() {
     };
   });
 
+  /* ⚠️⚠️ **Shown on both views**, unlike every other control here. The rule above
+     — a control that belongs to one view is hidden in the other — is about
+     controls that only change a drawing. This one changes what the *numbers* are,
+     so hiding it on the score view would leave a reader looking at a score with
+     no way to see, let alone change, which continents it is a share of. */
+  renderConfChips();
+
   const eras = $('winEras');
   eras.classList.toggle('on', win.eras);
   eras.setAttribute('aria-pressed', String(win.eras));
@@ -2604,6 +2662,41 @@ function renderWinnersControls() {
   if (z && Number(z.value) !== win.zoom) z.value = String(win.zoom);
 
   renderExportBar();
+}
+
+/**
+ * The five continental chips.
+ *
+ * ⚠️ The count on the tooltip comes from the **unfiltered** file, so a chip that
+ * is off still says what switching it on would add. A chip whose own answer
+ * depended on whether it was pressed would be useless.
+ */
+function renderConfChips() {
+  const on = new Set(win.confs);
+  $('winConf').innerHTML = CONFEDERATIONS.map(c => {
+    const held = confCount(c.key);
+    return `<button type="button" class="seg${on.has(c.key) ? ' on' : ''}"`
+      + ` data-conf="${c.key}" aria-pressed="${on.has(c.key)}"`
+      + ` title="${esc(`${c.full} · ${held} ${held === 1 ? 'title' : 'titles'}`
+        + ` on this board, counted only while this is on`)}">${esc(c.label)}</button>`;
+  }).join('');
+  $('winConf').querySelectorAll('[data-conf]').forEach(btn => {
+    btn.onclick = () => toggleConf(btn.dataset.conf);
+  });
+}
+
+function toggleConf(key) {
+  const on = new Set(win.confs);
+  if (on.has(key)) on.delete(key); else on.add(key);
+  // Through `confKeys` so the list stays in confederation order whatever order
+  // the reader pressed them in — which is what keeps the link stable.
+  win.confs = confKeys([...on]);
+  /* ⚠️ The pinned players may have been pinned off the board: a competitor whose
+     only titles are continental disappears when their continent does, and a pin
+     naming nobody would leave the chart lit for a line that is not there.
+     `renderWinners` already clears a stale pick; this only has to redraw. */
+  renderWinners();
+  writeHash();
 }
 
 function setReign(key) {
@@ -4418,6 +4511,13 @@ function readHash() {
     ? 0 : Math.max(0, Math.min(SCORE_FLOOR_MAX, Number(h.get('wf')) || 0));
   win.only = new Set((h.get('wp') || '').split(',').filter(Boolean));
   win.rank = rankMode(h.get('wr') || RANK_DEFAULT).key;
+  /* ⚠️⚠️ Set unconditionally and **allowed to be empty**, because the chips have a
+     real default and “none of them” is a real answer: `wc=` is a link to the
+     board with every continental title off, and a link with no `wc` at all is
+     claiming Asia and Europe rather than saying nothing. Read before `wp`
+     matters, so a pinned competitor who only exists in a continent this link
+     switched off is dropped by the board's own stale-pick check. */
+  win.confs = h.has('wc') ? confKeys((h.get('wc') || '').split('.')) : CONF_DEFAULT.slice();
   // `g=1` is what the compare page was called when it was a modal, and links
   // carrying it are still out there.
   wantPage = h.get('pg') || (h.get('g') === '1' ? 'compare' : 'seasons');
@@ -4496,6 +4596,12 @@ function writeHash() {
   // is a viewing preference and stays in localStorage.
   if (page === 'winners' && win.kind !== 'MS') p.set('wk', win.kind);
   if (page === 'winners' && win.view !== 'board') p.set('wv', win.view);
+  /* Only when it is doing something, and an empty value counts as doing
+     something: the chips move the score, so a link that chose differently from
+     the default has to carry the choice or it is a link to a different number. */
+  if (page === 'winners' && win.confs.join('.') !== CONF_DEFAULT.join('.')) {
+    p.set('wc', win.confs.join('.'));
+  }
   if (page === 'winners') {
     /* ⚠️ The pick travels on **both** views. It used to be the score's alone,
        when the score was the only view that had one; the board picks with the
@@ -4797,6 +4903,24 @@ window.BST = {
     eras: on => (on == null ? win.eras
       : (win.eras = !!on, renderWinners(), writeHash(), win.eras)),
     bar: k => (k == null ? win.reign : (setReign(k), win.reign)),
+    /* Which continents count. Through `confKeys`, so a list in any order comes
+       back in confederation order — which is the order the link carries. */
+    confs: list => (list == null ? [...win.confs]
+      : (win.confs = confKeys(list), renderWinners(), writeHash(), [...win.confs])),
+    /** The chips as drawn, because a chip whose state the reader cannot see is
+        not a control. */
+    chips: () => [...document.querySelectorAll('#winConf .seg')].map(c => ({
+      key: c.dataset.conf, label: c.textContent.trim(),
+      on: c.classList.contains('on'),
+      pressed: c.getAttribute('aria-pressed') === 'true',
+      title: c.getAttribute('title') || '',
+    })),
+    chip: key => {
+      const c = [...document.querySelectorAll('#winConf .seg')]
+        .find(x => x.dataset.conf === key);
+      if (c) c.click();
+      return [...win.confs];
+    },
     /** Every column, with the year it claims and where it actually is. */
     columns: () => [...document.querySelectorAll('#winBody .pyrseason')].map(c => {
       const r = c.getBoundingClientRect();

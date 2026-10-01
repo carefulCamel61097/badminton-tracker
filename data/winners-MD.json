@@ -1,5 +1,5 @@
 {
- "generated": "2026-09-05",
+ "generated": "2026-10-01",
  "discipline": "MD",
  "players": {
   "2078": {
@@ -13,6 +13,12 @@
    "c": "USA",
    "a": "https://img.bwfbadminton.com/image/upload/v1695266209/assets/players/thumbnail/3181.jpg",
    "f": ""
+  },
+  "5537": {
+   "n": "Mike BERES",
+   "c": "CAN",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CAN.png"
   },
   "7572": {
    "n": "Nathan ROBERTSON",
@@ -38,6 +44,12 @@
    "a": "https://img.bwfbadminton.com/image/upload/v1604894559/assets/players/thumbnail/9819.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/ENG.png"
   },
+  "10879": {
+   "n": "William MILROY",
+   "c": "CAN",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CAN.png"
+  },
   "11777": {
    "n": "LIU Xiaolong",
    "c": "CHN",
@@ -55,6 +67,12 @@
    "c": "MAS",
    "a": "https://img.bwfbadminton.com/image/upload/v1604896876/assets/players/thumbnail/13137.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/MAS.png"
+  },
+  "13922": {
+   "n": "Glenn WARFE",
+   "c": "AUS",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/AUS.png"
   },
   "14288": {
    "n": "Kien Keat KOO",
@@ -74,11 +92,23 @@
    "a": "https://img.bwfbadminton.com/image/upload/v1604896932/assets/players/thumbnail/15380.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/JPN.png"
   },
+  "25322": {
+   "n": "Nyl YAKURA",
+   "c": "CAN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1719991492/assets/players/thumbnail/25322.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CAN.png"
+  },
   "26394": {
    "n": "Marcus Fernaldi GIDEON",
    "c": "INA",
    "a": "https://img.bwfbadminton.com/image/upload/v1604895067/assets/players/thumbnail/26394.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"
+  },
+  "27624": {
+   "n": "Oliver LEYDON-DAVIS",
+   "c": "NZL",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604896127/assets/players/thumbnail/27624.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/NZL.png"
   },
   "28549": {
    "n": "LU Kai",
@@ -92,11 +122,29 @@
    "a": "https://img.bwfbadminton.com/image/upload/v1604894328/assets/players/thumbnail/35357.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
   },
+  "36299": {
+   "n": "Phillip CHEW",
+   "c": "USA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604897002/assets/players/thumbnail/36299.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/USA.png"
+  },
   "39276": {
    "n": "KIM Gi Jung",
    "c": "KOR",
    "a": "https://img.bwfbadminton.com/image/upload/v1590501423/assets/players/thumbnail/39276.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/KOR.png"
+  },
+  "39324": {
+   "n": "Ola FAGBEMI",
+   "c": "NGR",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/NGR.png"
+  },
+  "42722": {
+   "n": "Mads CONRAD-PETERSEN",
+   "c": "DEN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604894649/assets/players/thumbnail/42722.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/DEN.png"
   },
   "44414": {
    "n": "Anders Skaarup RASMUSSEN",
@@ -152,6 +200,12 @@
    "a": "https://img.bwfbadminton.com/image/upload/v1604895108/assets/players/thumbnail/51304.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/DEN.png"
   },
+  "51604": {
+   "n": "Willem VILJOEN",
+   "c": "RSA",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/RSA.png"
+  },
   "51620": {
    "n": "XU Chen",
    "c": "CHN",
@@ -160,15 +214,21 @@
   },
   "51624": {
    "n": "Chris LANGRIDGE",
-   "c": "ENG",
+   "c": "GBR",
    "a": "https://img.bwfbadminton.com/image/upload/v1604894571/assets/players/thumbnail/51624.jpg",
-   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/ENG.png"
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/GBR.png"
   },
   "51729": {
    "n": "FU Haifeng",
    "c": "CHN",
    "a": "https://img.bwfbadminton.com/image/upload/v1604894369/assets/players/thumbnail/51729.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "51968": {
+   "n": "Jinkan Ifraimu BULUS",
+   "c": "NGR",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/NGR.png"
   },
   "52071": {
    "n": "TAN Wee Kiong",
@@ -212,11 +272,23 @@
    "a": "https://img.bwfbadminton.com/image/upload/v1604897154/assets/players/thumbnail/52931.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/TPE.png"
   },
+  "52958": {
+   "n": "Mads Pieler KOLDING",
+   "c": "DEN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604894657/assets/players/thumbnail/52958.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/DEN.png"
+  },
   "53426": {
    "n": "CHUNG Jae Sung",
    "c": "KOR",
    "a": "https://img.bwfbadminton.com/image/upload/v1604897180/assets/players/thumbnail/53426.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/KOR.png"
+  },
+  "53725": {
+   "n": "Raymond TAM",
+   "c": "AUS",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/AUS.png"
   },
   "53924": {
    "n": "Vladimir IVANOV",
@@ -235,6 +307,12 @@
    "c": "MAS",
    "a": "https://img.bwfbadminton.com/image/upload/v1669276410/assets/players/thumbnail/54171.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/MAS.png"
+  },
+  "54345": {
+   "n": "CHO Gun Woo",
+   "c": "KOR",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/KOR.png"
   },
   "54527": {
    "n": "Kenichi HAYAKAWA",
@@ -260,11 +338,23 @@
    "a": "https://img.bwfbadminton.com/image/upload/v1604896024/assets/players/thumbnail/55414.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
   },
+  "55643": {
+   "n": "Jack WANG",
+   "c": "NZL",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/NZL.png"
+  },
   "56203": {
    "n": "Aaron CHIA",
    "c": "MAS",
    "a": "https://img.bwfbadminton.com/image/upload/v1627949889/assets/players/thumbnail/56203.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/MAS.png"
+  },
+  "58073": {
+   "n": "Huaidong TANG",
+   "c": "AUS",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/AUS.png"
   },
   "58240": {
    "n": "Yuta WATANABE",
@@ -278,11 +368,29 @@
    "a": "https://img.bwfbadminton.com/image/upload/v1697442151/assets/players/thumbnail/58241.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
   },
+  "58539": {
+   "n": "DONG Adam (Xingyu)",
+   "c": "CAN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1719991435/assets/players/thumbnail/58539.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CAN.png"
+  },
+  "58628": {
+   "n": "Abhinav MANOTA",
+   "c": "NZL",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604896307/assets/players/thumbnail/58628.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/NZL.png"
+  },
   "59673": {
    "n": "HE Ji Ting",
    "c": "CHN",
    "a": "https://img.bwfbadminton.com/image/upload/v1633594425/assets/players/thumbnail/59673.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "60131": {
+   "n": "Adam JEFFREY",
+   "c": "NZL",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/NZL.png"
   },
   "60692": {
    "n": "Rian Agung SAPUTRO",
@@ -296,17 +404,71 @@
    "a": "https://img.bwfbadminton.com/image/upload/v1604895349/assets/players/thumbnail/61160.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
   },
+  "61283": {
+   "n": "Lukas DEFOLKY",
+   "c": "AUS",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/AUS.png"
+  },
   "61444": {
    "n": "KIM Won Ho",
    "c": "KOR",
    "a": "https://img.bwfbadminton.com/image/upload/v1604895351/assets/players/thumbnail/61444.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/KOR.png"
   },
+  "61628": {
+   "n": "Toma Junior POPOV",
+   "c": "FRA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1719991294/assets/players/thumbnail/61628.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/FRA.png"
+  },
   "61855": {
    "n": "Angga PRATAMA",
    "c": "INA",
    "a": "https://img.bwfbadminton.com/image/upload/v1604894980/assets/players/thumbnail/61855.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"
+  },
+  "62618": {
+   "n": "CHEN ZHI YI",
+   "c": "USA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1720495043/assets/players/thumbnail/62618.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/USA.png"
+  },
+  "63109": {
+   "n": "Andries MALAN",
+   "c": "RSA",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/RSA.png"
+  },
+  "63739": {
+   "n": "Presley SMITH",
+   "c": "USA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1696986069/assets/players/thumbnail/63739.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/USA.png"
+  },
+  "63846": {
+   "n": "Youcef Sabri MEDEL",
+   "c": "ALG",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604896343/assets/players/thumbnail/63846.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/ALG.png"
+  },
+  "64839": {
+   "n": "Georges Julien PAUL",
+   "c": "MRI",
+   "a": "https://img.bwfbadminton.com/image/upload/v1719889167/assets/players/thumbnail/64839.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/MRI.png"
+  },
+  "64909": {
+   "n": "Marvin SEIDEL",
+   "c": "GER",
+   "a": "https://img.bwfbadminton.com/image/upload/v1636522316/assets/players/thumbnail/64909.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/GER.png"
+  },
+  "66071": {
+   "n": "Aatish LUBAH",
+   "c": "MRI",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604895412/assets/players/thumbnail/66071.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/MRI.png"
   },
   "66491": {
    "n": "HAN Cheng Kai",
@@ -326,6 +488,12 @@
    "a": "https://img.bwfbadminton.com/image/upload/v1604895418/assets/players/thumbnail/66513.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/KOR.png"
   },
+  "66618": {
+   "n": "Eric VUONG",
+   "c": "AUS",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/AUS.png"
+  },
   "67068": {
    "n": "Ivan SOZONOV",
    "c": "RUS",
@@ -343,6 +511,18 @@
    "c": "JPN",
    "a": "https://img.bwfbadminton.com/image/upload/v1604895430/assets/players/thumbnail/67903.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/JPN.png"
+  },
+  "68045": {
+   "n": "Mark LAMSFUSS",
+   "c": "GER",
+   "a": "https://img.bwfbadminton.com/image/upload/v1719992008/assets/players/thumbnail/68045.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/GER.png"
+  },
+  "68633": {
+   "n": "Leo Rolly CARNANDO",
+   "c": "INA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604896458/assets/players/thumbnail/68633.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"
   },
   "69448": {
    "n": "LEE Yang",
@@ -370,9 +550,15 @@
   },
   "71349": {
    "n": "Marcus ELLIS",
-   "c": "ENG",
+   "c": "GBR",
    "a": "https://img.bwfbadminton.com/image/upload/v1604896114/assets/players/thumbnail/71349.jpg",
-   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/ENG.png"
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/GBR.png"
+  },
+  "71869": {
+   "n": "Rizky HIDAYAT",
+   "c": "AUS",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/AUS.png"
   },
   "72435": {
    "n": "Satwiksairaj RANKIREDDY",
@@ -380,11 +566,35 @@
    "a": "https://img.bwfbadminton.com/image/upload/v1697771308/assets/players/thumbnail/72435.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/IND.png"
   },
+  "72478": {
+   "n": "Sean VENDY",
+   "c": "ENG",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604896409/assets/players/thumbnail/72478.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/ENG.png"
+  },
+  "72885": {
+   "n": "Christo POPOV",
+   "c": "FRA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1719991249/assets/players/thumbnail/72885.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/FRA.png"
+  },
+  "72986": {
+   "n": "Koceila MAMMERI",
+   "c": "ALG",
+   "a": "https://img.bwfbadminton.com/image/upload/v1719900426/assets/players/thumbnail/72986.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/ALG.png"
+  },
   "74326": {
    "n": "Hirokatsu HASHIMOTO",
    "c": "JPN",
    "a": "https://img.bwfbadminton.com/image/upload/v1604897531/assets/players/thumbnail/74326.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/JPN.png"
+  },
+  "74732": {
+   "n": "Pramudya KUSUMAWARDANA",
+   "c": "INA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604896547/assets/players/thumbnail/74732.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"
   },
   "74816": {
    "n": "JIN Yong",
@@ -392,17 +602,47 @@
    "a": "https://img.bwfbadminton.com/image/upload/v1732493766/assets/players/thumbnail/74816.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/KOR.png"
   },
+  "74872": {
+   "n": "Sattawat PONGNAIRAT",
+   "c": "USA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604897542/assets/players/thumbnail/74872.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/USA.png"
+  },
+  "74987": {
+   "n": "Luis Armando MONTOYA NAVARRO",
+   "c": "MEX",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/MEX.png"
+  },
+  "75157": {
+   "n": "Sawan SERASINGHE",
+   "c": "AUS",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604897511/assets/players/thumbnail/75157.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/AUS.png"
+  },
   "75983": {
    "n": "Bodin ISARA",
    "c": "THA",
    "a": "https://img.bwfbadminton.com/image/upload/v1620708374/assets/players/thumbnail/75983.tif",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/THA.png"
   },
+  "76278": {
+   "n": "Ben LANE",
+   "c": "ENG",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604895527/assets/players/thumbnail/76278.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/ENG.png"
+  },
   "77262": {
    "n": "KANG Min Hyuk",
    "c": "KOR",
    "a": "https://img.bwfbadminton.com/image/upload/v1604896028/assets/players/thumbnail/77262.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/KOR.png"
+  },
+  "78695": {
+   "n": "Matthew CHAU",
+   "c": "AUS",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604897489/assets/players/thumbnail/78695.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/AUS.png"
   },
   "79059": {
    "n": "LI Jun Hui",
@@ -428,17 +668,47 @@
    "a": "https://img.bwfbadminton.com/image/upload/v1604895591/assets/players/thumbnail/81657.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/JPN.png"
   },
+  "82683": {
+   "n": "Dylan SOEDJASA",
+   "c": "NZL",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/NZL.png"
+  },
   "84007": {
    "n": "KIM Sa Rang",
    "c": "KOR",
    "a": "https://img.bwfbadminton.com/image/upload/v1604897480/assets/players/thumbnail/84007.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/KOR.png"
   },
+  "84786": {
+   "n": "Daniel MARTHIN",
+   "c": "INA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604896456/assets/players/thumbnail/84786.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"
+  },
   "84812": {
    "n": "REN Xiang Yu",
    "c": "CHN",
    "a": "https://img.bwfbadminton.com/image/upload/v1604896417/assets/players/thumbnail/84812.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "85735": {
+   "n": "Robert SUMMERS",
+   "c": "RSA",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/RSA.png"
+  },
+  "87626": {
+   "n": "Adrian LIU",
+   "c": "CAN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604897476/assets/players/thumbnail/87626.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CAN.png"
+  },
+  "87656": {
+   "n": "Rayne WANG",
+   "c": "AUS",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/AUS.png"
   },
   "88094": {
    "n": "KO Sung Hyun",
@@ -451,6 +721,12 @@
    "c": "INA",
    "a": "https://img.bwfbadminton.com/image/upload/v1689648880/assets/players/thumbnail/88876.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"
+  },
+  "89529": {
+   "n": "Kenneth Zhe Hooi CHOO",
+   "c": "AUS",
+   "a": "https://img.bwfbadminton.com/image/upload/v1690356904/assets/players/thumbnail/89529.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/AUS.png"
   },
   "90531": {
    "n": "LIANG Wei Keng",
@@ -488,11 +764,47 @@
    "a": "https://img.bwfbadminton.com/image/upload/v1636531494/assets/players/thumbnail/92980.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/DEN.png"
   },
+  "93101": {
+   "n": "Job CASTILLO",
+   "c": "MEX",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604897342/assets/players/thumbnail/93101.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/MEX.png"
+  },
+  "93167": {
+   "n": "Ryan CHEW",
+   "c": "USA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604896412/assets/players/thumbnail/93167.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/USA.png"
+  },
   "93367": {
    "n": "LIU Yu Chen",
    "c": "CHN",
    "a": "https://img.bwfbadminton.com/image/upload/v1697442037/assets/players/thumbnail/93367.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
+  },
+  "93791": {
+   "n": "Jason Anthony HO-SHUE",
+   "c": "CAN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604896088/assets/players/thumbnail/93791.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CAN.png"
+  },
+  "94332": {
+   "n": "Jack YU",
+   "c": "AUS",
+   "a": "https://img.bwfbadminton.com/image/upload/v1690179476/assets/players/thumbnail/94332.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/AUS.png"
+  },
+  "94430": {
+   "n": "Yeremia Erich Yoche Yacob RAMBITAN",
+   "c": "INA",
+   "a": "https://img.bwfbadminton.com/image/upload/v1604896010/assets/players/thumbnail/94430.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/INA.png"
+  },
+  "94719": {
+   "n": "Jarred ELLIOTT",
+   "c": "RSA",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/RSA.png"
   },
   "94814": {
    "n": "Nur IZZUDDIN",
@@ -518,11 +830,29 @@
    "a": "https://img.bwfbadminton.com/image/upload/v1604893705/assets/players/thumbnail/96784.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CHN.png"
   },
+  "98896": {
+   "n": "Adel HAMEK",
+   "c": "ALG",
+   "a": "https://img.bwfbadminton.com/image/upload/v1634096932/assets/players/thumbnail/98896.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/ALG.png"
+  },
   "99102": {
    "n": "LEE Jhe-Huei",
    "c": "TPE",
    "a": "https://img.bwfbadminton.com/image/upload/v1604896182/assets/players/thumbnail/99102.jpg",
    "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/TPE.png"
+  },
+  "99187": {
+   "n": "Mohamed  Abderrahime BELARBI",
+   "c": "ALG",
+   "a": "https://img.bwfbadminton.com/image/upload/assets/players/thumbnail/profile_male.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/ALG.png"
+  },
+  "99279": {
+   "n": "Derrick NG",
+   "c": "CAN",
+   "a": "https://img.bwfbadminton.com/image/upload/v1694998280/assets/players/thumbnail/99279.jpg",
+   "f": "https://img.bwfbadminton.com/image/upload/v2/assets/flag-circle-svg-custom/CAN.png"
   },
   "99389": {
    "n": "SOH Wooi Yik",
@@ -591,6 +921,16 @@
     "w": [
      51729,
      50251
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 460,
+    "name": "2007 Pan American Badminton Championships",
+    "date": "2007-05-15",
+    "w": [
+     5537,
+     10879
     ]
    },
    {
@@ -703,6 +1043,16 @@
     "w": [
      53426,
      52774
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 423,
+    "name": "European Championships 2008",
+    "date": "2008-04-16",
+    "w": [
+     7575,
+     9578
     ]
    },
    {
@@ -990,6 +1340,26 @@
     ]
    },
    {
+    "tier": 11,
+    "id": 96,
+    "name": "Yonex-Sunrise Badminton Asia Championships 2010",
+    "date": "2010-04-12",
+    "w": [
+     54345,
+     52273
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 97,
+    "name": "Yonex European Championships 2010",
+    "date": "2010-04-14",
+    "w": [
+     7575,
+     9578
+    ]
+   },
+   {
     "tier": 24,
     "id": 1812,
     "name": "LI-NING SINGAPORE OPEN SUPER SERIES 2010",
@@ -1142,6 +1512,16 @@
     ]
    },
    {
+    "tier": 11,
+    "id": 108,
+    "name": "Badminton Asia Championships 2011",
+    "date": "2011-04-19",
+    "w": [
+     50251,
+     51729
+    ]
+   },
+   {
     "tier": 24,
     "id": 67,
     "name": "YONEX-SUNRISE  India Open ",
@@ -1179,6 +1559,16 @@
     "w": [
      50251,
      51729
+    ]
+   },
+   {
+    "tier": "GAMES",
+    "id": 1757,
+    "name": "10th ALL AFRICA GAMES 2011",
+    "date": "2011-09-08",
+    "w": [
+     51968,
+     39324
     ]
    },
    {
@@ -1294,6 +1684,26 @@
     ]
    },
    {
+    "tier": 11,
+    "id": 1663,
+    "name": "European Championships 2012",
+    "date": "2012-04-16",
+    "w": [
+     50292,
+     51304
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 1664,
+    "name": "Badminton Asia Championships 2012",
+    "date": "2012-04-17",
+    "w": [
+     39276,
+     84007
+    ]
+   },
+   {
     "tier": 24,
     "id": 2064,
     "name": "Yonex Sunrise India Open 2012",
@@ -1351,6 +1761,16 @@
     "w": [
      39276,
      84007
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 1713,
+    "name": "XVII Pan Am Badminton Championships Individual event",
+    "date": "2012-10-11",
+    "w": [
+     87626,
+     99279
     ]
    },
    {
@@ -1443,6 +1863,16 @@
     "w": [
      61855,
      60692
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 2004,
+    "name": "Badminton Asia Championships 2013",
+    "date": "2013-04-16",
+    "w": [
+     88094,
+     52774
     ]
    },
    {
@@ -1578,6 +2008,16 @@
     ]
    },
    {
+    "tier": 11,
+    "id": 1469,
+    "name": "2014 Kumpoo Oceania Championships",
+    "date": "2014-02-12",
+    "w": [
+     53725,
+     13922
+    ]
+   },
+   {
     "tier": 23,
     "id": 1942,
     "name": "Yonex All England Open",
@@ -1605,6 +2045,36 @@
     "w": [
      50251,
      28549
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 1495,
+    "name": "Badminton Asia Championships 2014",
+    "date": "2014-04-22",
+    "w": [
+     54785,
+     52273
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 1496,
+    "name": "2014 INTERSPORT European Championships",
+    "date": "2014-04-23",
+    "w": [
+     53924,
+     67068
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 424,
+    "name": "Africa Individual Championships 2014",
+    "date": "2014-04-27",
+    "w": [
+     63109,
+     51604
     ]
    },
    {
@@ -1648,6 +2118,16 @@
     ]
    },
    {
+    "tier": "GAMES",
+    "id": 2184,
+    "name": "17th Asian Games 2014",
+    "date": "2014-09-24",
+    "w": [
+     52749,
+     51074
+    ]
+   },
+   {
     "tier": 23,
     "id": 1971,
     "name": "Yonex Denmark Open",
@@ -1655,6 +2135,16 @@
     "w": [
      51729,
      35357
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 1528,
+    "name": "XIX Pan American Badminton Championships 2014",
+    "date": "2014-10-16",
+    "w": [
+     87626,
+     99279
     ]
    },
    {
@@ -1700,6 +2190,16 @@
   ],
   "2015": [
    {
+    "tier": 11,
+    "id": 2219,
+    "name": "X-TRM Oceania Championships 2015",
+    "date": "2015-02-12",
+    "w": [
+     78695,
+     75157
+    ]
+   },
+   {
     "tier": 23,
     "id": 2270,
     "name": "Yonex All England Open",
@@ -1740,6 +2240,16 @@
     ]
    },
    {
+    "tier": 11,
+    "id": 2510,
+    "name": "Dong Feng Citroen Badminton Asia Championships 2015",
+    "date": "2015-04-21",
+    "w": [
+     52774,
+     52273
+    ]
+   },
+   {
     "tier": 24,
     "id": 2279,
     "name": "The Star Australian Open",
@@ -1760,6 +2270,26 @@
     ]
    },
    {
+    "tier": "GAMES",
+    "id": 2512,
+    "name": "2015 Baku European Games - Badminton",
+    "date": "2015-06-22",
+    "w": [
+     50292,
+     51304
+    ]
+   },
+   {
+    "tier": "GAMES",
+    "id": 2249,
+    "name": "XVII Pan Am Games Toronto 2015",
+    "date": "2015-07-11",
+    "w": [
+     36299,
+     74872
+    ]
+   },
+   {
     "tier": 20,
     "id": 2463,
     "name": "TOTAL BWF World Championships 2015",
@@ -1767,6 +2297,16 @@
     "w": [
      52749,
      51074
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 2532,
+    "name": "2015 African Continental Championships (Individual)",
+    "date": "2015-09-07",
+    "w": [
+     63109,
+     51604
     ]
    },
    {
@@ -1882,6 +2422,46 @@
     ]
    },
    {
+    "tier": 11,
+    "id": 2394,
+    "name": "2016 European Championships",
+    "date": "2016-04-26",
+    "w": [
+     42722,
+     52958
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 2405,
+    "name": "2016 Oceania Individual Championships",
+    "date": "2016-04-26",
+    "w": [
+     78695,
+     75157
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 2501,
+    "name": "Dong Feng Citroen Badminton Asia Championships 2016",
+    "date": "2016-04-26",
+    "w": [
+     52774,
+     52273
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 2566,
+    "name": "XX Pan Am Individual Championships 2016 (Non WR Event)",
+    "date": "2016-04-28",
+    "w": [
+     93791,
+     25322
+    ]
+   },
+   {
     "tier": 23,
     "id": 2569,
     "name": "BCA Indonesia Open",
@@ -1984,6 +2564,16 @@
   ],
   "2017": [
    {
+    "tier": 11,
+    "id": 2760,
+    "name": "VICTOR Oceania Championships 2017",
+    "date": "2017-02-13",
+    "w": [
+     78695,
+     75157
+    ]
+   },
+   {
     "tier": 23,
     "id": 2650,
     "name": "YONEX All England Open",
@@ -2021,6 +2611,46 @@
     "w": [
      50292,
      51304
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 2896,
+    "name": "2017 All Africa Individual Championships",
+    "date": "2017-04-20",
+    "w": [
+     72986,
+     63846
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 2704,
+    "name": "Badminton Asia Championships 2017",
+    "date": "2017-04-25",
+    "w": [
+     79059,
+     93367
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 2757,
+    "name": "2017 European Championships",
+    "date": "2017-04-25",
+    "w": [
+     50292,
+     51304
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 2895,
+    "name": "XXI Pan American Championships 2017",
+    "date": "2017-04-27",
+    "w": [
+     93791,
+     25322
     ]
    },
    {
@@ -2126,6 +2756,26 @@
   ],
   "2018": [
    {
+    "tier": 11,
+    "id": 3095,
+    "name": "VICTOR Oceania Championships 2018",
+    "date": "2018-02-08",
+    "w": [
+     78695,
+     75157
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 3176,
+    "name": "All Africa Individual Championships 2018",
+    "date": "2018-02-16",
+    "w": [
+     99187,
+     98896
+    ]
+   },
+   {
     "tier": 23,
     "id": 3141,
     "name": "YONEX All England Open 2018",
@@ -2133,6 +2783,36 @@
     "w": [
      26394,
      80057
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 3122,
+    "name": "Badminton Asia Championships 2018",
+    "date": "2018-04-24",
+    "w": [
+     79059,
+     93367
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 3188,
+    "name": "2018 European Championships",
+    "date": "2018-04-24",
+    "w": [
+     92980,
+     44414
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 3206,
+    "name": "XXII Pan Am Individual Championships 2018",
+    "date": "2018-04-26",
+    "w": [
+     93791,
+     25322
     ]
    },
    {
@@ -2163,6 +2843,16 @@
     "w": [
      79059,
      93367
+    ]
+   },
+   {
+    "tier": "GAMES",
+    "id": 3400,
+    "name": "Asian Games 2018 ( Individual Event)",
+    "date": "2018-08-23",
+    "w": [
+     26394,
+     80057
     ]
    },
    {
@@ -2228,6 +2918,16 @@
   ],
   "2019": [
    {
+    "tier": 11,
+    "id": 3450,
+    "name": "VICTOR Oceania Championships 2019",
+    "date": "2019-02-11",
+    "w": [
+     75157,
+     66618
+    ]
+   },
+   {
     "tier": 23,
     "id": 3376,
     "name": "YONEX All England Open Badminton Championships 2019",
@@ -2245,6 +2945,46 @@
     "w": [
      79059,
      93367
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 3441,
+    "name": "Badminton Asia Championships 2019",
+    "date": "2019-04-23",
+    "w": [
+     54026,
+     58240
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 3523,
+    "name": "XXIII Pan Am individual Championships 2019",
+    "date": "2019-04-25",
+    "w": [
+     93791,
+     25322
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 3503,
+    "name": "All Africa Individual Championships 2019",
+    "date": "2019-04-26",
+    "w": [
+     72986,
+     63846
+    ]
+   },
+   {
+    "tier": "GAMES",
+    "id": 3593,
+    "name": "European Games 2019",
+    "date": "2019-06-24",
+    "w": [
+     71349,
+     51624
     ]
    },
    {
@@ -2268,6 +3008,16 @@
     ]
    },
    {
+    "tier": "GAMES",
+    "id": 3529,
+    "name": "Pan Am Games LIMA2019",
+    "date": "2019-07-29",
+    "w": [
+     93791,
+     25322
+    ]
+   },
+   {
     "tier": 20,
     "id": 3447,
     "name": "TOTAL BWF World Championships 2019",
@@ -2275,6 +3025,16 @@
     "w": [
      52749,
      51074
+    ]
+   },
+   {
+    "tier": "GAMES",
+    "id": 3805,
+    "name": "African Games 2019 - Individual Event",
+    "date": "2019-08-27",
+    "w": [
+     66071,
+     64839
     ]
    },
    {
@@ -2329,6 +3089,26 @@
    }
   ],
   "2020": [
+   {
+    "tier": 11,
+    "id": 3655,
+    "name": "VICTOR Oceania Championships 2020",
+    "date": "2020-02-10",
+    "w": [
+     27624,
+     58628
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 3723,
+    "name": "All Africa Individual Championships 2020",
+    "date": "2020-02-14",
+    "w": [
+     72986,
+     63846
+    ]
+   },
    {
     "tier": 23,
     "id": 3690,
@@ -2392,6 +3172,26 @@
     ]
    },
    {
+    "tier": 11,
+    "id": 4203,
+    "name": "2021 European Championships",
+    "date": "2021-04-27",
+    "w": [
+     53924,
+     67068
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 4204,
+    "name": "XXIV Pan Am Individual Championships 2021",
+    "date": "2021-04-28",
+    "w": [
+     36299,
+     93167
+    ]
+   },
+   {
     "tier": "OLY",
     "id": 4027,
     "name": "Tokyo 2020 Olympic Games Badminton",
@@ -2419,6 +3219,16 @@
     "w": [
      88094,
      54785
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 3962,
+    "name": "All Africa Individual Championships 2021(New dates)",
+    "date": "2021-10-26",
+    "w": [
+     72986,
+     63846
     ]
    },
    {
@@ -2464,6 +3274,16 @@
   ],
   "2022": [
    {
+    "tier": 11,
+    "id": 4477,
+    "name": "All Africa Individual Championships 2022",
+    "date": "2022-02-18",
+    "w": [
+     72986,
+     63846
+    ]
+   },
+   {
     "tier": 23,
     "id": 4431,
     "name": "YONEX All England Open Badminton Championships 2022",
@@ -2471,6 +3291,46 @@
     "w": [
      91440,
      79658
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 4302,
+    "name": "2022 European Championships",
+    "date": "2022-04-25",
+    "w": [
+     68045,
+     64909
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 4417,
+    "name": "XXV Pan Am Individual Championships 2022",
+    "date": "2022-04-26",
+    "w": [
+     93101,
+     74987
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 4591,
+    "name": "Badminton Asia Championships 2022",
+    "date": "2022-04-26",
+    "w": [
+     74732,
+     94430
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 4314,
+    "name": "VICTOR Oceania Championships 2022 (New dates)",
+    "date": "2022-04-28",
+    "w": [
+     58628,
+     55643
     ]
    },
    {
@@ -2566,6 +3426,26 @@
     ]
    },
    {
+    "tier": 11,
+    "id": 4662,
+    "name": "VICTOR Oceania Championships 2023",
+    "date": "2023-02-13",
+    "w": [
+     89529,
+     87656
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 4664,
+    "name": "All Africa Individual Championships 2023",
+    "date": "2023-02-17",
+    "w": [
+     94719,
+     85735
+    ]
+   },
+   {
     "tier": 23,
     "id": 4704,
     "name": "YONEX All England Open Badminton Championships 2023",
@@ -2573,6 +3453,26 @@
     "w": [
      88876,
      91130
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 4791,
+    "name": "KHILADIX.COM Dubai Badminton Asia Championships 2023 powered by FLOKI",
+    "date": "2023-04-25",
+    "w": [
+     72435,
+     70500
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 4794,
+    "name": "XXVI YONEX Pan Am Individual Championships 2023",
+    "date": "2023-04-26",
+    "w": [
+     58539,
+     25322
     ]
    },
    {
@@ -2593,6 +3493,16 @@
     "w": [
      72435,
      70500
+    ]
+   },
+   {
+    "tier": "GAMES",
+    "id": 4676,
+    "name": "2023 European Games",
+    "date": "2023-06-26",
+    "w": [
+     92980,
+     44414
     ]
    },
    {
@@ -2626,6 +3536,16 @@
     ]
    },
    {
+    "tier": "GAMES",
+    "id": 4995,
+    "name": "ASIAN Games 2022 (Individual Event)",
+    "date": "2023-10-02",
+    "w": [
+     72435,
+     70500
+    ]
+   },
+   {
     "tier": 24,
     "id": 4727,
     "name": "VICTOR Denmark Open 2023",
@@ -2633,6 +3553,16 @@
     "w": [
      56203,
      99389
+    ]
+   },
+   {
+    "tier": "GAMES",
+    "id": 4802,
+    "name": "XIX Panamerican Games Santiago 2023",
+    "date": "2023-10-21",
+    "w": [
+     58539,
+     25322
     ]
    },
    {
@@ -2688,6 +3618,26 @@
     ]
    },
    {
+    "tier": 11,
+    "id": 4987,
+    "name": "VICTOR Oceania Championships 2024",
+    "date": "2024-02-12",
+    "w": [
+     61283,
+     58073
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 5044,
+    "name": "All Africa Individual Championships 2024",
+    "date": "2024-02-16",
+    "w": [
+     72986,
+     63846
+    ]
+   },
+   {
     "tier": 24,
     "id": 4762,
     "name": "YONEX French Open 2024",
@@ -2698,6 +3648,16 @@
     ]
    },
    {
+    "tier": "GAMES",
+    "id": 5008,
+    "name": "African Games 2023 - Individual Event",
+    "date": "2024-03-07",
+    "w": [
+     72986,
+     63846
+    ]
+   },
+   {
     "tier": 23,
     "id": 4741,
     "name": "YONEX All England Open Badminton Championships 2024",
@@ -2705,6 +3665,36 @@
     "w": [
      88876,
      91130
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 5019,
+    "name": "2024 European Championships",
+    "date": "2024-04-08",
+    "w": [
+     92980,
+     44414
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 4872,
+    "name": "BANK OF NINGBO Badminton Asia Championships 2024",
+    "date": "2024-04-09",
+    "w": [
+     90531,
+     55414
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 4936,
+    "name": "XXVII YONEX Pan Am Individual Championships 2024",
+    "date": "2024-04-10",
+    "w": [
+     62618,
+     63739
     ]
    },
    {
@@ -2810,6 +3800,26 @@
     ]
    },
    {
+    "tier": 11,
+    "id": 5245,
+    "name": "VICTOR Oceania Championships 2025",
+    "date": "2025-02-13",
+    "w": [
+     60131,
+     82683
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 5386,
+    "name": "All Africa Individual Championships 2025",
+    "date": "2025-02-14",
+    "w": [
+     72986,
+     63846
+    ]
+   },
+   {
     "tier": 23,
     "id": 5238,
     "name": "YONEX All England Open Badminton Championships 2025",
@@ -2817,6 +3827,36 @@
     "w": [
      61444,
      66513
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 5406,
+    "name": "2025 European Championships",
+    "date": "2025-04-08",
+    "w": [
+     72885,
+     61628
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 5200,
+    "name": "BANK OF NINGBO Badminton Asia Championships 2025",
+    "date": "2025-04-08",
+    "w": [
+     56203,
+     99389
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 5397,
+    "name": "XXVIII YONEX Pan Am Individual Championships 2025",
+    "date": "2025-04-09",
+    "w": [
+     62618,
+     63739
     ]
    },
    {
@@ -2932,6 +3972,26 @@
     ]
    },
    {
+    "tier": 11,
+    "id": 5639,
+    "name": "VICTOR Oceania Championships 2026",
+    "date": "2026-02-08",
+    "w": [
+     71869,
+     94332
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 5647,
+    "name": "All Africa Individual Championships 2026",
+    "date": "2026-02-13",
+    "w": [
+     72986,
+     63846
+    ]
+   },
+   {
     "tier": 23,
     "id": 5515,
     "name": "All England Open Badminton Championships 2026",
@@ -2939,6 +3999,36 @@
     "w": [
      61444,
      66513
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 5620,
+    "name": "2026 European Championships",
+    "date": "2026-04-06",
+    "w": [
+     76278,
+     72478
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 5688,
+    "name": "BANK OF NINGBO Badminton Asia Championships 2026",
+    "date": "2026-04-07",
+    "w": [
+     61444,
+     66513
+    ]
+   },
+   {
+    "tier": 11,
+    "id": 5732,
+    "name": "XXIX YONEX Pan Am Individual Championships 2026",
+    "date": "2026-04-07",
+    "w": [
+     62618,
+     63739
     ]
    },
    {
@@ -2990,6 +4080,16 @@
      90531,
      55414
     ]
+   },
+   {
+    "tier": "GAMES",
+    "id": 5874,
+    "name": "20th Asian Games Aichi-Nagoya 2026 (Individual)",
+    "date": "2026-09-25",
+    "w": [
+     68633,
+     84786
+    ]
    }
   ]
  },
@@ -3001,7 +4101,10 @@
    24,
    24,
    24,
+   "11:PA",
+   "11:AF",
    24,
+   "GAMES:PA",
    20,
    24,
    24,
@@ -3012,13 +4115,17 @@
   "2008": [
    24,
    24,
+   "11:OC",
    24,
    24,
+   "11:AS",
+   "11:EU",
    24,
    24,
    "OLY",
    24,
    24,
+   "11:PA",
    24,
    24,
    24,
@@ -3030,12 +4137,15 @@
    24,
    24,
    24,
+   "11:AS",
+   "11:AF",
    24,
    24,
    24,
    20,
    24,
    24,
+   "11:PA",
    24,
    24,
    24,
@@ -3045,16 +4155,22 @@
   "2010": [
    24,
    24,
+   "11:AF",
+   "11:OC",
    24,
    24,
+   "11:AS",
+   "11:EU",
    24,
    24,
    24,
    20,
    24,
    24,
+   "11:PA",
    24,
    24,
+   "GAMES:AS",
    24,
    24
   ],
@@ -3064,12 +4180,16 @@
    23,
    23,
    24,
+   "11:AS",
    24,
+   "11:AF",
    24,
    23,
    20,
+   "GAMES:AF",
    24,
    24,
+   "GAMES:PA",
    23,
    24,
    24,
@@ -3079,14 +4199,18 @@
   "2012": [
    23,
    24,
+   "11:OC",
    23,
    24,
+   "11:EU",
+   "11:AS",
    24,
    23,
    24,
    "OLY",
    24,
    24,
+   "11:PA",
    23,
    24,
    23,
@@ -3098,6 +4222,7 @@
    24,
    23,
    24,
+   "11:AS",
    24,
    23,
    24,
@@ -3106,6 +4231,7 @@
    24,
    23,
    24,
+   "11:PA",
    23,
    24,
    22
@@ -3113,27 +4239,38 @@
   "2014": [
    24,
    23,
+   "11:OC",
    23,
    24,
    24,
+   "11:AS",
+   "11:EU",
+   "11:AF",
    24,
    23,
    24,
    20,
+   "GAMES:AS",
    23,
+   "11:PA",
    24,
    23,
    24,
    22
   ],
   "2015": [
+   "11:OC",
    23,
    24,
    23,
    24,
+   "11:AS",
    24,
    23,
+   "GAMES:EU",
+   "GAMES:PA",
    20,
+   "11:AF",
    24,
    24,
    23,
@@ -3147,6 +4284,10 @@
    24,
    23,
    24,
+   "11:EU",
+   "11:OC",
+   "11:AS",
+   "11:PA",
    23,
    24,
    "OLY",
@@ -3159,10 +4300,15 @@
    22
   ],
   "2017": [
+   "11:OC",
    23,
    24,
    23,
    24,
+   "11:AF",
+   "11:AS",
+   "11:EU",
+   "11:PA",
    23,
    24,
    20,
@@ -3175,10 +4321,16 @@
    22
   ],
   "2018": [
+   "11:OC",
+   "11:AF",
    23,
+   "11:AS",
+   "11:EU",
+   "11:PA",
    24,
    23,
    20,
+   "GAMES:AS",
    24,
    23,
    24,
@@ -3187,11 +4339,18 @@
    22
   ],
   "2019": [
+   "11:OC",
    23,
    24,
+   "11:AS",
+   "11:PA",
+   "11:AF",
+   "GAMES:EU",
    23,
    24,
+   "GAMES:PA",
    20,
+   "GAMES:AF",
    23,
    24,
    24,
@@ -3199,6 +4358,8 @@
    22
   ],
   "2020": [
+   "11:OC",
+   "11:AF",
    23,
    24,
    24
@@ -3208,9 +4369,13 @@
    23,
    22,
    23,
+   "11:AS",
+   "11:EU",
+   "11:PA",
    24,
    "OLY",
    23,
+   "11:AF",
    24,
    24,
    23,
@@ -3218,11 +4383,17 @@
    20
   ],
   "2022": [
+   "11:AF",
    23,
+   "11:EU",
+   "11:PA",
+   "11:AS",
+   "11:OC",
    23,
    24,
    20,
    24,
+   "GAMES:AS",
    24,
    24,
    22
@@ -3230,13 +4401,20 @@
   "2023": [
    23,
    24,
+   "11:OC",
+   "11:AF",
    23,
+   "11:AS",
+   "11:PA",
    24,
    23,
+   "GAMES:EU",
    24,
    20,
    23,
+   "GAMES:AS",
    24,
+   "GAMES:PA",
    24,
    24,
    22
@@ -3244,8 +4422,14 @@
   "2024": [
    23,
    24,
+   "11:OC",
+   "11:AF",
    24,
+   "GAMES:AF",
    23,
+   "11:EU",
+   "11:AS",
+   "11:PA",
    24,
    23,
    "OLY",
@@ -3258,7 +4442,12 @@
   "2025": [
    23,
    24,
+   "11:OC",
+   "11:AF",
    23,
+   "11:EU",
+   "11:AS",
+   "11:PA",
    24,
    23,
    24,
@@ -3272,13 +4461,19 @@
   "2026": [
    23,
    24,
+   "11:OC",
+   "11:AF",
    23,
+   "11:EU",
+   "11:AS",
+   "11:PA",
    24,
    23,
    24,
    23,
    20,
    24,
+   "GAMES:AS",
    24,
    24,
    22

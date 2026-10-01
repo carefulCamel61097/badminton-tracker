@@ -142,9 +142,12 @@ partial fills. The difficulty is in *which block* a cell is in and how far left 
 cells butt together so runs of the same result merge into one shape. A zoom slider sets the
 size; it is a viewing preference and stays out of the link.
 
-Blocks run hardest-first — Olympics, Worlds, Tour Finals, Continental, Regional Games,
-Super 1000, Super 750, Super 500, Super 300, Super 100 — then the category ids this project
+Blocks run hardest-first, and **global before continental at each height** — Olympics,
+Worlds, Continental Games, Continental Championships, Tour Finals, Super 1000, Super 750,
+Super 500, Super 300, Super 100 — then the category ids this project
 has no name for, grouped as "Unmapped" on the end. A chip per level switches it in or out.
+The first four read as two columns of the same shape: every four years and every year at
+world level, then the same pair one circle smaller.
 Below Super 100, the junior circuit and the team events are not in the grid at all.
 
 A block is as wide as **the most anyone on screen played at that level in a single season**.
@@ -174,19 +177,43 @@ The other reading on the **Compare** page. This one has no seasons in it at all:
 level, hardest at the top, holding every result in the career that reached at least a
 **semi-final** — the bar moves to QF+, F+ or W. Everything below it is simply not drawn.
 
-The rows are different sizes, and that is the whole idea. Each rung up has **φ times the
+The rows are different sizes, and that is the whole idea. A full rung up has **φ times the
 area** of the one below, so an Olympic square covers about thirty Super 100 ones and a
 career reads as a shape rather than a list. It is the golden ratio applied to area rather
 than to side: nine rungs at φ per *side* would make the top row 47 times the bottom, which
 is one square and some dust.
 
-The **Continentals share the Super 1000 rung** rather than taking one of their own, and are
-listed just above it. An Asian Championships title is a major, and giving it a step to
-itself used to push every Super below it down one — so Super 1000 → 750 was a single step
-while 750 → 500 was a double, and the official five-level ladder came out unevenly spaced
-for a reason that had nothing to do with the Super events. Now the five Supers are an
-unbroken run of rows and of sizes, with nothing listed between them. `HANDOVER.md` 2.10 has
-the table.
+### Half steps
+
+Four of the gaps are **half a rung** — √φ on the area, 1.272 — rather than a whole one:
+
+| | step up to it |
+|---|---|
+| Olympics | half, from the Worlds |
+| Worlds | *full*, from the Continental Games |
+| Continental Games | half, from the Continental Championships |
+| Continental Championships | *full*, from the Tour Finals |
+| Tour Finals | half, from Super 1000 |
+| Super 1000 → 750 → 500 → 300 → 100 | *full*, every time |
+
+Read down the first column, the pattern is: **continental to global is always a full step,
+and every-four-years over every-year is always a half one.** The Tour Finals gets a half step
+over a Super 1000 for the reason most people would give — it is not worth that much more.
+
+This is what makes room for the continental events. They used to **share** the Super 1000's
+rung, which was the only way to give them full weight without breaking the Super ladder:
+giving them a step of their own pushed every Super below them down one, so Super 1000 → 750
+was a single step while 750 → 500 was a double, and the official five-level ladder came out
+unevenly spaced for a reason that had nothing to do with the Super events.
+
+Half steps answer that without the sharing. The Continental Championships and the Continental
+Games each get a rung, and the five Supers still sit a full rung apart all the way down —
+because a rung is now counted in halves, so two new rungs fit above the Tour Finals without
+displacing anything below it.
+
+⚠️⚠️ **And the top of the ladder does not move.** An Olympic gold is 6.854 Super 750s, exactly
+what it was before two tiers were inserted beneath it. Full steps all the way up would have
+made it φ&sup6; = 17.9, which nobody believes. `HANDOVER.md` 2.10 has the table.
 
 An empty row is a claim too, and there are two different ones. Hovering says which: `26
 entered, none at QF+`, or `never played at this level`.
@@ -219,7 +246,7 @@ board to **W** and the picture is titles only.
 Drawn from the model like every other export, at its own fixed size rather than at the zoom
 slider's. The grid's squares are 20px in a poster — bigger than the file started at, because
 at 16 a one-slot block was narrower than the three letters naming it and Olympics, Worlds,
-Tour Finals, Continental and Regional Games all lost their labels off the front of the band.
+Tour Finals and both continental blocks all lost their labels off the front of the band.
 
 ⚠️ **The result ramp exists twice** — as `--res-*` in `styles.css` for the page and as
 `RESULT_COLOURS` in `poster.js` for the canvas — because the page paints with CSS and the
@@ -386,8 +413,15 @@ Men's and women's singles, 2007 to now.
 **The Olympics and the World Championships share the top row.** Every season holds one or
 the other and never neither, so they are the same rung of the calendar even though they are
 not the same prize. (2021 held both — Tokyo was postponed into the same year as the Huelva
-Worlds — so that row simply holds two.) Below them the World Tour Finals, then the Super
-1000s, then the Super 750s.
+Worlds — so that row simply holds two.)
+
+**Every row holds two tiers.** Below the summit: the Continental Games with the Continental
+Championships, the Tour Finals with the Super 1000s, and the Super 750s alone on the base.
+Four rows rather than six, because six rows of faces is a column too tall to read as one
+picture across twenty seasons — and pairing the Tour Finals with the Super 1000s fixes a row
+that was always slightly absurd, holding exactly one square every season. Squares keep their
+**own** sizes inside a row, so the pairing is a layout decision and never a claim that two
+tiers are worth the same.
 
 ⚠️ **The two are drawn the same size, and a gold ring is what tells them apart.** Only the
 Olympic square wears one: one marked square beside a plain one is the ranking, and ringing
@@ -408,12 +442,42 @@ instant before the images loaded and then went. The one that is left is drawn *o
 square, where a photograph cannot cover it, and every other tier says its rank by size,
 which is what the page is built on.
 
-⚠️ **No team events, and no regional multi-sport games.** A team title would rank a player
-by the country they were born in. The Asian Games, the Commonwealth Games and the European
-Games are all in BWF's data and all left out for the same reason more quietly: each is
-closed to most of the world, so counting any one of them picks a region — the Asian Games
-alone would hand out tiles LEE Chong Wei could not win while deleting the Commonwealth
-golds he did.
+⚠️ **No team events.** A team title would rank a player by the country they were born in,
+which is not what any of this measures.
+
+### The continental chips
+
+Asia, Europe, Pan Am, Africa and Oceania, each switching its own continental championships
+and its own four-yearly games in or out. **Asia and Europe are on by default.**
+
+⚠️⚠️ **A chip moves the score, not only the drawing.** A continent that is off is out of the
+season's *denominator* as well as off the board, so every score is a share of exactly the
+board in front of you. The alternative — draw them, count them always — was argued for and
+rejected, and the objection was the right one: a ranking of the greats is only readable if
+the reader knows and chooses which continents it counts. Somebody with a cabinet of European
+titles appearing high on a list of legends confuses far more than one fixed denominator
+saves. So the chips travel in the link (`wc`), like the bar and the era names: a board you
+send has to show the numbers you were looking at.
+
+The default is measured rather than chosen. Of the **1210 titles** on these five boards that
+are open to the world — everything but the continental events themselves — **Asia has won
+89.3% and Europe 10.5%**. Pan Am, Africa and Oceania have *two between them*: a Canadian in
+2026 and an Australian pair in 2009. (Counted by the first-listed player's country, which is
+the pair's in every case but a mixed-nationality partnership.) Those three continents are a different question, worth being able to ask and not
+worth being on by default. Europe is in it on current form as much as on history: Viktor
+AXELSEN and Anders ANTONSEN, Carolina MARIN, and a French squad deep enough to seed three
+draws make a European Championships a tournament a world top ten has to win.
+
+Switch all five off and you have the board as it stood before October 2026, when the
+continental events were excluded outright.
+
+⚠️⚠️ **The Commonwealth Games is not on this board, and no chip can bring it.** It spans four
+of those five confederations, so no continent owns it — and a title no chip governs is one
+whose weight would sit in every denominator with no way to take it out. BWF's calendar is
+also missing the *individual* event for Glasgow 2014; it ships only the mixed team one, so a
+Commonwealth row would show a hole that is a gap in the records rather than a fact about the
+sport. It stays on a player's own Compare grid, where the question is what that player won
+and LEE Chong Wei really did win two of them.
 
 ⚠️ **No doubles.** A doubles title is won by a pair, so one square would have to hold two
 faces and would stop meaning what every other square on the page means.
@@ -642,17 +706,18 @@ held against each other however many titles each of them held.
 
 ### The ladder, and why it is steep
 
-Not every title counts the same. Each is worth what its rung on the board is worth, and the
-rungs step by **φ, the golden ratio — 1.618**:
+Not every title counts the same. Each is worth what its rung on the board is worth, on the
+ladder in **The honours board → Half steps** above — full φ steps with four halves in
+them:
 
-| | Olympics | Worlds | Tour Finals | Super 1000 | Super 750 |
-|---|---|---|---|---|---|
-| worth | 6.854 | 4.236 | 2.618 | 1.618 | 1 |
+| | Olympics | Worlds | Cont. Games | Cont. Champs | Tour Finals | Super 1000 | Super 750 |
+|---|---|---|---|---|---|---|---|
+| worth | 6.854 | 5.388 | 4.236 | 3.330 | 2.058 | 1.618 | 1 |
 
 Seven Super 750s to an Olympic gold, which is about the trade anybody who has watched the
 sport would make. The rungs come from `honourRung` — the same ladder the photographs on the
 board are sized by — so **the score is not a second ranking; it is the board's own ranking,
-added up**. All five weights are printed in the page's own note, because a weight nobody can
+added up**. Every weight is printed in the page's own note, because a weight nobody can
 check is a magic number.
 
 ⚠️ **There is no toggle for any of this, and both absences were argued.**
@@ -665,19 +730,39 @@ The photographs step by √φ on the *side* of a square, which steps their *area
 "the golden ratio" and they are not the same ladder. Held against the one comparison everybody
 already has an opinion about:
 
-| ladder | LEE Chong Wei | LIN Dan |
+| ladder (no continental titles counted) | LEE Chong Wei | LIN Dan |
 |---|---|---|
 | titles counted alike | 329 | 202 |
-| √φ per rung | 313 | 230 |
-| **φ per rung** | **285** | **276** |
+| √φ per rung, all the way | 313 | 230 |
+| φ per rung, all the way | 285 | 276 |
+| **φ with four half steps** | **268** | **290** |
 
-φ is the reading the eye already has — LCW won more of them, LIN Dan won the big ones — and it
-is area that the eye compares on the pyramid. Under it Lin Dan's 2007 is 56.9 against LCW's
-best season of 43.4.
+A √φ ladder all the way up is too flat: it leaves LEE Chong Wei 83 points clear, which is
+not the reading the eye has — LCW won more of them, LIN Dan won the big ones. A φ ladder all
+the way up had them level, and that was the answer for a month.
 
-A half-step variant, where an Olympic gold is √φ above a world title rather than a full rung,
-was built and dropped: it changes **nothing** in three years out of four, and in the fourth it
-moves Beijing from 41 to 37 — not worth a second ladder to explain.
+⚠️⚠️ **The four half steps turn it over, and that is the change rather than a side effect of
+it.** Dropping the Tour Finals from φ@sup2; to φ^1·5 above a Super 750 takes a rung off
+four of LEE Chong Wei's biggest titles, and he has no Olympic or world gold to put back; LIN
+Dan goes first on 290 to 268. Across all five disciplines that is nearly the whole effect:
+Carolina MARIN and Akane YAMAGUCHI swap second and third (185 to 184), two pairs swap seventh
+and eighth, and mixed doubles does not move at all. Best seasons barely move either — Kento
+MOMOTA's 2019 goes from 78.3 to 79.1.
+
+⚠️⚠️ **The continental events then move it much further, and that is a fact about the two
+careers rather than about the ladder.** On the board as it now stands the same pair read **LEE
+Chong Wei 234, LIN Dan 318**, and Viktor AXELSEN goes second on 246. Two things did it: **LIN
+Dan won five continental titles to LEE Chong Wei's one** — four Asian Championships and the
+2014 Asian Games against a single 2016 Asian Championships — while every season's denominator
+grew by about two continental titles, so LCW's seasons are divided by more and nothing of his
+is added on top. AXELSEN's own second place is an Olympic gold, two world titles, three
+European Championships and the 2023 European Games.
+
+⚠️ **Two caveats worth knowing before reading 234 as the whole truth.** LEE Chong Wei's own
+Asian Championships title is **2006**, a season before this board begins. And BWF carries no
+order of play for most of the continental championships between 2007 and 2013, so 64 of the
+100 held in that span are here and the rest are simply absent — a gap that falls on exactly
+the years these two careers were in.
 
 ⚠️ **The Olympics has always outranked the World Championships here**, 6.854 to 4.236. What
 makes them look equal is `pyramidScale`, which draws an Olympic square at the Worlds size and
@@ -746,9 +831,16 @@ the reason written at its foot, inside the plot, where the line does something s
 than in a caption. A leg touching one is **dashed**: a solid line across 2020 asserts a trend
 through a year that was barely played.
 
-⚠️ **Short is two thirds of the median, not a fixed count.** The calendar has held fifteen of
-these titles and it has held eight, so "fewer than six" means one thing in 2013 and another in
-2022 — and the fixed rule called 2022 a normal season while the axis above it said otherwise.
+⚠️ **Short is two thirds of the median, not a fixed count.** The calendar has held seventeen of
+these titles and it has held three, so "fewer than six" means one thing in 2013 and another in
+2020 — and the fixed rule called 2022 a normal season while the axis above it said otherwise.
+
+⚠️ With the continental championships counted, **2020 is the only season this rule now finds**:
+2022 holds ten of a median fifteen, exactly two thirds, because its continental events went
+ahead. The threshold was not moved to keep the old answer. Nothing is lost by it — the faint
+column, the asterisk and the full-season denominator are all driven by the *named* pandemic set
+(`COVID_SEASONS`) in union with this one, so 2022 keeps every mark it had. What it loses is the
+dimming that means "there was barely anything to win", which is less true of it than it was.
 
 ⚠️ **The tables under the chart dim those rows rather than colouring them.** They were amber,
 which is this palette's attention colour, so the one season nobody should read at face value
@@ -828,11 +920,10 @@ column.
 
 ⚠️ **The pandemic seasons get the same denominator as every other season, and there is no
 toggle.** What is most obviously wrong with 2020 is arithmetic before it is competition: three
-titles were played, so one of them would be a third of the year. 2020 and 2022 are weighed
-against **what a full season of the era was worth** — 19.33 by weight, twelve titles, read off
-the seasons in the file rather than typed in, and exactly the figure 2023 and 2025 get. A season
-cut short then reads as the fraction of a year it actually was. Viktor AXELSEN's career total is
-**269**; against 2020's own three titles it would read 315.
+titles were played, so one of them would be a third of the year. All three pandemic seasons are
+weighed against **what a full season of the era was worth** — 28.04 by weight, fourteen titles,
+read off the seasons in the file rather than typed in, and exactly the figure 2024 gets. A season
+cut short then reads as the fraction of a year it actually was.
 
 ⚠️ **The thin field is left in the record deliberately.** Fewer Chinese players entered, so
 fewer Chinese players won, so their scores are lower and everybody else's are higher — and that
@@ -842,9 +933,13 @@ worth of a whole year, because the rest of the year was never played and nobody 
 seasons are marked on the chart — a faint column, the word "Covid", an asterisk on the year — so
 a reader knows not to take them at face value, and then the reader judges.
 
-⚠️ **Never downward.** 2021 held *more* than a normal season by weight (23.80 against 19.33 — an
-Olympics, a Worlds and two World Tour Finals), and substituting the normal figure there would
-*raise* every 2021 score, which is the opposite of the point. So 2021 is untouched.
+⚠️ **Never downward, and that is the rule rather than which seasons it reaches.** 2021 was
+untouched for a year: it held an Olympics, a Worlds and two World Tour Finals, 23.80 against a
+normal 19.33, and substituting the normal figure would have *raised* every 2021 score. With the
+continental events counted it falls the other side of the line — it kept its European
+Championships and lost its Asian one — so the correction now reaches it and lowers it, which is
+the season it most needed to reach. `Math.max` is unchanged: a corrected denominator can never
+be smaller than what the season actually held.
 
 ⚠⚠ **This is a calendar correction and it cannot see a field, and 2021 is where that shows.**
 2.3% Chinese participation, eight of its eleven events with literally nobody in the draw — and
@@ -918,7 +1013,7 @@ held in Bangkok with none.
 ⚠⚠ **The season being played is weighed against the whole year.** A share of the titles
 played *so far* makes whoever wins the first tournament of January a 100, and in September
 2026 it inflated every score on the board by half again — eight of the twelve played, 13.71 of
-19.33 by weight. Against the planned year the numerator only grows while the denominator
+19.33 by weight, before the continental events were counted. Against the planned year the numerator only grows while the denominator
 stands still, so a part-played season is a **lower bound** on what it will finish at: it
 cannot overstate a total, and a peak, being a maximum, cannot be dragged down by it. That is
 the property that makes the running year safe to count at all, and it is why it does count.
@@ -1014,7 +1109,7 @@ modern results, and Lee Chong Wei's board drops from 116 marked squares to 4.
 
 | rung | World Tour | Superseries era |
 |---|---|---|
-| Olympics · Worlds · Continental | unchanged | unchanged |
+| Olympics · Worlds · both continental rungs | unchanged | unchanged |
 | Tour Finals | Tour Finals | **Superseries Finals** |
 | ▸ | Super 1000 | Superseries Premier |
 | ▸ | Super 750 | Superseries |
@@ -1074,12 +1169,19 @@ Philippines Open.
 ## The regional games
 
 The Asian, Commonwealth, European, Pan American and African Games get a block of their own,
-sized with the Continentals. They are individual titles and they belong on a career.
+**a half rung above the Continental Championships** — the same circle of countries, one every
+four years rather than every year. They are individual titles and they belong on a career.
 
 They have to be recognised **by name**, because their id is worthless in every direction: the
 Asian Games has arrived as category 1, 16, 74 and with no category at all, and the 2023
 European Games under 11 — the Continental Championships' own id. An id-first rule draws one
 European Games as a Continental and the next as Unmapped.
+
+⚠️ **`Pan Am`, not `Pan American`.** BWF writes that one five ways across twenty seasons —
+"2007 Pan Am Games", "XVI Pan Am Games, Guadalajara 2011", "XVII Pan Am Games Toronto 2015",
+"Pan Am Games LIMA2019" and "XIX **Panamerican** Games Santiago 2023" — and a pattern that
+insisted on the full word caught only the last of them. Four Pan American Games were landing
+in Unmapped until 1 Oct 2026.
 
 The **team** editions stay out, as every team event does. BWF ships them as separate
 tournaments under near-identical names — "Asian Games 2018 (Team Event)" beside "Asian Games
@@ -1090,10 +1192,10 @@ Sub-regional games — East Asian, Mediterranean, SEA — are not in this block.
 of one continent, and a row holding both an East Asian Games title and an Asian Games title
 says neither.
 
-⚠️ The **Winners pyramid** still excludes all of them, and that is not an inconsistency. The
-pyramid asks which titles mattered most in a season across the whole sport, and counting any
-regional games there picks a region. A career asks what this player won, and Lin Dan really
-did win two Asian Games.
+⚠️ The **Winners pyramid** now holds them too, governed by a chip per confederation — see
+**Winners → The continental chips**. The one exception is the **Commonwealth Games**, which no
+confederation owns: it stays on a career, where the question is what this player won, and off
+a board whose denominator a chip moves.
 
 ## Searching for a player
 
