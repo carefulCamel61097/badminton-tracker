@@ -2481,6 +2481,155 @@ const colAt = async y => (await cols()).find(c => c.year === y);
 /* The Superseries era, named as the Superseries era. This is what the reader
    was looking at when they asked whether the two tiers were distinguished: they
    are, from 2011 — and before that the tier did not exist. */
+/* ==================== the board, read through one career ====================
+
+   ⚠️⚠️ **The view exists because the Board cannot say why a square is somebody
+   else's.** A season where a pair took eleven of seventeen titles shows six
+   squares with another face in them, and on the Board they all read alike —
+   when some of them are tournaments that pair never entered and some are finals
+   they lost. Here the result is the fill and a tournament they did not play is an
+   outline, which is not a colour from the losing end of the ramp.
+
+   SHI Yu Qi is the subject because the suite has his whole career on disk; the
+   check that matters is that the two sources are joined at all, which is BWF's
+   tournament id in both.
+   ==================================================================== */
+
+console.log('\n--- the career view ---');
+
+await b.ev(`location.hash = '#pg=winners&wv=career'`);
+await b.until(`!!document.querySelector('#winBody .empty')
+  || !!document.querySelector('.pyrtile.is-cell')`, { timeout: 60000 });
+
+/* ⚠️ Nobody chosen is a **state**, not an empty board: drawn with no subject
+   every square would be an outline, which says "they played none of these"
+   rather than "you have not said who". */
+check('with nobody chosen it asks rather than drawing an empty board',
+  /Choose a competitor/.test(await b.ev(`document.querySelector('#winBody').textContent`)),
+  await b.ev(`document.querySelector('#winBody').textContent`));
+
+const pickList = await b.ev(`window.BST.winners.pickList()`);
+check('the menu offers every competitor on the board', pickList.length > 20,
+  String(pickList.length));
+check('most titles first, with the count beside the name',
+  /\d+$/.test(pickList[0].text) && /·/.test(pickList[0].text), pickList[0].text);
+check('and the head of it has more than the tail',
+  Number(pickList[0].text.split('·').pop()) >= Number(pickList.at(-1).text.split('·').pop()),
+  `${pickList[0].text} vs ${pickList.at(-1).text}`);
+
+await b.ev(`window.BST.winners.who('57945')`);
+await b.until(`!!window.BST.winners.career() && !window.BST.winners.career().loading`,
+  { timeout: 120000 });
+const career = await b.ev(`window.BST.winners.career()`);
+check('choosing one reads their whole career', career.results > 50,
+  JSON.stringify(career));
+
+const careerCells = await b.ev(`window.BST.winners.cells()`);
+check('and every square on the board becomes one of their results',
+  careerCells.length > 200, String(careerCells.length));
+const seen = {};
+for (const c of careerCells) seen[c.res] = (seen[c.res] || 0) + 1;
+check('some of them are titles, drawn in the grid*s own green',
+  seen.w > 5 && careerCells.some(c => c.res === 'w' && /\bcell r-w\b/.test(c.cls)),
+  JSON.stringify(seen));
+check('some are defeats, down the same ramp', (seen.f || 0) + (seen.r1 || 0) > 5,
+  JSON.stringify(seen));
+/* ⚠️ The whole point: a tournament they did not enter is **not** a defeat. */
+check('and the ones they never entered are outlines rather than red',
+  seen.none > 50 && careerCells.some(c => c.res === 'none' && /r-none/.test(c.cls)),
+  JSON.stringify(seen));
+check('what a square says is what they got there, and who actually took it',
+  careerCells.some(c => c.res === 'w' && /did not play/.test(c.title) === false
+    && /won by/.test(c.title)),
+  (careerCells.find(c => c.res === 'w') || {}).title || 'none');
+check('and a square they skipped says so',
+  (careerCells.find(c => c.res === 'none') || {}).title.includes('did not play'),
+  (careerCells.find(c => c.res === 'none') || {}).title);
+
+/* ⚠️⚠️ **A pair is the two careers where they agree**, and this is the only
+   place that path is exercised against real data: LIU Sheng Shu and TAN Ning hold
+   thirteen titles on the women's doubles board and both of their careers are on
+   disk. BWF ships no partner (HANDOVER 2.4), so agreement is the only evidence
+   there is — exact for a title or a lost final, since only one pair can be
+   either. */
+await b.ev(`window.BST.winners.kind('WD')`);
+await b.until(`!!document.querySelector('.pyrseason')`, { timeout: 60000 });
+await b.ev(`window.BST.winners.who('59880+81599')`);
+await b.until(`!!window.BST.winners.career() && !window.BST.winners.career().loading`,
+  { timeout: 180000 });
+const pairCells = await b.ev(`window.BST.winners.cells()`);
+const pairWins = pairCells.filter(c => c.res === 'w');
+check('a pair reads as one competitor, with both careers behind it',
+  pairWins.length >= 10, `${pairWins.length} titles drawn`);
+/* The join has to agree with the board it is drawn on: every square this pair is
+   shown winning is a square the board already says they won. */
+check('and every title it draws is one the board already credits them with',
+  pairWins.every(c => /won by/.test(c.title)),
+  (pairWins[0] || {}).title || 'none');
+check('with tournaments they did not play as outlines, not defeats',
+  pairCells.some(c => c.res === 'none' && /did not play/.test(c.title)));
+await b.ev(`window.BST.winners.kind('MS')`);
+await b.until(`!!document.querySelector('#winBody .empty')
+  || !!document.querySelector('.pyrtile.is-cell')`, { timeout: 60000 });
+/* ⚠️ A change of discipline is a change of subject: the pick is keyed on player
+   ids and a women's doubles pair matches nothing in the men's singles. */
+eq('and changing discipline clears the subject rather than drawing nothing',
+  await b.ev(`window.BST.winners.who()`), null);
+await b.ev(`window.BST.winners.who('57945')`);
+await b.until(`!!window.BST.winners.career() && !window.BST.winners.career().loading`,
+  { timeout: 120000 });
+
+/* ⚠️ The band is about everybody, so it is not drawn here at all — one career
+   has no succession in it. */
+check('the dominance band is not drawn in this view',
+  !(await b.ev(`!!document.getElementById('winEraBand')`)));
+check('and the export is not offered, because this picture is not one it draws',
+  await b.ev(`document.getElementById('winSave').hidden`));
+
+/* The layout is the Board's, square for square: same rows, same order, same
+   sizes. That is the reader's own requirement and it is what makes the two
+   readable against each other.
+   ⚠️ Measured on **both** views now rather than against the figures taken
+   earlier in this file: the zoom slider has been moved since, and absolute
+   pixels are not the claim. The claim is that the two views agree. */
+const colWidths = () => b.ev(`JSON.stringify(
+  ['OLY','11','22','23','24'].map(t => {
+    const col = document.querySelector('.pyrseason[data-year="2024"]');
+    const el = col && col.querySelector('.pyrtile.t-' + t);
+    return [t, el ? Math.round(el.getBoundingClientRect().width) : 0];
+  }))`);
+const careerWidths = await colWidths();
+await b.ev(`document.querySelector('#winView [data-view="board"]').click()`);
+await b.until(`!!document.querySelector('.pyrseason .face, .pyrseason .noface')`,
+  { timeout: 60000 });
+eq('the squares are the same sizes the Board draws', careerWidths, await colWidths());
+
+/* ⚠️⚠️ **The pick is the subject**, so picking somebody on the Board and
+   switching over arrives on them rather than on an empty page — which is the one
+   thing `setWinView` clearing the pick would have broken. Switched through the
+   view buttons, because a bare hash with no `wp` in it is a link that is
+   *claiming* nobody is picked. */
+eq('the pick survives the way back to the Board',
+  await b.ev(`window.BST.winners.who()`), '57945');
+
+/* ⚠️ Dispatched inline rather than through `press`, which is declared further
+   down this file and would be in its temporal dead zone here. */
+await b.ev(`document.body.dispatchEvent(new KeyboardEvent('keydown',
+  { key: 'c', bubbles: true, cancelable: true }))`);
+await b.until(`!!document.querySelector('.pyrtile.is-cell')`, { timeout: 120000 });
+eq('and C comes back to the career view',
+  await b.ev(`document.querySelector('#winView .seg.on').textContent`), 'Career');
+eq('on the same competitor', await b.ev(`window.BST.winners.who()`), '57945');
+/* And it travels, because it is the same `wp` the Board already carried. */
+check('the link carries both the view and the competitor',
+  /wv=career/.test(await b.ev('location.hash')) && /wp=57945/.test(await b.ev('location.hash')),
+  await b.ev('location.hash'));
+
+await b.ev(`window.BST.winners.who('')`);
+await b.ev(`location.hash = '#pg=winners'`);
+await b.until(`!!document.querySelector('.pyrseason .pyrtile')`, { timeout: 60000 });
+
+
 /* ⚠️ The elite row's **Super 1000**, not its first tile: the Tour Finals leads
    that row now, and it is a different rung with a different name. */
 const eliteS1000 = col => col.rows[2].find(t => t.tier === '23');
@@ -3189,12 +3338,16 @@ for (const wc of ['AS.EU', 'AS', '', 'AS.EU.PA.AF.OC']) {
 }
 await b.ev(`window.BST.winners.confs(['AS', 'EU'])`);
 await b.until(`window.BST.score.marks().length > 5`, { timeout: 60000 });
-/* And the top is not simply enormous to be safe: it is the best season rounded
-   up to the next ten, so the tallest line reaches most of the way up. */
+/* And the top is not simply enormous to be safe: it is a best season rounded up
+   to the next ten.
+   ⚠️ **A best season in any loaded draw**, not in this one. The axis is shared
+   across the disciplines on purpose, so that switching between them does not
+   compare two pictures at two scales — which means it can sit above this
+   board's own tallest line once another draw with a taller one has been read. */
 const topNow = await b.ev(`window.BST.score.top()`);
 const bestNow = Math.max(...(await b.ev(`window.BST.score.model().people`)).map(p => p.peak));
-check('and the axis is the best season rounded up, not padded for safety',
-  topNow >= bestNow && topNow - bestNow < 0.1,
+check('the axis holds this board, and is a round tenth rather than a safety pad',
+  topNow >= bestNow && Math.abs(topNow * 10 - Math.round(topNow * 10)) < 1e-9,
   `top ${topNow} against a best of ${bestNow.toFixed(3)}`);
 
 /* ⚠️ The axis is scaled to the best season in **either** draw, and never to the

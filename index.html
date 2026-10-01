@@ -317,6 +317,12 @@
          default, which is where 99.8% of these titles are won. -->
     <span id="winConf" class="kindwrap" role="group" aria-label="continents"></span>
 
+    <!-- Whose career the third view draws. A menu rather than chips: ninety
+         competitors on the women's doubles board is a list to search rather than
+         a set to choose between. It sets the same pick a click on the Board
+         sets, so the two are one act. -->
+    <select id="winWho" class="whopick" aria-label="whose career" hidden></select>
+
     <span id="winSpan" class="tmtwhen"></span>
 
     <!-- The band under the pyramid, and the bar it draws at. Not a filter: it
@@ -397,6 +403,37 @@
       </div>
     </div>
   </div>
+
+  <p class="legend note" id="careerNote" hidden>
+    <b>The same board, read through one competitor.</b> Every square is in the
+    same place and at the same size it is on the Board — same rows, same
+    tournaments, same order — but instead of the winner's face it shows what
+    <i>this</i> competitor got there, in the colours the Compare page uses.
+    <b>Green and a #1 is a title</b>, and the ramp runs down through the final,
+    the semi-final and the early rounds to red.
+    <br>
+    ⚠️ <b>An outline is a tournament they did not enter, and that is not a
+    defeat.</b> It is the reason this view exists. On the Board, a season where
+    somebody took eleven of seventeen titles shows six squares with somebody
+    else's face in them, and they all read alike — when four of them may be
+    tournaments that competitor never played and two may be finals they lost.
+    Eleven from thirteen with two finals is a different season, and the Board
+    alone cannot say so.
+    <br>
+    ⚠️ <b>This is the competitor's own record, read from BWF's career data</b>
+    and joined to the board on BWF's tournament id. The harvested file holds who
+    <i>won</i> each title and nothing about anybody else, so a runner-up can only
+    come from the career — which is a whole career of requests, cached in your
+    browser the same way the Seasons page caches one.
+    <br>
+    ⚠️ <b>A pair is the two careers where they agree.</b> BWF ships no partner at
+    all, so a doubles career is that player's results in that draw whoever they
+    played with. Two players who finished in the same place at the same
+    tournament were in the same pair — exact for a title or a lost final, since
+    only one pair can be either, and an approximation for an early exit, where two
+    pairs can go out in the same round. Where they disagree they were not
+    partners, so the tournament is drawn as one this pair did not play.
+  </p>
 
   <p class="legend note" id="scoreNote" hidden>
     <b>A score of 100 is the whole season</b> — every title on the board that

@@ -3427,7 +3427,73 @@ function sortTiles(row, list) {
   return out;
 }
 
-export function pyramidSeason(won, players, season) {
+/* ================= the board, read through one competitor =================
+
+   The winners' board answers *who won what*. This answers the other half of the
+   same question for one person: **what did they get at each of those
+   tournaments** — won it, lost the final, went out in the last sixteen, or did
+   not enter at all.
+
+   ⚠️⚠️ **That is not in the harvested file and cannot be.** `data/winners-*.json`
+   holds the winner of each title and nothing about anybody else, so the only
+   source for a runner-up is the competitor's **own career**, which is the same
+   `vue-player-tournaments` data the Seasons and Compare pages already walk. The
+   two are joined on BWF's **tournament id**, which both carry and which is exact
+   — no name matching, no date windows.
+
+   ⚠️⚠️ **Why it was wanted**, in the reader's own example: the Chinese women's
+   pair took eleven of 2011's titles. On the board the other six squares are
+   somebody else's face, and they read as six defeats. Four of them are
+   tournaments the pair never entered and two are finals they lost. A season that
+   looks like 11-from-17 was nearer 11-from-13 with two finals — which is a
+   different season, and the board on its own cannot say so.
+   ==================================================================== */
+
+/**
+ * One competitor's result at every tournament they entered, by tournament id.
+ *
+ * @param {Array} tournaments  a whole career, as `parseSeason` returns it
+ * @param {string} kind  'MS' | 'WS' | 'MD' | 'WD' | 'XD'
+ */
+export function careerDraws(tournaments, kind) {
+  const out = new Map();
+  for (const t of tournaments || []) {
+    if (t.tournamentId == null) continue;
+    const d = (t.draws || []).find(x => x.name === kind);
+    if (d) out.set(String(t.tournamentId), d);
+  }
+  return out;
+}
+
+/**
+ * Two careers reduced to the tournaments they played **as a pair**.
+ *
+ * ⚠️⚠️ **BWF ships no partner at all** (HANDOVER 2.4), so a doubles career is a
+ * list of that player's results in that draw whoever they played with. Agreement
+ * is the only evidence there is: two players who finished in the same place at
+ * the same tournament in the same draw were almost certainly in the same pair.
+ *
+ * ⚠️ It is an *almost*. Two different pairs can both lose in the quarter-finals,
+ * so an early exit can be credited to a partnership that did not play it; but no
+ * two pairs can both be the champion or both the runner-up, so the results this
+ * view is actually about — the wins and the lost finals — are exact. Where they
+ * disagree they were not partners, and the tournament drops out, which is the
+ * honest answer: this pair did not play it.
+ */
+export function pairDraws(a, b) {
+  const out = new Map();
+  for (const [id, d] of (a || new Map())) {
+    const o = b && b.get(id);
+    if (o && String(o.position) === String(d.position)) out.set(id, d);
+  }
+  return out;
+}
+
+/**
+ * @param {object} [got]  a `careerDraws` map; the tiles then carry what the
+ *   chosen competitor got at each tournament, and `null` where they did not play
+ */
+export function pyramidSeason(won, players, season, got) {
   const all = won || [];
   const flat = flatSupers(season);
   /* Both halves come out of the one tier, so they are split here rather than
@@ -3474,6 +3540,16 @@ export function pyramidSeason(won, players, season) {
         level: pyramidLabel(t.tier, season),
         // Why it carries an asterisk, or null. See `pyramidDisplaced`.
         mark: season == null ? null : pyramidDisplaced(t, season),
+        /* What the chosen competitor got here, when one is chosen: the draw as
+           BWF has it, and the placing worked out from it. `null` for a
+           tournament they did not enter — which the career view draws as an
+           outline rather than as a defeat, because it is not one.
+           ⚠️ `running` is false: every title on this board has a winner, so
+           every one of these tournaments is over. */
+        got: got ? (got.get(String(t.id)) || null) : null,
+        res: got && got.get(String(t.id))
+          ? positionInfo(got.get(String(t.id)).position, got.get(String(t.id)), false)
+          : null,
       })),
     };
   });

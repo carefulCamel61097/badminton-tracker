@@ -1005,6 +1005,53 @@ place in `GRID_ORDER`.
 
 ---
 
+### 2.12 Career: the board through one competitor — settled 1 Oct 2026
+
+The reader's design, and the problem is one the Board genuinely cannot solve:
+*“the Chinese WD pair that in 2011 had 11 titles and 2 finals · in the
+Winners-board view there is 6 tournaments where we don't see their profile photo,
+and 4 of them they didn't play and 2 of them they got 2nd place.”* Six squares
+with another face in them read as six defeats, and the harvested file holds the
+winner of each title and **nothing about anybody else**, so the Board has no way
+to tell the two apart.
+
+⚠️⚠️ **The second source is the competitor's own career**, which is the same
+`vue-player-tournaments` walk the Seasons and Compare pages make, and the join is
+**BWF's own tournament id**, which the harvested file and `parseSeason` both
+carry. No name matching, no date windows. `careerDraws` reduces a career to
+`Map(tournamentId → draw)` for one discipline; `pyramidSeason` takes it as an
+optional fourth argument and each tile then carries `got` (the draw) and `res`
+(the placing). Without it the board is exactly what it was.
+
+**Drawn with the Compare page's own `.cell`**, inside the existing `.pyrtile`
+wrapper. That keeps the gold ring, the fade and the displaced-tournament outline
+working without restating any of them, and it means the two pages cannot drift
+apart about what green means or where the `#1` goes. `--sq` is what sizes the
+glyph.
+
+⚠️ **`r-none`, not `r-off`, for a tournament they did not enter.** The grid's
+“nothing here” colour is a dark square, which on this page would be
+indistinguishable from a hole; an outline says *this was on and they were not
+here* without putting a colour from the losing end of the ramp on it. The reader
+asked for exactly this: “it should not show up as negative”.
+
+⚠️ **The subject is the Board's pick, not a field of its own.** Clicking a square
+already names a competitor and already travels as `wp`; a second piece of state
+meaning the same thing would be one to keep in step. `setWinView` therefore stops
+clearing the pick when either side of the switch is the career view.
+
+⚠️ **A pair is where two careers agree.** See 2.4: BWF ships no partner. Exact for
+a title or a lost final — only one pair can be either — and an approximation
+below that, where two pairs can go out in the same round. Disagreement means they
+were not partners, so the tournament drops out, which reads as “this pair did
+not play it” and is the honest answer.
+
+⚠️ **No band and no export.** The band is about succession and one career has
+none. The export is a different matter: `poster.js` paints the board of faces and
+the score chart, and a career board is a third picture nobody has drawn yet — a
+button that quietly exported a different view than the one on screen would be
+worse than no button. Part 7.
+
 ## Part 3 — The BWF API
 
 Base: `https://extranet-lv.bwfbadminton.com/api`
@@ -3360,6 +3407,12 @@ using the global `WebSocket`. Deployed on GitHub Pages. This worked well — kee
 
 - ~~**Continental championships and the multi-sport games, on the Winners board**~~ —
   settled and **built** 1 Oct 2026. See Part 2.11b for the design and 3.4za for the harvest.
+
+- **The career board has no export.** `poster.js` can paint the board of faces and
+  the score chart; the career view is a third picture, and the Export button is
+  hidden there rather than quietly drawing the Board instead. It is a day's work
+  — the layout is already `pyramidSeason`'s and the colours are already
+  `RESULT_COLOURS` — and nobody has asked for it yet.
 
 - **A continental title is closed, and the denominator is not.** Raised by the reader,
   1 Oct 2026. The domination score is a share of one season, so a European's denominator

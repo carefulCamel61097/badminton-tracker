@@ -46,6 +46,7 @@ import {
   CONFEDERATIONS, CONF_DEFAULT, confederationOf, confKeys, titleConf,
   isContinentalTier, isContinentalChamps, isRegionalGames,
   winnersWithin, plannedTier, plannedConf,
+  careerDraws, pairDraws,
 } from '../model.js';
 import {
   posterLayout, scorePosterLayout, gridPosterLayout, honoursPosterLayout,
@@ -2611,6 +2612,73 @@ eq('nothing at all is four empty rows', pyramidSeason([], {}).length, 4);
    file can.
    ==================================================================== */
 
+
+console.log('\n=== the board, read through one competitor ===');
+
+/* ⚠️⚠️ **The join is BWF's own tournament id**, which the harvested file and a
+   parsed career both carry. No name matching and no date windows: "YONEX All
+   England Open Badminton Championships 2024" is one string in one place and
+   another in the other, and the two are the same event because the id says so. */
+const careerFixture = [
+  { tournamentId: 4741, name: 'All England 2024', draws: [{ name: 'MS', position: 'QF', win: 2, lose: 1 }] },
+  { tournamentId: 4752, name: 'Paris 2024', draws: [{ name: 'MS', position: 'Quarterfinals', win: 3, lose: 1 }] },
+  { tournamentId: 4768, name: 'Tour Finals 2024', draws: [{ name: 'MS', position: '1st', win: 5, lose: 0 }] },
+  // A doubles entry at the same event, which an MS reading must not pick up.
+  { tournamentId: 9999, name: 'Somewhere', draws: [{ name: 'MD', position: '1st', win: 5, lose: 0 }] },
+];
+
+const careerMS = careerDraws(careerFixture, 'MS');
+eq('a career is keyed on the tournament id', careerMS.size, 3);
+eq('and keeps only the chosen draw', careerMS.has('9999'), false);
+eq('with the placing as BWF sent it', careerMS.get('4768').position, '1st');
+
+/* ⚠️ A tournament with no entry at all comes back absent rather than as a
+   defeat, which is the whole distinction this view exists to draw. */
+eq('a tournament they never entered is simply not there', careerMS.get('4762'), undefined);
+
+/* ---- a pair is where two careers agree ----
+
+   ⚠️⚠️ `vue-player-tournaments` ships **no partner** (HANDOVER 2.4), so agreement
+   is the only evidence there is. Exact for a title or a lost final — only one
+   pair can be either — and an approximation below that, where two pairs can go
+   out in the same round. */
+const partnerA = careerDraws([
+  { tournamentId: 1, name: 'A', draws: [{ name: 'WD', position: '1st' }] },
+  { tournamentId: 2, name: 'B', draws: [{ name: 'WD', position: '2nd' }] },
+  { tournamentId: 3, name: 'C', draws: [{ name: 'WD', position: '3rd' }] },
+], 'WD');
+const partnerB = careerDraws([
+  { tournamentId: 1, name: 'A', draws: [{ name: 'WD', position: '1st' }] },
+  { tournamentId: 2, name: 'B', draws: [{ name: 'WD', position: 'R16' }] },
+  { tournamentId: 4, name: 'D', draws: [{ name: 'WD', position: '1st' }] },
+], 'WD');
+const together = pairDraws(partnerA, partnerB);
+eq('a pair keeps the tournaments both of them finished in the same place',
+  [...together.keys()].join(','), '1');
+check('and drops the one where they finished apart, because they were not partners',
+  !together.has('2'));
+check('and the one only one of them played', !together.has('3') && !together.has('4'));
+
+/* ---- the board, with a competitor's results on it ---- */
+
+const gotSeason = pyramidSeason([
+  { tier: 20, id: 4761, name: 'Worlds', date: '2024-08-25', w: 1 },
+  { tier: 23, id: 4735, name: 'Malaysia', date: '2024-01-06', w: 2 },
+  { tier: 24, id: 4736, name: 'India', date: '2024-01-16', w: 3 },
+], { 1: { n: 'A ONE' }, 2: { n: 'B TWO' }, 3: { n: 'C THREE' } }, 2024,
+new Map([['4735', { position: '2nd', win: 4, lose: 1 }]]));
+const flatTiles = gotSeason.flatMap(r => r.tiles);
+eq('the tile for a tournament they played carries what they got',
+  flatTiles.find(t => t.name === 'Malaysia').res.tier, 'f');
+eq('with the draw behind it, for the win-loss count',
+  flatTiles.find(t => t.name === 'Malaysia').got.win, 4);
+eq('and one they did not play carries nothing',
+  flatTiles.find(t => t.name === 'India').res, null);
+/* ⚠️ Without a competitor the board is exactly what it was: the argument is
+   optional, and a view that does not want it must not pay for it. */
+check('and with no competitor at all nothing is added',
+  pyramidSeason([{ tier: 24, id: 4736, name: 'India', date: '2024-01-16', w: 3 }], {}, 2024)
+    .flatMap(r => r.tiles).every(t => t.res === null && t.got === null));
 
 console.log('\n=== who won it: one player, or a pair ===');
 

@@ -35,6 +35,7 @@ import {
   pyramidScale,
   dominationSeasons, thinSeasons, shortSeasonWhy, titleWeight, SCORE_TIERS,
   CONFEDERATIONS, CONF_DEFAULT, confKeys, winnersWithin, titleConf,
+  careerDraws, pairDraws, winnerRegistry, titleWinnerKey,
   dominationRanking, rankMode, ranksSeasons, RANK_MODES, RANK_DEFAULT,
   COVID_SEASONS, isCovidSeason,
   bestScoreFloor, SCORE_FLOOR_MAX, SCORE_FLOOR_STEP,
@@ -1217,7 +1218,12 @@ const WIN_KINDS = ['MS', 'WS', 'MD', 'WD', 'XD'];
    against the other. The Compare page already makes exactly this split between
    its grid and its honours board, so there is one pattern to learn rather than
    two. */
-const WIN_VIEWS = ['board', 'score'];
+/* ⚠️ **Career is a third reading of the same board, not a filter on it.** Board
+   says who won what; Score says how much of it; Career says what *one*
+   competitor got at every one of those tournaments — which is the half of the
+   question the harvested file cannot answer on its own, because it holds the
+   winner and nothing about anybody else. See `careerDraws`. */
+const WIN_VIEWS = ['board', 'score', 'career'];
 
 /* ⚠️ Keyed by discipline, not a single `raw`. Switching used to be impossible,
    and the first version that allowed it would have thrown away the file it
@@ -1256,7 +1262,24 @@ const win = {
      that. All five off is allowed and means the board this page drew before
      October 2026. */
   confs: CONF_DEFAULT.slice(),
+
+  /* The career view's loaded subject: which competitor, which discipline, and
+     their results by tournament id. Held rather than refetched because it is a
+     whole career of requests — twenty seasons for a singles player and forty
+     for a pair — even with the season store underneath. */
+  career: null,
 };
+
+/**
+ * Whose career the third view is drawing.
+ *
+ * ⚠️ **The pick, not a field of its own.** Clicking a square on the Board already
+ * names a competitor and already travels in the link as `wp`; a second piece of
+ * state meaning the same thing would be one to keep in step. So picking somebody
+ * on the Board and switching view just works, and the view's own menu sets the
+ * same pick.
+ */
+const careerSubject = () => [...win.only][0] || null;
 
 const winRaw = () => win.files[win.kind] || null;
 
@@ -1303,9 +1326,56 @@ $('winZoom').addEventListener('input', e => {
   renderWinners();
 });
 
+/* ⚠️ A career walk is slow enough to be abandoned halfway. The token is what
+   stops a subject the reader has already moved on from landing on the page. */
+let careerToken = 0;
+
+/**
+ * The chosen competitor's whole career, reduced to what they got at each
+ * tournament.
+ *
+ * ⚠️⚠️ **Two careers for a pair, intersected.** `vue-player-tournaments` ships no
+ * partner, so the only way to know a doubles result belongs to *this*
+ * partnership is that both players finished in the same place at the same
+ * tournament — see `pairDraws` for why that is exact for the wins and the lost
+ * finals and an approximation below them.
+ */
+async function loadWinCareer() {
+  const key = careerSubject();
+  const kind = win.kind;
+  if (!key) {
+    if (!win.career) return;
+    win.career = null;
+    return renderWinners();
+  }
+  if (win.career && win.career.key === key && win.career.kind === kind) return;
+
+  const token = ++careerToken;
+  win.career = { key, kind, by: null, loading: true, error: null };
+  renderWinners();
+
+  try {
+    const maps = [];
+    for (const id of key.split('+')) {
+      const all = [];
+      await walkCareer(id, (year, tournaments) => all.push(...tournaments),
+        () => token === careerToken);
+      if (token !== careerToken) return;
+      maps.push(careerDraws(all, kind));
+    }
+    win.career.by = maps.length > 1 ? maps.reduce(pairDraws) : (maps[0] || new Map());
+  } catch (e) {
+    if (token !== careerToken) return;
+    win.career.error = 'Could not load that career from BWF: ' + (e.message || e);
+  }
+  if (token !== careerToken) return;
+  win.career.loading = false;
+  renderWinners();
+}
+
 async function loadWinnersPage() {
   const kind = win.kind;
-  if (win.files[kind] || win.loading[kind]) return renderWinners();
+  if (win.files[kind] || win.loading[kind]) { renderWinners(); return winCareerIfWanted(); }
   win.loading[kind] = true;
   delete win.errors[kind];
   renderWinners();
@@ -1315,6 +1385,15 @@ async function loadWinnersPage() {
   /* ⚠️ The reader may have switched away while this was in flight, so redraw
      whatever is up *now* rather than assuming it is still this discipline. */
   renderWinners();
+  return winCareerIfWanted();
+}
+
+/* ⚠️ Every way into the career view goes through here: the view button, the
+   menu, a link that arrives with `wv=career`, and a change of discipline, which
+   is a different draw and therefore a different set of results for the same
+   person. `loadWinCareer` is a no-op when it already holds that pair. */
+function winCareerIfWanted() {
+  return win.view === 'career' ? loadWinCareer() : undefined;
 }
 
 /** The initials the board falls back to when BWF has no photograph. */
@@ -1415,13 +1494,16 @@ function tileTitle(t, year) {
 function renderWinners() {
   const body = $('winBody');
   const scoring = win.view === 'score';
+  const career = win.view === 'career';
   renderWinnersControls();
 
-  /* The two views share the discipline, the span and the export button and
-     nothing else, so everything below the header swaps together. */
+  /* The three views share the discipline, the continents, the span and the
+     export button and nothing else, so everything below the header swaps
+     together. */
   $('winScore').hidden = !scoring;
-  $('winNote').hidden = scoring;
+  $('winNote').hidden = scoring || career;
   $('scoreNote').hidden = !scoring;
+  $('careerNote').hidden = !career;
   body.hidden = scoring && !win.errors[win.kind] && !!winFile();
 
   const file = winFile();
@@ -1443,6 +1525,23 @@ function renderWinners() {
     $('winSpan').textContent = `${yrs.years[0]}–${yrs.years[yrs.years.length - 1]} · `
       + `${yrs.years.reduce((n, y) => n + yrs.byYear.get(y).length, 0)} titles`;
     return renderScore(file);
+  }
+
+  /* ⚠️ **Nobody chosen is a state, not an empty board.** Drawn with no subject
+     every square would be an outline, which says "they played none of these"
+     rather than "you have not said who". */
+  if (career && !careerSubject()) {
+    body.hidden = false;
+    body.innerHTML = '<p class="empty">Choose a competitor above, or pick one'
+      + ' by clicking a square on the Board.</p>';
+    $('winSpan').textContent = '';
+    return;
+  }
+  if (career && win.career && win.career.error) {
+    body.hidden = false;
+    body.innerHTML = `<p class="empty">${esc(win.career.error)}</p>`;
+    $('winSpan').textContent = '';
+    return;
   }
 
   const players = file.players || {};
@@ -1470,9 +1569,14 @@ function renderWinners() {
      different draw, so it is dropped rather than drawn. The link is left to be
      rewritten by whatever the reader does next; a render does not write
      history. */
+  /* ⚠️ In the career view every tile also carries what the chosen competitor got
+     at that tournament, which is joined on BWF's tournament id — see
+     `careerDraws`. `null` until the walk lands, so the board draws its own shape
+     straight away and fills in. */
+  const got = career && win.career && !win.career.error ? win.career.by : null;
   const perYear = new Map(years.map(year =>
-    [year, pyramidSeason(seasons.byYear.get(year), players, year)]));
-  if (win.only.size) {
+    [year, pyramidSeason(seasons.byYear.get(year), players, year, got)]));
+  if (win.only.size && !career) {
     const present = new Set();
     for (const rows of perYear.values()) {
       for (const row of rows) for (const t of row.tiles) present.add(String(t.id));
@@ -1496,6 +1600,7 @@ function renderWinners() {
       }
       return `<div class="pyrrow">` + row.tiles.map(t => {
         const side = Math.round(t.scale * unit);
+        if (career) return careerTile(t, side, year);
         /* ⚠️ The fade goes on the badge's wrapper as well as on the square. The
            rings and the cup are *siblings* of the tile, not children of it, so
            dimming the tile alone left a full-strength Olympic badge floating
@@ -1540,10 +1645,94 @@ function renderWinners() {
      position or the bars point at the wrong years. */
   body.innerHTML = `<div class="pyrwrap">`
     + `<div class="pyrscroll">${columns}</div>`
-    + (win.eras ? `<div class="eraband" id="winEraBand"></div>` : '')
+    + (win.eras && !career ? `<div class="eraband" id="winEraBand"></div>` : '')
     + `</div>`;
 
-  if (win.eras) renderEraBand(seasons, players);
+  /* ⚠️ The header counts what this competitor took of the board rather than what
+     the board held, because in this view that is the number being read. It says
+     so while the walk is still running, so a half-filled board is not mistaken
+     for a finished one. */
+  if (career) {
+    const tiles = [...perYear.values()].flatMap(rows => rows.flatMap(r => r.tiles));
+    const played = tiles.filter(t => t.res).length;
+    const wins = tiles.filter(t => t.res && t.res.tier === 'w').length;
+    $('winSpan').textContent = win.career && win.career.loading
+      ? `${years[0]}–${years[years.length - 1]} · reading the career…`
+      : `${years[0]}–${years[years.length - 1]} · ${wins} won`
+        + ` · ${played} entered of ${tiles.length}`;
+  }
+
+  if (win.eras && !career) renderEraBand(seasons, players);
+}
+
+/**
+ * One square of the career board: what this competitor got, in the grid's own
+ * colours.
+ *
+ * ⚠️⚠️ **The same ramp the Compare page uses, and the same `#1`.** `.cell r-w`
+ * carries both the green and the mark, and the mark is there because green and
+ * the runner-up's green are one step apart on the ramp — redundant coding, so
+ * the board still reads with the colour ignored. Reusing the class rather than
+ * restating the palette is also what stops the two pages drifting apart.
+ *
+ * ⚠️ **A tournament they did not enter is an outline, not a defeat.** It is the
+ * whole reason the view exists: on the Board the six squares the Chinese pair did
+ * not win in 2011 all look alike, and four of them are tournaments they never
+ * played. `r-none` is the Compare page's own "nothing here" case.
+ *
+ * ⚠️ The wrapper stays a `.pyrtile`, so the gold ring, the fade and the displaced
+ * tournament's dashed outline keep working without being restated.
+ */
+function careerTile(t, side, year) {
+  const tier = t.res ? t.res.tier : 'none';
+  const sq = `<span class="pyrtile t-${esc(String(t.tier))}${t.top ? ' is-top' : ''}`
+    + `${t.mark ? ' is-moved' : ''} is-cell"`
+    + ` style="width:${side}px;height:${side}px"`
+    + ` data-tier="${esc(String(t.tier))}" data-res="${esc(tier)}"`
+    + ` data-id="${esc(String(t.id))}"`
+    + ` title="${esc(careerTileTitle(t, year))}"`
+    + `><i class="cell r-${esc(tier)}" style="--sq:${side}px"></i></span>`;
+  const badge = winnerBadge(t.tier);
+  return badge
+    ? `<span class="pyrmajor" style="--badge:${Math.max(15, Math.round(side * 0.5))}px"
+        >${badge}${sq}</span>`
+    : sq;
+}
+
+/** What the hover says about one square of the career board. */
+function careerTileTitle(t, year) {
+  const mine = t.res
+    ? `${t.res.full}${t.got && t.got.win != null ? ` · ${t.got.win}-${t.got.lose}` : ''}`
+    : 'did not play';
+  return [
+    t.name,
+    t.level,
+    mine,
+    // Who actually took it, which is the context the result needs.
+    t.who ? `won by ${t.who.n}` : null,
+    String(t.date).slice(0, 10),
+    t.mark ? '⁕ ' + t.mark.note : null,
+  ].filter(Boolean).join('\n');
+}
+
+/**
+ * Every competitor on the board, for the career view's menu.
+ *
+ * Most titles first, because that is the order somebody looking for a career to
+ * read would want it in, and a name is the tie-break so the tail is browsable.
+ */
+function winCompetitors(file) {
+  const reg = winnerRegistry(file);
+  const count = new Map();
+  for (const list of Object.values(file.seasons || {})) {
+    for (const t of list || []) {
+      const k = titleWinnerKey(t);
+      if (k) count.set(k, (count.get(k) || 0) + 1);
+    }
+  }
+  return [...reg.entries()]
+    .map(([key, who]) => ({ key, who, n: count.get(key) || 0 }))
+    .sort((a, b) => (b.n - a.n) || (a.who.n < b.who.n ? -1 : a.who.n > b.who.n ? 1 : 0));
 }
 
 /* ---- the dominance band ----
@@ -2472,10 +2661,16 @@ function stepScoreFloor(dir) {
 function setWinView(v) {
   const next = WIN_VIEWS.includes(v) ? v : 'board';
   if (next === win.view) return;
+  const was = win.view;
   win.view = next;
-  win.only.clear();
+  /* ⚠️ **Except around the career view, where the pick *is* the subject.** The
+     other two views clear it because a highlight carried across is clutter; here
+     it is the whole question, so picking somebody on the Board and switching
+     over has to arrive on them rather than on an empty page. */
+  if (next !== 'career' && was !== 'career') win.only.clear();
   renderWinners();
   writeHash();
+  if (next === 'career') loadWinCareer();
 }
 
 
@@ -2508,7 +2703,12 @@ function exportRange() {
 function renderExportBar() {
   const years = exportYears();
   const box = $('winExport');
-  box.hidden = !win.exporting || !years.length;
+  /* ⚠️ **Not offered on the career view.** The export draws the board of faces
+     and the score chart, which `poster.js` knows how to paint; a career board is
+     a third picture nobody has drawn yet, and a button that quietly exported a
+     different view than the one on screen would be worse than no button. */
+  $('winSave').hidden = win.view === 'career';
+  box.hidden = !win.exporting || !years.length || win.view === 'career';
   $('winSave').classList.toggle('on', win.exporting);
   $('winSave').setAttribute('aria-pressed', String(win.exporting));
   if (box.hidden) return;
@@ -2614,10 +2814,11 @@ $('expCopy').addEventListener('click', copyPoster);
    no button. */
 $('expCopy').hidden = typeof ClipboardItem === 'undefined' || !navigator.clipboard;
 
-const WIN_VIEW_LABEL = { board: 'Board', score: 'Score' };
+const WIN_VIEW_LABEL = { board: 'Board', score: 'Score', career: 'Career' };
 
 function renderWinnersControls() {
   const scoring = win.view === 'score';
+  const career = win.view === 'career';
 
   $('winView').innerHTML = WIN_VIEWS.map(v =>
     `<button type="button" class="seg${v === win.view ? ' on' : ''}" data-view="${v}"`
@@ -2654,14 +2855,18 @@ function renderWinnersControls() {
      disabled. A row of greyed-out buttons reads as a broken page to anybody who
      never finds out what would enable them — measured on this project already,
      with a ladder picker that was only ever seen dead. */
-  eras.hidden = scoring;
+  /* ⚠️ The band is about everybody, so it is not only hidden in the career view
+     — it is not drawn at all. One career has no succession in it. */
+  eras.hidden = scoring || career;
   $('winZoomLbl').hidden = scoring;
   $('winFloor').hidden = !scoring;
   if (scoring) renderScoreFloor();
 
+  renderCareerPick();
+
   /* Hidden rather than disabled when the band is off: a bar that sets something
      invisible is a control with nothing to control. */
-  $('winMin').hidden = !win.eras || scoring;
+  $('winMin').hidden = !win.eras || scoring || career;
   $('winMin').innerHTML = REIGN_STEPS.map(s =>
     `<button type="button" class="seg${s.key === win.reign ? ' on' : ''}"`
     + ` data-reign="${s.key}" aria-pressed="${s.key === win.reign}"`
@@ -2709,6 +2914,34 @@ function toggleConf(key) {
      `renderWinners` already clears a stale pick; this only has to redraw. */
   renderWinners();
   writeHash();
+}
+
+/**
+ * Whose career the third view is drawing, as a menu.
+ *
+ * ⚠️ A `<select>` rather than a row of chips: there are forty-five of them on the
+ * men's board and ninety on the women's doubles one, which is a list to search
+ * rather than a set to choose between. It sets the **pick**, so it and a click on
+ * the Board are the same act — see `careerSubject`.
+ */
+function renderCareerPick() {
+  const career = win.view === 'career';
+  const host = $('winWho');
+  host.hidden = !career;
+  if (!career) return;
+  const file = winFile();
+  if (!file) { host.innerHTML = ''; return; }
+  const list = winCompetitors(file);
+  const now = careerSubject();
+  host.innerHTML = `<option value="">Choose a competitor…</option>`
+    + list.map(c => `<option value="${esc(c.key)}"${c.key === now ? ' selected' : ''}>`
+      + `${esc(c.who.n)} · ${c.n}</option>`).join('');
+  host.onchange = () => {
+    win.only = new Set(host.value ? [host.value] : []);
+    renderWinners();
+    writeHash();
+    loadWinCareer();
+  };
 }
 
 function setReign(key) {
@@ -3573,6 +3806,8 @@ function runHotkey(key) {
        the tournament page, which is fine — a letter may mean two things as long
        as it never means both at once — and "score" is the word on the button. */
     if (key === 's') { setWinView('score'); return true; }
+    /* C for career, and it is free on this page. */
+    if (key === 'c') { setWinView('career'); return true; }
     if (win.view === 'score') {
       // The same two keys as the honours bar and the era bar: up shows more.
       if (key === 'ArrowUp') return stepScoreFloor(-1);
@@ -4933,6 +5168,32 @@ window.BST = {
       if (c) c.click();
       return [...win.confs];
     },
+
+    /* ---- the career view ----
+       Whose board it is, and whether the walk has landed. */
+    who: key => (key === undefined ? careerSubject()
+      : (win.only = new Set(key ? [String(key)] : []),
+        renderWinners(), writeHash(), loadWinCareer(), careerSubject())),
+    career: () => (win.career ? {
+      key: win.career.key, kind: win.career.kind,
+      loading: !!win.career.loading, error: win.career.error || null,
+      results: win.career.by ? win.career.by.size : 0,
+    } : null),
+    /** The competitors the menu offers, in the order it offers them. */
+    pickList: () => [...document.querySelectorAll('#winWho option')]
+      .filter(o => o.value).map(o => ({ key: o.value, text: o.textContent })),
+    /** Every drawn career square: which tournament, and what they got there. */
+    cells: () => [...document.querySelectorAll('#winBody .pyrtile.is-cell')].map(t => {
+      const cell = t.querySelector('.cell');
+      const r = t.getBoundingClientRect();
+      return {
+        id: t.dataset.id, tier: t.dataset.tier, res: t.dataset.res,
+        cls: cell ? cell.className : '',
+        year: Number((t.closest('.pyrseason') || {}).dataset
+          ? (t.closest('.pyrseason').dataset.year) : 0),
+        w: Math.round(r.width), title: t.getAttribute('title') || '',
+      };
+    }),
     /** Every column, with the year it claims and where it actually is. */
     columns: () => [...document.querySelectorAll('#winBody .pyrseason')].map(c => {
       const r = c.getBoundingClientRect();

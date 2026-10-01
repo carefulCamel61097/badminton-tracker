@@ -704,6 +704,44 @@ The honours board's zoom will not go below 7 for exactly this reason: a Super 75
 silently drops back to being nothing but a darker green.
 
 
+## Career: the board through one competitor
+
+The Winners page's third view. Same board, square for square — same rows, same
+tournaments, same order, same sizes — but instead of the winner's face each square
+shows what **one** competitor got there, in the colours and the `#1` the Compare
+page already uses. Green is a title, the ramp runs down through the final and the
+semi-final to red, and a **tournament they did not enter is an outline**.
+
+⚠️⚠️ **The outline is the reason the view exists.** On the Board, a season where
+somebody took eleven of seventeen titles shows six squares with another face in
+them and they all read alike. Four of them may be tournaments that competitor
+never played and two may be finals they lost — and eleven from thirteen with two
+finals is a different season from eleven from seventeen. The Board holds who won
+and nothing about anybody else, so it cannot say which, and reading the gaps as
+defeats flatters nobody and misleads everybody.
+
+⚠️⚠️ **It is a join, and BWF's own tournament id is the key.** The harvested file
+knows the winner of each title; a runner-up can only come from the competitor's
+**own career**, which is the same `vue-player-tournaments` data the Seasons and
+Compare pages walk, cached in the browser the same way. Both sides carry the
+tournament id, so nothing is matched on names or dates.
+
+Choose a competitor from the menu in the header, or click a square on the Board
+and switch over — they are the same act, because the view's subject *is* the
+Board's pick, and it travels in the link as `wp` either way.
+
+⚠️ **A pair is the two careers where they agree.** BWF ships no partner at all
+(see `HANDOVER.md` 2.4), so a doubles career is that player's results in that draw
+whoever they played with. Two players who finished in the same place at the same
+tournament were in the same pair: **exact** for a title or a lost final, since only
+one pair can be either, and an approximation below that, where two pairs can go
+out in the same round. Where they disagree they were not partners, so the
+tournament is drawn as one this pair did not play.
+
+The dominance band is not drawn here — one career has no succession in it — and
+neither is the export button, because a career board is a picture `poster.js` has
+not been taught to paint.
+
 ## The domination score
 
 The Winners page has a second view. **Board** is the pyramid above; **Score** is the same
