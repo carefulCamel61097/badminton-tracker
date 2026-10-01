@@ -1735,6 +1735,32 @@ the page opens on a U19 Open — and **cancelled events**, on `status.code` rath
 name, the same rule `harvest-calendar.mjs` uses and for the same reason. BWF's own `nextTmt` that
 day was "Abu Dhabi Masters 2026 (Cancelled)".
 
+### 3.4z Two Finals in the wrong row *(fixed 1 Oct 2026)*
+
+Reported by the user as **two missing titles**: LEE Chong Wei's 2008 and 2009 Tour Finals
+were not on his honours board, and they asked the right follow-up — *does this mean the
+history is incomplete?* It does not. The data had them all along, in both the winners file
+and his own record. The grid was filing them under the wrong section.
+
+⚠️⚠️ **There were two patterns for the same thing, and they disagreed.**
+
+| | pattern | "World Super Series **Masters** Finals 2008" |
+|---|---|---|
+| `PYRAMID_BY_NAME` (the harvest) | bracketing words, bounded gap | Tour Finals ✓ |
+| `MAJOR_BY_NAME` (the grid) | words adjacent | **missed** → category 8 → Super 1000 ✗ |
+
+So the Winners page had it right and the Compare page did not — the exact disagreement
+between two views of one career that the suite exists to catch, and it had been shipped.
+The comment explaining the trap was already written, in the harvest, and only half applied.
+
+Now `FINALS_NAME` is one exported constant and both classifiers use it. Two regexes that
+mean the same thing drift apart by existing.
+
+⚠️ **The audit that should have existed.** Every tournament in every recorded career whose
+*name* says what it is, held against the section it was given: 73 named majors, and after
+the fix the only one that does not match is the Hong Kong 2009 East Asian Games, which is
+sub-regional and excluded on purpose. Worth re-running whenever a classifier changes.
+
 ### 3.4y Three ways a square could not be switched off *(fixed 30 Sep 2026)*
 
 Three reports from the Seasons page, one cause behind two of them: **the strip filters by
@@ -3172,6 +3198,33 @@ using the global `WebSocket`. Deployed on GitHub Pages. This worked well — kee
   weighting is settled and shipped, and this is an observation about a premise, not a
   measurement of one. Worth checking against BWF's actual regulations before the weighting
   is ever revisited.
+
+- **The seasons before 2006.** The two careers this project most wants to compare both
+  started before its floor — LIN Dan in 2001, LEE Chong Wei in 2000 — so the most-viewed
+  comparison on the site is the one the floor cuts short. Two problems, and they are
+  separate: **getting the results at all**, since BWF's own records stop carrying a
+  `position` there (Part 3.4f), and **mapping the tiers**, since the ids carry no tier
+  information that far back (Part 7 below). If BWF has nothing, badmintonranks.com plainly
+  has *something* — their Elo charts run from 2001 — so the lead is to ask them where it
+  came from rather than to scrape it. Raised by the user, 1 Oct 2026.
+
+- **The era switch needs to explain itself.** The World Tour / Superseries toggle silently
+  applies the mapping in Part 2.7 — Superseries Premier drawn as Super 1000, and so on — and
+  a reader has no way to see what it did. Wanted: a question mark beside the toggle opening
+  a panel that lists the mapping and says it was traced through `tournament_series_id`
+  rather than guessed. Raised by the user, 1 Oct 2026.
+
+- **Continental championships and the multi-sport games, on the Winners board.** Settled in
+  discussion, 1 Oct 2026, not yet built. The ladder gains half steps (√φ) so that Super 1000
+  → Finals, Champs → Games and Worlds → Olympics are half steps while Finals → Continental
+  and Continental → global are full ones; this leaves the Olympics at exactly its present
+  6.854. Rows run Olympics · Worlds · Continental Games · Continental Championships ·
+  Finals · Super 1000 ·… The Winners pyramid pairs them two to a row. Per-continent toggles
+  change the **score**, not only the drawing — a ranking of legends with a European-only
+  career high in it would confuse more than it explained — so the toggle has to travel in
+  the link. Measured for the default: of 1210 titles across twenty seasons and five
+  disciplines, **Asia won 89.3% and Europe 10.5%**; Pan Am, Africa and Oceania have three
+  between them.
 
 - **The stored seasons have no button.** Part 4.10 keeps a finished season for ever, which
   is right — 2012 is over — and leaves one gap: if BWF corrects an old result, a reader is

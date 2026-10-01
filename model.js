@@ -1132,9 +1132,27 @@ const BELOW_BELIEVED = 2008;
 /** The calendar year a tournament started in, or null. */
 const startYear = tmt => Number(String((tmt && tmt.start) || '').slice(0, 4)) || null;
 
+/**
+ * The season-ending final, under every name BWF has given it.
+ *
+ * ⚠️⚠️ **One pattern, used by both classifiers.** There were two, and they
+ * disagreed: the harvest matched the bracketing words with a bounded gap and
+ * the grid wanted them adjacent — so "World Super Series **Masters** Finals",
+ * which is what the 2008 and 2009 editions are called, fell through the grid's
+ * version to its category, **8**, and drew as a *Super 1000*. LEE Chong Wei won
+ * both, and on his honours board the two titles were sitting in the wrong row
+ * while the Winners page had them right. Reported by the user, 1 Oct 2026, as
+ * two missing Finals.
+ *
+ * The lesson was already written down in `PYRAMID_BY_NAME` and only half
+ * applied, which is the argument for one constant rather than two regexes that
+ * mean the same thing.
+ */
+export const FINALS_NAME = /(super\s*series|world\s*tour).{0,24}\bfinals\b/i;
+
 const MAJOR_BY_NAME = [
   [/\bworld\s+championships?\b/i, 20],
-  [/\b(world\s+tour|world\s+super\s?series|super\s?series)\s+finals\b/i, 22],
+  [FINALS_NAME, 22],
   [/\b(asian?|europ(e|ean)|africa[n]?|oceania|americas?|pan\s?americ\w*)\s+championships?\b/i, 11],
 ];
 
@@ -2713,7 +2731,7 @@ const PYRAMID_BY_NAME = [
      then falls through to the category, which says Superseries Premier, and the
      year's biggest title is quietly drawn as a Super 1000. Match the bracketing
      words with a bounded gap instead of listing the names. */
-  [/(super\s*series|world\s*tour).{0,24}\bfinals\b/i, 22],
+  [FINALS_NAME, 22],
   [/olympic games/i, 'OLY'],
   [/\bworld championships?\b/i, 20],
 ];

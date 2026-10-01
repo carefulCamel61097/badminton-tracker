@@ -484,6 +484,45 @@ console.log('\n=== a dash is not a result ===');
 eq('BWF writes "-" for some junior events', positionInfo('-').tier, 'na');
 eq('same as N/A', positionInfo('N/A').tier, 'na');
 
+console.log('\n=== the Finals, under every name BWF has given it ===');
+
+/* ⚠️⚠️ Reported by the user as two missing titles: LEE Chong Wei's 2008 and 2009
+   Tour Finals were not on his honours board. The data had them all along — the
+   grid was filing them under the wrong section.
+
+   There were **two** patterns for the same thing. The harvest matched the
+   bracketing words with a bounded gap; the grid wanted them adjacent. So "World
+   Super Series **Masters** Finals", which is what the 2008 and 2009 editions are
+   called, fell through the grid's version to its category — 8, Superseries
+   Premier — and drew as a Super 1000. The Winners page had it right and the
+   Compare page did not, which is the disagreement this file exists to catch. */
+const asFinals = name => gridGroup({
+  name, cat: 8, start: '2009-01-01',
+  draws: [{ name: 'MS', raw: 'MS', position: '1st' }],
+});
+
+eq('the 2008 Masters Finals is a Tour Finals', asFinals('World Super Series Masters Finals 2008'), 22);
+eq('and the 2009 one, shouted',
+  asFinals('YONEX-SUNRISE BWF WORLD SUPER SERIES MASTERS FINALS 2009'), 22);
+eq('the plainly named ones still are',
+  asFinals('VICTOR- BWF Superseries Finals 2010'), 22);
+eq('including the World Tour era', asFinals('HSBC BWF World Tour Finals 2024'), 22);
+/* ⚠️ And it stays narrow: a Superseries that is not the final of anything must
+   not be swept up by a pattern with a gap in it. */
+eq('an ordinary Superseries is not a Finals',
+  asFinals('Djarum Indonesia Open Super Series 2007'), 23);
+eq('nor is a Masters that is not one', asFinals('China Masters Super Series 2011'), 23);
+
+/* ⚠️⚠️ **One pattern, both classifiers.** The harvest and the grid have to agree
+   about what a Finals is called, and the way two regexes drift apart is by
+   existing. */
+for (const name of ['World Super Series Masters Finals 2008',
+  'YONEX-SUNRISE BWF WORLD SUPER SERIES MASTERS FINALS 2009',
+  'Li Ning BWF World Superseries Finals 2011', 'HSBC BWF World Tour Finals 2024']) {
+  eq(`the harvest and the grid agree about "${name.slice(0, 32)}…"`,
+    pyramidTier({ name, category: 'World Superseries Premier' }), asFinals(name));
+}
+
 console.log('\n=== a team tie BWF did not file as a team event ===');
 
 /* ⚠️⚠️ Reported from the Seasons page: the Asian Games team competition was on
