@@ -1005,6 +1005,53 @@ place in `GRID_ORDER`.
 
 ---
 
+### 2.13 The tournament page is the senior circuit, and a chosen day is held — 10 Oct 2026
+
+Three notes from the reader in one week: two bugs and an ordering.
+
+**Junior and para are off the tournament page.** It was the one view that did not exclude
+them, and the week of 5-17 October 2026 showed why it should. Measured live on 10 Oct:
+
+| | what comes back |
+|---|---|
+| World Junior **Team** Championships | draws named `Relay - 1-8`, `Relay - 9-16`; **every match with an empty `players` array**; `tournaments/draws` empty |
+| World Junior Championships | MS/WS/MD/WD/XD, real players, renders perfectly |
+
+So one cannot be drawn at all and the other is drawn *too* well — nothing on the page would
+say it was the under-19s. `onSeniorCircuit` is the rule, used by `pickTournament` (at the door,
+so a junior event reaches neither the pick, the alternatives, the upcoming slot nor the
+finished one) and by `scheduleFromYear`.
+
+⚠️ **It was already true on the deployed site by accident**, which is the part worth
+remembering. `scheduleFromYear` keeps only what `scheduleGroup` can place, and a junior event
+has no `catLogo` and no name a major pattern matches — so the fallback filtered them, and the
+`vue-tmt-schedule` payload, which is what localhost gets (see the CORS gap in Part 3), did
+not. Two paths, two answers, and the rule written down in neither.
+
+⚠️ Senior **team** events stay. Thomas, Uber and Sudirman are senior, their ties carry real
+players, and they are events people watch.
+
+⚠️ On a day when only junior events are on, `pickTournament` falls through to the senior event
+that just finished, state `finished`. An empty page is the other option and is worse: "here is
+the last thing that happened" is an answer.
+
+**A day the reader chose is held.** `checkScores` runs `loadTournament({ fresh: true })` every
+minute while something is live, and `opts.fresh` took the branch that re-derives `tmt.day` from
+`todayStr()`. Sitting on Friday 9 October at the Arctic Open while it was the 10th, the page
+jumped to the 10th within a minute. `tmt.heldDay` now says the day was chosen rather than
+derived: set by `pickDay` and by a `d=` in the link, cleared when the picked tournament changes,
+because a held day belongs to the tournament it was held on.
+
+⚠️ `checkScores` also returns early for a day already played. A finished day can never answer
+anything new, and this page's whole etiquette is not to poll for things nobody is reading.
+
+**Tournament leads the tabs**, then Seasons, Compare, Winners — the reader's order. It is the
+one page that is about *now* rather than about a player you have to go and find, so it answers
+something the moment it opens; the rest run from the narrowest question to the widest.
+`PAGES` carries the same order, because left and right walk it and a keyboard order that
+disagreed with the tabs would be a second arrangement to learn. The default landing page is
+unchanged: a link with a player in it still opens on Seasons.
+
 ### 2.12 Career: the board through one competitor — settled 1 Oct 2026
 
 The reader's design, and the problem is one the Board genuinely cannot solve:

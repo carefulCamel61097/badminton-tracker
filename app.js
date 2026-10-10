@@ -2964,7 +2964,11 @@ function renderViewPick() {
 
 /* The pages, one at a time. `grid.open` stays as the compare page's own flag —
    a great deal of the grid keys off it — but which page is up lives here. */
-const PAGES = ['seasons', 'compare', 'tmt', 'winners'];
+/* ⚠️ **The order on screen**, because left and right walk this list and a
+   keyboard walk that disagreed with the tabs would be a second arrangement to
+   learn. Tournament leads: it is the one page that answers something without
+   being told who to look at. */
+const PAGES = ['tmt', 'seasons', 'compare', 'winners'];
 let page = 'seasons';
 
 /* ⚠️ Stamped here as well as in `showPage`, and it is not belt and braces.
@@ -3917,6 +3921,15 @@ const tmt = {
   wantDay: null,          // a day from the hash, before the schedule has landed
   wantCode: null,         // a tournament pinned by the hash, when two are on
   pickedFor: null,        // the date the current pick was made against
+  /* ⚠️⚠️ **Whether the day on screen is one the reader asked for.** The live check
+     re-runs `loadTournament` every minute while something is being played, and
+     that used to re-derive the day from `todayStr()` — so sitting on Friday's
+     order of play while Saturday is being played silently jumped to Saturday
+     after up to a minute. Reported by the reader on the Arctic Open, 10 Oct
+     2026. A day the reader chose, or a link named, is theirs until they choose
+     another or the tournament changes under them. */
+  heldDay: false,         // the day was chosen rather than derived
+  pickedCode: null,       // which tournament the held day belongs to
   byDay: new Map(),       // day -> that day's matches, so "All" is one merge
   starred: new Set(),     // match ids the reader picked out
   starredOnly: false,
@@ -4021,14 +4034,27 @@ async function loadTournament(opts = {}) {
       if (token !== tmtToken) return;
       tmt.pickedFor = todayStr();
       tmt.pick = pickTournament(tmt.schedule, todayStr(), tmt.wantCode);
+      const code = tmt.pick && tmt.pick.tmt ? String(tmt.pick.tmt.code) : null;
+      /* A held day belongs to the tournament it was held on. A different one has
+         different days, and keeping a date across the change would land on a
+         day that event never had. */
+      if (code !== tmt.pickedCode) { tmt.heldDay = false; tmt.pickedCode = code; }
       const days = tournamentDays(tmt.pick && tmt.pick.tmt);
       // A day from the hash only counts if this tournament actually has it.
-      tmt.day = (tmt.wantDay && days.includes(tmt.wantDay)) ? tmt.wantDay
-        : defaultDay(tmt.pick && tmt.pick.tmt, tmt.pick && tmt.pick.state, todayStr());
+      if (tmt.wantDay && days.includes(tmt.wantDay)) {
+        tmt.day = tmt.wantDay;
+        tmt.heldDay = true;
+      } else if (tmt.heldDay && days.includes(tmt.day)) {
+        /* ⚠️ **Left exactly where the reader put it.** This is the branch the live
+           check takes every minute, and re-deriving here is what moved the page
+           off the day somebody was reading. */
+      } else {
+        tmt.day = defaultDay(tmt.pick && tmt.pick.tmt, tmt.pick && tmt.pick.state, todayStr());
+      }
       tmt.wantDay = null;
     } else if (tmt.wantDay) {
       const days = tournamentDays(tmt.pick && tmt.pick.tmt);
-      if (days.includes(tmt.wantDay)) tmt.day = tmt.wantDay;
+      if (days.includes(tmt.wantDay)) { tmt.day = tmt.wantDay; tmt.heldDay = true; }
       tmt.wantDay = null;
     }
     if (tmt.pick && tmt.day) await loadDay(tmt.day, token, opts);
@@ -4091,6 +4117,8 @@ async function pickDay(day) {
   if (!tmt.pick || day === tmt.day) return;
   const token = ++tmtToken;
   tmt.day = day;
+  // Chosen, so the live check leaves it alone. See `tmt.heldDay`.
+  tmt.heldDay = true;
   tmt.matches = [];
   tmt.loading = true;
   tmt.error = null;
@@ -4375,6 +4403,11 @@ function liveWanted() {
 
 async function checkScores() {
   if (!liveWanted() || tmt.loading) return;
+  /* ⚠️ **Only a day that can still change.** A day already played is finished and
+     asking BWF for it again every minute is a request that can never return
+     anything new — which matters on a page whose whole etiquette is not to poll
+     for things nobody is reading. "All" holds today, so it still refreshes. */
+  if (tmt.day && tmt.day !== 'all' && tmt.day < todayStr()) return;
   await loadTournament({ fresh: true });
 }
 

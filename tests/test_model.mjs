@@ -33,6 +33,7 @@ import {
   HONOUR_STEPS, HONOUR_DEFAULT, honourStep, honourScale, honourRung,
   careerHonours, honourSections,
   pickTournament, scheduleGroup, scheduleFromYear, tournamentDays, defaultDay,
+  onSeniorCircuit,
   parseDayMatches, orderOfPlay,
   nameScore, rosterMatches, mergeSuggestions,
   parseDrawList, parseDraw, bracketRounds, autoFromCol, fromCol, resolvedRound,
@@ -2612,6 +2613,78 @@ eq('nothing at all is four empty rows', pyramidSeason([], {}).length, 4);
    file can.
    ==================================================================== */
 
+
+console.log('\n=== the circuit the tournament page is about ===');
+
+/* ⚠️⚠️ **Junior and para are out, as they are everywhere else in this project.**
+   Measured live on 10 Oct 2026, the week that showed it: the World Junior Team
+   Championships comes back with draws named "Relay - 1-8", **every match with an
+   empty `players` array** and an empty draw list, so the order of play would
+   draw two flags and no names and the bracket would have nothing to lay out.
+   The individual junior Worlds is the opposite problem — MS/WS/MD/WD/XD with
+   real players, rendering perfectly, with nothing to say it is the under-19s. */
+const senior = n2 => ({ name: n2, code: n2, start_date: '2026-10-07', end_date: '2026-10-11' });
+
+check('the junior team championships is not on this circuit',
+  !onSeniorCircuit(senior('VICTOR BWF World Junior Team Championships 2026')));
+check('nor the junior individual one',
+  !onSeniorCircuit(senior('VICTOR BWF World Junior Championships 2026')));
+check('nor the youth olympics', !onSeniorCircuit(senior('Youth Olympic Games Dakar 2026')));
+check('nor a para games', !onSeniorCircuit(senior('5th ASIAN Para Games Aichi-Nagoya 2026')));
+check('nor a para world championships',
+  !onSeniorCircuit(senior('BAHRAIN BWF Para Badminton World Championships 2026')));
+check('a World Tour event is', onSeniorCircuit(senior('CLASH OF CLANS Arctic Open 2026')));
+/* ⚠️ **Team events stay.** The Thomas, Uber and Sudirman Cups are senior, their
+   ties carry real players, and they are events people watch. */
+check('and so is a senior team event',
+  onSeniorCircuit(senior('TotalEnergies BWF Thomas & Uber Cup Finals 2026')));
+/* ⚠️ `para[\s-]`, so a country is not a classification. */
+check('a place called Paraguay is not para',
+  onSeniorCircuit(senior('Paraguay International 2026')));
+eq('and nothing at all is not on it', onSeniorCircuit(null), false);
+
+/* ⚠️⚠️ **Filtered at the door of `pickTournament`**, so a junior event cannot reach
+   the pick, the alternatives, the upcoming slot or the finished one. This is the
+   real arrangement of 10 Oct 2026: a Super 500 being played, the junior team
+   championships alongside it, the junior Worlds starting in two days. */
+const octSched = {
+  nextLive: { name: 'CLASH OF CLANS Arctic Open 2026', code: 'ARC',
+    start_date: '2026-10-06', end_date: '2026-10-11', catLogo: 'x/suffix_500-01.svg' },
+  nextTmt: { name: 'VICTOR BWF World Junior Championships 2026', code: 'JW',
+    start_date: '2026-10-12', end_date: '2026-10-17', catLogo: null },
+  previousTmt: { name: 'VICTOR BWF World Junior Team Championships 2026', code: 'JT',
+    start_date: '2026-10-05', end_date: '2026-10-10', catLogo: null },
+};
+const octPick = pickTournament(octSched, '2026-10-10', null);
+eq('the page opens on the Super 500', octPick.tmt.code, 'ARC');
+eq('and the junior team event is not offered beside it', octPick.also.length, 0);
+/* ⚠️ **The day only junior events are on.** Nothing senior is live and nothing
+   senior is ahead in these three slots, so the page falls back to the senior
+   event that just finished rather than showing the under-19s. An empty page
+   would be the other option and is worse: "here is the last thing that happened"
+   is an answer. */
+const octPick12 = pickTournament(octSched, '2026-10-12', null);
+eq('and on a day when only junior events are on, it shows the last senior one',
+  octPick12.tmt.code, 'ARC');
+eq('saying plainly that it is over', octPick12.state, 'finished');
+/* And it is not reachable by pinning it either: a code that names something off
+   this circuit degrades to the ordinary choice. */
+eq('a link pinning the junior event still lands on the senior one',
+  pickTournament(octSched, '2026-10-10', 'JT').tmt.code, 'ARC');
+
+/* ⚠️ The same rule in the other path. `scheduleFromYear` is what the deployed
+   site uses, because `vue-tmt-schedule` fails CORS there (Part 3) — so without
+   this the two paths answered differently, and only the fallback happened to
+   filter, through `scheduleGroup` finding no tier rather than through a rule. */
+const fromYear = scheduleFromYear([
+  { id: 1, code: 'ARC', name: 'CLASH OF CLANS Arctic Open 2026',
+    start_date: '2026-10-06', end_date: '2026-10-11', catLogo: 'x/suffix_500-01.svg' },
+  { id: 2, code: 'JT', name: 'VICTOR BWF World Junior Team Championships 2026',
+    start_date: '2026-10-05', end_date: '2026-10-10', catLogo: 'x/suffix_750-01.svg' },
+], '2026-10-10');
+eq('a junior event does not take a slot even when it has a tier on it',
+  fromYear.nextLive.code, 'ARC');
+eq('and no other slot either', fromYear.nextTmt, null);
 
 console.log('\n=== the board, read through one competitor ===');
 

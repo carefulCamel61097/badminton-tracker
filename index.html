@@ -51,10 +51,18 @@
   </div>
 </section>
 
-<!-- The two pages, said plainly. This was a segmented control in the corner of
+<!-- The pages, said plainly. This was a segmented control in the corner of
      the hero, which is where you put a setting, not where you put the other
-     half of an application. -->
+     half of an application.
+     ⚠️ Tournament first (10 Oct 2026). It is the one page that is about
+     *now* rather than about a player you have to go and find, so it is the one
+     that answers something the moment it opens. The rest run from the narrowest
+     question to the widest: one career, two careers, everybody. -->
 <nav id="pageNav" class="pagenav" aria-label="pages">
+  <button type="button" class="tab" data-page="tmt">
+    <span class="name">Tournament</span>
+    <span class="sub">what's on, day by day</span>
+  </button>
   <button type="button" class="tab on" data-page="seasons" aria-current="page">
     <span class="name">Seasons</span>
     <span class="sub">every tournament, year by year</span>
@@ -62,10 +70,6 @@
   <button type="button" class="tab" data-page="compare">
     <span class="name">Compare</span>
     <span class="sub">two careers side by side</span>
-  </button>
-  <button type="button" class="tab" data-page="tmt">
-    <span class="name">Tournament</span>
-    <span class="sub">what's on, day by day</span>
   </button>
   <button type="button" class="tab" data-page="winners">
     <span class="name">Winners</span>

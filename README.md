@@ -119,15 +119,18 @@ Asian Championships, the Asian Games and the Commonwealth Games as well as junio
 
 ## Four pages
 
-**Seasons**, **Compare**, **Tournament** and **Winners**, on a tab bar under the player's
-name. Seasons is the strip and is what you land on. Compare holds the grid and the honours
-board, either of them for one player or two, and when there is only one it draws an empty
-dashed seat beside them — a page called Compare should look like one before anybody has been
-chosen.
+**Tournament**, **Seasons**, **Compare** and **Winners**, on a tab bar under the player's
+name, and in that order on purpose (10 Oct 2026). Tournament leads because it is the one
+page that is about *now* rather than about a player you have to go and find, so it answers
+something the moment it opens; the other three run from the narrowest question to the widest
+— one career, two careers, everybody. Left and right walk the same order, because a keyboard
+arrangement that disagreed with the one on screen would be a second thing to learn.
 
-The last two are not about a player at all and work before you have searched for anybody:
-Tournament follows whatever BWF has on this week, and Winners is every season's biggest
-titles at once.
+Seasons is the strip and is still where a player link lands. Compare holds the grid and the
+honours board, either of them for one player or two, and when there is only one it draws an
+empty dashed seat beside them — a page called Compare should look like one before anybody has
+been chosen. Tournament and Winners are not about a player at all and work before you have
+searched for anybody.
 
 ## The grid
 
@@ -292,12 +295,35 @@ to their own answer without a release — but with the retry turned off, since a
 this origin refuses it every time.
 
 The rebuilt schedule is filtered in two ways BWF's own is not: to tournaments on the board (the
-year list is all 308 events, juniors and para included) and past cancelled ones, on `status.code`
-rather than on the name. See `scheduleFromYear`.
+year list is all 308 events) and past cancelled ones, on `status.code` rather than on the name.
+See `scheduleFromYear`.
+
+⚠️⚠️ **Junior and para events are off this page**, as they are off every other one here
+(10 Oct 2026). The standing reason is the one in `JUNIOR`: it is not the same sport being
+measured. The week of 5-17 October 2026 is what made it urgent, and the two events fail in
+opposite directions. The **World Junior Team Championships** cannot be drawn at all: measured
+live, its ties come back as draws named "Relay - 1-8", **every match has an empty player
+list**, and `tournaments/draws` answers with nothing — so the order of play would show two
+flags and no names, and the bracket would have nothing to lay out. The **World Junior
+Championships** is the opposite: MS/WS/MD/WD/XD with real players, rendering perfectly, with
+nothing on the page to say it is the under-19s.
+
+It was already true on the deployed site, by accident: `scheduleFromYear` keeps only what
+`scheduleGroup` can place, and a junior event has no `catLogo`. So localhost and the live site
+disagreed, and neither had the rule written down. `onSeniorCircuit` is now one rule used by
+both. Senior **team** events stay — Thomas, Uber and Sudirman are events people watch and
+their ties carry real players.
 
 
 A day bar runs across the tournament's dates and opens on today — or on the last day if it
-is over, the first if it has not started. Below it the order of play, laid out as a grid:
+is over, the first if it has not started.
+
+⚠️⚠️ **A day you choose is yours.** While something is being played the page re-asks BWF
+every minute, and that check used to re-derive the day from today's date: sitting on Friday's
+order of play while Saturday was being played, the page silently jumped to Saturday after up
+to a minute. Reported on the Arctic Open, 10 October 2026. A day you picked, or a link named,
+is now held until you pick another or the tournament itself changes under you. The check also
+stops asking for a day already played, which can never answer anything new. Below it the order of play, laid out as a grid:
 **one column per court, one row per moment in the day**. Two cards level with each other were
 on court together. When there is only one court, or the order of play is not out yet, it
 falls back to a plain list.

@@ -2110,6 +2110,45 @@ function biggest(list) {
   return list.reduce((best, t) => (best == null || stakes(t) < stakes(best) ? t : best), null);
 }
 
+/* The para circuit, by name. The same test `NOT_SENIOR` uses, kept narrow for
+   the same reason: `para[\s-]` so that a place called Paraguay is not a
+   classification. */
+const PARA = /\bpara[\s-]|paralympic|parapan/i;
+
+/**
+ * Whether a scheduled tournament belongs to the circuit this page is about.
+ *
+ * ⚠️⚠️ **Junior and para are out, as they are everywhere else here.** The project's
+ * standing reason is in `JUNIOR`: it is not the same sport being measured, and
+ * every other view — the grid, the honours board, the winners' harvest — has
+ * excluded both since they were built. The tournament page was the one that did
+ * not, and the week of 5-17 October 2026 is what showed it:
+ *
+ * - the **World Junior Team Championships** is unusable here even if it were
+ *   wanted. Measured live on 10 Oct 2026: its ties come back as draws named
+ *   "Relay - 1-8" and "Relay - 9-16", which `canonicalDraw` does not recognise;
+ *   **every match has an empty `players` array**, so the order of play draws two
+ *   flags and no names; and `tournaments/draws` answers with an empty list, so
+ *   the bracket has nothing at all to lay out.
+ * - the **World Junior Championships** is the opposite problem. Its draws are
+ *   MS/WS/MD/WD/XD with real named players, so it renders *perfectly* — and
+ *   nothing on the page would say it was the under-19s.
+ *
+ * ⚠️ **It was already true on the deployed site, by accident.** `scheduleFromYear`
+ * keeps only what `scheduleGroup` can place, and a junior event has no `catLogo`
+ * and no name a major pattern matches, so it was filtered out there and not in
+ * the `vue-tmt-schedule` payload the app gets on localhost. Two paths, two
+ * answers, and the rule written down in neither. Now it is one rule, used by
+ * both.
+ *
+ * ⚠️ Team events are **not** excluded: the Thomas, Uber and Sudirman Cups are
+ * senior, their ties carry real players, and they are events people watch.
+ */
+export function onSeniorCircuit(t) {
+  const name = String((t && t.name) || '');
+  return !!name && !JUNIOR.test(name) && !PARA.test(name);
+}
+
 /**
  * Which tournament to show, and what state it is in.
  *
@@ -2129,7 +2168,15 @@ function biggest(list) {
  * @returns {{tmt, state: 'live'|'upcoming'|'finished', also: object[]}|null}
  */
 export function pickTournament(schedule, today, wantCode) {
-  const s = schedule || {};
+  /* ⚠️ Filtered at the door rather than in each of the four places below, so a
+     junior event cannot reach the pick, the alternatives, the upcoming slot or
+     the finished one. See `onSeniorCircuit`. */
+  const raw = schedule || {};
+  const s = {
+    nextLive: onSeniorCircuit(raw.nextLive) ? raw.nextLive : null,
+    nextTmt: onSeniorCircuit(raw.nextTmt) ? raw.nextTmt : null,
+    previousTmt: onSeniorCircuit(raw.previousTmt) ? raw.previousTmt : null,
+  };
   const at = t => (t ? { from: dayOf(t.start_date), to: dayOf(t.end_date) } : null);
 
   /* ⚠️ **All of the live ones, then the biggest** — not the first one BWF
@@ -2227,7 +2274,7 @@ export function scheduleFromYear(list, today) {
     tmtLogo: t.tmtLogo || t.logo || null,
     label: t.label || null,
   });
-  const board = (list || []).filter(t => !off(t)).map(slot)
+  const board = (list || []).filter(t => !off(t) && onSeniorCircuit(t)).map(slot)
     .filter(t => dayOf(t.start_date) && dayOf(t.end_date) && scheduleGroup(t) != null);
 
   const live = board.filter(t => within(today, dayOf(t.start_date), dayOf(t.end_date)))

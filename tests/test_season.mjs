@@ -655,7 +655,7 @@ check('the grid is shut until it is asked for',
    of the hero, which is where a setting goes. */
 const picks = await b.ev(`[...document.querySelectorAll('#pageNav [data-page]')]
   .map(b => b.dataset.page + (b.classList.contains('on') ? '*' : ''))`);
-eq('the nav offers every page by name', picks.join(' '), 'seasons* compare tmt winners');
+eq('the nav offers every page by name', picks.join(' '), 'tmt seasons* compare winners');
 eq('each one named at a size you can read',
   await b.ev(`Math.round(parseFloat(getComputedStyle(
     document.querySelector('#pageNav .tab .name')).fontSize))`), 16);
@@ -1722,7 +1722,7 @@ check('finals day at the Worlds loads', await openTmt('#pg=tmt&now=2026-08-23'))
 
 const navNow = await b.ev(`[...document.querySelectorAll('#pageNav [data-page]')]
   .map(b => b.dataset.page + (b.classList.contains('on') ? '*' : ''))`);
-eq('the nav says which page you are on', navNow.join(' '), 'seasons compare tmt* winners');
+eq('the nav says which page you are on', navNow.join(' '), 'tmt* seasons compare winners');
 check('the other three pages step aside',
   await b.ev(`document.getElementById('seasonsPage').hidden
     && document.getElementById('comparePage').hidden
@@ -1790,6 +1790,30 @@ check('and only the first is given as fact, the rest marked approximate',
 
 await b.ev(`window.BST.tmt.day('2026-08-19')`);
 check('an earlier day loads', await b.until('window.BST.tmt.ready()', { timeout: 120000 }));
+
+/* ⚠️⚠️ **A day the reader chose is theirs, and a refresh must not take it
+   back.** The live check runs `loadTournament({fresh: true})` every minute while
+   something is being played, and that branch re-derived the day from today's
+   date — so sitting on Friday's order of play while Saturday was being played
+   silently jumped to Saturday after up to a minute. Reported by the reader on
+   the Arctic Open, 10 Oct 2026. Checked through `reload()`, which is the same
+   call the live check and the Refresh button both make. */
+eq('the chosen day is the one showing', await b.ev('window.BST.tmt.state.day'), '2026-08-19');
+await b.ev('window.BST.tmt.reload()');
+check('a refresh leaves it there', await b.until(
+  `window.BST.tmt.ready() && window.BST.tmt.state.day === '2026-08-19'`, { timeout: 120000 }),
+  await b.ev('window.BST.tmt.state.day'));
+/* It holds a day, it does not freeze one: a link that names another still wins,
+   and so does choosing one. */
+await b.ev(`location.hash = '#pg=tmt&d=2026-08-21&now=2026-08-23'`);
+check('a link naming a different day still moves it',
+  await b.until(`window.BST.tmt.ready() && window.BST.tmt.state.day === '2026-08-21'`,
+    { timeout: 120000 }),
+  await b.ev('window.BST.tmt.state.day'));
+await b.ev(`window.BST.tmt.day('2026-08-19')`);
+check('and so does choosing one', await b.until(
+  `window.BST.tmt.ready() && window.BST.tmt.state.day === '2026-08-19'`, { timeout: 120000 }),
+  await b.ev('window.BST.tmt.state.day'));
 
 const grid = await b.ev('window.BST.tmt.grid()');
 check('a full day draws as a grid', !!grid);
@@ -2308,7 +2332,7 @@ check('the winners page loads with no player at all',
 eq('and the nav says so',
   await b.ev(`[...document.querySelectorAll('#pageNav [data-page]')]
     .map(b => b.dataset.page + (b.classList.contains('on') ? '*' : '')).join(' ')`),
-  'seasons compare tmt winners*');
+  'tmt seasons compare winners*');
 
 /* ⚠️ The year comes off `dataset.year`, not off the label's text: a season
    holding a title that was played in another calendar year carries a ⁕ in that
@@ -4681,17 +4705,19 @@ eq('and back on the seasons before the walk', await onPage(), 'seasons');
 
 /* ---- left and right walk the pages ---- */
 
+/* ⚠️ The walk follows the **tabs**, which now lead with the tournament page, so
+   right from the seasons runs compare, winners, and round to the tournament. A
+   keyboard order that disagreed with the one on screen would be a second
+   arrangement to learn. */
 await press('ArrowRight');
 eq('right goes to the next page', await onPage(), 'compare');
-await press('ArrowRight');
-check('and the next', await b.until(`document.body.dataset.page === 'tmt'`,
-  { timeout: 120000 }));
 await press('ArrowRight');
 eq('and the next', await onPage(), 'winners');
 /* ⚠️ Wrapping, unlike the day and fold steppers below. Four pages in a ring
    beats two dead ends; a day list has real ends and should keep them. */
 await press('ArrowRight');
-eq('and wraps round rather than stopping', await onPage(), 'seasons');
+check('and wraps round rather than stopping',
+  await b.until(`document.body.dataset.page === 'tmt'`, { timeout: 120000 }));
 await press('ArrowLeft');
 eq('left wraps the other way', await onPage(), 'winners');
 
