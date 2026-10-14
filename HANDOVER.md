@@ -1005,6 +1005,84 @@ place in `GRID_ORDER`.
 
 ---
 
+### 2.14 The day BWF hollowed out the matches that had been played — 14 Oct 2026
+
+Reported from the stands: at the Denmark Open the first day looked right and the second did
+not. Every match in one column whatever the court, and a finished match played between “TBD”
+and “TBD”. Both symptoms are one thing happening on BWF's side.
+
+**What came back.** `tournaments/day-matches` for 14 Oct, the second day, 42 rows. The four
+matches that had **finished that morning** arrived like this:
+
+```json
+{ "id": 1556129, "drawName": "MD", "roundName": "R32",
+  "courtName": "Court 1", "oopRound": null, "oopText": null,
+  "matchStatus": "F", "winner": 2, "duration": 57, "reliability": 2,
+  "score": [{"home":21,"away":13},{"home":18,"away":21},{"home":19,"away":21}],
+  "team1": { "countryCode": null, "teamId": null, "players": [] },
+  "team2": { "countryCode": null, "teamId": null, "players": [] } }
+```
+
+Score, winner, duration, court — and nobody's name, no country, no flag, no position on court
+and no wording. The 2 matches being played and the 36 still to come were whole, and **day one
+was whole**, so it heals overnight.
+
+⚠️ **There is nowhere to read the names back from while it lasts.** `order=1`, `order=0` and
+dropping `court=0` all answer the same hollow rows; `vue-tournament-draw-data` answers them too,
+in both `matches[]` and the `results` grid, and the R16 cell the winner advances into is blank
+as well. There is no match-by-id route (404 on three spellings). `day-matches/players` carries
+the day's field with no fixture attached to it.
+
+⚠️⚠️ **`reliability: 2` is the marker, and it was new.** Every row in this project's recorded
+corpus — 24 fixtures, day-matches and draw data — carries `reliability` 0, 1 or null. The four
+hollow rows were 2, and nothing else on either day was. The model does **not** read the field:
+what the page has to cope with is the absence of names, whatever BWF calls it, so `hollow` is
+computed from the sides — played, and nobody named on either of them. A match nobody has played
+yet is deliberately **not** hollow: an empty side there is an ordinary “to be decided”.
+
+**Symptom one: the grid collapsed into one column.** `courtGrid` returns null unless *every*
+match it was handed has a court and a position, on the stated grounds that quietly leaving a
+match out of the order of play is worse than falling back to a list. Four rows out of 42 had no
+`oopRound`, so the whole day came down the screen in a single stack.
+
+The position is recoverable, because **the array is already in the order of play** (Part 4.7)
+and the hollow rows sit in their right place in it. `repairSeq`, in `parseDayMatches`, walks
+each court's own run in that order: a missing position is one past the row above it, or — at
+the top of a court — counted back from the first published position below it. Court 3 read
+`[null, null, 3, 4, ···]` and comes back 1, 2, 3, 4. Guesses are marked `seqGuessed` and
+never overwrite a published `oopRound`. `courtGrid`'s own refusal is unchanged: it is now
+simply never asked.
+
+**Symptom two: “TBD” against “TBD” with a scoreline between them.** `sideHtml` said TBD for
+any empty side, which is right for a bracket slot nobody has reached and wrong to the point of
+absurdity for a match that has been played. A hollow card now says **Not published** on both
+sides, with the reason on hover; the bracket card, which gets the same hollow rows, says
+it in place of its “—”.
+
+⚠️ And the page **remembers**. `checkScores` re-asks every minute while something is live, so a
+match hollowed out under a reader's eyes was on screen with its names one minute earlier.
+`keepKnownSides` takes the new score and keeps the old side — names, flag, seed — and marks it
+`remembered`. It cannot help a page opened cold in the middle of such a day, which is why the
+card also has something to say for itself.
+
+**Found on the way: “Court and time TBA” was being printed as fact.** A fourth `oopText` form,
+15 times in the corpus, and `anchored` was everything that is not “Followed by” — so a row
+that says in so many words that its time is not fixed was drawn as a published one, with no
+≈ on it, and `courtGrid` built rows on it as an anchor. The Denmark Open's last two matches on
+each court said it, and the page gave them a flat 19:00 and 19:50. An anchor is now BWF's own
+published wording and **nothing else** (`/^\s*(starting at|not before)\b/`). The old rule also
+anchored the hollow rows' empty `oopText`, which cost court 3 a row of its own next to nothing.
+
+⚠️ **The winners harvest was already safe.** `peopleOf` keeps only players with an id, so a
+hollow final yields nobody, `victor` returns null, the draw route is tried, and the tournament
+lands in the `missing` list to be re-run — rather than writing a nameless champion onto the
+board.
+
+**Still open.** Nothing is drawn for the *reason* a side is blank beyond the two words; if BWF
+starts hollowing matches for days at a time rather than hours, the honest next step is a note
+on the day rather than on each card. And `reliability` is still unread — if a second meaning
+for it turns up, this is the entry to come back to.
+
 ### 2.13 The tournament page is the senior circuit, and a chosen day is held — 10 Oct 2026
 
 Three notes from the reader in one week: two bugs and an ordering.
@@ -1205,6 +1283,12 @@ GET /vue-tournament-draw-data?tmtId={id}&tmtType=1&drawId={from the list}&isPara
 GET /tournaments/day-matches?tournamentCode={GUID}&date=YYYY-MM-DD&order=1&court=0
 GET /h2h/statistics?t1p1={id}&t2p1={id}[&t1p2=&t2p2=]
 ```
+
+⚠️⚠️ **A `day-matches` row can come back hollow while the day is being played**: no players,
+no country, no `oopRound` and no `oopText`, keeping its score, its winner and its court. The
+one field that marked it was `reliability: 2`. Measured at the Denmark Open on 14 Oct 2026 and
+written up in 2.14 — including the four routes that do **not** answer with the names, so do
+not go looking for them again.
 
 `rankId`: 2 = BWF World Rankings, 9 = HSBC Race to Finals.
 Ranking category ids — world: MS 6, WS 7, MD 8, WD 9, XD 10; race: 57/58/59/60/61.
@@ -3304,6 +3388,12 @@ BWF spaces the estimates a flat 50 minutes apart and they are not real.
 published one — *Starting at 10:00 AM*, or *Not before 5:00 PM* for a session opening
 mid-day — and those are exact. `parseMatch` marks them `anchored`, and the grid's rows are
 built on them; see 3.5a.
+
+⚠️⚠️ **And an anchor is BWF's own published wording, not everything that is not “Followed
+by”.** `oopText` has four forms and a null: “Court and time TBA” says the time is not fixed
+and arrives with a `courtName` beside it anyway, so it read as a published time for five
+weeks and was printed without the ≈ mark. The rule is now a whitelist,
+`/^\s*(starting at|not before)\b/` — see 2.14.
 
 ⚠⚠ And `matchTime` and `matchTimeUtc` **disagree**: in the recorded Worlds day the offset
 between them wanders between 5.00 and 6.00 hours, and it is the venue clock that runs

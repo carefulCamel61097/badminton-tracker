@@ -2417,7 +2417,7 @@ export function parseMatch(m) {
     });
   });
 
-  // BWF's own words for when a match starts. Three forms, and the distinction
+  // BWF's own words for when a match starts. Four forms, and the distinction
   // between them is load-bearing:
   //
   //   "Starting at 1:00 PM"  a published time — the first match of a session
@@ -2425,14 +2425,51 @@ export function parseMatch(m) {
   //   "Followed by"          no time at all; what `matchTime` holds is a flat
   //                          50-minute estimate that on some courts runs
   //                          *backwards* (Part 4.7)
+  //   "Court and time TBA"   not even the court is settled yet
+  //   (nothing at all)       a row BWF has hollowed out, below
   //
   // ⚠️ "Not before" is an **anchor, not an estimate**. It reads like hedging and
   // is not: it is how BWF publishes the start of an afternoon or evening session,
   // and a court can open one while its neighbours are still playing through the
   // morning. `courtGrid` builds the day's rows on exactly these anchors, and the
   // card stops calling such a time approximate.
+  //
+  // ⚠️⚠️ **"Court and time TBA" is the opposite and was read as an anchor for
+  // five weeks.** It says in so many words that the time is not fixed — and a
+  // `courtName` arrives beside it anyway, so the row looks exactly like a
+  // published one. It is in the corpus fifteen times and was being printed as
+  // fact: the Denmark Open's last two matches on each court on 14 Oct 2026 said
+  // "Court and time TBA" and the page gave them a flat 19:00 and 19:50 with no
+  // mark on them. Estimates, therefore, and no anchor for the grid to build a
+  // row on.
+  //
+  // ⚠️ So an anchor is now **BWF's own published wording and nothing else**,
+  // rather than everything that is not "Followed by". The old rule made an
+  // anchor of a form it had never seen, and the new forms keep arriving: the
+  // hollowed rows carry `oopText: null`, which the old rule would have anchored
+  // the day's first row on. A wording this does not know is drawn as an
+  // estimate, which errs towards saying less than BWF rather than more.
   const oop = raw.oopText || '';
-  const anchored = !/^\s*followed\b/i.test(oop);
+  const anchored = /^\s*(starting at|not before)\b/i.test(oop);
+
+  /* ⚠️⚠️ **A played match BWF has emptied out.** Measured live at the Denmark
+     Open on 14 Oct 2026, the second day: the four matches that had *finished
+     that morning* came back with `players: []`, `countryCode: null`, no
+     `teamId`, no `oopRound` and no `oopText` — while keeping their full score,
+     their winner, their duration and their court. The day before, every
+     finished match was intact, so it heals; and `vue-tournament-draw-data`
+     answers the same hollow rows, so there is nowhere on BWF to read the names
+     back from while it lasts. The one field that marked them was
+     **`reliability: 2`**, which no row in this project's whole fixture corpus
+     had ever carried — every other row is 0, 1 or null.
+
+     Detected from the sides rather than from `reliability`, because what the
+     page has to cope with is the absence of names whatever BWF calls it. A
+     match nobody has played yet is **not** hollow: an empty side there is an
+     ordinary "to be decided", and saying anything else about it would be a
+     second bug. */
+  const hollow = (winner > 0 || games.length > 0)
+    && sides.every(sd => !sd.players.length);
 
   return {
     id: raw.id != null ? String(raw.id) : '',
@@ -2453,6 +2490,8 @@ export function parseMatch(m) {
     anchored,
     estimated: !anchored,
     sides,
+    /** Played, scored, and with nobody's name on it. See above. */
+    hollow,
     winner,
     status: done ? 'finished' : playing ? 'live' : 'upcoming',
     statusWord: done ? (note ? note.long : 'Finished')
@@ -2476,8 +2515,81 @@ export function parseDayMatches(payload, day) {
   const rows = Array.isArray(payload) ? payload
     : (payload && Array.isArray(payload.results)) ? payload.results
     : (payload && typeof payload === 'object') ? Object.values(payload) : [];
-  return rows.filter(r => r && typeof r === 'object' && r.team1)
-    .map(r => Object.assign(parseMatch(r), day ? { day } : {}));
+  return repairSeq(rows.filter(r => r && typeof r === 'object' && r.team1)
+    .map(r => Object.assign(parseMatch(r), day ? { day } : {})));
+}
+
+/**
+ * Put back a position on court that BWF has dropped.
+ *
+ * ⚠️⚠️ **One row without `oopRound` used to cost the whole grid.** `courtGrid`
+ * refuses to draw unless *every* match it was given has a court and a position,
+ * because quietly leaving a match out of the order of play is worse than
+ * falling back to a list — and on 14 Oct 2026 the Denmark Open's four hollowed
+ * matches (see `parseMatch`) took their `oopRound` with them. Four rows out of
+ * forty-two, and the whole day collapsed into a single column: eight courts'
+ * worth of play in one stack, which is what the reader saw and reported.
+ *
+ * The position is recoverable, because **the array is already in the order of
+ * play** (Part 4.7) and the hollow rows sit in their right place in it. So the
+ * court's own run is walked in that order: a missing position is one past the
+ * row above it, or — when it is the top of the court — counted back from the
+ * first published position below it. Court 3 that morning read
+ * `[null, null, 3, 4, ···]` and comes back 1, 2, 3, 4.
+ *
+ * ⚠️ Guesses are marked `seqGuessed` and never overwrite a published
+ * `oopRound`. Nothing on the page reads the flag; it is there so that a day
+ * drawn from inference can be told from a day BWF actually numbered.
+ */
+function repairSeq(list) {
+  const byCourt = new Map();
+  for (const m of list) {
+    if (!m.court) continue;
+    if (!byCourt.has(m.court)) byCourt.set(m.court, []);
+    byCourt.get(m.court).push(m);
+  }
+  for (const run of byCourt.values()) {
+    for (let i = 0; i < run.length; i++) {
+      if (run[i].seq != null) continue;
+      let seq = i > 0 ? run[i - 1].seq + 1 : null;
+      /* The top of the court: count back from the first position below that
+         BWF did publish, so the numbering joins up with its own. */
+      for (let j = i + 1; seq == null && j < run.length; j++) {
+        if (run[j].seq != null) seq = run[j].seq - (j - i);
+      }
+      run[i].seq = seq != null && seq >= 1 ? seq : i + 1;
+      run[i].seqGuessed = true;
+    }
+  }
+  return list;
+}
+
+/**
+ * Keep the names a refresh has just lost.
+ *
+ * ⚠️ The page re-asks BWF every minute while something is being played, so a
+ * match that finishes under a reader's eyes was on screen *with its names* one
+ * minute before it was hollowed out. Those names are BWF's own, a minute old,
+ * and a great deal truer than a blank — so the new score is taken and the old
+ * side is kept. Only the names, the flag and the seed come across; the score,
+ * the winner and the loser are whatever arrived now.
+ *
+ * It cannot help a page opened cold in the middle of such a day, which is why
+ * the hollow card also has something honest to say for itself.
+ */
+export function keepKnownSides(list, before) {
+  for (const m of list || []) {
+    if (!m.hollow) continue;
+    const was = before && before.get(m.id);
+    if (!was || was.hollow || !was.sides) continue;
+    m.sides = m.sides.map((sd, i) => Object.assign({}, was.sides[i] || {}, {
+      games: sd.games, won: sd.won, lost: sd.lost,
+    }));
+    m.hollow = false;
+    /** The names are remembered rather than freshly given. */
+    m.remembered = true;
+  }
+  return list;
 }
 
 /* ======================== the draws, and the bracket ========================

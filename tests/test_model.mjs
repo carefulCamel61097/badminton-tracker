@@ -34,7 +34,7 @@ import {
   careerHonours, honourSections,
   pickTournament, scheduleGroup, scheduleFromYear, tournamentDays, defaultDay,
   onSeniorCircuit,
-  parseDayMatches, orderOfPlay,
+  parseMatch, parseDayMatches, keepKnownSides, orderOfPlay,
   nameScore, rosterMatches, mergeSuggestions,
   parseDrawList, parseDraw, bracketRounds, autoFromCol, fromCol, resolvedRound,
   bracketLayout, SLOT,
@@ -2006,6 +2006,9 @@ eq('and nothing at all is no grid either', courtGrid([]), null);
    grid of them would be an invention. */
 eq('a day with no courts yet is no grid',
   courtGrid(day19.map(m => ({ ...m, court: '' }))), null);
+/* ⚠️ Still true of `courtGrid` itself, and this is the refusal that cost the
+   Denmark Open its grid — see "the day BWF hollowed out" below, where
+   `parseDayMatches` makes sure it is never asked. */
 eq('and so is one where only some matches are placed',
   courtGrid(day19.map((m, i) => (i ? m : { ...m, seq: null }))), null);
 
@@ -2088,6 +2091,160 @@ eq('a day with no times falls back to one row per position on court',
   timeless.rows.length, 10);
 check('and still places everything',
   timeless.cells.length === chinaQF.length && downTheCourt(timeless));
+
+/* ============================ the day BWF hollowed out ============================
+
+   ⚠️⚠️ **The Denmark Open, Wednesday 14 October 2026, as it came back live.**
+   Day one was whole; on day two the four matches that had *finished that
+   morning* arrived with `players: []`, `countryCode: null`, no `oopRound` and
+   no `oopText` — keeping their score, their winner, their duration and their
+   court. `vue-tournament-draw-data` answered the same hollow rows, so there was
+   nowhere to read the names back from, and the only field that marked them was
+   `reliability: 2`, which nothing in the fixture corpus had ever carried.
+
+   Two symptoms, both as the reader reported them: forty-two matches in a single
+   column, because four of them had no position and `courtGrid` draws nothing
+   unless everything is placed; and a finished match with a full scoreline
+   between "TBD" and "TBD".
+
+   Transcribed to the row, times and all, from the live payload.
+   ==================================================================== */
+
+console.log('\n=== the day BWF hollowed out ===');
+
+const DK_ROWS = [
+  /* court, oopRound, hh:mm, oopText, hollow */
+  ['Court 1', null, '09:05', null, true], ['Court 1', 2, '09:50', 'Followed by', false],
+  ['Court 1', 3, '10:40', 'Followed by', false],
+  ['Court 1', 4, '11:30', 'Court and time TBA', false],
+  ['Court 2', null, '09:15', null, true], ['Court 2', 2, '10:00', 'Followed by', false],
+  ['Court 2', 3, '10:50', 'Followed by', false],
+  ['Court 3', null, '09:15', null, true], ['Court 3', null, '09:55', null, true],
+  ['Court 3', 3, '10:50', 'Followed by', false],
+];
+const dkRaw = DK_ROWS.map((row, i) => ({
+  id: 1556000 + i, drawName: 'XD', roundName: 'R32',
+  courtName: row[0], oopRound: row[1], oopText: row[3],
+  matchTime: '2026-10-14 ' + row[2] + ':00', matchTimeUtc: '2026-10-14 ' + row[2] + ':00',
+  matchStatus: row[4] ? 'F' : 'N',
+  winner: row[4] ? 1 : 0,
+  reliability: row[4] ? 2 : 1,
+  score: row[4] ? [{ set: 1, home: 21, away: 13 }, { set: 2, home: 21, away: 16 }] : [],
+  team1: row[4] ? { countryCode: null, players: [] }
+    : { countryCode: 'DEN', players: [{ id: 1, nameDisplay: 'A' }] },
+  team2: row[4] ? { countryCode: null, players: [] }
+    : { countryCode: 'JPN', players: [{ id: 2, nameDisplay: 'B' }] },
+}));
+const dk = parseDayMatches(dkRaw, '2026-10-14');
+eq('the day reads back whole', dk.length, 10);
+
+/* ---- hollow, and only where it is true ---- */
+
+eq('the four played matches are hollow', dk.filter(m => m.hollow).length, 4);
+check('and they still carry their score and their winner',
+  dk.filter(m => m.hollow).every(m => m.games.length === 2 && m.winner === 1));
+check('nothing that has not been played yet is hollow',
+  dk.filter(m => m.status === 'upcoming').every(m => !m.hollow));
+/* ⚠️ **An unplayed match with nobody in it is not hollow, it is undecided.**
+   That is an ordinary bracket slot and the page says "TBD" for it, which is the
+   one thing a hollow card must not say. */
+check('an empty side on an unplayed match is not hollow either',
+  !parseMatch({ id: 9, matchStatus: 'N', team1: { players: [] }, team2: { players: [] } }).hollow);
+check('and a match with one side named is not hollow',
+  !parseMatch({ id: 9, matchStatus: 'F', winner: 1,
+    score: [{ set: 1, home: 21, away: 5 }],
+    team1: { players: [{ id: 1, nameDisplay: 'A' }] },
+    team2: { players: [] } }).hollow);
+
+/* ---- the position, put back ---- */
+
+/* ⚠️⚠️ The array is in the order of play (Part 4.7) and the hollow rows sit in
+   their right place in it, so the position is recoverable. Court 3 read
+   `[null, null, 3, ···]` and has to come back 1, 2, 3. */
+const seqOn = court => dk.filter(m => m.court === court).map(m => m.seq).join(',');
+eq('the top of court 1 is numbered back from the position below it', seqOn('Court 1'), '1,2,3,4');
+eq('and court 3, which lost two in a row, counts back the same way',
+  seqOn('Court 3'), '1,2,3');
+eq('only the missing ones are guesses', dk.filter(m => m.seqGuessed).length, 4);
+eq('and a published position is never overwritten',
+  dk.filter(m => !m.seqGuessed).map(m => m.seq).join(','), '2,3,4,2,3,3');
+
+/* ---- which is the whole point: the grid draws ---- */
+
+const dkGrid = courtGrid(dk);
+check('so the day draws as a grid rather than as one long column', !!dkGrid);
+eq('three courts, three columns', dkGrid.courts.length, 3);
+eq('and every match placed', dkGrid.cells.length, dk.length);
+const dkRow = (court, seq) => {
+  const c = dkGrid.cells.find(x => x.match.court === court && x.match.seq === seq);
+  return c ? c.row : null;
+};
+check('the three matches that opened the day share a row',
+  dkRow('Court 1', 1) === dkRow('Court 2', 1) && dkRow('Court 2', 1) === dkRow('Court 3', 1),
+  [dkRow('Court 1', 1), dkRow('Court 2', 1), dkRow('Court 3', 1)].join(' '));
+/* ⚠️ Court 3's second match is nine-fifty-five and the others' seconds are
+   nine-fifty and ten o'clock: one moment, one row. Before "Court and time TBA"
+   and a null `oopText` stopped counting as published times, the hollow row
+   opened a session of its own and sat alone on a row of its own. */
+check('and so do the three that followed them',
+  dkRow('Court 1', 2) === dkRow('Court 3', 2) && dkRow('Court 2', 2) === dkRow('Court 3', 2),
+  [dkRow('Court 1', 2), dkRow('Court 2', 2), dkRow('Court 3', 2)].join(' '));
+
+/* ---- an anchor is BWF's own wording, and nothing else ---- */
+
+/* ⚠️⚠️ "Court and time TBA" says the time is **not** fixed, and arrives with a
+   `courtName` beside it anyway. It was read as a published time for five weeks
+   — the Denmark Open's evening matches were printed as a flat 19:00 with no
+   mark on them. */
+check('"Court and time TBA" is an estimate, not a published time',
+  dk.filter(m => /TBA/.test(m.oop || '')).every(m => m.estimated && !m.anchored));
+check('and a row with no wording at all is not an anchor either',
+  dk.filter(m => !m.oop).every(m => !m.anchored));
+eq('while BWF\'s two published forms still are',
+  [parseMatch({ oopText: 'Starting at 9:00 AM', team1: {}, team2: {} }).anchored,
+    parseMatch({ oopText: 'Not before 5:00 PM', team1: {}, team2: {} }).anchored,
+    parseMatch({ oopText: 'Followed by', team1: {}, team2: {} }).anchored].join(),
+  'true,true,false');
+
+/* ---- the names the page already had ---- */
+
+/* ⚠️ The page re-asks BWF every minute, so a match that is hollowed out under
+   the reader's eyes was on screen with its names one minute earlier. */
+const dkBefore = new Map(dk.map(m => [m.id, m]));
+const dkLive = parseDayMatches(dkRaw.map(r => (r.id === 1556001 ? {
+  ...r, matchStatus: 'F', winner: 2, reliability: 2,
+  oopRound: null, oopText: null,
+  score: [{ set: 1, home: 15, away: 21 }, { set: 2, home: 19, away: 21 }],
+  team1: { countryCode: null, players: [] }, team2: { countryCode: null, players: [] },
+} : r)), '2026-10-14');
+const was = dkLive.find(m => m.id === '1556001');
+check('a match hollowed out mid-refresh is hollow on its own', was.hollow);
+keepKnownSides(dkLive, dkBefore);
+const now = dkLive.find(m => m.id === '1556001');
+eq('but the names the last update carried are kept',
+  now.sides.map(sd => sd.players.map(p => p.name).join('/')).join(' v '), 'A v B');
+eq('and so are the flags and the countries', now.sides[0].country, 'DEN');
+check('while the score, the winner and the loser are the new ones',
+  now.sides[1].won && now.sides[0].lost
+    && now.sides[0].games.map(g => g.own).join(',') === '15,19',
+  JSON.stringify(now.sides.map(sd => ({ won: sd.won, g: sd.games.map(g => g.own) }))));
+check('so it is no longer hollow, and says the names are remembered',
+  !now.hollow && now.remembered === true);
+/* ⚠️ It cannot help a page opened cold in the middle of such a day, and does
+   not pretend to: with nothing remembered the match stays hollow and the card
+   has to say so itself. */
+check('with nothing to remember it stays hollow',
+  keepKnownSides(parseDayMatches(dkRaw, '2026-10-14'), new Map())
+    .filter(m => m.hollow).length === 4);
+const dkNamed = parseDayMatches(dkRaw, '2026-10-14');
+keepKnownSides(dkNamed, new Map(dkNamed.map(m => [m.id, {
+  ...m, hollow: false,
+  sides: [{ players: [{ name: 'X' }] }, { players: [{ name: 'Y' }] }],
+}])));
+check('and a match that has its own names is left alone',
+  dkNamed.filter(m => !m.hollow && !m.remembered).length === 6
+    && dkNamed.filter(m => m.status === 'upcoming')
+      .every(m => m.sides[0].players[0].name === 'A'));
 
 /* ============================ the Superseries era ============================
 

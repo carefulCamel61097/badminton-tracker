@@ -26,7 +26,8 @@ import {
   seasonResults, tournamentSeason,
   HONOUR_STEPS, HONOUR_DEFAULT, honourStep, honourScale, honourRung,
   careerHonours, honourSections,
-  pickTournament, tournamentDays, defaultDay, parseDayMatches, orderOfPlay,
+  pickTournament, tournamentDays, defaultDay, parseDayMatches, keepKnownSides,
+  orderOfPlay,
   courtGrid, drawsPresent, dayOf, matchSignature, prettyDay, tidyTmtName,
   parseDrawList, parseDraw, bracketLayout, bracketRounds, resolvedRound, surnameOf,
   rosterMatches, mergeSuggestions,
@@ -4090,13 +4091,16 @@ async function loadDay(day, token, opts = {}) {
     const raw = await loadDayMatches(tmt.pick.tmt.code, d, { fresh: !!opts.fresh });
     if (token !== tmtToken) return;
     const list = parseDayMatches(raw, d);
+    const before = new Map((tmt.byDay.get(d) || []).map(m => [m.id, m]));
+    /* ⚠️ A match that finishes while the page is open comes back hollow, and
+       this is the one place that still has its names. See `keepKnownSides`. */
+    keepKnownSides(list, before);
 
     // Only on a refresh: on a first load *everything* is new, which is not news.
     if (opts.fresh) {
-      const before = new Map((tmt.byDay.get(d) || []).map(m => [m.id, matchSignature(m)]));
       for (const m of list) {
         const was = before.get(m.id);
-        if (was != null && was !== matchSignature(m)) {
+        if (was && matchSignature(was) !== matchSignature(m)) {
           tmt.fresh.set(m.id, Date.now());
           tmt.moved++;
         }
@@ -4261,11 +4265,15 @@ function bracketSide(m, sd) {
      card; the predecessor found the same thing and shortened its pair names
      everywhere for it. Singles keep the full name, and the full form is on the
      card's tooltip either way. */
+  /* ⚠️ A hollowed match (`parseMatch`) reaches the bracket too — the same four
+     Denmark Open matches were blank in `vue-tournament-draw-data` as well, so
+     the cell has the score and neither name. "—" would read as a slot nobody
+     has reached yet, which is the one thing it is not. */
   const names = sd.players.length
     ? (sd.players.length > 1
       ? sd.players.map(pl => surnameOf(pl.name)).join(' / ')
       : sd.players[0].name)
-    : `<span class="muted">${m.bye ? 'Bye' : '—'}</span>`;
+    : `<span class="muted">${m.bye ? 'Bye' : m.hollow ? 'Not published' : '—'}</span>`;
   const sets = sd.games.map(g => `<b class="${g.won ? 'won' : ''}">${g.own}</b>`).join('');
   const mark = m.note && sd.lost ? `<b class="mk">${esc(m.note.short)}</b>` : '';
   return `<div class="${cls}">`
@@ -4287,7 +4295,8 @@ function bracketCardHtml(card) {
     moved && Date.now() - moved < FRESH_MS ? 'is-fresh' : ''].filter(Boolean).join(' ');
 
   // The full names, which the card itself has no room for.
-  const who = m.sides.map(sd => sd.players.map(pl => pl.name).join(' / ') || 'TBD').join('  v  ');
+  const who = m.sides.map(sd => sd.players.map(pl => pl.name).join(' / ')
+    || (m.hollow ? 'Not published' : 'TBD')).join('  v  ');
   const tip = m.bye
     ? `${who.replace('  v  TBD', '')}\nThrough without playing`
     : `${who}\n${m.round}${m.time ? ' · ' + m.time : ''}`
@@ -4439,12 +4448,20 @@ function startLive() {
    scores as badges. The predecessor's layout, and it is the right one — a row
    of numbers beside a name says who won which game without the reader doing
    any arithmetic on a joined "21-14 14-21" line. */
-function sideHtml(sd, note) {
+function sideHtml(m, sd) {
+  const note = m.note;
   const cls = ['side', sd.won ? 'is-winner' : '', sd.lost ? 'is-loser' : '']
     .filter(Boolean).join(' ');
+  /* ⚠️ **"TBD" is only for a match nobody has played yet.** On a hollowed card
+     (`parseMatch`) it was the worst thing the page could say: a finished match,
+     with a full scoreline beside it, claiming its players were still to be
+     decided. What is true is that BWF has stopped saying who they were. */
   const names = sd.players.length
     ? sd.players.map(pl => esc(pl.name)).join(' / ')
-    : '<span class="muted">TBD</span>';
+    : m.hollow
+      ? '<span class="muted" title="Played and scored, but BWF has stopped saying'
+        + ' who played it. It usually comes back the next day.">Not published</span>'
+      : '<span class="muted">TBD</span>';
   const sets = sd.games.map(g =>
     `<b class="${g.won ? 'won' : ''}">${g.own}</b>`).join('');
   // The mark belongs to whoever it happened to, which is the side that lost.
@@ -4469,8 +4486,10 @@ function localClock(m) {
 
 function matchHtml(m) {
   const statCls = m.note ? 'finished is-note' : m.status;
-  const head = `<span class="rnd">${esc(m.round)}</span>`
-    + '<span class="sep">&middot;</span>'
+  /* ⚠️ A hollowed row can arrive without its `roundName` too, and a card
+     that opened on a dangling separator read as a rendering fault. */
+  const head = (m.round ? `<span class="rnd">${esc(m.round)}</span>`
+    + '<span class="sep">&middot;</span>' : '')
     + `<span class="ev">${esc(m.draw)}</span>`
     + `<span class="sep court">&middot;</span><span class="court">${esc(m.court)}</span>`
     + `<span class="stat ${statCls}">${esc(m.statusWord)}</span>`;
@@ -4515,7 +4534,7 @@ function matchHtml(m) {
     + ` title="${star ? 'Starred — click to remove' : 'Click to star this match'}">`
     + `<div class="match-head"><span class="star" aria-hidden="true">`
     + `${star ? '&#9733;' : '&#9734;'}</span>${head}</div>`
-    + `<div class="match-body">${m.sides.map(sd => sideHtml(sd, m.note)).join('')}</div>`
+    + `<div class="match-body">${m.sides.map(sd => sideHtml(m, sd)).join('')}</div>`
     + `<div class="match-foot">${foot}</div></article>`;
 }
 

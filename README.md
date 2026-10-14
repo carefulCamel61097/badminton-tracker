@@ -344,8 +344,38 @@ day where every court starts and breaks together this lands on exactly the grid 
 gave. Two published starts within a quarter of an hour count as one moment — courts opening
 ten minutes apart is a stagger, not a different part of the day.
 
-Estimated times are marked **≈** and carry BWF's own wording, *Followed by*. A published
-one never is, however it is phrased.
+Estimated times are marked **≈** and carry BWF's own wording, *Followed by* — or *Court and
+time TBA*, which is a fourth form and was read as a published time for five weeks (14 Oct
+2026). It says in so many words that the time is not fixed, and a court name arrives beside it
+anyway, so the row looks exactly like a published one: the Denmark Open's last two matches on
+each court were printed as a flat 19:00 and 19:50 with no mark on them. **An anchor is now
+BWF's own published wording and nothing else** — *Starting at* or *Not before* — rather than
+everything that is not *Followed by*. A wording this does not know is drawn as an estimate,
+which errs towards saying less than BWF rather than more.
+
+⚠️⚠️ **A match BWF has emptied out still says what it can.** Measured live at the Denmark Open
+on Wednesday 14 October 2026: the four matches that had **finished that morning** came back
+with no players, no countries, no position on court and no wording — while keeping their full
+score, their winner, their duration and their court. The day before, every finished match was
+whole, so it heals overnight; and the bracket route answered the same hollow rows, so there was
+nowhere on BWF to read the names back from while it lasted. The only field that marked them was
+`reliability: 2`, which nothing in this project's whole recorded corpus had ever carried.
+
+It broke the page in two ways, both of them reported from the stands. **The grid collapsed into
+one column**, because the order of play is only drawn when every match in it has a court and a
+position, and four rows out of forty-two had lost theirs — so eight courts' play came down the
+screen in a single stack. The position is recoverable, because the array BWF sends is already
+in the order of play and the hollow rows sit in their right place in it: a missing position is
+now one past the row above it, or counted back from the first published position below it.
+Court 3 that morning read *(blank), (blank), 3, 4, ···* and comes back 1, 2, 3, 4.
+
+And **a finished match was drawn between "TBD" and "TBD"**, which is the worst thing the page
+could say about it: a full scoreline beside two players still to be decided. A match nobody has
+played yet still says *TBD*, because there an empty side really is undecided. A played one says
+**Not published**, and says why if you hover it. The page also remembers: it re-asks BWF every
+minute, so a match hollowed out under the reader's eyes was on screen with its names a minute
+earlier, and those names are kept beside the new score. That cannot help a page opened cold in
+the middle of such a day, which is why the card has something honest to say for itself as well.
 
 Each card is a scoreboard: flag, seed, name, and **that side's own games** as badges with the
 ones they won picked out. A seed is written `[1]`, never bare — a lone numeral beside a name
