@@ -2070,8 +2070,13 @@ check('a court that starts an hour later is not drawn level with the rest',
   rowOf(china, 'Court 3', 1) !== rowOf(china, 'Court 1', 1),
   'court 3 opens on row ' + rowOf(china, 'Court 3', 1)
     + ', court 1 on ' + rowOf(china, 'Court 1', 1));
-check('it lands after the 10:50 matches and before the 11:45 ones',
-  rowOf(china, 'Court 3', 1) > rowOf(china, 'Court 1', 2)
+/* ⚠️ It shares the 10:50 moment rather than sitting between 10:50 and 11:45 on
+   a line of its own, which is what it did until 15 Oct 2026. Ten minutes apart
+   is one moment by the same grace that holds two published starts together, and
+   the bug this whole block is about — 11:00 drawn level with the **10:00** row
+   — is still fixed. See "a court with one match more". */
+check('it shares the moment the 10:50 matches begin, and stays above the 11:45 ones',
+  rowOf(china, 'Court 3', 1) === rowOf(china, 'Court 1', 2)
     && rowOf(china, 'Court 3', 1) < rowOf(china, 'Court 1', 3),
   [rowOf(china, 'Court 1', 2), rowOf(china, 'Court 3', 1), rowOf(china, 'Court 1', 3)].join(' '));
 check('and its 7pm match sits with the evening, not with the morning',
@@ -2080,9 +2085,10 @@ check('and its 7pm match sits with the evening, not with the morning',
     + ', the 18:40 match on ' + rowOf(china, 'Court 1', 8));
 check('the rows still run forwards through the day',
   rowClock(china).every((t, i) => i === 0 || t >= rowClock(china)[i - 1]), clockLine(china));
-/* Two rows more than the ten positions on court one: the two moments court
-   three had to itself, and nothing else. */
-eq('which costs exactly the two rows court three needed', china.rows.length, 12);
+/* One row more than the ten positions on court one: the 7pm match, which no
+   other court comes within a quarter of an hour of. The 11:00 one shares the
+   10:50 row and costs nothing. */
+eq('which costs exactly the one row court three needed', china.rows.length, 11);
 
 /* ⚠️ The fallback. With no times there is nothing to place a session against,
    so the grid goes back to being positional rather than inventing an order. */
@@ -2091,6 +2097,94 @@ eq('a day with no times falls back to one row per position on court',
   timeless.rows.length, 10);
 check('and still places everything',
   timeless.cells.length === chinaQF.length && downTheCourt(timeless));
+
+/* ======================= a court with one match more =======================
+
+   ⚠️⚠️ **The Denmark Open, Thursday 15 October 2026**, transcribed from
+   `tournaments/day-matches`. Courts 1 and 2 ran one unbroken chain of estimates
+   from 9:00 to 19:00 — thirteen matches, fifty minutes apart, no published
+   session all day. Court 3 started ten minutes later by BWF's own
+   *"Starting at 9:10 AM"*, had **fourteen** matches to get through, and opened
+   an afternoon session at *"Not before 1:45 PM"* — twenty-five minutes after its
+   own previous match rather than fifty, which is how the extra one fits.
+
+   The reader found the result twice and called the empty cells senseless:
+
+       13:10   13:10   13:20
+         ·       ·     13:45        <- a published session with no anchored
+       14:00   14:00   14:35           row anywhere near it to share
+
+   and then every row below pairing court 3's 14:35 with the others' 14:00, 35
+   minutes apart, all the way to the bottom. The grace is a quarter of an hour
+   and 13:45 is within it of 14:00; the only thing stopping them sharing a row
+   was that 14:00 is an estimate. Now they share it, and court 3's extra match
+   falls where the day really has it — alone at the foot of its column.
+   ==================================================================== */
+
+console.log('\n=== a court with one match more ===');
+
+/* court, oopRound, hh:mm, oopText */
+const DK15 = [];
+const chain = (court, first, n2, from) => {
+  for (let i = 0; i < n2; i++) {
+    DK15.push([court, i + 1, from(i), i === 0 ? first : 'Followed by']);
+  }
+};
+const clock = (h, m) => String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+const plus50 = (h, m) => i => clock(h + Math.floor((m + i * 50) / 60), (m + i * 50) % 60);
+chain('Court 1', 'Starting at 9:00 AM', 13, plus50(9, 0));
+chain('Court 2', 'Starting at 9:00 AM', 13, plus50(9, 0));
+/* Court 3: six on the 9:10 chain, then the published afternoon session and
+   seven more strung off it. */
+for (let i = 0; i < 6; i++) {
+  DK15.push(['Court 3', i + 1, plus50(9, 10)(i), i === 0 ? 'Starting at 9:10 AM' : 'Followed by']);
+}
+for (let i = 0; i < 8; i++) {
+  DK15.push(['Court 3', i + 7, plus50(13, 45)(i), i === 0 ? 'Not before 1:45 PM' : 'Followed by']);
+}
+const dk15 = parseDayMatches(DK15.map((row, i) => ({
+  id: 1557000 + i, drawName: 'MS', roundName: 'R16',
+  courtName: row[0], oopRound: row[1], oopText: row[3],
+  matchTime: '2026-10-15 ' + row[2] + ':00', matchTimeUtc: '2026-10-15 ' + row[2] + ':00',
+  matchStatus: 'N',
+  team1: { players: [{ id: 1, nameDisplay: 'A' }] },
+  team2: { players: [{ id: 2, nameDisplay: 'B' }] },
+})), '2026-10-15');
+eq('the day reads back whole', dk15.length, 40);
+eq('and court three has the extra match',
+  ['Court 1', 'Court 2', 'Court 3'].map(c => dk15.filter(m => m.court === c).length).join(),
+  '13,13,14');
+
+const g15 = courtGrid(dk15);
+const at15 = (court, seq) => {
+  const c = g15.cells.find(x => x.match.court === court && x.match.seq === seq);
+  return c ? c.row : null;
+};
+/* ⚠️ The afternoon session and the 14:00 matches are fifteen minutes apart,
+   which is one moment, and one of the two times being an estimate does not stop
+   it being one. */
+check('the published 13:45 session shares the row the 14:00 matches begin on',
+  at15('Court 3', 7) === at15('Court 1', 7) && at15('Court 1', 7) === at15('Court 2', 7),
+  [at15('Court 1', 7), at15('Court 2', 7), at15('Court 3', 7)].join(' '));
+check('so no row in the middle of the day is half empty',
+  g15.rows.map((r, i) => g15.cells.filter(c => c.row === i + 2).length)
+    .slice(0, -1).every(w => w === 3),
+  g15.rows.map((r, i) => g15.cells.filter(c => c.row === i + 2).length).join(','));
+/* ⚠️ And the extra match is where the day really has it: one court still
+   playing when the other two are done. */
+eq('the only row with a gap in it is the last', g15.rows.length, 14);
+eq('and it holds court three alone',
+  g15.cells.filter(c => c.row === g15.rows.length + 1).map(c => c.match.court).join(),
+  'Court 3');
+/* ⚠️ Every row is a quarter of an hour wide or less — which is the claim the
+   grid makes, and what it was failing to deliver. */
+const spread = r => {
+  const t = g15.cells.filter(c => c.row === r).map(c => Date.parse(c.match.utc.replace(' ', 'T') + 'Z'));
+  return t.length < 2 ? 0 : (Math.max(...t) - Math.min(...t)) / 60000;
+};
+check('and no row spans more than the grace',
+  g15.rows.every((r, i) => spread(i + 2) <= 15),
+  g15.rows.map((r, i) => spread(i + 2)).join(','));
 
 /* ============================ the day BWF hollowed out ============================
 

@@ -3001,11 +3001,37 @@ export function courtGrid(matches) {
     let at = free;
     while (at < rows.length && rows[at].at < run.at) at++;
 
-    /* Either side of that seam is a row this session might really be part of —
-       but only if that row was opened by an anchor of its own, and only within
-       the grace. Anchors share rows with anchors; nothing snaps to an estimate. */
-    const snap = [at - 1, at].find(i => i >= free && i < rows.length
-      && rows[i].anchor != null && Math.abs(rows[i].anchor - run.at) <= SAME_MOMENT);
+    /* Either side of that seam is a row this session might really be part of,
+       if it begins within the grace of it. An anchored row is preferred — two
+       published starts a few minutes apart are certainly one moment — and
+       otherwise the nearest row within the grace will do.
+
+       ⚠️⚠️ **It used to be anchors only, and that is what put holes in the grid.**
+       At the Denmark Open on 15 Oct 2026 courts 1 and 2 ran one unbroken chain
+       of estimates from 9:00 to 19:00 and court 3, which had one match more to
+       get through, opened an afternoon session at *"Not before 1:45 PM"*. No
+       anchored row existed anywhere near it, so the session was given a row of
+       its own: a line reading `· · 13:45`, and then every row below it pairing
+       court 3's 14:35 with the others' 14:00, 35 minutes apart, for the rest of
+       the day. The reader found it twice and called the empty cells senseless.
+       Snapping to the 14:00 row instead costs nothing true — 13:45 and 14:00
+       *are* one moment — and court 3's extra match then falls where it really
+       belongs, alone at the foot of its column, because that is where the day
+       actually has one court still playing.
+
+       ⚠️ An estimate is a worse thing to measure against than a published time,
+       which is why it is the second choice rather than the first. But the row
+       this run is being placed *against* was already chosen by comparing
+       against those same estimates a few lines up, so refusing to share one was
+       never the purity it looked like. */
+    const fits = (i, t) => i >= free && i < rows.length
+      && t != null && Math.abs(t - run.at) <= SAME_MOMENT;
+    const seam = [at - 1, at];
+    let snap = seam.find(i => fits(i, rows[i] && rows[i].anchor));
+    if (snap == null) {
+      snap = seam.filter(i => fits(i, rows[i] && rows[i].at))
+        .sort((a, b) => Math.abs(rows[a].at - run.at) - Math.abs(rows[b].at - run.at))[0];
+    }
     if (snap != null) at = snap;
     else if (at === rows.length) rows.push({ at: run.at, anchor: run.at, by: new Map() });
     else rows.splice(at, 0, { at: run.at, anchor: run.at, by: new Map() });

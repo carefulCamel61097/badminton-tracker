@@ -1005,6 +1005,57 @@ place in `GRID_ORDER`.
 
 ---
 
+### 2.15 A quarter of an hour is one moment, however the two times were arrived at — 15 Oct 2026
+
+The reader, on the Denmark Open's order of play: *"There are sometimes open spots in the
+columns that I think don't make sense. I see for example a row with times 13:10, 13:10 and
+13:20. And the next one is: empty, empty, 13:45."*
+
+**The day, measured.** Courts 1 and 2 ran one unbroken chain of estimates, 9:00 to 19:00,
+thirteen matches fifty minutes apart, **no published session all day**. Court 3 started ten
+minutes later on BWF's own *"Starting at 9:10 AM"*, had **fourteen** matches to get through,
+and opened an afternoon session at *"Not before 1:45 PM"* — twenty-five minutes after its own
+previous match rather than fifty, which is how the extra one fits. Both of the reader's
+guesses about the cause were about real features of the data; neither was a fault of ours.
+
+**What the grid did with it.** `courtGrid` places each session against the rows already laid
+down, and the snap — "this session is really part of that row" — required the row to have been
+opened by an **anchor of its own**: anchors share rows with anchors, nothing snaps to an
+estimate. On this day there was no anchored row anywhere near 13:45, so the session took a row
+of its own, and then every row below it paired court 3's 14:35 with the others' 14:00, 35
+minutes apart, to the foot of the page.
+
+**The rule now.** An anchored row is still preferred — two published starts a few minutes
+apart are certainly one moment — and failing that, the nearest row within the grace will do,
+estimate or not. The argument for the old purity does not survive contact with the code above
+it: the row a run is placed *against* was already chosen by comparing its time to rows whose
+own times are estimates. Refusing to share one was a distinction the placement had already
+given up.
+
+The grid is now tight through the middle of the day and the gap is at the bottom, which is
+where the day really has it: one court still playing when the other two are done.
+
+```
+        before                     after
+   13:10  13:10  13:20       13:10  13:10  13:20
+     ·      ·    13:45       14:00  14:00  13:45
+   14:00  14:00  14:35       14:50  14:50  14:35
+    ···   (35 min apart)       ···   (15 min apart)
+                                ·      ·    19:35
+```
+
+⚠️ **The China Masters case is unchanged in substance and one row tighter.** Court 3's
+*"Starting at 11:00 AM"* used to sit on a line of its own between the 10:50 matches and the
+11:45 ones; it now shares the 10:50 row, ten minutes being well inside the grace. The bug that
+block exists for — 11:00 drawn level with the **10:00** row — is still fixed, and its 7pm
+match still has a row to itself, because nothing else that evening begins within a quarter of
+an hour of it. A lone row is not the thing that was wrong; a lone row *that nothing is near* is
+right.
+
+⚠️ **What an empty cell means**, which the page now says in its own note: nothing *started* on
+that court at that moment. The court is usually mid-match. At the foot of a column it is the
+court with one match more than its neighbours.
+
 ### 2.14 The day BWF hollowed out the matches that had been played — 14 Oct 2026
 
 Reported from the stands: at the Denmark Open the first day looked right and the second did
@@ -3388,6 +3439,10 @@ BWF spaces the estimates a flat 50 minutes apart and they are not real.
 published one — *Starting at 10:00 AM*, or *Not before 5:00 PM* for a session opening
 mid-day — and those are exact. `parseMatch` marks them `anchored`, and the grid's rows are
 built on them; see 3.5a.
+
+⚠️ A row holds everything that begins within **a quarter of an hour** of it, and from 15 Oct
+2026 that holds whether the neighbour's time was published or estimated — 2.15. A session
+preferring an anchored row is a preference, not a condition.
 
 ⚠️⚠️ **And an anchor is BWF's own published wording, not everything that is not “Followed
 by”.** `oopText` has four forms and a null: “Court and time TBA” says the time is not fixed

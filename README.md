@@ -341,8 +341,24 @@ So the day is cut into sessions at its **published** times, those are placed aga
 other in order, and inside a session position on court is still the row. A court that opens
 its own session gets a row to itself and the columns beside it are simply empty there. On a
 day where every court starts and breaks together this lands on exactly the grid the old rule
-gave. Two published starts within a quarter of an hour count as one moment — courts opening
+gave. **Starts within a quarter of an hour of each other are one moment** — courts opening
 ten minutes apart is a stagger, not a different part of the day.
+
+⚠️ **However the two times were arrived at** (15 Oct 2026). For a year the grace only held
+between two *published* starts: a session would not share a row with an estimate, on the
+grounds that an estimate is a fiction. The Denmark Open showed what that costs. Courts 1 and 2
+ran one unbroken chain of estimates from 9:00 to 19:00, and court 3 — which had fourteen
+matches to the others' thirteen — opened an afternoon session at *Not before 1:45 PM*. There
+was no published start anywhere on the day to share with, so 13:45 took a line of its own with
+two empty cells beside it, and every row below it paired court 3's 14:35 with the others'
+14:00. The reader asked, twice, what the empty cells meant. Fifteen minutes is fifteen minutes:
+13:45 and 14:00 are one moment, and court 3's extra match now falls where the day really has
+it — alone at the foot of its column, when the other two courts are finished. A published
+start is still *preferred* where there is one to share with.
+
+So an empty cell means **nothing started on that court at that moment**, and the court is
+usually mid-match rather than idle. At the end of a column it means that court is still
+playing when the others have finished.
 
 Estimated times are marked **≈** and carry BWF's own wording, *Followed by* — or *Court and
 time TBA*, which is a fourth form and was read as a published time for five weeks (14 Oct
