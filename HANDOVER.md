@@ -1005,6 +1005,124 @@ place in `GRID_ORDER`.
 
 ---
 
+### 2.16 Year: one season at the depth the pyramid gave up — settled 20 Oct 2026
+
+The reader: *"Our Winners page really shows each year somewhat simplified so that we can look
+at multiple years next to each other and see trends or eras of players dominating. But we
+don't have a page yet that really shows what happened in more depth when selecting one
+year."*
+
+**The shape.** One season. A column per tournament, left to right in the order they were
+played. Three rows: the champion, the runner-up, and the two who lost in the semi-finals.
+Super 500 and above. A fourth **view** on the Winners page rather than a fifth page, and the
+**first** of the four, which is what the page now opens on.
+
+**Why a view and not a page.** `WIN_VIEWS` was already three readings of the same seasons, and
+this is a fourth: it inherits the discipline chips, the continental chips, the zoom slider
+and the whole `win.only` pick/dim machinery for nothing. A fifth page tab would also have had
+to be called something, and *Seasons* — one player's career year by year — is already taken.
+
+⚠️⚠️ **The data did not exist.** `data/winners-*.json` records `w` and nothing else: the
+pyramid is not "simplified to winners" as a drawing decision, the harvest never collected
+anybody else. So this needed a new harvest and new files, and that was the bulk of the work.
+The runner-up turned out to be free — it is the losing side of the final match already
+fetched — and the semi-finalists cost one more day's `day-matches`. See 4.7a.
+
+⚠️⚠️ **Super 500 and above costs nothing before 2018, and that is not luck.** Four old tiers
+became five and Super 500 is the one nothing maps to (`mappedTier`, 2.11-era note), so
+filtering at this floor keeps Superseries Premier and Superseries — already the pyramid's
+Super 1000 and Super 750 rungs — and drops Grand Prix Gold and Grand Prix, which map below
+it. In the Superseries era this floor lands on **exactly the pyramid's own set**. Three
+consequences: no era toggle is needed yet, the harvest is 26 events a season from 2018 and 17
+before it rather than the whole 42-event World Tour, and the gold-numeral header has nothing
+to invent. A **Super 300 chip is where all three stop being true**, which is why there is not
+one.
+
+⚠️⚠️ **Size means placement and nothing else.** The pyramid sizes a square by the weight of
+the title; here every champion is the same size whether they won a Super 500 or the
+Olympics. The question is *how far did each person get at each event*, and one channel
+carrying both answers would answer neither. The level moves to the column header, which is
+the one place not already spoken for: a gold numeral sized by `LEVEL[].weight`, and the
+pyramid's own two marks for the prizes that are not a number.
+
+⚠️ **A cell is one competitor; a column is two cells.** The semi-final row holds two, so that
+is the column. A pair is the pyramid's split square at the cell's own size — which means a
+doubles board is exactly as wide as a singles one, and a doubles semi-finalist's half is half
+a cell. The first draft of this decision said doubles columns should be twice as wide to keep
+the faces the same size; that was a miscount. The pyramid's smallest tier already draws a
+doubles half at half its unit, so this is parity with what ships rather than a new problem,
+and the zoom slider is the answer in both places.
+
+⚠️⚠️ **Third and fourth are an order only where a match decided it.** The Olympics plays a
+bronze play-off — `roundName: "3/4"` — so its two semi-final losers really are a third and a
+fourth, and the file marks them `po` and draws an ordinal. **A tour event never has one, and
+neither do the regional Games**: measured across every Asian, European, Pan Am and African
+Games from 2018 to 2023, all five disciplines, not one `3/4` row between them. There the pair
+share third and no order is drawn, because the order BWF happened to list them in means
+nothing.
+
+⚠️⚠️ **And a medal can be won without a match.** Carolina MARIN tore a knee ligament in her
+Paris 2024 semi-final and withdrew, so the women's singles bronze play-off was never played
+and Gregoria Mariska TUNJUNG took the bronze by walkover. BWF has no `3/4` row for it; the
+other four disciplines have one. Nothing in the payload tells a walkover bronze from a shared
+third, so the file says what it can prove and the two are drawn level. The harvest logs it
+for an Olympics and only for an Olympics.
+
+⚠️ **An empty column says which kind of empty it is**, which the reader asked for. `soon` is
+read off the tournament's end date against today; `none` is everything else. Nothing is
+stored to say which, because the date already answers it. ⚠️ **But "no result" has two very
+different causes and the data cannot tell them apart**: fifteen of 2020's twenty-one events
+have no result because they were *cancelled*, and three continental championships of 2014
+have none because they were played and are missing from BWF's own archive. The page says the
+one thing it can prove and the note names both cases.
+
+⚠️⚠️ **The continental chips stay the pyramid's, and that was a decision.** Every *tier* chip
+defaults on, because nothing here is a share. The five confederation chips are a different
+matter: they are the same control in the same row, so three options were weighed. Giving the
+Year view its own all-five default means the chips on screen and the set being counted
+disagree — a lie. Flipping all five on when the view is entered changes the pyramid's score
+behind the reader's back when they leave. Keeping `CONF_DEFAULT` means a 2026 board opens on
+24 of 27 tournaments with Oceania, Africa and Pan Am one click away, and the chips tell the
+truth. The third was chosen: one control, one meaning, four views. The note says so.
+
+⚠️ **Two files are loaded, not one.** The season-ending Finals belongs to the season it
+concludes, and the 2020 edition was played on 27 January 2021 — so it sits in
+`podium-2021.json` and belongs on the 2020 board. `podiumSeason` moves it with
+`pyramidTitleSeason`, the rule the pyramid and the career grid already use, and to do that it
+has to be handed the following year's file. A reader stepping forward a season wants that
+file next anyway.
+
+⚠️⚠️ **The ledger's key is carried on the competitor, and finding out why cost an hour.**
+`winnerOf` assembles a competitor from the file's player table, and that table holds
+`{n, c, a, f}` — **there is no id in it**. A key rebuilt from `who.people.map(p => p.id)` is
+therefore `[undefined].join('+')`, which is the empty string, which is falsy, which emptied
+the ledger **completely** rather than mis-keying one row. The ids are in hand in
+`podiumSeason` and nowhere else, so that is where `key` is set.
+
+⚠️ **No export.** `poster.js` is built around a column being a season; here it is a
+tournament. A button that silently saved a picture of the pyramid would be worse than no
+button, so it is hidden — the same rule every other control on that header follows.
+
+⚠️ **No quarter-finalists**, settled with the reader. Four more cells a column is the lesser
+objection; a Super 500 quarter-final is not a notable result, so a fourth row would pay
+width and another day's harvesting for noise.
+
+⚠️ **Rejected: a connector line** joining a picked competitor's cells across the season. It
+would make a run legible, and it is also the kind of thing that looks clever and reads as
+clutter. The dimming and the ledger answer the question; noted in case the board feels flat.
+
+⚠️⚠️ **Y was taken.** The score view's third ranking already used it — for "best seasons",
+because `S` was the score view and `B` was the board, which the comment there admitted was
+awkward. A view has a better claim on a letter than a sub-control of one view, so the Year
+view takes `Y` and the ranking takes `N`, for best seaso*n*s. The page's own rule is that a
+letter may mean two things as long as it never means both at once, and here it would have
+meant both at once.
+
+⚠️ **Changing a default breaks old links.** The Winners page opens on Year, so a link in the
+wild with no `wv` lands there rather than on the pyramid. Accepted: `wv=board` is written
+into every link the page makes from the pyramid from now on, and there is no way to tell an
+old link from a new one that wants the default.
+
 ### 2.15 A quarter of an hour is one moment, however the two times were arrived at — 15 Oct 2026
 
 The reader, on the Denmark Open's order of play: *"There are sometimes open spots in the
@@ -3429,6 +3547,37 @@ Cells are placed by a spacing law — column `c`, row `r` sits at `(r + 0.5) · 
 only the later rounds you must **re-lay-out the tree from the chosen round**; merely
 hiding the early columns leaves the surviving cards flung to the corners of an equally
 tall canvas. Filtering rounds is a layout change, not a visibility change.
+
+### 4.7a The rounds that decide a podium — measured 20 Oct 2026
+
+⚠️⚠️ **BWF has three spellings of the same round and they vary by season, not by tier.** Every
+tour event from 2007 to 2026 says `SF` and `QF`. The **2016** Olympics says `SF` and `QF`; the
+**2024** Olympics says `Semi-finals` and `Quarterfinals`. An exact compare on any one of them
+silently drops a Games, which is the same class of trap `canonicalDraw` exists for.
+
+⚠️⚠️ **The bronze play-off is `roundName: "3/4"`.** Not "Bronze", not "3rd place". It is the
+only round name on this endpoint that is not a word, and therefore the one a filter written
+from the obvious vocabulary *counts* and never sees — which is exactly what happened on the
+first probe: the tally said `3/4·1` on four days of Paris 2024 and not one of those rows was
+ever printed.
+
+The final is `Final` everywhere, in every season measured.
+
+**Where the podium is.** A tour event plays all five finals on its closing day and all ten
+semi-finals the day before — two calls, true for the Superseries era and the modern tour
+alike. The Olympics does not: Paris 2024 spread its five finals over four days and its four
+bronze play-offs over four more, and the mixed final was **four days** before the men's
+singles. So `harvest-podiums.mjs` walks `end · end-8`, stops as soon as every draw with a
+final also has both its semi-finals, and runs the whole window at an Olympics or a Games.
+
+⚠️ **One day's payload answers for all five disciplines**, which is why the podium harvest is
+one pass where `harvest-winners.mjs` is five runs.
+
+⚠️ **Some finals exist only in the draw route.** The 2026 Asian Championships answers four
+finals on its closing day and ten semi-finals the day before: the **mixed final is on no
+day**, under `order=1` or `order=2`, anywhere in the window. `vue-tournament-draw-data` has
+it. Asked for only where a draw comes back short, because it is 256—407 KB a call and 500s
+outright at some tournaments.
 
 ### 4.7 Order of play
 

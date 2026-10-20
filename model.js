@@ -3371,9 +3371,9 @@ function rowsFor(season) {
  * both are read here and nothing downstream has to know which it got.
  */
 export function titleWinnerIds(title) {
-  const w = title && title.w;
-  if (w == null) return [];
-  return (Array.isArray(w) ? w : [w]).filter(x => x != null).map(String);
+  /* ⚠️ Delegated to `podiumIds` since 20 Oct 2026. Identical rule, and a podium
+     row has four slots that need it — two copies would drift. */
+  return podiumIds(title && title.w);
 }
 
 /**
@@ -3849,6 +3849,25 @@ export const SS_LAST_SEASON = 2017;
 export function pyramidLabel(tier, season) {
   const era = Number(season) <= SS_LAST_SEASON ? 'ss' : 'wt';
   return gridGroupLabel(eraGroup(tier, era), era);
+}
+
+/**
+ * The same rung, short enough for a column header.
+ *
+ * ⚠️⚠️ **`levelAbbr(tier)` is the wrong answer and it is wrong silently.** It
+ * knows nothing about the season, so `levelAbbr(23)` is "Super 1000" in every
+ * year — which put a gold **Super 1000** badge over a 2013 Superseries Premier
+ * whose own tooltip said "Superseries Premier". The era group first, exactly as
+ * `pyramidLabel` does it, and then abbreviate: "SS Prem", "SSeries", "GP Gold".
+ */
+export function pyramidAbbr(tier, season) {
+  const era = Number(season) <= SS_LAST_SEASON ? 'ss' : 'wt';
+  const g = eraGroup(tier, era);
+  /* ⚠️ **`GAMES` is not a `LEVEL` id**, so `levelAbbr` answers "Lv GAMES" — its
+     honest answer for a category it has never been told about, and nonsense in a
+     gold badge. The grid's own band already has a code for every rung on the
+     pyramid, built to fit a column this narrow, so that is the fallback. */
+  return LEVEL[g] ? levelAbbr(g) : gridGroupCode(g, era);
 }
 
 /**
@@ -4741,3 +4760,302 @@ export function drawsPresent(matches) {
   return [...known, ...rest];
 }
 
+
+/* ======================== one season's podiums ========================
+
+   The pyramid says who took the great titles of twenty seasons. This says who
+   stood on the podium of **one**: a column per tournament in the order they
+   were played, and three rows — the champion, the runner-up, and the two who
+   lost in the semi-finals.
+
+   ⚠️ **A different file, and one per season** — `tools/harvest-podiums.mjs`
+   writes `data/podium-<year>.json`. Four competitors an event against the
+   pyramid's one, and Super 500 and above rather than Super 750, so a single
+   file spanning twenty seasons would be megabytes fetched to draw one year of
+   it. The view shows one season at a time, so the file is one season.
+
+   ⚠️ Super 500 costs nothing before 2018 and that is not an accident of the
+   harvest: four old tiers became five and Super 500 is the one nothing maps to
+   (see `mappedTier`), so the floor lands on exactly the pyramid's own set in
+   the Superseries era. A Super 300 chip, when the data for one exists, is the
+   point at which this view needs the era question the pyramid answers with its
+   own toggle.
+   ==================================================================== */
+
+/* The chips over the board, and the tiers each governs. One group per chip
+   rather than one per tier, because "Olympics" and "World Championships" are a
+   single id to BWF and a single question to a reader.
+
+   ⚠️ Continental events are governed by **two** controls and both have to
+   admit them: this chip says whether continental titles are drawn at all, and
+   the confederation chips say which continents — the same ones the pyramid
+   already has, for the same reason. */
+/* The first season `tools/harvest-podiums.mjs` collects. The same floor the
+   pyramid's harvest has, and for the same reason: `tournament_category_id`
+   carries no tier before the Superseries began, so a season before 2007 cannot
+   be classified at all. */
+export const PODIUM_FIRST = 2007;
+
+export const YEAR_GROUPS = [
+  { key: 'major',  label: 'Olympics & Worlds', tiers: ['OLY', 20] },
+  { key: 'cont',   label: 'Continental',       tiers: ['GAMES', 11] },
+  { key: 'finals', label: 'Tour Finals',       tiers: [22] },
+  { key: 's1000',  label: 'Super 1000',        tiers: [23] },
+  { key: 's750',   label: 'Super 750',         tiers: [24] },
+  { key: 's500',   label: 'Super 500',         tiers: [25] },
+];
+
+/* ⚠️ **Everything on, which is not what the pyramid does.** The pyramid defaults
+   to Asia and Europe because its score is a *share* and a denominator the
+   reader did not choose is a number they cannot trust. Nothing here is a share:
+   it is a drawing of what happened, and defaulting a column off would hide an
+   African or Pan Am championships that was really played. The chips are for
+   narrowing, not for making the total mean something. */
+export const YEAR_GROUP_DEFAULT = YEAR_GROUPS.map(g => g.key);
+
+/** Which chip governs a tier, or null for a tier no chip covers. */
+export function yearGroupOf(tier) {
+  const g = YEAR_GROUPS.find(r => r.tiers.some(t => String(t) === String(tier)));
+  return g ? g.key : null;
+}
+
+/**
+ * The ids in one podium slot — a lone competitor, or a pair as an array.
+ *
+ * The same rule `titleWinnerIds` applies to the pyramid's single slot, which now
+ * delegates here: a podium has four of them and two copies of this would drift.
+ */
+export function podiumIds(v) {
+  if (v == null) return [];
+  return (Array.isArray(v) ? v : [v]).filter(x => x != null).map(String);
+}
+
+/** A competitor's key: stable, and the same however BWF ordered the pair. */
+export function podiumKey(v) {
+  return podiumIds(v).slice().sort().join('+');
+}
+
+/* The two single-competitor slots on a podium row. `sf` is a list and is walked
+   separately, which is why it is not in here. */
+const PODIUM_SLOTS = ['w', 'f'];
+
+/**
+ * The loaded files, with every pair listed in one order.
+ *
+ * ⚠️ The problem `settleWinnerOrder` documents at length — BWF does not list a
+ * partnership the same way twice, and a split square drawn in the order the row
+ * happens to carry swaps the two faces from one column to the next and reads as
+ * two different partnerships. Same rule: the most common order wins and the
+ * earliest event breaks a tie.
+ *
+ * ⚠️ **Settled across the files that are loaded, which is one season or two,
+ * not a career.** The pyramid can settle twenty seasons at once because it has
+ * them in one file; this cannot, and does not need to — the board shows a single
+ * year, so consistency *within the view* is the whole of what the reader can
+ * see. Stepping from 2019 to 2020 could in principle flip a pair whose order
+ * BWF is itself inconsistent about. Nothing is wrong about who won either way.
+ */
+export function settlePodiumOrder(files) {
+  const list = (files || []).filter(Boolean);
+  const tally = new Map();
+  const firstSeen = [];
+  const eachPair = (fn) => {
+    for (const file of list) {
+      for (const e of file.events || []) {
+        for (const row of Object.values(e.draws || {})) {
+          for (const slot of PODIUM_SLOTS) fn(row, slot, e);
+          for (let i = 0; i < ((row.sf || []).length); i++) fn(row.sf, i, e);
+        }
+      }
+    }
+  };
+  eachPair((holder, at, e) => {
+    const ids = podiumIds(holder[at]);
+    if (ids.length < 2) return;
+    const key = podiumKey(holder[at]);
+    const order = ids.join('+');
+    if (!tally.has(key)) tally.set(key, new Map());
+    const seen = tally.get(key);
+    seen.set(order, (seen.get(order) || 0) + 1);
+    firstSeen.push({ key, order, date: String(e.date || '') });
+  });
+  if (!firstSeen.length) return list;
+
+  firstSeen.sort((a, b) => a.date.localeCompare(b.date));
+  const first = new Map();
+  for (const t of firstSeen) if (!first.has(t.key)) first.set(t.key, t.order);
+
+  const settled = new Map();
+  for (const [key, seen] of tally) {
+    /* ⚠️ Strictly greater, so a tie is detected rather than resolved by
+       whichever order the iteration happened to reach last. */
+    let best = null, most = -1;
+    for (const [order, n] of seen) if (n > most) { best = order; most = n; }
+    const tied = [...seen.values()].filter(n => n === most).length > 1;
+    settled.set(key, (tied ? first.get(key) : best).split('+'));
+  }
+
+  /* ⚠️ The *original* values, reordered — not the ids rebuilt with `Number`.
+     The same reason `settleWinnerOrder` gives: the file should keep saying what
+     BWF said, and an id that was ever not a number would become `NaN`. */
+  const fix = v => {
+    const ids = podiumIds(v);
+    if (ids.length < 2) return v;
+    const order = settled.get(podiumKey(v));
+    if (!order || order.join('+') === ids.join('+')) return v;
+    const byId = new Map(v.map(x => [String(x), x]));
+    return order.map(id => byId.get(id));
+  };
+  return list.map(file => ({
+    ...file,
+    events: (file.events || []).map(e => ({
+      ...e,
+      draws: Object.fromEntries(Object.entries(e.draws || {}).map(([code, row]) => [code, {
+        ...row,
+        w: fix(row.w),
+        f: fix(row.f),
+        ...(row.sf ? { sf: row.sf.map(fix) } : {}),
+      }])),
+    })),
+  }));
+}
+
+/**
+ * What a column's header says about the tournament's level.
+ *
+ * `kind` is what to draw it with: the Olympic rings, the world championship cup,
+ * a bare Super number, or a word for everything whose name is not a number —
+ * the Tour Finals, a continental championships, and the whole Superseries era,
+ * where there is no number to draw because BWF never gave those tiers one.
+ *
+ * `weight` is `LEVEL`'s own, which is what the badge is sized by: it is the one
+ * channel left for the level, because the face sizes are spoken for by the
+ * placement and must mean the same thing in every column.
+ */
+export function tierBadge(tier, year) {
+  const t = String(tier);
+  const weight = (LEVEL[tier] || {}).weight != null ? LEVEL[tier].weight : 1;
+  if (t === 'OLY') return { kind: 'rings', text: 'Olympics', weight: 1 };
+  if (t === '20') return { kind: 'cup', text: 'World Championships', weight: 1 };
+  /* ⚠️ `pyramidLabel`, not `levelLabel`: a title is named for what it *was* in
+     the season it was won — "Superseries Premier" in 2013, "Super 1000" in
+     2023 — which is the point the pyramid makes in a note and this makes in
+     every column header. */
+  const label = pyramidLabel(tier, year) || levelLabel(tier);
+  const num = /super\s+(\d+)/i.exec(String(label));
+  if (num) return { kind: 'number', text: num[1], weight, full: label };
+  /* ⚠️ `pyramidAbbr`, not `levelAbbr` — see the note on it. A word badge that
+     disagreed with its own tooltip is exactly what the season-blind version
+     drew. */
+  return { kind: 'word', text: pyramidAbbr(tier, year) || label, weight, full: label };
+}
+
+/**
+ * One season as columns: a tournament each, in the order they were played.
+ *
+ * @param {object[]} files  parsed `data/podium-*.json`, normally the chosen
+ *   season's and the one after it — see the note on the Tour Finals below
+ * @param {number} year  the season to draw
+ * @param {string} kind  'MS' | 'WS' | 'MD' | 'WD' | 'XD'
+ * @param {object} [opts]  `{ groups, confs, today }`
+ */
+export function podiumSeason(files, year, kind, opts = {}) {
+  const groups = opts.groups instanceof Set ? opts.groups : new Set(YEAR_GROUP_DEFAULT);
+  const confs = opts.confs instanceof Set ? opts.confs : null;
+  const today = opts.today || new Date().toISOString().slice(0, 10);
+  const list = settlePodiumOrder(files);
+
+  const columns = [];
+  for (const file of list) {
+    const players = file.players || {};
+    const filed = Number(file.season);
+    for (const e of file.events || []) {
+      /* ⚠️⚠️ **The season-ending Finals belongs to the season it concludes, and
+         that is why two files are loaded.** COVID pushed the 2020 edition to 27
+         January 2021, so it is on the 2021 calendar and in `podium-2021.json`
+         while belonging to the 2020 board. The file stays a calendar year — it
+         should keep saying what BWF filed — and the selection moves the event,
+         which is exactly what `pyramidTitleSeason` already does for the
+         pyramid. One extra fetch, and the reader stepping forward a year needs
+         that file next anyway. */
+      if (pyramidTitleSeason(e, filed) !== year) continue;
+      const group = yearGroupOf(e.tier);
+      if (!group || !groups.has(group)) continue;
+      if (isContinentalTier(e.tier) && confs && !confs.has(titleConf(e))) continue;
+
+      const row = (e.draws || {})[kind];
+      /* ⚠️⚠️ **The key is carried on the competitor, not derived from it
+         later.** `winnerOf` assembles a competitor out of the file's player
+         table and that table holds `{n, c, a, f}` — there is no id in it, so a
+         key rebuilt from `who.people` is `[undefined].join('+')`, which is the
+         empty string, which is falsy, which silently emptied the ledger
+         entirely rather than mis-keying one row. The ids are in hand here and
+         nowhere else; this is where the key belongs. */
+      const place = v => {
+        const ids = podiumIds(v);
+        if (!ids.length) return null;
+        const who = winnerOf(players, ids);
+        return who ? Object.assign(who, { key: podiumKey(v) }) : null;
+      };
+      /* ⚠️ Four states, and the reader asked for every one of them to say which
+         it is. A column with nobody in it is the commonest thing on a board
+         drawn in October: the rest of the season has not happened. */
+      const state = !row ? (e.end >= today ? 'soon' : 'none')
+        : (!row.sf || row.sf.length < 2) ? 'part' : 'full';
+      columns.push({
+        id: String(e.id), name: e.name, tier: e.tier,
+        date: e.date, end: e.end,
+        badge: tierBadge(e.tier, year),
+        conf: titleConf(e),
+        /* The asterisk, and what it is for: a Finals drawn a column to the left
+           of the year it was played in has to say so. */
+        mark: pyramidDisplaced(e, year),
+        w: row ? place(row.w) : null,
+        f: row ? place(row.f) : null,
+        sf: row && row.sf ? row.sf.map(place) : [],
+        /* True only where a bronze play-off was actually played, which is what
+           makes the two names an order rather than a pair. See the harvest. */
+        po: !!(row && row.po),
+        state,
+      });
+    }
+  }
+  columns.sort((a, b) => String(a.date).localeCompare(String(b.date))
+    || String(a.id).localeCompare(String(b.id)));
+  return { year, kind, columns };
+}
+
+/**
+ * One row per competitor who reached a semi-final, best season first.
+ *
+ * The answer to the question the board can only imply. Clicking a row is the
+ * same pick a click on a face is, so the key is the one the board uses.
+ *
+ * ⚠️ A pair is one competitor, as it is everywhere else on these pages — one
+ * row, not two.
+ */
+export function podiumLedger(season) {
+  const by = new Map();
+  /* ⚠️ `who.key` is `podiumSeason`'s, which is `podiumKey`'s — so a row here
+     and a face on the board answer to the same pick. That is the whole reason
+     the ledger goes under the board rather than beside it. */
+  const bump = (who, at) => {
+    const key = who && who.key;
+    if (!key) return;
+    if (!by.has(key)) by.set(key, { key, who, w: 0, f: 0, sf: 0 });
+    by.get(key)[at]++;
+  };
+  for (const c of (season && season.columns) || []) {
+    bump(c.w, 'w');
+    bump(c.f, 'f');
+    for (const s of c.sf || []) bump(s, 'sf');
+  }
+  const rows = [...by.values()];
+  for (const r of rows) {
+    r.n = r.w + r.f + r.sf;
+    r.best = r.w ? 1 : r.f ? 2 : 3;
+  }
+  rows.sort((a, b) => b.w - a.w || b.f - a.f || b.sf - a.sf
+    || String(a.who.n).localeCompare(String(b.who.n)));
+  return rows;
+}

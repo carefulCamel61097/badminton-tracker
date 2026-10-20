@@ -1783,3 +1783,248 @@ body:not([data-page="seasons"]) .seasonsonly { display: none; }
 body[data-page="winners"] #hero,
 body[data-page="tmt"] #hero,
 body[data-page="winners"] .legends { display: none !important; }
+
+/* ============================ the year board ============================
+
+   One season, a column per tournament, three rows. The whole layout rests on
+   one decision: **it is laid out by row, not by column.** The champions have to
+   form an unbroken band across the page or the view loses the thing it is for,
+   and a column-major DOM cannot keep three rows level without every column
+   agreeing on its own heights. So each row is its own CSS grid over the same
+   `grid-template-columns`, and the columns line up because they are the same
+   track list five times over.
+
+   `--cell` is the zoom slider's unit and the size of a semi-finalist's face.
+   `--colw` is two cells and a gap, because the semi-final row holds two of
+   them. `--gut` is the sticky row-label column. */
+.yearboard {
+  --gut: 58px;
+  overflow-x: auto; overflow-y: hidden;
+  padding: 2px 0 10px;
+}
+
+.ybline {
+  display: grid;
+  grid-template-columns: var(--gut) repeat(var(--cols), var(--colw));
+  align-items: end;
+  width: max-content; min-width: 100%;
+}
+
+/* ⚠️ Sticky against the scroll container, with the page ground behind it —
+   without the background the faces slide under the labels rather than past
+   them. `z-index` over the tiles for the same reason. */
+.yblabel {
+  position: sticky; left: 0; z-index: 3;
+  background: var(--bg);
+  font-size: 10px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--text-muted);
+  padding: 0 8px 0 2px; align-self: center;
+  white-space: nowrap;
+}
+
+/* ⚠️ The result ramp, which the career grid and the season strip already paint
+   a champion, a lost final and a lost semi-final with. Same three placements,
+   same three colours — so a reader who has learned one page has learned this
+   one. Only the label is tinted: the cells hold photographs. */
+.ybline[data-row="w"]  .yblabel { color: var(--res-f); }
+.ybline[data-row="f"]  .yblabel { color: var(--res-sf); }
+.ybline[data-row="sf"] .yblabel { color: var(--res-qf); }
+
+/* Fixed by row, so an empty column does not shorten the band it sits in. */
+.ybline[data-row="w"]  { min-height: calc(var(--cell) * 1.75 + 10px); }
+.ybline[data-row="f"]  { min-height: calc(var(--cell) * 1.35 + 10px); }
+.ybline[data-row="sf"] { min-height: calc(var(--cell) + 10px); }
+.ybline[data-row] { align-items: center; }
+
+/* A faint rule under each band, so three rows of faces read as three rows. */
+.ybline[data-row="w"],
+.ybline[data-row="f"] { border-bottom: 1px solid rgba(255, 255, 255, .055); }
+
+.ybcell { display: flex; align-items: center; justify-content: center; gap: 2px; }
+
+/* ---- the column header ---- */
+
+.ybline.heads { align-items: end; padding-bottom: 3px; }
+.ybhead {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  min-width: 0;
+}
+/* ⚠️ **Vertical, because a column is about 34px wide at the default zoom** and
+   twenty-six tournament names will not fit across a screen horizontally. The
+   name is `shortTmtName`'s — the sponsor stripped — and the full one with its
+   level and date is on the hover. */
+.ybname {
+  writing-mode: vertical-rl; text-orientation: mixed;
+  font-size: 10px; line-height: 1.1; color: var(--text-muted);
+  max-height: 112px; overflow: hidden; white-space: nowrap;
+  padding-top: 2px;
+}
+.ybname .ast { color: var(--warn); font-style: normal; }
+
+/* ⚠️ Gold, and the one channel the level has. The placement took the face
+   sizes, so the tier is said here and by nothing else — sized by
+   `LEVEL[].weight`, which is why a Super 500's numeral is visibly smaller than
+   a Super 1000's. */
+.ybmark { display: block; flex: none; line-height: 1; }
+.ybmark.number,
+.ybmark.word {
+  color: #ffd24a; font-weight: 700;
+  font-variant-numeric: tabular-nums; letter-spacing: -.01em;
+}
+/* A word has to fit the same column a numeral does, so it is set small and
+   upright rather than scaled with the tier. */
+.ybmark.word { font-size: 9px; text-transform: uppercase; letter-spacing: .02em; }
+.ybmark .pyrbadge { width: var(--mk); height: auto; display: block; }
+/* The same correction the pyramid makes: the cup is an outline and the rings
+   are five solid strokes, so at one width the cup reads as half the mark. */
+.ybmark .pyrbadge.cup { color: #e8e8e8; stroke-width: 2.1; }
+
+/* ---- the month ruler ---- */
+
+.ybline.months { align-items: end; }
+.ybmonth {
+  font-size: 10px; color: var(--text-muted); letter-spacing: .04em;
+  text-transform: uppercase;
+  border-left: 1px solid var(--border-soft);
+  padding: 0 0 3px 4px; overflow: hidden; white-space: nowrap;
+}
+
+/* ---- a competitor ---- */
+
+.ybtile {
+  position: relative; display: block; overflow: visible;
+  width: var(--side); height: var(--side);
+  border-radius: 3px; cursor: pointer;
+  background: rgba(255, 255, 255, .06);
+}
+.ybtile .face {
+  display: block; width: 100%; height: 100%; border-radius: 3px;
+  object-fit: cover; object-position: top center;
+}
+.ybtile .noface {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 100%; border-radius: 3px;
+  font-size: 9px; font-weight: 700; color: var(--text-muted); letter-spacing: .04em;
+}
+/* A pair in one cell, exactly as the pyramid draws one: half each, each half
+   the middle of its own photograph. See the note over `.pyrtile .pairface`. */
+.ybtile .pairface { display: flex; width: 100%; height: 100%; overflow: hidden; border-radius: 3px; }
+.ybtile .pairface .half {
+  width: 50%; height: 100%; min-width: 0;
+  object-fit: cover; object-position: top center;
+}
+.ybtile .pairface .half + .half { box-shadow: inset 1px 0 0 rgba(0, 0, 0, .55); }
+.ybtile .pairface .noface { font-size: 7px; border-radius: 0; }
+
+/* ⚠️ The ordinal is drawn **only** where a bronze play-off decided the order —
+   see `podiumSeason`. Where there was no play-off the two share third and a
+   number beside either face would be an invention. */
+.ybord {
+  position: absolute; right: -3px; bottom: -3px;
+  min-width: 11px; height: 11px; padding: 0 2px;
+  border-radius: 6px; background: var(--surface-2);
+  box-shadow: 0 0 0 1px var(--bg);
+  font-size: 8px; font-weight: 700; font-style: normal; line-height: 11px;
+  text-align: center; color: var(--text-dim);
+}
+
+/* A place on the podium that nobody holds, inside a tournament that was
+   played — the semi-finalists BWF did not record. Kept, so the row stays a row.  */
+.ybgap {
+  display: block; width: var(--cell); height: var(--cell);
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .07);
+}
+
+/* ---- a tournament with nothing in it ----
+
+   ⚠️ Two different absences and they must not look alike. `soon` has not
+   happened: a quiet dotted rule, the same thing the order-of-play grid says
+   with an empty cell. `none` is a tournament BWF has no record of, which is a
+   fault in the archive rather than in the calendar, so it takes the warn
+   colour the page uses everywhere for "this is not what it should be". */
+.ybempty {
+  width: 100%; height: calc(var(--cell) + 2px);
+  border-radius: 2px;
+}
+/* ⚠️ Faint, but not invisible. At a dotted .16 the columns for the rest of the
+   season read as nothing at all rather than as tournaments not yet played, and
+   a reader scrolling to the right of October saw blank page. */
+.ybempty.soon {
+  background: repeating-linear-gradient(135deg,
+    rgba(255, 255, 255, .055) 0 2px, transparent 2px 6px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .055);
+}
+.ybempty.none {
+  background: repeating-linear-gradient(135deg,
+    rgba(255, 188, 32, .13) 0 2px, transparent 2px 5px);
+}
+
+/* ---- the fade ---- */
+
+.ybtile.faded .face,
+.ybtile.faded .noface,
+.ybtile.faded .pairface { opacity: .16; }
+.ybtile.faded .ybord { opacity: .2; }
+
+/* ---- the ledger ----
+
+   The answer the board can only imply. Same argument as the dominance band
+   under the pyramid: the faces say a name over and over and this is what the
+   repetition means. */
+.ybledger {
+  margin: 16px 0 4px; border-collapse: collapse;
+  font-size: 12px; width: 100%; max-width: 620px;
+}
+.ybledger th {
+  text-align: left; font-size: 10px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--text-muted);
+  border-bottom: 1px solid var(--border); padding: 0 6px 5px;
+}
+.ybledger td { padding: 3px 6px; border-bottom: 1px solid var(--border-soft); }
+.ybledger td.who { display: flex; align-items: center; gap: 7px; }
+.ybledger td.who b { font-weight: 600; }
+.ybledger td.who .muted { color: var(--text-muted); font-size: 11px; }
+.ybledger .ybface {
+  display: block; width: var(--side); height: var(--side);
+  border-radius: 3px; overflow: hidden; flex: none;
+  background: rgba(255, 255, 255, .06);
+}
+.ybledger .ybface .face { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+.ybledger .ybface .pairface { display: flex; width: 100%; height: 100%; }
+.ybledger .ybface .pairface .half {
+  width: 50%; height: 100%; min-width: 0;
+  object-fit: cover; object-position: top center;
+}
+.ybledger .ybface .noface {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 100%; font-size: 9px; font-weight: 700; color: var(--text-muted);
+}
+.ybledger th.n, .ybledger td.n {
+  width: 1px; text-align: right; font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ybledger td.n.nil { color: var(--text-muted); }
+.ybledger td.tot { color: var(--text-dim); border-left: 1px solid var(--border-soft); }
+.ybledger tbody tr { cursor: pointer; }
+.ybledger tbody tr:hover { background: rgba(255, 255, 255, .035); }
+.ybledger tbody tr.faded { opacity: .34; }
+
+/* The three counts take the same three ramp colours the row labels do. */
+.ybledger tbody td.n:nth-of-type(2) { color: var(--res-f); }
+.ybledger tbody td.n:nth-of-type(3) { color: var(--res-sf); }
+.ybledger tbody td.n:nth-of-type(4) { color: var(--res-qf); }
+.ybledger tbody td.n.nil { color: var(--text-muted); }
+
+/* ⚠️ **A flag behind the initials, where BWF has no usable photograph.** Set
+   low enough to read two letters over, and only on this board: see `oneFace`
+   for why the pyramid does not ask for it. */
+.noface.hasflag {
+  background-image: var(--flag);
+  background-size: 78% auto;
+  background-repeat: no-repeat;
+  background-position: center 46%;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .85);
+  color: #fff;
+}
+.ybtile .pairface .noface.hasflag { background-size: 118% auto; }

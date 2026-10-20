@@ -15,7 +15,7 @@ import {
   loadSeason, loadPlayer, loadDraws, searchPlayers, loadTopRanked, loadRoster,
   loadWorldRank, loadRaceRank, loadLastMatch, rankingFor,
   RANKING_CATEGORIES, queueDepth, loadSchedule, loadDayMatches, loadWinners,
-  loadDrawList, loadDrawData, seasonsHeld, forgetSeasons,
+  loadDrawList, loadDrawData, seasonsHeld, forgetSeasons, loadPodium,
 } from './api.js';
 import {
   positionInfo, tournamentRunning, fillFraction, drawForKind, dominantDraw, seasonKinds,
@@ -37,6 +37,8 @@ import {
   dominationSeasons, thinSeasons, shortSeasonWhy, titleWeight, SCORE_TIERS,
   CONFEDERATIONS, CONF_DEFAULT, confKeys, winnersWithin, titleConf,
   careerDraws, pairDraws, winnerRegistry, titleWinnerKey,
+  podiumSeason, podiumLedger, PODIUM_FIRST, YEAR_GROUPS, YEAR_GROUP_DEFAULT,
+  yearGroupOf, isContinentalTier, pyramidTitleSeason, shortTmtName,
   dominationRanking, rankMode, ranksSeasons, RANK_MODES, RANK_DEFAULT,
   COVID_SEASONS, isCovidSeason,
   bestScoreFloor, SCORE_FLOOR_MAX, SCORE_FLOOR_STEP,
@@ -1192,14 +1194,28 @@ $('gexpCopy').hidden = typeof ClipboardItem === 'undefined' || !navigator.clipbo
    makes the summit fit. */
 const WIN_ZOOM = { key: 'bst:winzoom', min: 8, max: 26, def: 14 };
 
-function savedWinZoom() {
+/* ⚠️⚠️ **The Year board needs its own range, and it is a much bigger one.** The
+   pyramid draws twenty seasons of up to nine tiles each and its unit is the
+   smallest square on it, so 8—26px is what fits. This draws about twenty-four
+   columns of two cells, so the same slider at the same numbers left a board
+   900px wide in a 1500px window with the faces too small to recognise anybody.
+   One slider, two ranges, because the two views are drawing different numbers of
+   different things and "bigger" has to mean bigger on both. Stored separately
+   for the same reason: a zoom that fitted one would be wrong on the other. */
+const YEAR_ZOOM = { key: 'bst:yearzoom', min: 14, max: 48, def: 30 };
+
+function savedZoom(cfg) {
   let saved = null;
-  try { saved = localStorage.getItem(WIN_ZOOM.key); } catch { /* private mode */ }
+  try { saved = localStorage.getItem(cfg.key); } catch { /* private mode */ }
   const n = Number(saved);
   return Number.isFinite(n) && n > 0
-    ? Math.max(WIN_ZOOM.min, Math.min(WIN_ZOOM.max, n))
-    : WIN_ZOOM.def;
+    ? Math.max(cfg.min, Math.min(cfg.max, n)) : cfg.def;
 }
+const savedWinZoom = () => savedZoom(WIN_ZOOM);
+
+/** Which slider the reader is holding, and what it is set to. */
+const zoomCfg = () => (win.view === 'year' ? YEAR_ZOOM : WIN_ZOOM);
+const zoomNow = () => (win.view === 'year' ? win.yearZoom : win.zoom);
 
 /* The disciplines this page has data for.
    ⚠️ The three doubles draws were absent until 5 Sep 2026, on the grounds that a
@@ -1224,7 +1240,13 @@ const WIN_KINDS = ['MS', 'WS', 'MD', 'WD', 'XD'];
    competitor got at every one of those tournaments — which is the half of the
    question the harvested file cannot answer on its own, because it holds the
    winner and nothing about anybody else. See `careerDraws`. */
-const WIN_VIEWS = ['board', 'score', 'career'];
+/* ⚠️⚠️ **Year is first and is the default.** The reader's own call, and the
+   argument for it is that it is the only one of the four that answers something
+   the moment it opens: the others ask you to already have a question about
+   twenty seasons. Links already in the wild that carry no `wv` therefore open
+   on Year rather than on Board — which is the cost of changing a default, and
+   is why `wv=board` is written into every link the page makes from a board. */
+const WIN_VIEWS = ['year', 'board', 'score', 'career'];
 
 /* ⚠️ Keyed by discipline, not a single `raw`. Switching used to be impossible,
    and the first version that allowed it would have thrown away the file it
@@ -1244,8 +1266,17 @@ const win = {
      is still the derived default and may move with the discipline, and goes
      false for good the first time the reader touches the slider. `only` is the
      set of pinned players — empty means everybody the bar admits is lit. */
-  view: 'board',
+  view: 'year',
   floor: 0, autoFloor: true, only: new Set(),
+
+  /* The Year view. ⚠️ `podium` is keyed by season and holds either the file or
+     the string 'missing' — a season with no file is an ordinary answer, not an
+     error, since the harvest stops at `PODIUM_FIRST` and the calendar runs
+     ahead of what has been played. */
+  year: new Date().getUTCFullYear(), yearAsked: false,
+  yearZoom: savedZoom(YEAR_ZOOM),
+  groups: YEAR_GROUP_DEFAULT.slice(),
+  podium: {}, podiumLoading: {},
   /* Which ordering the dominators' table is in, and whether it is showing the
      whole board or the head of it. See `dominationRanking`. */
   rank: RANK_DEFAULT, rankAll: false,
@@ -1307,6 +1338,21 @@ const winFile = () => {
 
 /** How many titles a confederation holds in the file on screen, for its chip. */
 function confCount(key) {
+  /* ⚠️⚠️ **The Year view counts a season, not a career of seasons.** It does not
+     load `winners-<kind>.json` at all, so reading the count off that file would
+     put a confident 0 on every chip — a chip saying there is nothing to switch
+     on when there is. Counted off the podium file instead, which is the file
+     the board in front of the reader is actually drawn from. */
+  if (win.view === 'year') {
+    let seen = 0;
+    for (const f of yearFiles()) {
+      for (const e of f.events || []) {
+        if (isContinentalTier(e.tier) && titleConf(e) === key
+          && Object.keys(e.draws || {}).length) seen++;
+      }
+    }
+    return seen;
+  }
   const raw = winRaw();
   if (!raw) return 0;
   let n2 = 0;
@@ -1320,10 +1366,11 @@ function confCount(key) {
    runs on every redraw, and adding the listener there would stack a new one
    each time. */
 $('winZoom').addEventListener('input', e => {
-  const n = Math.max(WIN_ZOOM.min, Math.min(WIN_ZOOM.max, Number(e.target.value) || WIN_ZOOM.def));
-  if (n === win.zoom) return;
-  win.zoom = n;
-  try { localStorage.setItem(WIN_ZOOM.key, String(n)); } catch { /* private mode */ }
+  const cfg = zoomCfg();
+  const n = Math.max(cfg.min, Math.min(cfg.max, Number(e.target.value) || cfg.def));
+  if (n === zoomNow()) return;
+  if (win.view === 'year') win.yearZoom = n; else win.zoom = n;
+  try { localStorage.setItem(cfg.key, String(n)); } catch { /* private mode */ }
   renderWinners();
 });
 
@@ -1375,6 +1422,10 @@ async function loadWinCareer() {
 }
 
 async function loadWinnersPage() {
+  /* ⚠️ The Year view reads a file per season rather than the per-discipline file
+     the other three share, so it takes its own route in. A podium file holds all
+     five disciplines, which is why changing discipline costs it no fetch. */
+  if (win.view === 'year') return loadYearPage();
   const kind = win.kind;
   if (win.files[kind] || win.loading[kind]) { renderWinners(); return winCareerIfWanted(); }
   win.loading[kind] = true;
@@ -1404,12 +1455,23 @@ function faceInitials(name) {
 }
 
 /** One person's photograph, or their initials, filling whatever box it is in. */
-function oneFace(person, side, cls) {
+function oneFace(person, side, cls, flag) {
   const name = esc((person && person.n) || 'Unknown');
-  return person && person.a
-    ? `<img class="${cls}" src="${esc(person.a)}" alt="${name}" loading="lazy"
-        width="${Math.round(side)}" height="${Math.round(side)}">`
-    : `<span class="${cls} noface" aria-label="${name}">${esc(faceInitials(person && person.n))}</span>`;
+  if (person && person.a) {
+    return `<img class="${cls}" src="${esc(person.a)}" alt="${name}" loading="lazy"
+        width="${Math.round(side)}" height="${Math.round(side)}">`;
+  }
+  /* ⚠️⚠️ **The flag goes behind the initials, and only where there is room for
+     it.** BWF's stand-in for "no photograph" is a photograph — a generic
+     silhouette — so `usableAvatar` throws it away and initials take over. Two
+     letters alone are thin, and a flag narrows the guess a great deal. But the
+     pyramid's smallest square is 8px at the lowest zoom, where a flag behind
+     text is mud, so it is asked for rather than assumed: the Year board's cells
+     start at 30px and ask, the pyramid does not. */
+  const f = flag && person && person.f;
+  return `<span class="${cls} noface${f ? ' hasflag' : ''}" aria-label="${name}"`
+    + (f ? ` style="--flag:url('${esc(person.f)}')"` : '')
+    + `>${esc(faceInitials(person && person.n))}</span>`;
 }
 
 /**
@@ -1428,11 +1490,11 @@ function oneFace(person, side, cls) {
  * full square already follows. Halving the *photograph* instead would give one
  * player their left ear and the other their right.
  */
-function winnerFace(who, side) {
+function winnerFace(who, side, flag) {
   const people = (who && who.people) || (who ? [who] : []);
-  if (people.length < 2) return oneFace(people[0] || who, side, 'face');
+  if (people.length < 2) return oneFace(people[0] || who, side, 'face', flag);
   return `<span class="face pairface" aria-label="${esc(who.n || '')}">`
-    + people.map(p => oneFace(p, side, 'half')).join('') + '</span>';
+    + people.map(p => oneFace(p, side, 'half', flag)).join('') + '</span>';
 }
 
 /* ---- the two badges on the summit row ----
@@ -1496,15 +1558,27 @@ function renderWinners() {
   const body = $('winBody');
   const scoring = win.view === 'score';
   const career = win.view === 'career';
+  const yearly = win.view === 'year';
   renderWinnersControls();
 
   /* The three views share the discipline, the continents, the span and the
      export button and nothing else, so everything below the header swaps
      together. */
   $('winScore').hidden = !scoring;
-  $('winNote').hidden = scoring || career;
+  $('winNote').hidden = scoring || career || yearly;
   $('scoreNote').hidden = !scoring;
   $('careerNote').hidden = !career;
+  $('yearNote').hidden = !yearly;
+
+  /* ⚠️⚠️ **Before `winFile`, because the Year view never reads that file.** The
+     pyramid's three views share one harvested file per discipline; this one
+     reads a file per *season* — a different shape, a different fetch and a
+     different way of being absent. A missing `winners-MS.json` must not be
+     reported on a board that was never going to ask for it. */
+  if (yearly) {
+    body.hidden = false;
+    return renderYearBoard();
+  }
   body.hidden = scoring && !win.errors[win.kind] && !!winFile();
 
   const file = winFile();
@@ -2581,6 +2655,15 @@ function clearWinPick() {
 function repaintWinPick() {
   // The chart redraws from a model and has no such cost, so it takes the
   // ordinary path — and its legend has to be rebuilt anyway.
+  /* ⚠️ The Year board pays the same cost for a full re-render — several hundred
+     `<img>` elements thrown away and rebuilt, each decoding asynchronously even
+     from cache — so it is repainted in place for the same reason. */
+  if (win.view === 'year') {
+    for (const el of $('winBody').querySelectorAll('[data-id]')) {
+      el.classList.toggle('faded', pickedOff(el.dataset.id));
+    }
+    return;
+  }
   if (win.view !== 'board') return renderWinners();
   for (const el of $('winBody').querySelectorAll('.pyrtile[data-id]')) {
     const off = pickedOff(el.dataset.id);
@@ -2618,7 +2701,10 @@ $('scoreChart').addEventListener('click', e => {
    name on a run gets exactly what they would have got by clicking one of the
    squares that run is made of. */
 $('winBody').addEventListener('click', e => {
-  const hit = e.target.closest('.pyrtile[data-id], .erabar[data-id]');
+  /* ⚠️ The Year board's faces and its ledger rows are the same pick as a square
+     on the pyramid and a bar in the era band — one gesture, one set. */
+  const hit = e.target.closest('.pyrtile[data-id], .erabar[data-id],'
+    + ' .ybtile[data-id], .ybledger tr[data-id]');
   if (hit) toggleWinPick(hit.dataset.id);
 });
 
@@ -2671,7 +2757,14 @@ function setWinView(v) {
   if (next !== 'career' && was !== 'career') win.only.clear();
   renderWinners();
   writeHash();
-  if (next === 'career') loadWinCareer();
+  /* ⚠️⚠️ **Always, because the two kinds of view read different files.** Year
+     reads one per season and the other three share one per discipline, so a
+     switch out of Year is the first time anything asks for `winners-<kind>.json`
+     — and before this line it was never asked for, so the pyramid sat on
+     "Reading the harvested winners..." for ever. `loadWinnersPage` dispatches on
+     the view and is a no-op when the file is already in hand, and it is what
+     starts a career walk too. */
+  loadWinnersPage();
 }
 
 
@@ -2708,8 +2801,13 @@ function renderExportBar() {
      and the score chart, which `poster.js` knows how to paint; a career board is
      a third picture nobody has drawn yet, and a button that quietly exported a
      different view than the one on screen would be worse than no button. */
-  $('winSave').hidden = win.view === 'career';
-  box.hidden = !win.exporting || !years.length || win.view === 'career';
+  /* ⚠️ **Nor on the Year view, and for the same reason**: `poster.js` is built
+     around a column being a *season* and there a column is a tournament. Set
+     here rather than in `renderWinnersControls`, because this function runs
+     after it and was quietly putting the button back. */
+  const noExport = win.view === 'career' || win.view === 'year';
+  $('winSave').hidden = noExport;
+  box.hidden = !win.exporting || !years.length || noExport;
   $('winSave').classList.toggle('on', win.exporting);
   $('winSave').setAttribute('aria-pressed', String(win.exporting));
   if (box.hidden) return;
@@ -2815,11 +2913,333 @@ $('expCopy').addEventListener('click', copyPoster);
    no button. */
 $('expCopy').hidden = typeof ClipboardItem === 'undefined' || !navigator.clipboard;
 
-const WIN_VIEW_LABEL = { board: 'Board', score: 'Score', career: 'Career' };
+/* ============================ the year board ============================
+
+   The pyramid simplifies twenty seasons so that they can be read side by side.
+   This is the other half of that trade: **one** season, at the depth the
+   simplification gave up. A column per tournament in the order they were
+   played, and three rows — the champion, the runner-up, and the two who lost in
+   the semi-finals.
+
+   ⚠️⚠️ **Size means placement here and nothing else.** On the pyramid a square's
+   size is the weight of the title; here every winner is drawn the same whether
+   they won a Super 500 or the Olympics, because the question this view answers
+   is *how far did each person get at each event*, and a size channel that meant
+   two things at once would answer neither. The level moves to the column
+   header, where the tournament's own name already has to go — a gold numeral
+   sized by the tier's weight, the rings for an Olympics, the cup for a World
+   Championships, exactly the two marks the pyramid uses.
+
+   ⚠️ **A cell is one competitor and a column is two cells**, because the
+   semi-final row holds two. A pair is the pyramid's split square at the cell's
+   own size, so a doubles board is exactly as wide as a singles one and the
+   halves are half a cell — which is the same arithmetic the pyramid's smallest
+   tier has always been drawn at, and the zoom slider is the answer to it there
+   and here.
+   ==================================================================== */
+
+/* How big a face is, as a multiple of the cell. The semi-final row sets the
+   cell, so it is 1 and the two rows above grow from it. Measured against the
+   board: a winner noticeably larger than a runner-up, and a runner-up
+   noticeably larger than a semi-finalist, without the winner overflowing a
+   column two cells wide. */
+const YEAR_FACE = { w: 1.75, f: 1.35, sf: 1 };
+
+const YEAR_ROWS = [
+  { key: 'w', label: 'Won', full: 'Champion' },
+  { key: 'f', label: 'Lost F', full: 'Runner-up' },
+  /* ⚠️ The label changes with the data: where a bronze play-off was played
+     these two are a third and a fourth, and where it was not they share third.
+     A row that said "3rd / 4th" over a pair nobody ranked would be inventing an
+     order. See `podiumSeason`. */
+  { key: 'sf', label: 'Lost SF', full: 'Semi-finalists' },
+];
+
+const YEAR_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** The seasons there could be a file for. */
+const yearChoices = () => {
+  const now = new Date().getUTCFullYear();
+  const out = [];
+  for (let y = now; y >= PODIUM_FIRST; y--) out.push(y);
+  return out;
+};
+
+/**
+ * One season's file, and the next one's.
+ *
+ * ⚠️⚠️ **Two files, because the Tour Finals belongs to the season it
+ * concludes.** COVID pushed the 2020 edition to 27 January 2021, so BWF files
+ * it on the 2021 calendar and `podium-2021.json` is where it lives — while it
+ * belongs on the 2020 board. `podiumSeason` moves it with `pyramidTitleSeason`,
+ * the same rule the pyramid already applies, and to do that it has to be handed
+ * the following year's file. The reader stepping forward a season needs that
+ * file next anyway, so nothing is fetched that is not about to be wanted.
+ *
+ * ⚠️ A year with no file is not an error — 2027 has not happened — so a missing
+ * follower is simply absent. Only the chosen season's own absence is reported.
+ */
+function yearFiles() {
+  return yearWanted().map(y => win.podium[y]).filter(f => f && f !== 'missing');
+}
+
+/**
+ * Which files this season needs.
+ *
+ * ⚠️ **The follower is only asked for when it could exist.** A podium file for
+ * next year cannot hold anything belonging to this season — the only event that
+ * moves backwards is the season-ending Finals, and next year's has not been
+ * played — so asking for it bought nothing and put a handled 404 in the console
+ * on every visit to the current season, which is the commonest visit there is.
+ */
+function yearWanted() {
+  const now = new Date().getUTCFullYear();
+  return win.year + 1 <= now ? [win.year, win.year + 1] : [win.year];
+}
+
+async function loadYearPage(stepped = 0) {
+  const want = yearWanted();
+  const todo = want.filter(y => win.podium[y] == null && !win.podiumLoading[y]);
+  if (todo.length) {
+    for (const y of todo) win.podiumLoading[y] = true;
+    renderWinners();
+    await Promise.all(todo.map(async y => {
+      try { win.podium[y] = await loadPodium(y); }
+      catch { win.podium[y] = 'missing'; }
+      win.podiumLoading[y] = false;
+    }));
+  }
+
+  /* ⚠️⚠️ **The default season is the newest one that was harvested, not simply
+     this year.** The harvest is run by hand and committed, so on 1 January the
+     calendar moves and the files do not: without this, the page would open on
+     "no harvested podiums for 2027" until somebody remembered to re-run it — a
+     default that breaks itself on a date. Stepping back is only ever done to a
+     season the reader did *not* ask for; `wy=1998` is a question with a real
+     answer and that answer is that there is nothing there. */
+  if (win.podium[win.year] === 'missing' && !win.yearAsked
+    && stepped < 3 && win.year > PODIUM_FIRST) {
+    win.year -= 1;
+    return loadYearPage(stepped + 1);
+  }
+  /* The reader may have moved to another season while this was in flight, so
+     redraw whatever is up now rather than assuming it is still this one. */
+  renderWinners();
+}
+
+/** The badge over a column: the level, and nothing about who won it. */
+function yearBadgeHtml(badge, zoom) {
+  const px = Math.max(11, Math.round(zoom * 0.62 * (0.55 + badge.weight * 0.45)));
+  if (badge.kind === 'rings') {
+    return `<span class="ybmark rings" style="--mk:${Math.round(px * 1.5)}px"
+      title="${esc(badge.text)}">${OLYMPIC_RINGS}</span>`;
+  }
+  if (badge.kind === 'cup') {
+    return `<span class="ybmark cup" style="--mk:${Math.round(px * 1.4)}px"
+      title="${esc(badge.text)}">${WORLDS_CUP}</span>`;
+  }
+  /* ⚠️ The numeral is the whole signal for the World Tour rungs and it is sized
+     by the tier's weight, which is the one channel the placement did not take.
+     A word where BWF never gave the tier a number — the Tour Finals, a
+     continental championships, and the whole Superseries era.
+
+     ⚠️ A word takes **no** inline size: "SSERIES" has to fit the same column a
+     numeral does, so the stylesheet sets it small and upright rather than
+     scaling it with the tier. Sizing it here and overriding it there would be
+     two places deciding one thing. */
+  const size = badge.kind === 'number' ? ` style="font-size:${px}px"` : '';
+  return `<span class="ybmark ${badge.kind}"${size}
+    title="${esc(badge.full || badge.text)}">${esc(badge.text)}</span>`;
+}
+
+/** One competitor in one row, or the reason there is nobody. */
+function yearFaceHtml(who, side, rowKey, ord) {
+  if (!who) return `<span class="ybgap" aria-hidden="true"></span>`;
+  const off = pickedOff(who.key) ? ' faded' : '';
+  const place = ord ? `<i class="ybord">${ord}</i>` : '';
+  return `<span class="ybtile${off}" data-id="${esc(who.key)}" data-row="${rowKey}"
+    style="--side:${Math.round(side)}px"
+    title="${esc(yearTileTitle(who, rowKey, ord))}">${winnerFace(who, side, true)}${place}</span>`;
+}
+
+function yearTileTitle(who, rowKey, ord) {
+  const people = (who && who.people) || [];
+  const name = people.length > 1 ? people.map(p => p.n).join(' & ') : (who.n || '');
+  const row = YEAR_ROWS.find(r => r.key === rowKey);
+  const where = ord === 3 ? 'Third' : ord === 4 ? 'Fourth'
+    : row ? row.full : '';
+  return [name + (who.c ? ' · ' + who.c : ''), where].filter(Boolean).join('\n');
+}
+
+/**
+ * One tournament's column, header and three rows.
+ *
+ * ⚠️ Returned as three strings rather than one block, because the board is laid
+ * out **by row, not by column**: the champions have to form an unbroken band
+ * across the page or the view loses the thing it is for. A column-major DOM
+ * could not keep the three rows level without every column agreeing on its own
+ * heights, which is exactly the arithmetic a CSS grid does for free.
+ */
+function yearColumnCells(col, zoom) {
+  const title = `${col.name}\n${col.badge.full || col.badge.text}`
+    + `\n${col.date}` + (col.mark ? `\n⁕ ${col.mark.note}` : '');
+  const head = `<div class="ybhead" title="${esc(title)}">`
+    + yearBadgeHtml(col.badge, zoom)
+    + `<span class="ybname">${esc(shortTmtName(col.name))}`
+    + (col.mark ? '<i class="ast">⁕</i>' : '') + '</span></div>';
+
+  /* ⚠️ **An empty column says which kind of empty it is**, which is the reader's
+     own requirement: a season drawn in October is mostly tournaments that have
+     not been played, and a hole that cannot say so reads as a fault in the
+     page. `none` is the other case and it is real — three continental
+     championships of 2014 are simply not in BWF's records at all. */
+  if (col.state === 'soon' || col.state === 'none') {
+    const why = col.state === 'soon'
+      ? 'Not played yet — ' + col.name + ' runs to ' + col.end
+      : 'BWF has no result for ' + col.name;
+    const cell = `<div class="ybempty ${col.state}" title="${esc(why)}"></div>`;
+    return { head, w: cell, f: cell, sf: cell };
+  }
+
+  const face = (who, key, ord) =>
+    yearFaceHtml(who, zoom * YEAR_FACE[key], key, ord);
+  /* ⚠️ Ordered only where a play-off decided it. Without one the pair share
+     third and the order BWF listed them in means nothing, so no ordinal is
+     drawn — see the row label. */
+  const sf = col.sf.length
+    ? col.sf.map((s, i) => face(s, 'sf', col.po ? i + 3 : 0)).join('')
+    : `<span class="ybgap" title="${esc('BWF has no semi-finalists for '
+      + col.name)}"></span><span class="ybgap"></span>`;
+  return {
+    head,
+    w: `<div class="ybcell one">${face(col.w, 'w')}</div>`,
+    f: `<div class="ybcell one">${face(col.f, 'f')}</div>`,
+    sf: `<div class="ybcell two">${sf}</div>`,
+  };
+}
+
+/** The month ruler: one label per run of columns played in the same month. */
+function yearMonthsHtml(cols) {
+  const out = [];
+  let i = 0;
+  while (i < cols.length) {
+    const m = String(cols[i].date).slice(0, 7);
+    let n = 1;
+    while (i + n < cols.length && String(cols[i + n].date).slice(0, 7) === m) n++;
+    const label = YEAR_MONTHS[Number(m.slice(5, 7)) - 1] || m;
+    out.push(`<div class="ybmonth" style="grid-column: span ${n}"><span>${esc(label)}</span></div>`);
+    i += n;
+  }
+  return out.join('');
+}
+
+/**
+ * The ledger under the board.
+ *
+ * ⚠️ The answer to the question the board can only imply — a face repeated down
+ * a row says a name over and over and the ledger is what that repetition
+ * *means*. Same argument the era band makes under the pyramid, and the same
+ * gesture: a row is the pick a face is.
+ */
+function yearLedgerHtml(rows, zoom) {
+  if (!rows.length) return '';
+  /* Capped: the ledger is a list and its faces are an aid to recognition, not
+     the picture. Left uncapped they grew past the names beside them. */
+  const side = Math.max(18, Math.min(26, Math.round(zoom * 0.8)));
+  const body = rows.map(r => {
+    const off = pickedOff(r.key) ? ' faded' : '';
+    const cells = [r.w, r.f, r.sf]
+      .map((n, i) => `<td class="n${n ? '' : ' nil'}"
+        title="${esc(n + ' × ' + YEAR_ROWS[i].full)}">${n || '·'}</td>`).join('');
+    return `<tr class="ybrow${off}" data-id="${esc(r.key)}">`
+      /* The row carries the id; the face inside it must not, or the repaint
+         fades the same competitor twice over and the ledger goes pale. */
+      + `<td class="who"><span class="ybface" style="--side:${side}px">`
+      + `${winnerFace(r.who, side, true)}</span>`
+      + `<b>${esc(r.who.n)}</b>`
+      + (r.who.c ? `<span class="muted">${esc(r.who.c)}</span>` : '')
+      + `</td>${cells}<td class="n tot">${r.n}</td></tr>`;
+  }).join('');
+  return `<table class="ybledger"><thead><tr><th class="who">`
+    + `${rows.length} ${rows.length === 1 ? 'competitor' : 'competitors'}</th>`
+    + YEAR_ROWS.map(r => `<th class="n" title="${esc(r.full)}">${esc(r.label)}</th>`).join('')
+    + `<th class="n tot" title="Semi-finals reached">All</th></tr></thead>`
+    + `<tbody>${body}</tbody></table>`;
+}
+
+function renderYearBoard() {
+  const body = $('winBody');
+  const loading = win.podiumLoading[win.year];
+  if (loading) {
+    body.innerHTML = '<p class="empty">Reading the harvested podiums…</p>';
+    return;
+  }
+  if (win.podium[win.year] === 'missing') {
+    body.innerHTML = `<p class="empty">No harvested podiums for ${win.year} on this`
+      + ' server. Run <code>node tools/harvest-podiums.mjs --year '
+      + win.year + '</code>.</p>';
+    $('winSpan').textContent = '';
+    return;
+  }
+
+  const season = podiumSeason(yearFiles(), win.year, win.kind, {
+    groups: new Set(win.groups),
+    confs: new Set(win.confs),
+  });
+  const cols = season.columns;
+  const zoom = win.yearZoom;
+
+  /* ⚠️ A pick that names nobody on *this* season dims the whole board with
+     nothing to click to get it back. Dropped rather than drawn, the same rule
+     the pyramid follows — and it can only arrive that way in a link, because
+     every pick made here is made on somebody who is on screen. */
+  if (win.only.size) {
+    const here = new Set();
+    for (const c of cols) {
+      for (const who of [c.w, c.f, ...c.sf]) if (who) here.add(who.key);
+    }
+    if (![...win.only].some(k => here.has(k))) win.only.clear();
+  }
+
+  const ledger = podiumLedger(season);
+  const played = cols.filter(c => c.state === 'full' || c.state === 'part').length;
+  $('winSpan').textContent = `${win.year} · ${played} of ${cols.length} `
+    + (cols.length === 1 ? 'tournament' : 'tournaments')
+    + (ledger.length ? ` · ${ledger.length} on a podium` : '');
+
+  if (!cols.length) {
+    body.innerHTML = '<p class="empty">Nothing on this board — every chip above'
+      + ' that could hold a tournament is switched off.</p>';
+    return;
+  }
+
+  const parts = cols.map(c => yearColumnCells(c, zoom));
+  const colw = Math.round(zoom * 2 + 6);
+  const rowHtml = key => `<div class="ybline" data-row="${key}">`
+    + `<div class="yblabel" title="${esc(YEAR_ROWS.find(r => r.key === key).full)}">`
+    + esc(YEAR_ROWS.find(r => r.key === key).label) + '</div>'
+    + parts.map(p => p[key]).join('') + '</div>';
+
+  body.innerHTML = `<div class="yearboard" style="--colw:${colw}px;`
+    + `--cell:${zoom}px;--cols:${cols.length}">`
+    + '<div class="ybline months"><div class="yblabel"></div>'
+    + yearMonthsHtml(cols) + '</div>'
+    + '<div class="ybline heads"><div class="yblabel"></div>'
+    + parts.map(p => p.head).join('') + '</div>'
+    + YEAR_ROWS.map(r => rowHtml(r.key)).join('')
+    + '</div>'
+    + yearLedgerHtml(ledger, zoom);
+}
+
+
+
+const WIN_VIEW_LABEL = { year: 'Year', board: 'Board', score: 'Score', career: 'Career' };
 
 function renderWinnersControls() {
   const scoring = win.view === 'score';
   const career = win.view === 'career';
+  const yearly = win.view === 'year';
 
   $('winView').innerHTML = WIN_VIEWS.map(v =>
     `<button type="button" class="seg${v === win.view ? ' on' : ''}" data-view="${v}"`
@@ -2840,6 +3260,8 @@ function renderWinnersControls() {
     };
   });
 
+  renderYearControls();
+
   /* ⚠️⚠️ **Shown on both views**, unlike every other control here. The rule above
      — a control that belongs to one view is hidden in the other — is about
      controls that only change a drawing. This one changes what the *numbers* are,
@@ -2858,16 +3280,19 @@ function renderWinnersControls() {
      with a ladder picker that was only ever seen dead. */
   /* ⚠️ The band is about everybody, so it is not only hidden in the career view
      — it is not drawn at all. One career has no succession in it. */
-  eras.hidden = scoring || career;
+  eras.hidden = scoring || career || yearly;
   $('winZoomLbl').hidden = scoring;
   $('winFloor').hidden = !scoring;
   if (scoring) renderScoreFloor();
+  /* The export button's own visibility is `renderExportBar`'s, which runs
+     below and would undo a decision made here. */
+  if (yearly && win.exporting) win.exporting = false;
 
   renderCareerPick();
 
   /* Hidden rather than disabled when the band is off: a bar that sets something
      invisible is a control with nothing to control. */
-  $('winMin').hidden = !win.eras || scoring || career;
+  $('winMin').hidden = !win.eras || scoring || career || yearly;
   $('winMin').innerHTML = REIGN_STEPS.map(s =>
     `<button type="button" class="seg${s.key === win.reign ? ' on' : ''}"`
     + ` data-reign="${s.key}" aria-pressed="${s.key === win.reign}"`
@@ -2876,10 +3301,86 @@ function renderWinnersControls() {
     btn.onclick = () => setReign(btn.dataset.reign);
   });
 
+  /* ⚠️ The range moves with the view, and the value after it — a slider left at
+     14 with a new minimum of 14 would otherwise sit at the bottom of a scale it
+     is at the top of. */
   const z = $('winZoom');
-  if (z && Number(z.value) !== win.zoom) z.value = String(win.zoom);
+  if (z) {
+    const cfg = zoomCfg();
+    if (z.min !== String(cfg.min)) z.min = String(cfg.min);
+    if (z.max !== String(cfg.max)) z.max = String(cfg.max);
+    if (Number(z.value) !== zoomNow()) z.value = String(zoomNow());
+  }
 
   renderExportBar();
+}
+
+/**
+ * Which season, and which tiers of it.
+ *
+ * ⚠️ A `<select>` for the season and chips for the tiers, which is the split the
+ * page already makes everywhere: twenty years is a list to pick from, six tiers
+ * are a set to switch.
+ */
+function renderYearControls() {
+  const yearly = win.view === 'year';
+  const pick = $('winYear');
+  const chips = $('winGroups');
+  pick.hidden = !yearly;
+  chips.hidden = !yearly;
+  if (!yearly) return;
+
+  pick.innerHTML = yearChoices().map(y =>
+    `<option value="${y}"${y === win.year ? ' selected' : ''}>${y}</option>`).join('');
+  pick.onchange = () => {
+    const y = Number(pick.value);
+    if (!Number.isFinite(y) || y === win.year) return;
+    win.year = y;
+    win.yearAsked = true;
+    /* ⚠️ A pick is of a competitor *in a season*, and the next season is a
+       different set of them. Carried across, a name nobody on the new board
+       answers to would dim it to nothing — `renderYearBoard` drops a stale pick
+       anyway, and clearing it here means the reader sees why. */
+    win.only.clear();
+    writeHash();
+    loadYearPage();
+  };
+
+  const on = new Set(win.groups);
+  chips.innerHTML = YEAR_GROUPS.map(g => {
+    const held = yearGroupCount(g.key);
+    return `<button type="button" class="seg${on.has(g.key) ? ' on' : ''}"`
+      + ` data-group="${g.key}" aria-pressed="${on.has(g.key)}"`
+      + ` title="${esc(`${g.label} · ${held} on this season's board,`
+        + ` counted only while this is on`)}">${esc(g.label)}</button>`;
+  }).join('');
+  chips.querySelectorAll('[data-group]').forEach(btn => {
+    btn.onclick = () => toggleYearGroup(btn.dataset.group);
+  });
+}
+
+/** How many tournaments a chip governs in the season on screen. */
+function yearGroupCount(key) {
+  let seen = 0;
+  for (const f of yearFiles()) {
+    for (const e of f.events || []) {
+      if (yearGroupOf(e.tier) === key && pyramidTitleSeason(e, Number(f.season)) === win.year) {
+        seen++;
+      }
+    }
+  }
+  return seen;
+}
+
+function toggleYearGroup(key) {
+  const on = new Set(win.groups);
+  if (on.has(key)) on.delete(key); else on.add(key);
+  /* Through `YEAR_GROUPS` so the order in the link is the chips' own, whatever
+     order the reader pressed them in. */
+  win.groups = YEAR_GROUPS.map(g => g.key).filter(k => on.has(k));
+  win.only.clear();
+  renderWinners();
+  writeHash();
 }
 
 /**
@@ -3806,6 +4307,7 @@ function runHotkey(key) {
       setWinKind(options[(options.indexOf(win.kind) + 1) % options.length]);
       return true;
     }
+    if (key === 'y') { setWinView('year'); return true; }
     if (key === 'b') { setWinView('board'); return true; }
     /* ⚠️ S rather than D. It is Superseries on the compare page and Starred on
        the tournament page, which is fine — a letter may mean two things as long
@@ -3818,13 +4320,17 @@ function runHotkey(key) {
       if (key === 'ArrowUp') return stepScoreFloor(-1);
       if (key === 'ArrowDown') return stepScoreFloor(1);
       /* The orderings of the ranking, by their initials.
-         ⚠️ Except the third, which takes **Y for the year** because its own
-         initial is spoken for twice over on this page: S is the score view and
-         B is the board. A letter that stands for nothing is worse than an
-         awkward one that stands for something, and the chip says the word. */
+         ⚠️⚠️ **The third one has now lost two letters and taken a third.** Its own
+         initial was spoken for twice over — S is the score view, B is the board
+         — so it took **Y for the year**; and on 20 Oct 2026 Y became the Year
+         view, which is a better claim on the letter than a sub-control of one
+         view. So it is **N**, for best seaso*n*s: still a letter out of the
+         word, and the chip says the word in full. The page's own rule is that a
+         letter may mean two things as long as it never means both at once, and
+         here it would have meant both at once. */
       if (key === 't') return setRankMode('total') || true;
       if (key === 'p') return setRankMode('peak') || true;
-      if (key === 'y') return setRankMode('season') || true;
+      if (key === 'n') return setRankMode('season') || true;
       return false;
     }
     if (key === 'e') { win.eras = !win.eras; renderWinners(); writeHash(); return true; }
@@ -4800,7 +5306,24 @@ function readHash() {
   win.eras = h.get('we') !== 'off';
   win.reign = h.has('we') && h.get('we') !== 'off'
     ? reignStep(h.get('we')).key : REIGN_DEFAULT;
-  win.view = WIN_VIEWS.includes(h.get('wv')) ? h.get('wv') : 'board';
+  win.view = WIN_VIEWS.includes(h.get('wv')) ? h.get('wv') : 'year';
+  /* ⚠️ Clamped rather than trusted: `wy=1066` is a link to a board that cannot
+     exist, and the honest answer to it is this season rather than an error. One
+     past the current year is allowed, because a calendar is published before it
+     is played. */
+  const thisYear = new Date().getUTCFullYear();
+  const askedYear = Number(h.get('wy'));
+  /* Whether the season in the link was *chosen*. A chosen one is never stepped
+     back from when its file is missing — see `loadYearPage`. */
+  win.yearAsked = Number.isFinite(askedYear) && !!askedYear;
+  win.year = win.yearAsked
+    ? Math.max(PODIUM_FIRST, Math.min(thisYear + 1, Math.round(askedYear)))
+    : thisYear;
+  /* ⚠️ Set unconditionally and allowed to be empty, exactly like `wc` above: the
+     chips have a real default and "none of them" is a real answer. */
+  win.groups = h.has('wg')
+    ? YEAR_GROUPS.map(g => g.key).filter(k => (h.get('wg') || '').split('.').includes(k))
+    : YEAR_GROUP_DEFAULT.slice();
   /* ⚠️ The bar travels only when it was *chosen*. Absent, the link says "the
      default" and the default is derived from the data — which is what a reader
      opening somebody else's link should get, rather than a number frozen at
@@ -4894,7 +5417,13 @@ function writeHash() {
   // Which discipline is what the page is *about*, so it travels. The tile size
   // is a viewing preference and stays in localStorage.
   if (page === 'winners' && win.kind !== 'MS') p.set('wk', win.kind);
-  if (page === 'winners' && win.view !== 'board') p.set('wv', win.view);
+  if (page === 'winners' && win.view !== 'year') p.set('wv', win.view);
+  if (page === 'winners' && win.view === 'year') {
+    if (win.year !== new Date().getUTCFullYear()) p.set('wy', String(win.year));
+    if (win.groups.join('.') !== YEAR_GROUP_DEFAULT.join('.')) {
+      p.set('wg', win.groups.join('.'));
+    }
+  }
   /* Only when it is doing something, and an empty value counts as doing
      something: the chips move the score, so a link that chose differently from
      the default has to carry the choice or it is a link to a different number. */

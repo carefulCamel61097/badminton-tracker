@@ -315,6 +315,16 @@
 
     <span id="winKind" class="kindwrap" role="group" aria-label="discipline"></span>
 
+    <!-- Which season the Year view draws. A menu rather than chips: twenty of
+         them is a list to pick from, and the tiers beside it are a set to
+         switch. Hidden on the three views that draw all twenty at once. -->
+    <select id="winYear" class="whopick" aria-label="which season" hidden></select>
+
+    <!-- Which tiers are drawn. A chip here only removes columns — nothing on
+         this view is a share of anything, so there is no denominator to move
+         and no reason to default one off. -->
+    <span id="winGroups" class="kindwrap" role="group" aria-label="tiers" hidden></span>
+
     <!-- Which continents count. Not a filter on the drawing: a chip moves the
          score too, because a ranking of legends is only readable if the reader
          knows and chooses which continents it is a share of. Asia and Europe by
@@ -599,10 +609,80 @@
     changes what is shown and never what is counted: a score is a share of its
     own season, so the numbers, the colours and the height of the axis are all
     settled over the whole board and then cut to the years you asked for.
-    <span class="keys"><kbd>←</kbd><kbd>→</kbd> page · <kbd>B</kbd> board ·
-      <kbd>S</kbd> score · <kbd>M</kbd><kbd>W</kbd><kbd>X</kbd> discipline, twice for
+    <span class="keys"><kbd>←</kbd><kbd>→</kbd> page · <kbd>Y</kbd> year ·
+      <kbd>B</kbd> board · <kbd>S</kbd> score · <kbd>M</kbd><kbd>W</kbd><kbd>X</kbd> discipline, twice for
       the doubles · <kbd>↑</kbd><kbd>↓</kbd> the bar · <kbd>T</kbd> total ·
-      <kbd>P</kbd> peak · <kbd>Y</kbd> best seasons · <kbd>Esc</kbd> unpick</span>
+      <kbd>P</kbd> peak · <kbd>N</kbd> best seasons · <kbd>Esc</kbd> unpick</span>
+  </p>
+
+  <p class="legend note" id="yearNote" hidden>
+    One season, one column per tournament, <b>left to right in the order they
+    were played</b>. Three rows: the champion, the runner-up, and the two who
+    lost in the semi-finals. The Board view simplifies twenty seasons so they
+    can be read side by side; this is the other half of that trade — one season,
+    at the depth the simplification gave up.
+    <br>
+    <b>Size means how far they got, and nothing else.</b> The winner of a
+    Super 500 is drawn exactly as large as the winner of the Olympics, because
+    the question here is how far each person got at each event, and a size that
+    meant two things at once would answer neither. <b>The level is in the column
+    header instead</b>: a gold numeral for the World Tour rungs, sized by what
+    that tier is worth, and the same two marks the Board uses for the two titles
+    that are not a number — the rings for an Olympics, the cup for a World
+    Championships. The Tour Finals, a continental championships and the whole
+    Superseries era get a word, because BWF never gave those tiers a number to
+    draw.
+    <br>
+    <b>An empty column says which kind of empty it is.</b> Most of a season
+    drawn in the autumn has not been played yet, and that is not the same as a
+    tournament with no result at all. Hover either one and it says so.
+    <br>
+    ⚠️ <b>No result is not always a gap in the records.</b> Fifteen of 2020's
+    twenty-one tournaments have none because they were <b>cancelled</b> — that
+    season is what a pandemic looks like on a calendar, not a failed harvest.
+    Three continental championships of 2014 are the other case: played, and
+    missing from BWF's own archive. Nothing in the data tells the two apart, so
+    the page says the one thing it can prove — that there is no result — and
+    leaves the reason to the reader who knows the year.
+    <br>
+    <b>Third and fourth are only in order where a match decided it.</b> The
+    Olympics plays a bronze play-off, so its two semi-final losers really are a
+    third and a fourth and are numbered; a tour event does not, so the pair
+    share third place and no order is implied. A medal can also be won without a
+    match — Carolina MARIN withdrew injured from her Paris 2024 semi-final and
+    the bronze play-off was never played — and there is nothing in BWF's data
+    that tells that apart from a shared third, so the page draws them level.
+    <br>
+    ⚠️ <b>In the doubles draws a cell holds the pair, split down the middle</b>,
+    exactly as a square does on the Board, and the pair is <b>one competitor</b>
+    — one cell, one row in the ledger. A cell is one competitor and a column is
+    two cells wide, because the semi-final row holds two of them.
+    <br>
+    <b>Click a face to follow one competitor across the season</b> — everything
+    else recedes and the picked faces stay lit. The ledger under the board picks
+    the same way, and it is the answer the board can only imply: how many of
+    these a person won, lost, or lost a semi-final of. Press <kbd>Esc</kbd> for
+    the whole season back.
+    <br>
+    ⚠️ <b>The continental chips are shared with the Board</b>, and they start on Asia
+    and Europe there for a reason that is about the Board's score rather than
+    about this drawing — so a 2026 season opens on 24 of its 27 tournaments and
+    the Oceania, African and Pan Am championships are one click away. One
+    control cannot honestly mean two things, so it means the Board's.
+    <br>
+    ⚠️ <b>Super 500 and above.</b> Which costs nothing before 2018: four old
+    tiers became five and Super 500 is the one nothing maps to, so in the
+    Superseries era this floor lands on exactly the Board's own set. A
+    Super 300 chip is where that stops being true and the era question has to
+    be answered, which is why there is not one yet.
+    <br>
+    ⚠️ <b>The season-ending Finals belongs to the season it concludes.</b> COVID
+    pushed the 2020 edition to 27 January 2021, so it is drawn on the 2020 board
+    with an asterisk saying where it was really played — the same rule the
+    Board and the career grid already follow.
+    <span class="keys"><kbd>Y</kbd> year · <kbd>B</kbd> board · <kbd>S</kbd> score
+      · <kbd>M</kbd><kbd>W</kbd><kbd>X</kbd> discipline, twice for the doubles
+      · <kbd>Esc</kbd> unpick</span>
   </p>
 
   <p class="legend note" id="winNote">
@@ -729,8 +809,8 @@
     out goes into the picture</b>, with their names at the foot of it — a board
     with one pair followed across it is a different thing to send than the
     board.
-    <span class="keys"><kbd>←</kbd><kbd>→</kbd> page · <kbd>B</kbd> board ·
-      <kbd>S</kbd> score · <kbd>M</kbd><kbd>W</kbd><kbd>X</kbd> discipline, twice for
+    <span class="keys"><kbd>←</kbd><kbd>→</kbd> page · <kbd>Y</kbd> year ·
+      <kbd>B</kbd> board · <kbd>S</kbd> score · <kbd>M</kbd><kbd>W</kbd><kbd>X</kbd> discipline, twice for
       the doubles · <kbd>E</kbd> eras · <kbd>↑</kbd><kbd>↓</kbd> the bar ·
       <kbd>Esc</kbd> unpick</span>
   </p>

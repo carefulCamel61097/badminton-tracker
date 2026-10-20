@@ -43,7 +43,7 @@ globalThis.sessionStorage = webStorageStub();
 globalThis.localStorage = webStorageStub();
 
 const { getJSON, loadSeason, loadLastMatch, loadWorldRank, loadRaceRank, ageOn, API,
-  seasonTtl, seasonsHeld, forgetSeasons } = await import('../api.js');
+  seasonTtl, seasonsHeld, forgetSeasons, loadPodium } = await import('../api.js');
 const { check, eq, report } = await import('./check.mjs');
 
 /* ============================ the fetch stub ============================ */
@@ -57,6 +57,10 @@ globalThis.fetch = async url => {
   return {
     ok: r.ok !== false,
     text: async () => (r.body === undefined ? '{}' : r.body),
+    /* ⚠️ The harvested files are read with `json()` rather than `text()` — they
+       come from this origin and never need the status-and-body dance the BWF
+       calls go through. */
+    json: async () => JSON.parse(r.body === undefined ? '{}' : r.body),
   };
 };
 
@@ -95,6 +99,44 @@ check('never two at once — each waits for the one before',
   gaps.every(g => g >= 300), 'gaps: ' + gaps.join(', ') + 'ms');
 check('the whole burst took at least two gaps',
   Date.now() - t0 >= 640, `${Date.now() - t0}ms`);
+
+/* ==================== the harvested podium files ==================== */
+
+console.log("\n=== one season's podiums come off this origin ===");
+reset();
+responder = () => ({ ok: true, body: '{"season":2026,"players":{},"events":[]}' });
+const p26 = await loadPodium(2026);
+eq('one request', calls.length, 1);
+eq('for this origin, not BWF', calls[0].url, 'data/podium-2026.json');
+check('and the file is parsed', p26 && p26.season === 2026, JSON.stringify(p26));
+
+/* ⚠️⚠️ **Memoised per season**, which is what lets the view ask for the chosen
+   year and the one after it on every redraw without a second fetch. The Year
+   board re-renders on a zoom, a chip, a pick and a discipline. */
+await loadPodium(2026);
+eq('asking again costs nothing', calls.length, 1);
+await loadPodium(2027);
+eq('a different season is a different file', calls.length, 2);
+eq('named for that season', calls[1].url, 'data/podium-2027.json');
+
+/* ⚠️ **A missing file is not an error to remember.** The harvest stops at
+   `PODIUM_FIRST` and the calendar runs ahead of what has been played, so a
+   rejection has to be retried rather than cached — otherwise a season
+   harvested between two visits would stay missing for the life of the page. */
+reset();
+responder = () => ({ ok: false });
+let threw = null;
+try { await loadPodium(1998); } catch (e) { threw = e; }
+check('a season with no file rejects', !!threw, String(threw && threw.message));
+check('saying which season', /1998/.test(String(threw && threw.message)),
+  String(threw && threw.message));
+responder = () => ({ ok: true, body: '{"season":1998,"players":{},"events":[]}' });
+const late = await loadPodium(1998);
+check('and asking again really asks again', calls.length === 2, String(calls.length));
+check('so a season harvested since the page opened is found',
+  late && late.season === 1998, JSON.stringify(late));
+
+responder = () => ({ ok: true, body: '{"results":[]}' });
 
 /* ============================ lanes ============================ */
 

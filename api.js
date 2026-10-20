@@ -730,6 +730,39 @@ export function loadWinners(code = 'MS') {
   return winnerFiles.get(key);
 }
 
+/* ============================ one season's podiums ============================
+
+   ⚠️ **Not a BWF call either.** `data/podium-<year>.json` is harvested by
+   `tools/harvest-podiums.mjs` and committed, for the reasons the winners file
+   gives — none of it changes once a final has been played.
+
+   ⚠️ **One file per season, fetched on demand**, because the Year view draws
+   one season at a time and these files are four competitors an event rather
+   than one. Two are wanted at once: the season being drawn and the one after
+   it, because the season-ending Finals belongs to the season it *concludes* and
+   the 2020 edition was played in January 2021. See `podiumSeason`.
+
+   ⚠️ **No `settlePodiumOrder` here**, unlike `loadWinners`. Which way round to
+   draw a pair is settled across all the files in hand, and only the caller
+   knows which those are — so it happens in `podiumSeason`, once, with both.
+   ==================================================================== */
+
+const podiumFiles = new Map();
+
+/** One season's podiums. Rejects where there is no file, which is not an error. */
+export function loadPodium(year) {
+  const key = String(year);
+  if (!podiumFiles.has(key)) {
+    podiumFiles.set(key, fetch(`data/podium-${key}.json`, { cache: 'no-cache' })
+      .then(r => {
+        if (!r.ok) throw new Error(`no harvested podiums for ${key} on this server`);
+        return r.json();
+      })
+      .catch(e => { podiumFiles.delete(key); throw e; }));
+  }
+  return podiumFiles.get(key);
+}
+
 /* ============================ the tournament now ============================
 
    `vue-tmt-schedule` is 1.8 KB and answers the whole question of which

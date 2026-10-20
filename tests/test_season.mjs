@@ -2317,6 +2317,91 @@ check('no label is white on a box the fill does not reach',
 
 await b.send('Emulation.setEmulatedMedia', { features: [] }, b.sessionId);
 
+/* ============================ the year board ============================
+
+   ⚠️ **The page's own default since 20 Oct 2026**, so this is what `#pg=winners`
+   with nothing else on it has to draw. Its data is `data/podium-<year>.json`,
+   served from this origin like the pyramid's file and for the same reason.
+   ======================================================================== */
+
+console.log('\n=== the winners page opens on one season ===');
+
+await b.ev(`location.hash = '#pg=winners'`);
+check('the winners page loads with no player at all',
+  await b.until('!!document.querySelector(".yearboard")', { timeout: 60000 }));
+eq('and the view it opens on is Year',
+  await b.ev(`document.querySelector('#winView button.on').textContent`), 'Year');
+/* ⚠️ **The newest season that was harvested, not simply this year.** The harvest
+   is run by hand and committed, so a default of `new Date().getFullYear()`
+   breaks itself every 1 January until somebody re-runs it. */
+const shownYear = Number(await b.ev(`document.querySelector('#winYear').value`));
+check('on a season there is actually a file for',
+  shownYear >= 2007 && shownYear <= new Date().getUTCFullYear(), String(shownYear));
+check('and the board is not an error message',
+  !(await b.ev(`!!document.querySelector('#winBody .empty')`)),
+  await b.ev(`document.querySelector('#winBody').textContent.slice(0, 80)`));
+
+eq('three placement rows',
+  await b.ev(`document.querySelectorAll('.ybline[data-row]').length`), 3);
+const ybCols = Number(await b.ev(`document.querySelectorAll('.ybline.heads .ybhead').length`));
+check('a column per tournament', ybCols > 15, String(ybCols));
+check('and every row has one cell for each of them, plus its sticky label',
+  await b.ev(`[...document.querySelectorAll('.ybline[data-row]')]`
+    + `.every(r => r.children.length === ${ybCols} + 1)`));
+
+/* ⚠️⚠️ **The whole reason the board is laid out by row rather than by column.**
+   The champions have to form an unbroken band across the page, which means the
+   three rows must agree on where every column starts — and a column-major DOM
+   could not do that without each column settling its own heights first. */
+const ybX = JSON.parse(await b.ev(
+  `JSON.stringify([...document.querySelectorAll('.ybline[data-row]')]`
+  + `.map(r => Math.round(r.children[3].getBoundingClientRect().left)))`));
+check('the three rows agree on where a column starts',
+  new Set(ybX).size === 1, ybX.join(' '));
+
+check('the ledger is under the board',
+  Number(await b.ev(`document.querySelectorAll('.ybledger tbody tr').length`)) > 5,
+  await b.ev(`document.querySelectorAll('.ybledger tbody tr').length`));
+eq('six tier chips, all on',
+  await b.ev(`document.querySelectorAll('#winGroups button.on').length`), 6);
+/* ⚠️ Hidden rather than disabled, the rule every control on this header follows:
+   the export draws the pyramid and a column here is a tournament, not a season. */
+check('the export button is hidden on this view',
+  await b.ev(`document.querySelector('#winSave').hidden`));
+
+/* ⚠️ A tournament with nobody on its podium is still a column, and it has to say
+   which kind of empty it is — the reader asked for exactly this. */
+const ybEmpty = await b.ev(
+  `(document.querySelector('.ybempty')||{}).title || '(none)'`);
+check('an empty column says why it is empty',
+  /not played yet|no result/i.test(ybEmpty), ybEmpty);
+
+/* One gesture wherever a competitor is drawn, which is the rule the pyramid,
+   the era band and the score chart already follow. */
+await b.ev(`document.querySelector('.ybline[data-row="w"] .ybtile').click()`);
+await b.wait(400);
+check('clicking a face pushes the rest back',
+  Number(await b.ev(`document.querySelectorAll('.ybtile.faded').length`))
+    > Number(await b.ev(`document.querySelectorAll('.ybtile:not(.faded)').length`)));
+eq('and exactly one ledger row stays lit',
+  await b.ev(`document.querySelectorAll('.ybledger tbody tr:not(.faded)').length`), 1);
+check('the pick travels in the link', /wp=/.test(await b.ev('location.hash')),
+  await b.ev('location.hash'));
+await b.ev(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);
+await b.wait(300);
+eq('and Escape gives the season back',
+  await b.ev(`document.querySelectorAll('.ybtile.faded').length`), 0);
+
+/* ⚠️⚠️ **Entered by the button, not by the hash, because that is what broke.**
+   The Year view reads a file per season and the other three share one per
+   discipline, so switching out of Year is the first time anything asks for
+   `winners-MS.json` — and `setWinView` did not ask, so the pyramid sat on
+   "Reading the harvested winners..." for ever. A hash navigation would have
+   hidden that, because a page load goes through `loadWinnersPage` anyway. */
+await b.ev(`[...document.querySelectorAll('#winView button')]`
+  + `.find(x => x.textContent === 'Board').click()`);
+check('switching to the Board fetches the file that view needs',
+  await b.until('!!document.querySelector(".pyrseason")', { timeout: 60000 }));
 /* ============================ the winners' pyramid ============================
 
    The other page with no player. Its data is `data/winners-MS.json`, served
@@ -2326,9 +2411,6 @@ await b.send('Emulation.setEmulatedMedia', { features: [] }, b.sessionId);
 
 console.log('\n=== the winners page: one pyramid per season ===');
 
-await b.ev(`location.hash = '#pg=winners'`);
-check('the winners page loads with no player at all',
-  await b.until('!!document.querySelector(".pyrseason")', { timeout: 60000 }));
 eq('and the nav says so',
   await b.ev(`[...document.querySelectorAll('#pageNav [data-page]')]
     .map(b => b.dataset.page + (b.classList.contains('on') ? '*' : '')).join(' ')`),
@@ -2481,7 +2563,7 @@ check('with the default discipline dropping out of the hash again',
   !/wk=/.test(await b.ev('location.hash')), await b.ev('location.hash'));
 
 /* A link that names a discipline opens on it. */
-await b.ev(`location.hash = '#pg=winners&wk=WS'`);
+await b.ev(`location.hash = '#pg=winners&wk=WS&wv=board'`);
 check('a shared link opens on the discipline it names',
   await b.until(`!!document.querySelector('#winKind .seg.on')
     && document.querySelector('#winKind .seg.on').textContent === 'WS'`, { timeout: 60000 }));
@@ -2495,7 +2577,7 @@ check('a shared link opens on the discipline it names',
    asked the model which season a title belonged to.
    ==================================================================== */
 
-await b.ev(`location.hash = '#pg=winners'`);
+await b.ev(`location.hash = '#pg=winners&wv=board'`);
 await b.until(`!!document.querySelector('.pyrseason')
   && document.querySelector('#winKind .seg.on').textContent === 'MS'`, { timeout: 60000 });
 
@@ -2650,7 +2732,7 @@ check('the link carries both the view and the competitor',
   await b.ev('location.hash'));
 
 await b.ev(`window.BST.winners.who('')`);
-await b.ev(`location.hash = '#pg=winners'`);
+await b.ev(`location.hash = '#pg=winners&wv=board'`);
 await b.until(`!!document.querySelector('.pyrseason .pyrtile')`, { timeout: 60000 });
 
 
@@ -2754,11 +2836,11 @@ check('and no chip is lit', (await confChips()).every(c => !c.on));
    and a link with no `wc` at all is claiming the default. */
 check('a non-default choice reaches the link',
   /[#&]wc=/.test(await b.ev('location.hash')), await b.ev('location.hash'));
-await b.ev(`location.hash = '#pg=winners&wc=AS.OC'`);
+await b.ev(`location.hash = '#pg=winners&wc=AS.OC&wv=board'`);
 eq('and a link brings it back', (await confsNow()).join(' '), 'AS OC');
-await b.ev(`location.hash = '#pg=winners&wc='`);
+await b.ev(`location.hash = '#pg=winners&wc=&wv=board'`);
 eq('an empty one means none of them', (await confsNow()).length, 0);
-await b.ev(`location.hash = '#pg=winners'`);
+await b.ev(`location.hash = '#pg=winners&wv=board'`);
 await b.until(`!!document.querySelector('.pyrseason')`, { timeout: 60000 });
 eq('and a link with none at all claims the default', (await confsNow()).join(' '), 'AS EU');
 /* ⚠️ Shown on **both** views, unlike every other control on this page. A score
@@ -2769,7 +2851,7 @@ await b.until(`!!document.querySelector('#scoreRank .rankrow')`, { timeout: 6000
 check('the chips are still there on the score view',
   !(await b.ev(`document.getElementById('winConf').hidden`))
   && (await confChips()).length === 5);
-await b.ev(`location.hash = '#pg=winners'`);
+await b.ev(`location.hash = '#pg=winners&wv=board'`);
 await b.until(`!!document.querySelector('.pyrseason')`, { timeout: 60000 });
 /* ⚠️ And the seasons before it had *one* Superseries rank, drawn as two rows of
    equally sized squares rather than as a slab under a hole. Both halves have to
@@ -3069,7 +3151,7 @@ eq('and stops at the bottom',
 
 /* ---- the whole link ---- */
 
-await b.ev(`location.hash = '#pg=winners&wk=WS&we=4'`);
+await b.ev(`location.hash = '#pg=winners&wk=WS&we=4&wv=board'`);
 check('a shared link opens on the discipline and the bar it names',
   await b.until(`window.BST.winners.kind() === 'WS' && window.BST.winners.bar() === '4'
     && !!document.querySelector('.erabar')`, { timeout: 60000 }));
@@ -3079,12 +3161,12 @@ check('and the women’s bars land on their columns too',
   drawn.length > 0 && drawn.every(bar => Math.abs(bar.x - box.get(bar.from).x) < 1),
   drawn.map(x => `${x.who} ${x.from}-${x.to}`).join(' | '));
 
-await b.ev(`location.hash = '#pg=winners'`);
+await b.ev(`location.hash = '#pg=winners&wv=board'`);
 await b.until(`window.BST.winners.kind() === 'MS'`, { timeout: 60000 });
 
 /* ---- the summit, at one size ---- */
 
-await b.ev(`location.hash = '#pg=winners'`);
+await b.ev(`location.hash = '#pg=winners&wv=board'`);
 await b.until(`!!document.querySelector('.pyrtile.t-OLY')`, { timeout: 60000 });
 
 /* ⚠️ The Olympics outranks the Worlds and is drawn the *same size* as it, with
@@ -4058,7 +4140,7 @@ check('a short row is dimmed, not lit',
 
 console.log('\n=== the winners page: a pair in one square ===');
 
-await b.ev(`location.hash = '#pg=winners&wk=MD'`);
+await b.ev(`location.hash = '#pg=winners&wk=MD&wv=board'`);
 check('the men’s doubles board draws',
   await b.until(`document.querySelectorAll('.pyrtile').length > 20`, { timeout: 60000 }));
 /* Two photographs per square, so the board has twice as many to fetch as a
@@ -4146,7 +4228,7 @@ eq('and a singles square holds one photograph, not two',
 
 /* ---- one competitor, whichever draw ---- */
 
-await b.ev(`location.hash = '#pg=winners&wk=MD'`);
+await b.ev(`location.hash = '#pg=winners&wk=MD&wv=board'`);
 await b.until(`document.querySelectorAll('.erabar').length > 2`, { timeout: 60000 });
 
 /* ⚠️ A partnership is **one** bar between them. The bug the pair key exists to
@@ -4302,7 +4384,7 @@ check('switching draw leaves nothing dimmed',
 eq('and takes the pick out of the link with it',
   await b.ev(`location.hash.includes('wp=')`), false);
 
-await b.ev(`location.hash = '#pg=winners&wk=XD&wp=${repeat}'`);
+await b.ev(`location.hash = '#pg=winners&wk=XD&wp=${repeat}&wv=board'`);
 await b.until(`window.BST.winners.kind() === 'XD'
   && document.querySelectorAll('#winBody .pyrtile').length > 20`, { timeout: 60000 });
 await b.wait(300);
@@ -4310,7 +4392,7 @@ check('a link naming somebody from another draw draws the board anyway',
   (await b.ev(`window.BST.winners.tiles()`)).every(t => !t.faded),
   `${(await b.ev(`window.BST.winners.tiles()`)).filter(t => t.faded).length} dimmed`);
 
-await b.ev(`location.hash = '#pg=winners&wk=MD'`);
+await b.ev(`location.hash = '#pg=winners&wk=MD&wv=board'`);
 await b.until(`window.BST.winners.kind() === 'MD'
   && document.querySelectorAll('#winBody .pyrtile').length > 20`, { timeout: 60000 });
 await b.ev(`window.BST.winners.tap(${JSON.stringify(repeat)})`);
@@ -4365,7 +4447,7 @@ await b.ev(`window.BST.score.view('board')`);
    not fit five letters anybody would guess, and a reader who has learned the
    double-tap on one page has learned it here. */
 await b.ev(`window.BST.score.view('board')`);
-await b.ev(`location.hash = '#pg=winners&wk=MS'`);
+await b.ev(`location.hash = '#pg=winners&wk=MS&wv=board'`);
 await b.until(`window.BST.winners.kind() === 'MS'`, { timeout: 60000 });
 const pressKey = k => b.ev(`document.body.dispatchEvent(new KeyboardEvent('keydown',
   { key: ${JSON.stringify(k)}, bubbles: true, cancelable: true }))`);
@@ -4389,13 +4471,13 @@ await pressKey('x');
 await b.wait(150);
 eq('and x again stays there, having nowhere else to go',
   await b.ev(`window.BST.winners.kind()`), 'XD');
-await b.ev(`location.hash = '#pg=winners'`);
+await b.ev(`location.hash = '#pg=winners&wv=board'`);
 await b.until(`window.BST.winners.kind() === 'MS'`, { timeout: 60000 });
 
 
 console.log('\n=== the winners page: saving a slice of it ===');
 
-await b.ev(`location.hash = '#pg=winners'`);
+await b.ev(`location.hash = '#pg=winners&wv=board'`);
 await b.until(`!!document.querySelector('.erabar')`, { timeout: 60000 });
 
 check('the picker is out of the way until it is asked for',
@@ -4535,7 +4617,7 @@ check('and it decodes to the width the layout asked for',
       ? true : im.naturalWidth + ' want ' + Math.round(L.width * 2);
   })()`), true);
 
-await b.ev(`location.hash = '#pg=winners'`);
+await b.ev(`location.hash = '#pg=winners&wv=board'`);
 await b.until(`!!document.querySelector('.pyrseason')`, { timeout: 60000 });
 await b.ev(`document.querySelector('#pageNav [data-page="seasons"]').click()`);
 
@@ -4961,16 +5043,24 @@ eq('and down raises it again',
 
 /* The three orderings of the dominators, on their initials.
 
-   ⚠️ **Y, not S or B**, for the one that ranks seasons: its own initial is
-   spoken for twice over on this page — S is the score view and B is the board —
-   so it takes the year's letter. A letter that stands for nothing would be
-   worse than an awkward one that stands for something, and the chip says the
-   word in full. */
+   ⚠️⚠️ **N, for best seaso*n*s, and it has now lost two letters.** Its own
+   initial is spoken for twice over — S is the score view and B is the board —
+   so it took **Y for the year**; and on 20 Oct 2026 Y became the Year view,
+   which is a better claim on the letter than a sub-control of one view. The
+   page's rule is that a letter may mean two things as long as it never means
+   both at once, and on this view it would have meant both at once. The chip
+   still says the word in full. */
 await b.ev(`window.BST.score.rank('total')`);
 await press('p');
 eq('p is the peak', await b.ev('window.BST.score.rank()'), 'peak');
+await press('n');
+eq('n is the best seasons', await b.ev('window.BST.score.rank()'), 'season');
+/* ⚠️ And y no longer reaches the ranking at all: it is the Year view's now, and
+   pressing it here leaves the score view for it. */
 await press('y');
-eq('y is the best seasons', await b.ev('window.BST.score.rank()'), 'season');
+eq('y leaves for the Year view instead', await b.ev('window.BST.score.view()'), 'year');
+await press('s');
+eq('and s comes back to the score', await b.ev('window.BST.score.view()'), 'score');
 await press('t');
 eq('and t the total', await b.ev('window.BST.score.rank()'), 'total');
 /* ⚠️ And s still leaves the view alone rather than being eaten by the ranking —

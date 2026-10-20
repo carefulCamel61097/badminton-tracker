@@ -48,6 +48,8 @@ import {
   isContinentalTier, isContinentalChamps, isRegionalGames,
   winnersWithin, plannedTier, plannedConf,
   careerDraws, pairDraws,
+  YEAR_GROUPS, YEAR_GROUP_DEFAULT, yearGroupOf, podiumIds, podiumKey,
+  settlePodiumOrder, tierBadge, podiumSeason, podiumLedger,
 } from '../model.js';
 import {
   posterLayout, scorePosterLayout, gridPosterLayout, honoursPosterLayout,
@@ -4583,5 +4585,284 @@ eq('with everybody still in the picture',
 check('a wide board is drawn wider than a narrow one',
   scoreWhole.width > scoreCrop.width, scoreWhole.width + ' vs ' + scoreCrop.width);
 
+
+/* ======================= one season's podiums =======================
+
+   ⚠️ Transcribed from `tournaments/day-matches`, measured 20 Oct 2026. Every
+   name and id below is one BWF actually sent, so a check that fails is a check
+   about this code rather than about an invented payload:
+
+     the 2026 Asian Championships men's singles, whose final BWF puts on the
+       closing day and whose two semi-finals are the day before;
+     the Paris 2024 Olympic men's singles and men's doubles, which have a
+       bronze play-off — `roundName: "3/4"` — and so a third place and a fourth
+       rather than two equal thirds;
+     the 2020 Tour Finals, played on 27 January 2021, which belongs to the
+       season it concludes and therefore to a different file from the one it is
+       stored in.
+   ==================================================================== */
+
+console.log('\n=== one season\'s podiums ===');
+
+const PEEPS = {
+  64032: { n: 'Kunlavut VITIDSARN', c: 'THA', a: 'https://x/64032.jpg', f: 'https://f/THA.png' },
+  57945: { n: 'SHI Yu Qi', c: 'CHN', a: 'https://x/57945.jpg', f: 'https://f/CHN.png' },
+  68322: { n: 'Ayush SHETTY', c: 'IND', a: 'https://x/68322.jpg', f: 'https://f/IND.png' },
+  34810: { n: 'CHOU Tien Chen', c: 'TPE', a: 'https://x/34810.jpg', f: 'https://f/TPE.png' },
+  76115: { n: 'LOH Kean Yew', c: 'SGP', a: 'https://x/76115.jpg', f: 'https://f/SGP.png' },
+  85845: { n: 'Panitchaphon TEERARATSAKUL', c: 'THA', a: '', f: 'https://f/THA.png' },
+  58089: { n: 'Alwi FARHAN', c: 'INA', a: '', f: 'https://f/INA.png' },
+  25831: { n: 'Viktor AXELSEN', c: 'DEN', a: 'https://x/25831.jpg', f: 'https://f/DEN.png' },
+  81561: { n: 'LEE Zii Jia', c: 'MAS', a: 'https://x/81561.jpg', f: 'https://f/MAS.png' },
+  68870: { n: 'Lakshya SEN', c: 'IND', a: 'https://x/68870.jpg', f: 'https://f/IND.png' },
+  // The men's doubles pairs of Paris 2024, and a women's pair for the order test.
+  90531: { n: 'LIANG Wei Keng', c: 'CHN', a: 'https://x/90531.jpg', f: 'https://f/CHN.png' },
+  55414: { n: 'WANG Chang', c: 'CHN', a: 'https://x/55414.jpg', f: 'https://f/CHN.png' },
+  69448: { n: 'LEE Yang', c: 'TPE', a: 'https://x/69448.jpg', f: 'https://f/TPE.png' },
+  96514: { n: 'WANG Chi-Lin', c: 'TPE', a: 'https://x/96514.jpg', f: 'https://f/TPE.png' },
+  56203: { n: 'Aaron CHIA', c: 'MAS', a: 'https://x/56203.jpg', f: 'https://f/MAS.png' },
+  99389: { n: 'SOH Wooi Yik', c: 'MAS', a: 'https://x/99389.jpg', f: 'https://f/MAS.png' },
+  92980: { n: 'Kim ASTRUP', c: 'DEN', a: 'https://x/92980.jpg', f: 'https://f/DEN.png' },
+  44414: { n: 'Anders Skaarup RASMUSSEN', c: 'DEN', a: 'https://x/44414.jpg', f: 'https://f/DEN.png' },
+  81599: { n: 'LIU Sheng Shu', c: 'CHN', a: 'https://x/81599.jpg', f: 'https://f/CHN.png' },
+  59880: { n: 'TAN Ning', c: 'CHN', a: 'https://x/59880.jpg', f: 'https://f/CHN.png' },
+  85540: { n: 'LI Yi Jing', c: 'CHN', a: 'https://x/85540.jpg', f: 'https://f/CHN.png' },
+  65300: { n: 'LUO Xu Min', c: 'CHN', a: 'https://x/65300.jpg', f: 'https://f/CHN.png' },
+  71023: { n: 'Yuki FUKUSHIMA', c: 'JPN', a: 'https://x/71023.jpg', f: 'https://f/JPN.png' },
+  81609: { n: 'Mayu MATSUMOTO', c: 'JPN', a: 'https://x/81609.jpg', f: 'https://f/JPN.png' },
+  1: { n: 'A ONE', c: 'DEN', a: '', f: '' },
+  2: { n: 'B TWO', c: 'DEN', a: '', f: '' },
+  3: { n: 'C THREE', c: 'DEN', a: '', f: '' },
+  4: { n: 'D FOUR', c: 'DEN', a: '', f: '' },
+  5: { n: 'E FIVE', c: 'DEN', a: '', f: '' },
+  6: { n: 'F SIX', c: 'DEN', a: '', f: '' },
+  7: { n: 'G SEVEN', c: 'DEN', a: '', f: '' },
+  8: { n: 'H EIGHT', c: 'DEN', a: '', f: '' },
+};
+
+const PODIUM_2026 = {
+  season: 2026,
+  players: PEEPS,
+  events: [
+    { tier: 23, id: 5227, name: 'PETRONAS Malaysia Open 2026',
+      date: '2026-01-06', end: '2026-01-11',
+      draws: { MS: { w: 64032, f: 57945, sf: [34810, 76115] },
+        WD: { w: [81599, 59880], f: [85540, 65300], sf: [[71023, 81609], [85540, 65300]] } } },
+    /* ⚠️ Out of date order on purpose: the file is written sorted and the view
+       must not be relying on that. */
+    { tier: 25, id: 5529, name: 'DAIHATSU Indonesia Masters 2026',
+      date: '2026-01-20', end: '2026-01-25',
+      // Part of a podium: BWF had the final and not both semi-finals.
+      draws: { MS: { w: 85845, f: 58089 },
+        WD: { w: [59880, 81599], f: [71023, 81609], sf: [[85540, 65300], [81599, 59880]] } } },
+    { tier: 11, id: 5688, name: 'BANK OF NINGBO Badminton Asia Championships 2026',
+      date: '2026-04-07', end: '2026-04-12',
+      draws: { MS: { w: 57945, f: 68322, sf: [64032, 34810] },
+        WD: { w: [81599, 59880], f: [85540, 65300], sf: [[71023, 81609], [85540, 65300]] } } },
+    { tier: 11, id: 5647, name: 'All Africa Individual Championships 2026',
+      date: '2026-02-13', end: '2026-02-15', draws: {} },
+    { tier: 24, id: 5272, name: 'YONEX French Open 2026',
+      date: '2026-10-20', end: '2026-10-25', draws: {} },
+  ],
+};
+
+const PODIUM_2024 = {
+  season: 2024,
+  players: PEEPS,
+  events: [
+    { tier: 'OLY', id: 4752, name: 'Paris 2024 Olympic Games Badminton Competition',
+      date: '2024-07-27', end: '2024-08-05',
+      /* Viktor AXELSEN took the men's singles gold and LEE Yang / WANG Chi-Lin
+         the men's doubles; `winner: 2` on both finals, which is the trap that
+         put them the wrong way round in the first draft of this fixture. */
+      draws: {
+        MS: { w: 25831, f: 64032, sf: [81561, 68870], po: 1 },
+        MD: { w: [69448, 96514], f: [90531, 55414],
+          sf: [[56203, 99389], [92980, 44414]], po: 1 },
+      } },
+  ],
+};
+
+/* ⚠️ The 2020 Finals is *in* the 2021 file — BWF filed it on the 2021 calendar
+   because COVID pushed it to 27 January — and belongs to the 2020 board. */
+const PODIUM_2021 = {
+  season: 2021,
+  players: PEEPS,
+  events: [
+    { tier: 22, id: 4567, name: 'HSBC BWF World Tour Finals 2020',
+      date: '2021-01-27', end: '2021-01-31',
+      draws: { MS: { w: 1, f: 2, sf: [3, 4] } } },
+    { tier: 22, id: 4999, name: 'HSBC BWF World Tour Finals 2021',
+      date: '2021-12-01', end: '2021-12-05',
+      draws: { MS: { w: 5, f: 6, sf: [7, 8] } } },
+  ],
+};
+
+const TODAY = '2026-10-20';
+const names = c => (c ? c.n : null);
+
+// ---- the ids in a slot ----
+eq('a lone competitor is one id', podiumIds(64032).join(), '64032');
+eq('a pair is two', podiumIds([90531, 55414]).join(), '90531,55414');
+eq('and nobody is none', podiumIds(null).length, 0);
+eq('the key sorts, so either order answers to the same pick',
+  podiumKey([55414, 90531]), podiumKey([90531, 55414]));
+check('and a pair never collides with one of its own players',
+  podiumKey([90531, 55414]) !== podiumKey(90531),
+  podiumKey([90531, 55414]) + ' vs ' + podiumKey(90531));
+
+// ---- the columns of one season ----
+const y26 = podiumSeason([PODIUM_2026], 2026, 'MS', { today: TODAY });
+eq('every event is a column, played or not', y26.columns.length, 5);
+eq('and they are in the order they were played',
+  y26.columns.map(c => c.date).join(' '),
+  '2026-01-06 2026-01-20 2026-02-13 2026-04-07 2026-10-20');
+
+const asia = y26.columns.find(c => c.id === '5688');
+eq('the champion', names(asia.w), 'SHI Yu Qi');
+eq('the runner-up', names(asia.f), 'Ayush SHETTY');
+eq('and both who lost in the semi-finals',
+  asia.sf.map(names).join(' / '), 'Kunlavut VITIDSARN / CHOU Tien Chen');
+check('with a full podium saying so', asia.state === 'full', asia.state);
+check('and no play-off, so the two thirds are level', !asia.po, String(asia.po));
+
+/* ⚠️⚠️ **Four states, and the reader asked for each of them to say which.** A
+   board drawn in October is mostly a season that has not happened yet, and an
+   empty column that cannot say why is the thing that made them ask. */
+eq('a tournament still to come', y26.columns.find(c => c.id === '5272').state, 'soon');
+eq('one BWF has no record of', y26.columns.find(c => c.id === '5647').state, 'none');
+eq('and a final without its semi-finals is a part of one',
+  y26.columns.find(c => c.id === '5529').state, 'part');
+check('which still draws the two it does have',
+  names(y26.columns.find(c => c.id === '5529').w) === 'Panitchaphon TEERARATSAKUL'
+    && y26.columns.find(c => c.id === '5529').sf.length === 0,
+  names(y26.columns.find(c => c.id === '5529').w));
+
+// ---- the bronze play-off ----
+const oly = podiumSeason([PODIUM_2024], 2024, 'MS', { today: TODAY }).columns[0];
+eq('the Olympic champion', names(oly.w), 'Viktor AXELSEN');
+eq('and the silver', names(oly.f), 'Kunlavut VITIDSARN');
+check('where a bronze play-off was played the pair is an order', oly.po, String(oly.po));
+eq('third', names(oly.sf[0]), 'LEE Zii Jia');
+eq('and fourth', names(oly.sf[1]), 'Lakshya SEN');
+const olyMd = podiumSeason([PODIUM_2024], 2024, 'MD', { today: TODAY }).columns[0];
+eq('the doubles gold went to the pair that won the final', olyMd.w.n, 'LEE / WANG');
+eq('a doubles bronze is a pair, and third', olyMd.sf[0].people.length, 2);
+eq('with both names on it', olyMd.sf[0].n, 'CHIA / SOH');
+
+// ---- the Finals, which belongs to the season it concludes ----
+const y21 = podiumSeason([PODIUM_2021], 2021, 'MS', { today: TODAY });
+eq('the 2021 board holds only the edition played for 2021', y21.columns.length, 1);
+eq('which is the December one', y21.columns[0].id, '4999');
+const y20 = podiumSeason([PODIUM_2021], 2020, 'MS', { today: TODAY });
+/* ⚠️ Read out of the *2021* file, which is why the view loads two of them. */
+eq('and the 2020 board holds the edition played in January 2021', y20.columns.length, 1);
+eq('that being the 2020 Finals', y20.columns[0].id, '4567');
+check('marked, because it is drawn a column left of the year it was played in',
+  !!y20.columns[0].mark && y20.columns[0].mark.kind === 'late',
+  JSON.stringify(y20.columns[0].mark));
+
+// ---- the chips ----
+eq('every chip is on by default', YEAR_GROUP_DEFAULT.length, YEAR_GROUPS.length);
+eq('a Super 500 is governed by its own chip', yearGroupOf(25), 's500');
+eq('the Olympics and the Worlds share one', yearGroupOf('OLY'), yearGroupOf(20));
+eq('and the continental events share another', yearGroupOf('GAMES'), yearGroupOf(11));
+
+const noCont = podiumSeason([PODIUM_2026], 2026, 'MS',
+  { today: TODAY, groups: new Set(['s1000', 's750', 's500', 'finals', 'major']) });
+eq('switching the continental chip off drops both of them', noCont.columns.length, 3);
+check('and leaves the World Tour alone',
+  noCont.columns.every(c => !isContinentalTier(c.tier)),
+  noCont.columns.map(c => c.tier).join());
+
+/* ⚠️ Two controls, and both have to admit a continental title: the chip says
+   whether they are drawn at all and the confederations say which. */
+const asiaOnly = podiumSeason([PODIUM_2026], 2026, 'MS',
+  { today: TODAY, confs: new Set(['AS']) });
+eq('with Asia alone the African championships goes', asiaOnly.columns.length, 4);
+check('and the Asian one stays',
+  asiaOnly.columns.some(c => c.id === '5688'),
+  asiaOnly.columns.map(c => c.id).join());
+check('while the World Tour is untouched by a confederation chip',
+  asiaOnly.columns.filter(c => !isContinentalTier(c.tier)).length === 3,
+  asiaOnly.columns.map(c => c.tier).join());
+
+// ---- the badge in a column header ----
+eq('the Olympics gets the rings', tierBadge('OLY', 2024).kind, 'rings');
+eq('the World Championships the cup', tierBadge(20, 2025).kind, 'cup');
+const s1000 = tierBadge(23, 2026);
+eq('a Super 1000 is a number', s1000.kind, 'number');
+eq('and the number is the one in its name', s1000.text, '1000');
+eq('a Super 500 too', tierBadge(25, 2026).text, '500');
+check('and it is drawn smaller, because the tier is lighter',
+  tierBadge(25, 2026).weight < tierBadge(23, 2026).weight,
+  tierBadge(25, 2026).weight + ' vs ' + tierBadge(23, 2026).weight);
+/* ⚠️⚠️ **The Superseries era has no number to draw.** BWF never gave those
+   tiers one, so a header that insisted on a numeral would have to invent it.
+   `pyramidLabel` names the rung as that season called it and the badge becomes
+   a word. This is the measured reason the Super 300 chip needs the era
+   question answered before it can be switched on. */
+eq('a Superseries Premier is a word, not a number', tierBadge(23, 2013).kind, 'word');
+eq('named as that season named it', tierBadge(23, 2013).full, 'Superseries Premier');
+/* ⚠️⚠️ **The badge used to disagree with its own tooltip.** `levelAbbr(23)` knows
+   nothing about the season, so a 2013 Superseries Premier wore a gold **Super
+   1000** badge over a hover that said Superseries Premier. See `pyramidAbbr`. */
+eq('and the badge itself says what the tooltip says',
+  tierBadge(23, 2013).text, 'SS Prem');
+eq('the Superseries below it too', tierBadge(24, 2013).text, 'SSeries');
+check('while the modern rung is still a bare number',
+  tierBadge(23, 2026).text === '1000' && tierBadge(24, 2013).kind === 'word',
+  tierBadge(23, 2026).text);
+/* ⚠️ `GAMES` is not a `LEVEL` id, so the abbreviation falls through to the
+   grid's own code rather than to "Lv GAMES". */
+eq('a regional Games has a code, not a level number',
+  tierBadge('GAMES', 2026).text, 'GMS');
+eq('and the Tour Finals is a word in every season', tierBadge(22, 2026).kind, 'word');
+
+// ---- a pair is listed in one order ----
+/* ⚠️ The Indonesia Masters row carries LIU and TAN the other way round, once
+   against three times. The board must not swap their two faces mid-row. */
+const wd = podiumSeason([PODIUM_2026], 2026, 'WD', { today: TODAY });
+const orders = wd.columns.filter(c => c.w).map(c => c.w.people.map(p => p.n).join(' + '));
+eq('the same pair is drawn the same way round in every column',
+  new Set(orders).size, 1);
+eq('and it is the order BWF uses most often', orders[0], 'LIU Sheng Shu + TAN Ning');
+check('which it also is where the pair is a semi-finalist',
+  wd.columns.find(c => c.id === '5529').sf
+    .some(s => s.people.map(p => p.n).join(' + ') === 'LIU Sheng Shu + TAN Ning'),
+  wd.columns.find(c => c.id === '5529').sf.map(s => s.n).join(' | '));
+
+// ---- the ledger under the board ----
+const led = podiumLedger(y26);
+check('everybody who reached a semi-final has a row',
+  led.length === 7, led.map(r => r.who.n + ':' + r.n).join(' '));
+eq('the best season first', led[0].who.n, 'SHI Yu Qi');
+eq('with the titles counted', [led[0].w, led[0].f, led[0].sf].join(), '1,1,0');
+const chou = led.find(r => r.who.n === 'CHOU Tien Chen');
+eq('and a competitor who only ever lost a semi-final says so',
+  [chou.w, chou.f, chou.sf].join(), '0,0,2');
+eq('their best is third', chou.best, 3);
+/* ⚠️ A row answers to the same pick a face does, which is the whole point of
+   putting the ledger under the board rather than beside it. */
+const shiKey = led[0].key;
+eq('and a row is keyed the way the board keys a face',
+  shiKey, podiumKey(57945));
+
+const ledWd = podiumLedger(wd);
+check('a pair is one row, not two',
+  ledWd.every(r => r.who.people.length === 2),
+  ledWd.map(r => r.who.n + '×' + r.who.people.length).join(' '));
+eq('and the pair that won every one of them is at the top', ledWd[0].who.n, 'LIU / TAN');
+/* Three titles and a semi-final, out of four appearances across three
+   columns — and the Indonesia Masters lists them the other way round in both of
+   the slots it puts them in, which is the case that used to split a pair in
+   half. One row, four appearances. */
+eq('counted as one competitor however BWF ordered them',
+  [ledWd[0].w, ledWd[0].f, ledWd[0].sf].join(), '3,0,1');
+
+// ---- two files, one board ----
+const spare = podiumSeason([PODIUM_2026, PODIUM_2021], 2026, 'MS', { today: TODAY });
+eq('a file for a season the board is not drawing contributes nothing',
+  spare.columns.length, y26.columns.length);
 
 process.exit(report());

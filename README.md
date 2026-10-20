@@ -126,6 +126,12 @@ something the moment it opens; the other three run from the narrowest question t
 — one career, two careers, everybody. Left and right walk the same order, because a keyboard
 arrangement that disagreed with the one on screen would be a second thing to learn.
 
+⚠️ **Winners opens on its Year view** (20 Oct 2026), which draws the current season rather
+than twenty of them: it is the only one of that page's four views that answers something the
+moment it opens. Links already in the wild that carry no `wv` therefore land on Year rather
+than on the pyramid — the cost of changing a default, and why `wv=board` is written into
+every link the page makes from the pyramid.
+
 Seasons is the strip and is still where a player link lands. Compare holds the grid and the
 honours board, either of them for one player or two, and when there is only one it draws an
 empty dashed seat beside them — a page called Compare should look like one before anybody has
@@ -475,6 +481,89 @@ never received it, and `preventDefault()` on `pointerdown` can suppress the clic
 All of that exists so dragging and clicking can coexist. Here the fold does the job custom
 panning was there for, so there is no drag, the click is an ordinary click, and none of
 those traps can come back.
+
+## The year board
+
+The Winners page's **first view, and what it opens on**: one season, a column per tournament
+left to right in the order they were played, and three rows — the champion, the runner-up,
+and the two who lost in the semi-finals. The pyramid below simplifies twenty seasons so they
+can be read side by side; this is the other half of that trade, one season at the depth the
+simplification gave up.
+
+⚠️⚠️ **Size means how far they got, and nothing else.** The winner of a Super 500 is drawn
+exactly as large as the winner of the Olympics. The question this view answers is *how far
+did each person get at each event*, and a size channel meaning two things at once would
+answer neither — which is why the level moves to the column header, the one place it is not
+competing with anything: a gold numeral for the World Tour rungs sized by what the tier is
+worth, and the same two marks the pyramid uses for the two prizes that are not a number, the
+rings for an Olympics and the cup for a World Championships. The Tour Finals, a continental
+championships and the whole Superseries era get a word instead, because BWF never gave those
+tiers a number to draw.
+
+**A cell is one competitor and a column is two cells**, because the semi-final row holds two
+of them. In the doubles draws a cell holds the pair split down the middle, exactly as a
+square does on the pyramid, and the pair is one competitor — one cell, one row in the
+ledger.
+
+**Super 500 and above**, with a chip per tier and the same five continental chips the
+pyramid has. ⚠️ Which costs nothing before 2018: four old tiers became five and Super 500 is
+the one nothing maps to, so in the Superseries era this floor lands on exactly the pyramid's
+own set. A Super 300 chip is where that stops being true and the era question has to be
+answered, which is why there is not one yet.
+
+⚠️ **Every tier chip is on by default**, because nothing on this view is a share: there is
+no denominator to protect, so there is no reason to start with a column hidden. The pyramid
+defaults its own tiers differently for exactly that reason — its score *is* a share, and a
+denominator the reader did not choose is a number they cannot trust.
+
+⚠️⚠️ **The continental chips are the pyramid's own, and they stay Asia and Europe.** They are
+literally the same control, in the same row, and a view that silently counted a set the chips
+on screen did not show would be lying; a set that flipped all five on when you arrived here
+would change the pyramid's score behind your back when you went away again. One control, one
+meaning, on all four views. The visible consequence: a 2026 board opens on **24 of its 27
+tournaments**, with the Oceania, African and Pan Am championships one click away.
+
+**Third and fourth are in order only where a match decided it.** The Olympics plays a bronze
+play-off, so its two semi-final losers really are a third and a fourth and are numbered. A
+tour event does not, and neither do the regional Games — measured across every Asian,
+European, Pan Am and African Games from 2018 to 2023, all five disciplines, not one play-off
+between them — so there the pair share third and no order is implied.
+
+⚠️ **A medal can be won without a match.** Carolina MARIN tore a knee ligament in her Paris
+2024 semi-final and withdrew; the women's singles bronze play-off was never played and
+Gregoria Mariska TUNJUNG took the bronze by walkover. BWF has no `3/4` row for it and nothing
+in the payload tells a walkover bronze from a shared third, so the page draws them level and
+the harvest logs it.
+
+**An empty column says which kind of empty it is.** A season drawn in the autumn is mostly
+tournaments not played yet, and that is not the same as a tournament with no result at all.
+⚠️ And no result is not always a gap in the records: fifteen of 2020's twenty-one have none
+because they were **cancelled**. Three continental championships of 2014 are the other case,
+played and missing from BWF's own archive. Nothing in the data tells those apart, so the page
+says the one thing it can prove — that there is no result — and leaves the reason to a reader
+who knows the year.
+
+**Click a face to follow one competitor across the season**, the same gesture and the same set
+as a square on the pyramid, a bar in the eras band and a face on the score chart.
+
+### The ledger
+
+Under the board, one row per competitor who reached a semi-final, with how many they won,
+lost the final of, and lost the semi-final of. It is the answer the board can only imply — a
+face repeated down a row says a name over and over, and the ledger is what that repetition
+means. Same argument the dominance band makes under the pyramid, and a row is the same pick a
+face is.
+
+### What it is not
+
+⚠️ **There is no export.** `poster.js` is built around a column being a *season*, and here a
+column is a tournament; a button that silently saved a picture of the pyramid instead would
+be worse than no button, so it is hidden rather than left to mislead. A poster of one season
+is its own piece of work.
+
+⚠️ **No quarter-finalists.** Four more cells a column is the lesser objection; the real one is
+that a Super 500 quarter-final is not a notable result, so a fourth row would pay width and
+another day's harvesting for noise.
 
 ## Winners
 
@@ -1376,7 +1465,8 @@ never a hidden feature — and each page's own keys are printed under its notes.
 | **Tournament** | <kbd>O</kbd> order of play · <kbd>B</kbd> bracket · <kbd>S</kbd> starred only |
 | **Tournament** | <kbd>↑</kbd> <kbd>↓</kbd> the day, or — in the bracket — how much of the draw |
 | **Tournament** | <kbd>M</kbd> <kbd>W</kbd> <kbd>X</kbd> the discipline; press again for that gender's doubles |
-| **Winners** | <kbd>B</kbd> board · <kbd>S</kbd> score · <kbd>E</kbd> the dominance band |
+| **Winners** | <kbd>Y</kbd> year · <kbd>B</kbd> board · <kbd>S</kbd> score · <kbd>C</kbd> career · <kbd>E</kbd> the dominance band |
+| **Winners** | on the Year view: the season menu and the tier chips · on the score: <kbd>T</kbd> total · <kbd>P</kbd> peak · <kbd>N</kbd> best seasons |
 | **Winners** | <kbd>M</kbd> <kbd>W</kbd> <kbd>X</kbd> the discipline; press again for that gender's doubles |
 | **Winners** | <kbd>↑</kbd> <kbd>↓</kbd> the 3+ / 4+ / 5+ bar while the band is on — or, on the score, the **Show** bar |
 
@@ -1497,6 +1587,36 @@ draw and looks like the answer, but it is 256–407 KB per tournament and **retu
 for some of them** — including the Paris 2024 Olympics. `tournaments/day-matches` asked for
 the tournament's *last day* is 7–14 KB, answers for those too, and carries the winner's
 photograph. Draw data is kept only as a fallback.
+
+`data/podium-<year>.json` — one per season, all five disciplines in each — is the Year
+view's file, and a different shape for a different question: the pyramid wants one champion
+per great title over twenty seasons, this wants four competitors per tournament at
+Super 500 and above for one of them.
+
+```
+node tools/harvest-podiums.mjs                 2007..now
+node tools/harvest-podiums.mjs --year 2026     one season, re-harvested
+node tools/harvest-podiums.mjs --from 2024     a shorter run
+```
+
+⚠️⚠️ **One pass for all five disciplines, not five runs.** `day-matches` answers with the whole
+day — every draw, every court — so `harvest-winners.mjs`'s five-run shape fetches each payload
+five times and throws four fifths of it away. ⚠️ **And one file per season**, because the view
+draws one season at a time and a single file at this depth would be megabytes fetched to
+draw one year of it. That also makes the resume trivial: a season on disk is done.
+
+⚠️ **Two calls a tournament, and the Olympics is why there are ten in the list.** A tour
+event plays all five finals on its closing day and all ten semi-finals the day before —
+measured on every season from 2007 to 2026. The Olympics spreads its finals over four days
+and its bronze play-offs over five, so the walk runs the whole window at a Games and stops
+early everywhere else. Measured cost: ≈60 calls a season, 26 events from 2018 and 17 before
+it, a little over twenty minutes for all twenty seasons.
+
+⚠️ **Round names vary by season, not by tier.** Every tour event from 2007 to 2026 says `SF`;
+the 2016 Olympics says `SF` and the 2024 Olympics says `Semi-finals`. The bronze play-off is
+`3/4` — not "Bronze", not "3rd place" — which is the only round name on the endpoint that is
+not a word, and therefore the one a filter written from the obvious vocabulary counts and
+never sees.
 
 ## Tools
 
