@@ -7,3 +7,8 @@ Thumbs.db
 
 # A one-off probe output, regenerable with `node tools/probe-continental.mjs`.
 tools/continental-probe.json
+
+# The match harvest: ~350,000 matches across twenty seasons, tens of megabytes,
+# and the input to the ratings rather than anything a page fetches. Regenerable
+# with `node tools/harvest-matches.mjs`.
+raw/

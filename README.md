@@ -1620,6 +1620,13 @@ never sees.
 
 ## Tools
 
+⚠️ **Two fixtures cannot be re-recorded, only rebuilt.** `vue-tmt-schedule` and
+`vue-tmt-live-scores` answer "what is on *now*", and the end-to-end suite is pinned to a
+fixed week — so a recording of either captures whatever week the recorder ran in, and BWF
+will not serve last August back. `node tools/fix-week-fixtures.mjs 2026-08-23` rebuilds both
+from `vue-grouped-year-tournaments`, which is retrospective. Run it if a bare
+`node tests/record.mjs` has moved the tournament page's world.
+
 ```sh
 node tools/discover.mjs [url…]   # what endpoints does BWF's own frontend call?
 node tools/shot.mjs [#hash…]     # screenshot the strip, from fixtures

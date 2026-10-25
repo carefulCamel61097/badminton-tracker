@@ -11,7 +11,10 @@
  * and cached.
  */
 
-import { parseSeason, settleWinnerOrder, scheduleFromYear, dayOf } from './model.js';
+import {
+  parseSeason, settleWinnerOrder, scheduleFromYear, dayOf,
+  scheduleSlot, scheduleOff, onSeniorCircuit,
+} from './model.js';
 
 export const API = 'https://extranet-lv.bwfbadminton.com/api';
 
@@ -801,10 +804,44 @@ async function yearTournaments(year, opts = {}) {
  * would outlive the breakage.
  */
 export async function loadSchedule(opts = {}) {
+  /* ⚠️⚠️ **Two sources, because neither answers the whole question.**
+     `vue-tmt-schedule` is good at *next* and *just finished* and is not a list
+     of what is on: on 25 Oct 2026 its three slots held the HYLO Open (two days
+     away), the Korea Open (nine) and a Super 100, while a Super 750 ran that
+     day and appeared nowhere. `vue-tmt-live-scores` is 6.9 KB and its
+     `thisWeek` is exactly the missing list. One extra call, and the page stops
+     depending on which tournament BWF feels like featuring. */
+  const [slots, week] = await Promise.all([
+    scheduleSlots(opts),
+    thisWeek(opts).catch(() => []),
+  ]);
+  return Object.assign({}, slots, { thisWeek: week });
+}
+
+/**
+ * The tournaments running this week, normalised and with the cancelled ones
+ * dropped.
+ *
+ * ⚠️ Normalised through `scheduleSlot` rather than passed raw: these rows spell
+ * it `cat_logo`, and `scheduleGroup` reads `catLogo`. Skip that and every row
+ * ranks as unknown, which hands the choice back to BWF's ordering.
+ */
+async function thisWeek(opts = {}) {
+  const raw = await getJSON('vue-tmt-live-scores', {}, { tries: 1, ...opts });
+  return ((raw && raw.thisWeek) || [])
+    .filter(t => t && !scheduleOff(t) && onSeniorCircuit(t))
+    .map(scheduleSlot);
+}
+
+async function scheduleSlots(opts = {}) {
   try {
     /* ⚠️ **One go, not two.** A route that refuses this origin refuses it every
        time, and the default retry would put a 1.2s wait and a second doomed
-       request in front of the fallback on every single load of this page. */
+       request in front of the fallback on every single load of this page.
+       ⚠️ BWF fixed this route's CORS some time between 6 Sep and 25 Oct 2026 and
+       it now answers the deployed origin — which is how the French Open went
+       missing: the page had been living on the fallback, and the fallback reads
+       the whole calendar and so could see it. */
     return await getJSON('vue-tmt-schedule', { drawCount: 1 }, { tries: 1, ...opts });
   } catch {
     const today = new Date().toISOString().slice(0, 10);

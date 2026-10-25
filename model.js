@@ -2177,6 +2177,18 @@ export function pickTournament(schedule, today, wantCode) {
     nextTmt: onSeniorCircuit(raw.nextTmt) ? raw.nextTmt : null,
     previousTmt: onSeniorCircuit(raw.previousTmt) ? raw.previousTmt : null,
   };
+  /* ⚠️⚠️ **The week, because BWF's three slots are not a list of what is on.**
+     They are what BWF chooses to feature, and on 25 Oct 2026 they featured the
+     HYLO Open (not yet started), the Korea Open (nine days off) and the Kudus
+     Indonesia Masters — a Super 100 — as `previousTmt`. The YONEX French Open,
+     a Super 750 running the identical dates and finishing that very day, was in
+     none of them, so the page showed the Super 100 and could not even offer the
+     French Open as an alternative. There is no ordering of three slots that
+     fixes this: the tournament simply was not in the payload.
+     `vue-tmt-live-scores` answers the actual question in 6.9 KB — its
+     `thisWeek` had all three, French Open first. See `loadSchedule`. */
+  const week = (Array.isArray(raw.thisWeek) ? raw.thisWeek : [])
+    .filter(t => t && onSeniorCircuit(t) && !scheduleOff(t));
   const at = t => (t ? { from: dayOf(t.start_date), to: dayOf(t.end_date) } : null);
 
   /* ⚠️ **All of the live ones, then the biggest** — not the first one BWF
@@ -2186,9 +2198,18 @@ export function pickTournament(schedule, today, wantCode) {
      Indonesia Masters, a **Super 100**, while `nextTmt` was the LI-NING China
      Masters, a **Super 750**, both running 1-6 September. The page opened on
      the smaller one. */
-  const live = [s.nextLive, s.nextTmt, s.previousTmt].filter(t => {
+  /* ⚠️ Deduplicated on the code, because the week and the slots overlap — the
+     Indonesia Masters was in both on 25 Oct 2026. Without this the page offers
+     a tournament as its own alternative. */
+  const seenCode = new Set();
+  const live = [...week, s.nextLive, s.nextTmt, s.previousTmt].filter(t => {
+    if (!t) return false;
     const d = at(t);
-    return d && within(today, d.from, d.to);
+    if (!(d && within(today, d.from, d.to))) return false;
+    const k = String(t.code || t.id || t.name);
+    if (seenCode.has(k)) return false;
+    seenCode.add(k);
+    return true;
   });
   if (live.length) {
     /* A pin only counts if it names something actually on today, so a stale
@@ -2196,9 +2217,14 @@ export function pickTournament(schedule, today, wantCode) {
     const pinned = wantCode
       && live.find(t => String(t.code) === String(wantCode));
     const top = pinned || biggest(live);
-    // `also` is the rest, so the page can offer them rather than silently
-    // hiding a tournament somebody may have come here for.
-    return { tmt: top, state: 'live', also: live.filter(t => t !== top) };
+    /* `also` is the rest, so the page can offer them rather than silently
+       hiding a tournament somebody may have come here for — biggest first, so
+       the buttons read in the order a reader would expect. */
+    return {
+      tmt: top,
+      state: 'live',
+      also: live.filter(t => t !== top).sort((a, b) => stakes(a) - stakes(b)),
+    };
   }
 
   /* All three slots, not just the two named "next". `previousTmt` is normally
@@ -2206,7 +2232,7 @@ export function pickTournament(schedule, today, wantCode) {
      replayed at an earlier pinned date puts a future tournament there, which
      the first version silently skipped. Comparing three is no more work than
      comparing two and makes the function total over any payload. */
-  const soonest = [s.nextLive, s.nextTmt, s.previousTmt]
+  const soonest = [...week, s.nextLive, s.nextTmt, s.previousTmt]
     .filter(t => t && dayOf(t.start_date) && dayOf(t.start_date) > today)
     .sort((a, b) => {
       const x = dayOf(a.start_date), y = dayOf(b.start_date);
@@ -2256,6 +2282,42 @@ export function pickTournament(schedule, today, wantCode) {
  * @param {string} today  `YYYY-MM-DD`
  * @returns {{nextLive, nextTmt, previousTmt}} the shape `pickTournament` reads
  */
+/**
+ * Is this calendar row a cancelled event?
+ *
+ * ⚠️ The flag is on the field, not the name: BWF leaves cancelled events on the
+ * calendar and the "(Cancelled)" suffix is inconsistent — "2021(Cancelled)"
+ * against "2022 (Cancelled)".
+ */
+export const scheduleOff = t =>
+  !!(t && t.status && String(t.status.code) === 'cancelled');
+
+/**
+ * One tournament reduced to the fields this page needs, with BWF's two spellings
+ * of each reconciled.
+ *
+ * ⚠️⚠️ **Shared by every source, and that is the point.** `vue-tmt-schedule`
+ * gives `catLogo`; `vue-grouped-year-tournaments` and `vue-tmt-live-scores` both
+ * give `cat_logo`. `scheduleGroup` reads `catLogo`, so a row that skips this
+ * normaliser scores `null` there, `stakes` returns MAX_SAFE_INTEGER for it, and
+ * `biggest` falls back to whatever BWF happened to list first — which is a
+ * coin-flip dressed up as a ranking. Measured 25 Oct 2026: all three
+ * `vue-tmt-live-scores` rows came back ungrouped until they went through here.
+ */
+export const scheduleSlot = t => ({
+  id: t.id, code: t.code, name: t.name, slug: t.slug,
+  start_date: t.start_date, end_date: t.end_date, date: t.date,
+  catLogo: t.catLogo || t.cat_logo || null,
+  tmtLink: t.tmtLink || t.url || null,
+  tmtLogo: t.tmtLogo || t.logo || null,
+  label: t.label || null,
+  /* ⚠️ Carried through, so `scheduleOff` still works on a normalised row.
+     It was dropped at first, which made `pickTournament`'s own cancelled guard
+     dead code the moment a caller normalised before filtering — and the test
+     for it duly passed while offering a cancelled "Dead Open 2026". */
+  status: t.status || null,
+});
+
 export function scheduleFromYear(list, today) {
   /* ⚠️ **Cancelled events are still on the calendar** and must not be offered.
      BWF leaves them in with `status.code === 'cancelled'`, and the flag is on
@@ -2265,16 +2327,8 @@ export function scheduleFromYear(list, today) {
      place that needs it. Their own payload does *not* do this — on 6 September
      2026 its `nextTmt` was "Abu Dhabi Masters 2026 (Cancelled)" — so the page
      would otherwise open on an event that is never going to be played. */
-  const off = t => !!(t.status && String(t.status.code) === 'cancelled');
-  const slot = t => ({
-    id: t.id, code: t.code, name: t.name, slug: t.slug,
-    start_date: t.start_date, end_date: t.end_date, date: t.date,
-    catLogo: t.catLogo || t.cat_logo || null,
-    tmtLink: t.tmtLink || t.url || null,
-    tmtLogo: t.tmtLogo || t.logo || null,
-    label: t.label || null,
-  });
-  const board = (list || []).filter(t => !off(t) && onSeniorCircuit(t)).map(slot)
+  const board = (list || []).filter(t => !scheduleOff(t) && onSeniorCircuit(t))
+    .map(scheduleSlot)
     .filter(t => dayOf(t.start_date) && dayOf(t.end_date) && scheduleGroup(t) != null);
 
   const live = board.filter(t => within(today, dayOf(t.start_date), dayOf(t.end_date)))
@@ -5058,4 +5112,202 @@ export function podiumLedger(season) {
   rows.sort((a, b) => b.w - a.w || b.f - a.f || b.sf - a.sf
     || String(a.who.n).localeCompare(String(b.who.n)));
   return rows;
+}
+
+
+/* ======================================================================
+   the rating pool — added 21 Oct 2026
+
+   A rating needs *every* match, which is a different question from the one
+   `pyramidTier` and `gridGroup` answer. Those two place a tournament on a board
+   and return `null` for everything the board does not draw — which is most of
+   the calendar: 2024 has 275 events and the pyramid draws 27 of them.
+
+   ⚠️⚠️ **So `null` is the wrong answer here and this returns flags instead.** A
+   junior event is not an unclassifiable event, it is a junior event, and the
+   harvest has to be able to say so rather than silently drop it. Everything on
+   the calendar comes back classified; what to *admit* is the caller's decision.
+
+   ⚠️⚠️ **The tier vocabulary is era-aware because BWF's is.** Four structures,
+   and the dates are BWF's own: Level 1—4 to 1987, 1—6 Star to 2006, the
+   Superseries ladder 2007—2017, the World Tour from 2018. Measured against
+   badmintonranks.com's own published level table (its open `system/
+   listRankingLevel`, read 21 Oct 2026), which splits the eras at exactly the
+   same four boundaries — independent arrival at the same answer, which is the
+   closest thing to confirmation available here.
+
+   ⚠️⚠️ **The calendar's `category` is a display string and it lies about tiers.**
+   `PYRAMID_BY_CATEGORY` already records why: "World Superseries Premier" holds
+   both the Premier events and the Dubai season-ending Finals, and the 2017
+   World Championships is filed under "BWF Events". So the names run first,
+   exactly as they do in `gridGroup` and `pyramidTier`, and this reuses those
+   two functions' own regexes rather than writing a third copy.
+
+   ⚠️⚠️ **And in 2007 the category does not merely lie, it is absent.** 86 events
+   that season carry three labels between them, and 73 of those say
+   "International Series" — a bucket holding the BWF World Championships, the
+   Pan American and All Africa Championships, team championships and Future
+   Series. From 2008 the labels are clean (Grand Prix, Grand Prix Gold,
+   International Challenge, Future Series, Continental —). `ELO_TIER_FIRST`
+   records that boundary: below it only a *name* is believed, and `lv` comes back
+   `'?'` for everything else rather than claiming a tier it cannot know.
+   Measured 21 Oct 2026 across 2007—2018.
+   ====================================================================== */
+
+/** The season from which the calendar's `category` can be read as a tier. */
+export const ELO_TIER_FIRST = 2008;
+
+/**
+ * Every level BWF has used, newest structure first, with the span it was used
+ * over and a weight for the day a weighted rating wants one.
+ *
+ * ⚠️ **`weight` is not used by the uniform-weight rating and is here anyway**,
+ * because the reader's own plan is to try uniform first and weight later, and a
+ * number added now costs nothing while a re-harvest does. `LEVEL`'s weights are
+ * the pyramid's drawing weights and are a different scale on purpose — those
+ * say how large to draw a square, these say how much a result should move a
+ * rating.
+ */
+export const ELO_LEVELS = {
+  OLY:   { label: 'Olympic Games',            weight: 1.00, span: [1992, 9999] },
+  WC:    { label: 'World Championships',      weight: 1.00, span: [1977, 9999] },
+  WTF:   { label: 'Tour Finals',              weight: 0.95, span: [2007, 9999] },
+  S1000: { label: 'Super 1000',               weight: 0.90, span: [2018, 9999] },
+  S750:  { label: 'Super 750',                weight: 0.80, span: [2018, 9999] },
+  S500:  { label: 'Super 500',                weight: 0.70, span: [2018, 9999] },
+  S300:  { label: 'Super 300',                weight: 0.55, span: [2018, 9999] },
+  S100:  { label: 'Super 100',                weight: 0.45, span: [2018, 9999] },
+  SSP:   { label: 'Superseries Premier',      weight: 0.90, span: [2011, 2017] },
+  SS:    { label: 'Superseries',              weight: 0.80, span: [2007, 2017] },
+  GPG:   { label: 'Grand Prix Gold',          weight: 0.55, span: [2007, 2017] },
+  GP:    { label: 'Grand Prix',               weight: 0.45, span: [2007, 2017] },
+  CC:    { label: 'Continental Championships', weight: 0.70, span: [1962, 9999] },
+  CG:    { label: 'Continental Games',        weight: 0.70, span: [1962, 9999] },
+  IC:    { label: 'International Challenge',  weight: 0.35, span: [1962, 9999] },
+  IS:    { label: 'International Series',     weight: 0.25, span: [1962, 9999] },
+  FS:    { label: 'Future Series',            weight: 0.15, span: [1962, 9999] },
+  '?':   { label: 'unknown tier',             weight: 0.25, span: [1962, 9999] },
+};
+
+/* ⚠️ **Para before junior, and junior before everything.** Both tests are on a
+   string that also carries the tier, and a Para Badminton World Championships
+   would otherwise be classified `WC` and admitted to the senior pool. The
+   measured case for the junior ordering is the **Youth Olympic Games**, which
+   `isOlympics` already documents at length: matching "olympic" first drew SHI Yu
+   Qi's 2014 Youth Olympic gold as a full Olympic title. */
+const ELO_PARA = /para[\s-]?badminton|parabadminton|\bpara\b|wheelchair|deaf|abilitysport|paralympic/i;
+
+/* ⚠️ **Not `NOT_SENIOR`**, which bundles five different exclusions into one
+   regex because the pyramid only needs to know "not this board". The pool needs
+   them apart: a junior match is wanted (in its own flag), a masters match is
+   not, and a university match is a third thing again. */
+const ELO_JUNIOR = /junior|youth|\bu\d{2}\b|\bunder[\s-]*\d{2}\b|cadet|gymnasiade|\bschools?\b/i;
+const ELO_VETERAN = /masters cup|\bveterans?\b|senior championships|\bo\d{2}\b/i;
+const ELO_OTHER_POOL = /universit|student|airbadminton|\bclub\b|invitation/i;
+
+/* The category string, once the names have had their turn. Ordered longest
+   phrase first where two could both match: "Junior International Challenge"
+   must not be read as "International Challenge" with the junior flag lost, so
+   the junior flag is set separately and this only has to find the rung. */
+const ELO_BY_CATEGORY = [
+  [/world tour finals|superseries finals|super series masters/i, 'WTF'],
+  [/super[\s ]*1000/i, 'S1000'],
+  [/super[\s ]*750/i, 'S750'],
+  [/super[\s ]*500/i, 'S500'],
+  [/super[\s ]*300/i, 'S300'],
+  [/super[\s ]*100/i, 'S100'],
+  [/world superseries premier/i, 'SSP'],
+  [/world superseries/i, 'SS'],
+  [/grand prix gold/i, 'GPG'],
+  [/grand prix/i, 'GP'],
+  [/continental.*(championships?)/i, 'CC'],
+  [/continental.*games|multi[\s-]?sport games/i, 'CG'],
+  [/international challenge/i, 'IC'],
+  [/international series/i, 'IS'],
+  [/future series/i, 'FS'],
+];
+
+/**
+ * Classify one `vue-grouped-year-tournaments` row for the rating pool.
+ *
+ * Everything on the calendar is classified; nothing is dropped here. The four
+ * flags are what a caller filters on, and `lv` is the rung.
+ *
+ * @param {{name: string, category: string, start_date: string}} entry
+ * @returns {{lv: string, jr: boolean, para: boolean, team: boolean,
+ *            vet: boolean, other: boolean}}
+ */
+export function eloLevel(entry) {
+  const name = String((entry && entry.name) || '');
+  const cat = String((entry && entry.category) || '');
+  const both = name + ' ' + cat;
+  const year = Number(String((entry && entry.start_date) || '').slice(0, 4)) || 0;
+
+  const out = {
+    lv: '?',
+    para: ELO_PARA.test(both),
+    jr: ELO_JUNIOR.test(both),
+    vet: ELO_VETERAN.test(both),
+    other: ELO_OTHER_POOL.test(both),
+    /* ⚠️ Both halves, for the reason `TEAM` documents: `category` says so in the
+       modern era and does not in 2014, where the Asian Games team competition
+       and the individual one differ by one word in the name. */
+    team: TEAM.test(name) || /\bteams?\b/i.test(cat),
+  };
+
+  /* ⚠️ A veteran event's name often says "senior", which `ELO_JUNIOR` cannot
+     match and `ELO_VETERAN` can — but the World *Junior* Championships is not a
+     veterans event, so junior wins where both fire. */
+  if (out.jr) out.vet = false;
+
+  /* Names first, and only the three that a category has been measured to get
+     wrong. Reuses the pyramid's own regexes rather than restating them. */
+  if (!out.para) {
+    if (!out.jr && isOlympics(name)) { out.lv = 'OLY'; return out; }
+    if (FINALS_NAME.test(name)) { out.lv = 'WTF'; return out; }
+    if (!out.jr && /\bworld championships?\b/i.test(name)) { out.lv = 'WC'; return out; }
+    if (confederationOf(name)) {
+      out.lv = isRegionalGames(name) ? 'CG' : (isContinentalChamps(name) ? 'CC' : out.lv);
+      if (out.lv !== '?') return out;
+    }
+  }
+
+  /* ⚠️⚠️ And below 2008 the category is not read at all — see the section
+     comment. A 2007 event that no name rule caught stays `'?'`, which is the
+     honest answer and is still admitted to the pool: a uniform-weight rating
+     does not need the rung, and 2007's calendar holds 86 events of which one is
+     junior, two are team and none are para, so there is almost nothing in that
+     season a tier would have excluded. */
+  if (year && year < ELO_TIER_FIRST) return out;
+
+  for (const [re, lv] of ELO_BY_CATEGORY) if (re.test(cat)) { out.lv = lv; return out; }
+  return out;
+}
+
+/**
+ * Does this event's matches belong in the rating pool?
+ *
+ * ⚠️ **Para, veteran and university events are out, juniors and team ties are
+ * in** — settled with the reader 21 Oct 2026. Juniors are in because the pools
+ * are measurably connected: at three 2024 junior events, 79—90% of sampled
+ * singles players also played senior events that season or the next, with a
+ * median of 17—36 senior matches each, and 94—100% of sampled junior matches had
+ * at least one such player on court. Team ties are in because a Thomas Cup
+ * match is a real match between two individuals and is the best connector
+ * between national pools there is.
+ *
+ * ⚠️ `onlyAnchored` is the safety valve for the failure the reader named: if a
+ * closed junior pool ever does form, its players beat each other and keep their
+ * rating while the juniors good enough to enter senior events bleed rating to
+ * the seniors — so the worse players end up rated higher. Admitting a junior
+ * match only where one side has senior form elsewhere drops exactly the
+ * unanchored information. At the rates measured it would discard 0—6% of junior
+ * matches, so it is cheap to leave off and cheap to turn on.
+ */
+export function eloAdmits(flags, { juniors = true, team = true } = {}) {
+  if (!flags) return false;
+  if (flags.para || flags.vet || flags.other) return false;
+  if (flags.jr && !juniors) return false;
+  if (flags.team && !team) return false;
+  return true;
 }

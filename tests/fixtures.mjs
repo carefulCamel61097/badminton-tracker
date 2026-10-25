@@ -30,6 +30,29 @@ const API_HOST = 'extranet-lv.bwfbadminton.com';
 const keyFor = url => crypto.createHash('sha1').update(url).digest('hex').slice(0, 20);
 const fileFor = url => path.join(FIX_DIR, keyFor(url) + '.json');
 
+/**
+ * Write a fixture for `url` from a body this process built rather than fetched.
+ *
+ * ⚠️⚠️ **For the routes that only ever answer "now".** `vue-tmt-schedule` and
+ * `vue-tmt-live-scores` describe the current week, so their fixtures cannot be
+ * re-recorded for a pinned past date — BWF will not serve last August. The
+ * recorder therefore rebuilds them from `vue-grouped-year-tournaments`, which
+ * *is* retrospective, and writes the result here. See `record.mjs`.
+ *
+ * ⚠️ A fixture written this way is derived, not photographed, and that is a real
+ * difference: it encodes what we believe BWF would have said. Both uses below
+ * derive only dates and tiers from a payload that BWF still serves, so the
+ * belief is thin — but it is not zero, which is why it is said out loud.
+ */
+export function writeFixture(url, bodyText, status = 200) {
+  fs.mkdirSync(FIX_DIR, { recursive: true });
+  fs.writeFileSync(fileFor(url), JSON.stringify({
+    url, status, base64Encoded: true,
+    body: Buffer.from(String(bodyText), 'utf8').toString('base64'),
+  }));
+  return fileFor(url);
+}
+
 export function fixtureCount() {
   try { return fs.readdirSync(FIX_DIR).filter(f => f.endsWith('.json')).length; }
   catch { return 0; }

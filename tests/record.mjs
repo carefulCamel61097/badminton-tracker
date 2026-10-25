@@ -17,7 +17,17 @@ import { fileURLToPath } from 'node:url';
 
 import { createServer } from '../serve.mjs';
 import { launch } from './browser.mjs';
-import { installFixtures, fixtureCount } from './fixtures.mjs';
+import { installFixtures, fixtureCount, writeFixture } from './fixtures.mjs';
+import { onSeniorCircuit, scheduleOff, scheduleSlot, scheduleGroup, GRID_ORDER }
+  from '../model.js';
+
+/* The calendar's own ranking, for ordering the rebuilt fixture. `stakes` is
+   private to model.js and this only needs it to make the file readable. */
+const stakesOf = t => {
+  const g = scheduleGroup(scheduleSlot(t));
+  const i = g == null ? -1 : GRID_ORDER.indexOf(g);
+  return i < 0 ? Number.MAX_SAFE_INTEGER : i;
+};
 
 const PORT = 8810, DBG = 9420;
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -253,6 +263,57 @@ if (doTmt) {
   console.log(`${ok ? '' : 'timeout '}${(draws || []).length} draws `
     + `(${(draws || []).map(d => d.code + '=' + d.id).join(' ')}), `
     + `${cards} cards, +${fixtureCount() - before} fixtures`);
+}
+
+/* ⚠️⚠️ **The one fixture that is built rather than recorded.**
+   `vue-tmt-live-scores` answers "which tournaments are on *this* week", so
+   recording it captures whatever week the recorder ran in — and the suites are
+   pinned to `TMT_DAY`. Replaying a fixture from the wrong week is worse than
+   having none: the page would open on a tournament that was not on.
+
+   So it is rebuilt from `vue-grouped-year-tournaments`, which is retrospective,
+   exactly as the note above says the three slots are. Everything here comes out
+   of BWF's own calendar rows; only the week arithmetic and `has_live_scores`
+   are ours.
+
+   ⚠️ Last, so the natural recording above has already written the wrong-week
+   version and this overwrites it. */
+if (doTmt) {
+  process.stdout.write(`  this week (${TMT_DAY}) … `);
+  const year = Number(TMT_DAY.slice(0, 4));
+  const raw = await b.ev(`(async () => {
+    const r = await fetch('https://extranet-lv.bwfbadminton.com/api/'
+      + 'vue-grouped-year-tournaments?year=${year}', { headers: { accept: 'application/json' } });
+    return await r.text();
+  })()`);
+  let rows = [];
+  try { rows = ((JSON.parse(raw) || {}).results || []).flatMap(m => m.tournaments || []); }
+  catch { rows = []; }
+
+  const day = s => String(s || '').slice(0, 10);
+  const shift = (d, k) => {
+    const x = new Date(d + 'T00:00:00Z');
+    x.setUTCDate(x.getUTCDate() + k);
+    return x.toISOString().slice(0, 10);
+  };
+  // Monday of TMT_DAY's week, through the Sunday after it.
+  const dow = (new Date(TMT_DAY + 'T00:00:00Z').getUTCDay() + 6) % 7;
+  const mon = shift(TMT_DAY, -dow);
+  const weekOf = (from, to) => rows
+    .filter(t => !scheduleOff(t) && onSeniorCircuit(t))
+    .filter(t => day(t.start_date) <= to && day(t.end_date) >= from)
+    .map(t => Object.assign({}, t, { has_live_scores: true }))
+    .sort((a, c) => stakesOf(a) - stakesOf(c));
+  /* Biggest first, which is the order BWF's own answer came in on 25 Oct 2026
+     (French Open before the Super 100 before the International Challenge).
+     `pickTournament` re-ranks anyway; this only keeps the fixture readable. */
+  const thisWeek = weekOf(mon, shift(mon, 6));
+  const nextWeek = weekOf(shift(mon, 7), shift(mon, 13));
+
+  const url = 'https://extranet-lv.bwfbadminton.com/api/vue-tmt-live-scores';
+  writeFixture(url, JSON.stringify({ thisWeek, nextWeek }));
+  console.log(`${thisWeek.length} this week, ${nextWeek.length} next`
+    + ` — ${thisWeek.map(t => t.name).slice(0, 3).join(' | ')}`);
 }
 
 finish(0);

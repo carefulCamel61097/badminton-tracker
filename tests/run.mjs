@@ -19,11 +19,15 @@ import { sweepProfiles } from './browser.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 const AREAS = {
-  unit:   ['test_model', 'test_api'],
+  unit:   ['test_model', 'test_api', 'test_rating'],
   model:  ['test_model'],
   api:    ['test_api'],
+  /* The rating maths needs neither a browser nor a fixture: its expectations
+     are Glickman's published worked example. Its own area because it is the one
+     suite a change to the harvest or the views cannot affect. */
+  rating: ['test_rating'],
   season: ['test_model', 'test_season'],
-  all:    ['test_model', 'test_api', 'test_season'],
+  all:    ['test_model', 'test_api', 'test_rating', 'test_season'],
 };
 
 const args = process.argv.slice(2);

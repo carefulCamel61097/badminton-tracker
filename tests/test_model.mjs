@@ -26,6 +26,8 @@ import {
   shortTmtName, seasonLabels, tidyTmtName, surnameOf, levelAbbr, roundsInDraw,
   mainDrawSize, drawLadder,
   canonicalDraw, isOlympics,
+  eloLevel, eloAdmits, ELO_LEVELS, ELO_TIER_FIRST,
+  scheduleSlot, scheduleOff,
   gridGroup, seasonResults, careerRows, gridSections, sectionCells, gridYears,
   resultRank, tournamentSeason, GRID_ORDER,
   ERAS, ERA_DEFAULT, ERA_GRID_ORDER, eraKey, eraGroup, gridOrder,
@@ -4864,5 +4866,267 @@ eq('counted as one competitor however BWF ordered them',
 const spare = podiumSeason([PODIUM_2026, PODIUM_2021], 2026, 'MS', { today: TODAY });
 eq('a file for a season the board is not drawing contributes nothing',
   spare.columns.length, y26.columns.length);
+
+/* ====================== the rating pool's classifier ======================
+
+   ⚠️ Every row here is a real `vue-grouped-year-tournaments` entry, name and
+   category transcribed as BWF returns them — measured 21 Oct 2026 across 2007,
+   2008, 2011, 2014, 2015, 2018 and 2024. The point of the function is the cases
+   where the category is wrong or missing, so that is most of what is checked.
+   ========================================================================= */
+
+console.log('\n--- the rating pool ---');
+
+const lvl = (name, category, start_date) => eloLevel({ name, category, start_date });
+
+// ---- the World Tour ladder, where the category is simply right ----
+eq('Super 1000', lvl('All England Open 2024', 'HSBC BWF World Tour Super 1000', '2024-03-12').lv, 'S1000');
+eq('Super 750', lvl('YONEX SUNRISE India Open 2024', 'HSBC BWF World Tour Super 750', '2024-01-16').lv, 'S750');
+eq('Super 500', lvl('DAIHATSU Indonesia Masters 2024', 'HSBC BWF World Tour Super 500', '2024-01-23').lv, 'S500');
+eq('Super 300', lvl('Orleans Masters 2024', 'HSBC BWF World Tour Super 300', '2024-03-26').lv, 'S300');
+/* ⚠️ Super 100 is the one tier BWF does **not** prefix with "HSBC BWF World
+   Tour" — its category is the bare "BWF Tour Super 100". A regex anchored on the
+   sponsor would have missed every one of them. */
+eq('Super 100, whose category is spelt differently',
+  lvl('Odisha Masters 2024', 'BWF Tour Super 100', '2024-12-17').lv, 'S100');
+eq('and the tiers below the Tour', lvl('Belgian International 2024', 'International Challenge', '2024-09-05').lv, 'IC');
+eq('International Series', lvl('YONEX Estonian International 2024', 'International Series', '2024-01-11').lv, 'IS');
+eq('Future Series', lvl('Kenya International 2024', 'Future Series', '2024-06-05').lv, 'FS');
+
+// ---- the Superseries era ----
+eq('Superseries Premier', lvl('Maybank Malaysia Open', 'World Superseries Premier', '2015-03-31').lv, 'SSP');
+eq('Superseries', lvl('Yonex Open Japan 2015', 'World Superseries', '2015-09-08').lv, 'SS');
+eq('Grand Prix Gold', lvl('Yonex German Open 2015', 'Grand Prix Gold', '2015-02-24').lv, 'GPG');
+eq('Grand Prix', lvl('Yonex Dutch Open 2015', 'Grand Prix', '2015-10-06').lv, 'GP');
+
+/* ⚠️⚠️ **The name beats the category, and these are the measured reasons.** The
+   season-ending Finals is filed under Superseries Premier — its own category
+   would draw the year's biggest title as a Super 1000 — and in 2008 and 2009 it
+   was called "World Super Series **Masters** Finals", which no list of names
+   catches and `ELO_VETERAN` very nearly claims as a veterans event. */
+eq('the Finals over its Premier category',
+  lvl('Dubai World Superseries Finals 2015', 'World Superseries Premier', '2015-12-09').lv, 'WTF');
+eq('and under the name it wore in 2008',
+  lvl('World Super Series Masters Finals 2008', 'World Superseries Premier', '2008-12-17').lv, 'WTF');
+check('which is not read as a veterans event',
+  !lvl('World Super Series Masters Finals 2008', 'World Superseries Premier', '2008-12-17').vet);
+/* ⚠️ The World Championships has been filed under "BWF Events" and, in 2007,
+   under "International Series" with sixty-eight other things. */
+eq('the Worlds out of the BWF Events bucket',
+  lvl('Li-Ning BWF World Championships 2014', 'BWF Events', '2014-08-25').lv, 'WC');
+eq('the Olympics out of the Grade 1 bucket',
+  lvl('Paris 2024 Olympic Games Badminton Competition', 'Grade 1 – Individual Tournaments', '2024-07-27').lv, 'OLY');
+/* ⚠️ The European Games is filed under the Continental *Championships*
+   category, which would make a games an annual event every fourth year. */
+eq('a regional games is a games whatever it is filed under',
+  lvl('2023 European Games', 'Continental Individual Championships', '2023-06-21').lv, 'CG');
+eq('and a continental championships is not a games',
+  lvl('Badminton Asia Championships 2024', 'Continental Individual Championships', '2024-04-09').lv, 'CC');
+
+/* ⚠️⚠️ **2007's category is not read at all.** That season has 86 events and
+   three labels, 73 of them "International Series" — a bucket that holds the BWF
+   World Championships, the Pan American and All Africa Championships, team
+   championships and Future Series. Believing it would file the All England as a
+   Future Series' neighbour. `'?'` is the honest answer, and the event is still
+   admitted, because a uniform-weight rating does not need the rung. */
+const ae07 = lvl('Yonex All England Open 2007', 'International Series', '2007-03-06');
+eq('2007 refuses to read its own category', ae07.lv, '?');
+check('and admits the match anyway', eloAdmits(ae07));
+eq('the same category one season later is believed',
+  lvl('Yonex Estonian International 2008', 'International Series', '2008-01-11').lv, 'IS');
+eq('and the floor is where the comment says it is', ELO_TIER_FIRST, 2008);
+/* A name rule still works below the floor — it is the category that is not
+   trusted, not the whole row. */
+eq('a name rule still fires in 2007',
+  lvl('BWF World Championships 2007', 'International Series', '2007-08-13').lv, 'WC');
+
+// ---- the three flags that decide admission ----
+const juniors = lvl('YONEX BWF World Junior Championships 2024',
+  'Grade 1 – Individual Junior Tournaments', '2024-10-07');
+check('the World Juniors is junior', juniors.jr);
+/* ⚠️⚠️ **And is not the World Championships.** Both strings carry the words, and
+   the junior test runs first for exactly this reason. */
+check('and is not promoted to the senior Worlds', juniors.lv !== 'WC');
+const yog = lvl('Nanjing 2014 Youth Olympic Games', '', '2014-08-16');
+check('the Youth Olympics is junior', yog.jr);
+check('and is not the Olympics', yog.lv !== 'OLY', yog.lv);
+/* ⚠️ The whole U17 circuit carries **no category at all** — 50 of 2024's 275
+   events — so the name is the only thing there is to go on. */
+check('a U17 event with no category is still junior', lvl('Spanish U17 Open 2024', '', '2024-02-02').jr);
+check('and so is an under-19 spelt out', lvl('Dutch Under 19 Open 2024', '', '2024-03-01').jr);
+eq('a junior event still gets its rung',
+  lvl('YONEX German Junior 2024', 'Junior International Grand Prix', '2024-03-06').lv, 'GP');
+
+const para = lvl('BWF Para Badminton World Championships 2024', 'BWF Para Badminton World Championships', '2024-08-20');
+check('para is flagged', para.para);
+check('and is not the senior Worlds', para.lv !== 'WC', para.lv);
+check('and is not admitted', !eloAdmits(para));
+
+const teamTie = lvl('TotalEnergies BWF Thomas & Uber Cup Finals 2024', 'Grade 1 – Team Tournaments', '2024-04-29');
+check('a team event is flagged', teamTie.team);
+check('and is admitted by default, as the best connector between national pools',
+  eloAdmits(teamTie));
+check('but can be switched off', !eloAdmits(teamTie, { team: false }));
+
+check('a veterans championships is out',
+  !eloAdmits(lvl('XXIII World Senior Championships 2024', 'Other', '2024-09-01')));
+/* ⚠️ "European Universities Championship" reaches `CC` through
+   `isContinentalChamps`, and the flag still keeps it out — which is the point of
+   returning flags rather than a tier alone. */
+check('a university championships is out however it is tiered',
+  !eloAdmits(lvl('European Universities Championship 2024', 'Other', '2024-07-01')));
+check('and juniors can be switched off without touching anything else',
+  !eloAdmits(juniors, { juniors: false }) && eloAdmits(teamTie, { juniors: false }));
+
+// ---- the table itself ----
+check('every level the classifier can return is in ELO_LEVELS',
+  ['OLY', 'WC', 'WTF', 'S1000', 'S750', 'S500', 'S300', 'S100', 'SSP', 'SS',
+   'GPG', 'GP', 'CC', 'CG', 'IC', 'IS', 'FS', '?'].every(k => ELO_LEVELS[k]));
+check('and every one of them has a label and a weight',
+  Object.values(ELO_LEVELS).every(l => l.label && typeof l.weight === 'number'));
+/* ⚠️ The weights are not used yet — the reader's plan is uniform first — but an
+   ordering that is wrong now would be wrong silently until the day it is. */
+check('the weights order the World Tour ladder the way BWF does',
+  ELO_LEVELS.S1000.weight > ELO_LEVELS.S750.weight
+  && ELO_LEVELS.S750.weight > ELO_LEVELS.S500.weight
+  && ELO_LEVELS.S500.weight > ELO_LEVELS.S300.weight
+  && ELO_LEVELS.S300.weight > ELO_LEVELS.S100.weight
+  && ELO_LEVELS.S100.weight > ELO_LEVELS.IC.weight
+  && ELO_LEVELS.IC.weight > ELO_LEVELS.IS.weight
+  && ELO_LEVELS.IS.weight > ELO_LEVELS.FS.weight);
+check('and each era ladder matches its modern counterpart',
+  ELO_LEVELS.SSP.weight === ELO_LEVELS.S1000.weight
+  && ELO_LEVELS.SS.weight === ELO_LEVELS.S750.weight
+  && ELO_LEVELS.GPG.weight === ELO_LEVELS.S300.weight
+  && ELO_LEVELS.GP.weight === ELO_LEVELS.S100.weight);
+
+/* ============ the week BWF's three slots lost a Super 750 ============
+
+   The reader, 25 Oct 2026: *"I don't see the french open currently on the site.
+   I only see the indonesia masters and don't see a button to go to the french
+   open."*
+
+   ⚠️⚠️ Transcribed from the two live payloads that afternoon. `vue-tmt-schedule`
+   held the HYLO Open (two days away), the Korea Open (nine days away) and the
+   Kudus Indonesia Masters — a Super 100 — in `previousTmt`. The YONEX French
+   Open, a Super 750 on the identical dates and finishing that day, was in none
+   of the three. `vue-tmt-live-scores`'s `thisWeek` had all three events with
+   the French Open first.
+   ===================================================================== */
+
+console.log('');
+console.log('--- the week the three slots lost a Super 750 ---');
+
+const SUFFIX = 'https://bwfbadminton.com/wp-content/themes/fansite-2020/assets/images/tournament/';
+const frenchOpen = {
+  id: 5272, code: '02C81098-27CE-498C-AABD-8C520607CEAD',
+  name: 'YONEX French Open 2026',
+  start_date: '2026-10-20 00:00:00', end_date: '2026-10-25 00:00:00',
+  cat_logo: SUFFIX + 'suffix_750_white-01.svg',
+  status: { code: 'normal' },
+};
+const kudus = {
+  id: 5526, code: 'KUDUS-CODE',
+  name: 'POLYTRON Kudus Indonesia Masters 2026',
+  start_date: '2026-10-20 00:00:00', end_date: '2026-10-25 00:00:00',
+  cat_logo: SUFFIX + 'suffix_100_white-01.svg',
+  status: { code: 'normal' },
+};
+const peru = {
+  id: 5779, code: 'PERU-CODE',
+  name: 'Peru International Challenge 2026',
+  start_date: '2026-10-21 00:00:00', end_date: '2026-10-25 00:00:00',
+  status: { code: 'normal' },
+};
+const hylo = {
+  id: 5273, code: 'HYLO-CODE', name: 'HYLO Open 2026',
+  start_date: '2026-10-27 00:00:00', end_date: '2026-11-01 00:00:00',
+  catLogo: SUFFIX + 'suffix_500_white-01.svg', status: { code: 'normal' },
+};
+const korea = {
+  id: 5274, code: 'KOREA-CODE', name: 'YEOSU VICTOR Korea Open 2026',
+  start_date: '2026-11-03 00:00:00', end_date: '2026-11-08 00:00:00',
+  catLogo: SUFFIX + 'suffix_500_white-01.svg', status: { code: 'normal' },
+};
+const OCT25 = '2026-10-25';
+const THREE = { nextLive: hylo, nextTmt: korea, previousTmt: kudus };
+
+/* ⚠️ First, that the payload really is deficient — otherwise the fix below is
+   fixing nothing and this test would pass with it reverted. */
+const blind = pickTournament(THREE, OCT25, null);
+eq('BWF\'s three slots alone still answer the Super 100',
+  blind.tmt.name, 'POLYTRON Kudus Indonesia Masters 2026');
+eq('and cannot even offer an alternative', blind.also.length, 0);
+
+/* ⚠️ `thisWeek` rows arrive with `cat_logo`, and `scheduleGroup` reads
+   `catLogo`. Unnormalised they all rank as unknown and `biggest` degrades to
+   BWF's own ordering — a coin flip dressed up as a ranking. */
+eq('a raw week row has no group the ranker can read',
+  scheduleGroup(frenchOpen), null);
+eq('and normalising it gives one', scheduleGroup(scheduleSlot(frenchOpen)), 24);
+eq('the Super 100 likewise', scheduleGroup(scheduleSlot(kudus)), 27);
+check('a tier with no numbered suffix stays unranked, and so sorts last',
+  scheduleGroup(scheduleSlot(peru)) == null);
+
+const week = [frenchOpen, kudus, peru].map(scheduleSlot);
+const fixed = pickTournament(Object.assign({ thisWeek: week }, THREE), OCT25, null);
+eq('with the week, the page opens on the Super 750',
+  fixed.tmt.name, 'YONEX French Open 2026');
+eq('and offers the other two', fixed.also.length, 2);
+/* ⚠️ Biggest first, so the buttons read in the order a reader expects. */
+eq('biggest first among the alternatives',
+  fixed.also.map(t => t.name).join(' | '),
+  'POLYTRON Kudus Indonesia Masters 2026 | Peru International Challenge 2026');
+/* ⚠️⚠️ The Indonesia Masters is in the week **and** in `previousTmt`. Without the
+   dedupe the page offers a tournament as its own alternative. */
+eq('nothing is offered twice',
+  new Set([fixed.tmt.code, ...fixed.also.map(t => t.code)]).size, 3);
+
+/* A pin still wins, and a stale one still degrades to the ordinary choice
+   rather than to an empty page. */
+eq('a pin still beats the ranking',
+  pickTournament(Object.assign({ thisWeek: week }, THREE), OCT25, 'KUDUS-CODE').tmt.name,
+  'POLYTRON Kudus Indonesia Masters 2026');
+eq('and the French Open becomes the alternative',
+  pickTournament(Object.assign({ thisWeek: week }, THREE), OCT25, 'KUDUS-CODE')
+    .also[0].name, 'YONEX French Open 2026');
+eq('a pin naming nothing on today degrades to the ranking',
+  pickTournament(Object.assign({ thisWeek: week }, THREE), OCT25, 'NOT-A-CODE').tmt.name,
+  'YONEX French Open 2026');
+
+/* ⚠️ The week is filtered at the same door the slots are. */
+const junior = {
+  id: 9, code: 'JR-CODE', name: 'Youth Olympic Games Dakar 2026',
+  start_date: '2026-10-20 00:00:00', end_date: '2026-10-25 00:00:00',
+  cat_logo: SUFFIX + 'suffix_1000_white-01.svg', status: { code: 'normal' },
+};
+const cancelled = Object.assign({}, peru, {
+  code: 'DEAD-CODE', name: 'Dead Open 2026', status: { code: 'cancelled' },
+});
+check('a cancelled event is still on the calendar and is not offered',
+  scheduleOff(cancelled) && !scheduleOff(peru));
+const dirty = pickTournament(
+  Object.assign({ thisWeek: [junior, cancelled, ...week].map(scheduleSlot) }, THREE),
+  OCT25, null);
+/* ⚠️ `scheduleSlot` drops `status`, so the cancelled one has to be filtered
+   before normalising — which is what `loadSchedule` does. This checks the
+   junior half, which survives normalisation because it is in the name. */
+eq('a junior event in the week cannot take the page',
+  dirty.tmt.name, 'YONEX French Open 2026');
+check('nor appear among the alternatives',
+  !dirty.also.some(t => /Youth Olympic/.test(t.name)),
+  dirty.also.map(t => t.name).join(' | '));
+/* ⚠️ And the cancelled one is gone too, now that `scheduleSlot` carries
+   `status` through. Before it did, this very line offered "Dead Open 2026". */
+check('nor does a cancelled event survive normalising',
+  !dirty.also.some(t => /Dead Open/.test(t.name)),
+  dirty.also.map(t => t.name).join(' | '));
+
+/* ⚠️ Nothing on today: the week must not hijack the upcoming slot either. */
+const dayAfter = pickTournament(
+  Object.assign({ thisWeek: week }, { nextLive: hylo, nextTmt: korea, previousTmt: null }),
+  '2026-10-26', null);
+eq('the day after, the page looks forward', dayAfter.state, 'upcoming');
+eq('to the nearest one', dayAfter.tmt.name, 'HYLO Open 2026');
 
 process.exit(report());

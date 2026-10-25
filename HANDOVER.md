@@ -1005,6 +1005,59 @@ place in `GRID_ORDER`.
 
 ---
 
+### 2.17 The week the three slots lost a Super 750 — fixed 25 Oct 2026
+
+The reader: *"I don't see the french open currently on the site. I only see the indonesia
+masters and don't see a button to go to the french open."*
+
+⚠️⚠️ **The page had been working *because* a BWF route was broken, and broke when they fixed
+it.** 2.x recorded that `vue-tmt-schedule` is the one route on BWF's API that does not reflect
+the request origin into `Access-Control-Allow-Origin`, so from the deployed site it failed
+CORS and `loadSchedule` fell back to reading the whole year calendar through
+`scheduleFromYear`. Some time between 6 September and 25 October 2026 **BWF fixed their edge
+config** — measured: the route now answers 200 from `https://carefulcamel61097.github.io`.
+The primary came back to life, the fallback stopped running, and the page lost the one source
+that could see the whole calendar.
+
+⚠️⚠️ **BWF's three slots are not a list of what is on.** They are what BWF chooses to
+feature, and on 25 Oct 2026 they featured the HYLO Open (`nextLive`, starting in two days),
+the Korea Open (`nextTmt`, nine days off) and the POLYTRON Kudus Indonesia Masters — a
+**Super 100** — as `previousTmt`. The YONEX French Open, a **Super 750** running the
+identical dates and finishing that very day, was in none of the three. So the page showed the
+Super 100 and could not even offer the French Open as an alternative: there is no ordering of
+three slots that fixes a tournament which is not in the payload.
+
+`pickTournament` already handled *two* live events — 2.x added that after the 3 September
+Pontianak case — and that is exactly why this was confusing to diagnose. The ranking was
+right. The input was short.
+
+⚠️ **`vue-tmt-live-scores` answers the actual question in 6.9 KB.** Its `thisWeek` had all
+three events, French Open first, each with `has_live_scores`. `loadSchedule` now asks for both
+routes in parallel and hands `pickTournament` a `thisWeek` array alongside the three slots;
+the live set is the union, deduplicated on the code, and `also` is sorted biggest-first.
+Measured after the fix: French Open, with the Indonesia Masters and the Peru International
+Challenge offered beside it.
+
+⚠️⚠️ **One shared normaliser, and the reason is a silent ranking failure.**
+`vue-tmt-schedule` spells it `catLogo`; `vue-grouped-year-tournaments` and
+`vue-tmt-live-scores` both spell it `cat_logo`. `scheduleGroup` reads `catLogo`, so a row that
+skips normalisation scores `null`, `stakes` returns `MAX_SAFE_INTEGER`, and `biggest` quietly
+degrades to whatever BWF listed first — a coin flip dressed up as a ranking. All three live
+rows came back ungrouped until they went through `scheduleSlot`, which is now exported and
+shared. ⚠️ It also carries `status` through, which it did not at first: dropping it made
+`pickTournament`'s own cancelled guard dead code the moment a caller normalised before
+filtering, and the test for it duly passed while offering a cancelled "Dead Open 2026".
+
+⚠️⚠️ **And the fixture for a "now" route cannot be photographed.** `vue-tmt-live-scores`
+describes the current week and the suites are pinned to `TMT_DAY`, so recording it captures
+the wrong week — the trap 4.x already records for `vue-tmt-schedule`. **It was walked into
+again while fixing this**: `import('./tests/record.mjs')` *runs* the recorder, a bare run
+refreshes everything, and ≈140 fixtures were re-recorded against 25 October. The recovery is
+the one the note prescribes and is now a tool: `node tools/fix-week-fixtures.mjs <date>`
+rebuilds both routes' fixtures from `vue-grouped-year-tournaments`, which **is**
+retrospective. `record.mjs` now does the same rebuild at the end of a `--tmt` run, last, so
+it overwrites the wrong-week version the natural recording leaves behind.
+
 ### 2.16 Year: one season at the depth the pyramid gave up — settled 20 Oct 2026
 
 The reader: *"Our Winners page really shows each year somewhat simplified so that we can look
