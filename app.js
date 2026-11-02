@@ -1180,7 +1180,6 @@ $('gexpCopy').addEventListener('click', copyComparePoster);
 $('gexpCopy').hidden = typeof ClipboardItem === 'undefined' || !navigator.clipboard;
 
 
-
 /* ============================ the winners' pyramid ============================
 
    One column per season, oldest on the left. Each column is a pyramid: the
@@ -1314,6 +1313,35 @@ const win = {
 const careerSubject = () => [...win.only][0] || null;
 
 const winRaw = () => win.files[win.kind] || null;
+
+/* ⚠️⚠️ **How old is this board? Until 2 Nov 2026 no view on this page said.**
+   All four of them read a committed harvest, and a committed harvest is a
+   photograph: `winners-*.json` was a month out of date and missing three Super
+   750s, `podium-2026.json` twelve days out and missing two finished
+   tournaments, and nothing on screen gave the reader any way to suspect it.
+
+   The Year board can mark an individual column (see `podiumSeason`'s `stale`);
+   the pyramid cannot, because a title that was never harvested is simply not
+   drawn and leaves no hole to label. So every view says the date instead, in
+   the one line all four already share.
+
+   ⚠️ Day only. The hour is noise to a reader, and these harvests are run by
+   hand weeks apart. */
+function winHarvested() {
+  const day = v => String(v || '').slice(0, 10) || null;
+  if (win.view === 'year') {
+    return yearFiles().map(f => day(f.generated)).filter(Boolean).sort().pop() || null;
+  }
+  const f = winRaw();
+  return f ? day(f.generated) : null;
+}
+
+/** ` · as of <date>`, or nothing at all when the file does not say. */
+function winAsOf() {
+  const d = winHarvested();
+  return d ? ` · as of ${d}` : '';
+}
+
 
 /* ⚠️ Memoised on the discipline **and** the chips, because every view asks for
    the file and `winnersWithin` walks twenty seasons. Keyed rather than
@@ -1598,7 +1626,7 @@ function renderWinners() {
        what usually writes it and the board is not drawn in this view. */
     const yrs = winnersSeasons(file);
     $('winSpan').textContent = `${yrs.years[0]}–${yrs.years[yrs.years.length - 1]} · `
-      + `${yrs.years.reduce((n, y) => n + yrs.byYear.get(y).length, 0)} titles`;
+      + `${yrs.years.reduce((n, y) => n + yrs.byYear.get(y).length, 0)} titles` + winAsOf();
     return renderScore(file);
   }
 
@@ -1634,7 +1662,7 @@ function renderWinners() {
 
   const unit = win.zoom;
   $('winSpan').textContent = `${years[0]}–${years[years.length - 1]} · `
-    + `${years.reduce((n, y) => n + seasons.byYear.get(y).length, 0)} titles`;
+    + `${years.reduce((n, y) => n + seasons.byYear.get(y).length, 0)} titles` + winAsOf();
 
   /* ⚠️ Laid out once and then drawn, because the pick has to be checked against
      the whole board before a single square is written. A pick that names nobody
@@ -3081,7 +3109,7 @@ function yearTileTitle(who, rowKey, ord) {
  * could not keep the three rows level without every column agreeing on its own
  * heights, which is exactly the arithmetic a CSS grid does for free.
  */
-function yearColumnCells(col, zoom) {
+function yearColumnCells(col, zoom, harvestedOn) {
   const title = `${col.name}\n${col.badge.full || col.badge.text}`
     + `\n${col.date}` + (col.mark ? `\n⁕ ${col.mark.note}` : '');
   const head = `<div class="ybhead" title="${esc(title)}">`
@@ -3094,10 +3122,18 @@ function yearColumnCells(col, zoom) {
      not been played, and a hole that cannot say so reads as a fault in the
      page. `none` is the other case and it is real — three continental
      championships of 2014 are simply not in BWF's records at all. */
-  if (col.state === 'soon' || col.state === 'none') {
+  /* ⚠️⚠️ **And the third kind is "nobody has looked yet".** Saying "BWF has no
+     result" about a tournament that finished a week ago, when the real answer
+     is that the harvest predates it, is the page asserting something false
+     about BWF's records. See `podiumSeason`. */
+  if (col.state === 'soon' || col.state === 'none' || col.state === 'stale') {
     const why = col.state === 'soon'
       ? 'Not played yet — ' + col.name + ' runs to ' + col.end
-      : 'BWF has no result for ' + col.name;
+      : col.state === 'stale'
+        ? col.name + ' finished on ' + col.end + ', after this board was '
+          + 'harvested' + (harvestedOn ? ' on ' + harvestedOn : '')
+          + ' — re-run tools/harvest-podiums.mjs'
+        : 'BWF has no result for ' + col.name;
     const cell = `<div class="ybempty ${col.state}" title="${esc(why)}"></div>`;
     return { head, w: cell, f: cell, sf: cell };
   }
@@ -3206,7 +3242,7 @@ function renderYearBoard() {
   const played = cols.filter(c => c.state === 'full' || c.state === 'part').length;
   $('winSpan').textContent = `${win.year} · ${played} of ${cols.length} `
     + (cols.length === 1 ? 'tournament' : 'tournaments')
-    + (ledger.length ? ` · ${ledger.length} on a podium` : '');
+    + (ledger.length ? ` · ${ledger.length} on a podium` : '') + winAsOf();
 
   if (!cols.length) {
     body.innerHTML = '<p class="empty">Nothing on this board — every chip above'
@@ -3214,7 +3250,7 @@ function renderYearBoard() {
     return;
   }
 
-  const parts = cols.map(c => yearColumnCells(c, zoom));
+  const parts = cols.map(c => yearColumnCells(c, zoom, season.harvested));
   const colw = Math.round(zoom * 2 + 6);
   const rowHtml = key => `<div class="ybline" data-row="${key}">`
     + `<div class="yblabel" title="${esc(YEAR_ROWS.find(r => r.key === key).full)}">`
@@ -3231,7 +3267,6 @@ function renderYearBoard() {
     + '</div>'
     + yearLedgerHtml(ledger, zoom);
 }
-
 
 
 const WIN_VIEW_LABEL = { year: 'Year', board: 'Board', score: 'Score', career: 'Career' };

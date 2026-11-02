@@ -5019,6 +5019,28 @@ export function podiumSeason(files, year, kind, opts = {}) {
   const today = opts.today || new Date().toISOString().slice(0, 10);
   const list = settlePodiumOrder(files);
 
+  /* ⚠️⚠️ **The day the files were harvested, because "no result" was telling the
+     reader something untrue.** 2.16 settled that an empty column must say which
+     kind of empty it is, and gave it two answers: not played yet, or BWF has no
+     record. On 2 Nov 2026 the board showed a *third* kind as the second — the
+     French Open and the HYLO Open had both finished and both read "BWF has no
+     result", when the truth was that `podium-2026.json` was harvested on 20
+     October and nobody had re-run it since.
+
+     That third state is knowable, and the file already carried what was needed:
+     if the harvest ran on or before a tournament's last day, it cannot have
+     seen the final, and the absence of a podium means nothing at all.
+
+     ⚠️ `<=` rather than `<`: a harvest that ran *on* the closing day may have
+     run before the final was played. The conservative reading mislabels a
+     genuine gap as unharvested now and then, which is the better error — it
+     says "we do not know" instead of asserting "there is no result". */
+  const harvested = list
+    .map(f => String((f && f.generated) || '').slice(0, 10))
+    .filter(Boolean)
+    .sort()
+    .pop() || null;
+
   const columns = [];
   for (const file of list) {
     const players = file.players || {};
@@ -5051,10 +5073,12 @@ export function podiumSeason(files, year, kind, opts = {}) {
         const who = winnerOf(players, ids);
         return who ? Object.assign(who, { key: podiumKey(v) }) : null;
       };
-      /* ⚠️ Four states, and the reader asked for every one of them to say which
+      /* ⚠️ Five states, and the reader asked for every one of them to say which
          it is. A column with nobody in it is the commonest thing on a board
          drawn in October: the rest of the season has not happened. */
-      const state = !row ? (e.end >= today ? 'soon' : 'none')
+      const state = !row
+        ? (e.end >= today ? 'soon'
+          : (harvested && harvested <= e.end) ? 'stale' : 'none')
         : (!row.sf || row.sf.length < 2) ? 'part' : 'full';
       columns.push({
         id: String(e.id), name: e.name, tier: e.tier,
@@ -5076,7 +5100,9 @@ export function podiumSeason(files, year, kind, opts = {}) {
   }
   columns.sort((a, b) => String(a.date).localeCompare(String(b.date))
     || String(a.id).localeCompare(String(b.id)));
-  return { year, kind, columns };
+  /* ⚠️ Returned as well as used, so the page can date the board it is drawing
+     rather than leaving the reader to wonder how old it is. */
+  return { year, kind, columns, harvested };
 }
 
 /**

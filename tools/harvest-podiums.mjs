@@ -51,6 +51,13 @@ const ONE = Number(arg('--year', 0));
 const FROM = ONE || Number(arg('--from', 2007));
 const TO = ONE || Number(arg('--to', new Date().getUTCFullYear()));
 const FORCE = has('--force') || !!ONE;
+/* ⚠️⚠️ **The same trap as `harvest-winners.mjs`, and the same fix.** The resume
+   below skips a season whose file exists, which is right for a season that is
+   over and wrong for the one being played: `podium-2026.json` written on 20
+   October had the French Open as an empty column, and a bare re-run would have
+   skipped the file rather than filling it in. A season still in progress is
+   always re-harvested; `--year` and `--force` still override everything. */
+const THIS_SEASON = new Date().getUTCFullYear();
 
 /* The pyramid's rungs, plus the one tier that exists only to be collected here.
    ⚠️ Derived from `PYRAMID_ROWS` rather than written out, so a rung added to the
@@ -296,7 +303,10 @@ async function podiumOf(t, tier) {
 
 for (let year = FROM; year <= TO; year++) {
   const out = path.join(ROOT, 'data', `podium-${year}.json`);
-  if (!FORCE && fs.existsSync(out)) { console.log(`${year}  (already)`); continue; }
+  if (!FORCE && year < THIS_SEASON && fs.existsSync(out)) {
+    console.log(`${year}  (already)`);
+    continue;
+  }
 
   /* ⚠️ No `category[]` filter, for the reason the other harvest records: the
      2017 World Championships is filed under "BWF Events" and the categories a

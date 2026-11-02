@@ -5129,4 +5129,96 @@ const dayAfter = pickTournament(
 eq('the day after, the page looks forward', dayAfter.state, 'upcoming');
 eq('to the nearest one', dayAfter.tmt.name, 'HYLO Open 2026');
 
+/* ============ the third kind of empty ============
+
+   The reader, 2 Nov 2026: *"On the Winners-Year page I see the french open and
+   Hylo open are not filled in yet even though they have finished."*
+
+   ⚠️⚠️ Both had finished, and both were drawn as "BWF has no result" —
+   which was the page asserting something untrue about BWF's records when the
+   truth was about this page: `podium-2026.json` was harvested on 20 October and
+   nobody had re-run it. The file carried `generated` all along, so the third
+   state was knowable and simply not read.
+   ================================================================= */
+
+console.log('');
+console.log('--- the third kind of empty ---');
+
+const STALE_FILE = {
+  generated: '2026-10-20T06:00:00.000Z',
+  season: 2026,
+  players: { 1: { n: 'A', c: 'DEN' }, 2: { n: 'B', c: 'DEN' },
+             3: { n: 'C', c: 'DEN' }, 4: { n: 'D', c: 'DEN' } },
+  events: [
+    /* Ended nine days before the harvest and still has nothing: a real gap. */
+    { id: 11, name: 'Vanished Open 2026', tier: 24,
+      date: '2026-10-06', end: '2026-10-11', draws: {} },
+    /* Ended two days before it, and was collected. */
+    { id: 12, name: 'Denmark Open 2026', tier: 24,
+      date: '2026-10-13', end: '2026-10-18',
+      draws: { MS: { w: [1], f: [2], sf: [[3], [4]] } } },
+    /* Finished five days *after* the harvest ran. */
+    { id: 13, name: 'French Open 2026', tier: 24,
+      date: '2026-10-20', end: '2026-10-25', draws: {} },
+    /* Finished twelve days after it. */
+    { id: 14, name: 'HYLO Open 2026', tier: 25,
+      date: '2026-10-27', end: '2026-11-01', draws: {} },
+    /* Still to come. */
+    { id: 15, name: 'Korea Open 2026', tier: 25,
+      date: '2026-11-03', end: '2026-11-08', draws: {} },
+  ],
+};
+const ALLCONF = new Set(['EUR', 'ASIA', 'AME', 'OCE', 'AFR']);
+const staleBoard = podiumSeason([STALE_FILE], 2026, 'MS',
+  { today: '2026-11-02', confs: ALLCONF });
+
+eq('the board knows the day it was harvested', staleBoard.harvested, '2026-10-20');
+const stateOf = name => (staleBoard.columns.find(c => c.name === name) || {}).state;
+eq('a tournament that finished after the harvest is not called a gap',
+  stateOf('French Open 2026'), 'stale');
+eq('and neither is the next one', stateOf('HYLO Open 2026'), 'stale');
+/* ⚠️ The distinction that makes the state worth having: an event that ended
+   *before* the harvest and still has nothing really is missing from BWF. */
+eq('an event that ended before the harvest and has nothing is still a gap',
+  stateOf('Vanished Open 2026'), 'none');
+eq('one that was collected is full', stateOf('Denmark Open 2026'), 'full');
+eq('and the future is still the future', stateOf('Korea Open 2026'), 'soon');
+
+/* ⚠️⚠️ **Re-harvesting has to clear it, or the state is just a new way to be
+   wrong.** The same board from a file generated after everything finished. */
+const freshBoard = podiumSeason(
+  [Object.assign({}, STALE_FILE, { generated: '2026-11-02T06:00:00.000Z' })],
+  2026, 'MS', { today: '2026-11-02', confs: ALLCONF });
+const freshState = name => (freshBoard.columns.find(c => c.name === name) || {}).state;
+eq('a fresh harvest reports the gap as a gap',
+  freshState('Vanished Open 2026'), 'none');
+eq('and a finished tournament with no podium as a gap too, not as stale',
+  freshState('French Open 2026'), 'none');
+eq('the future is unaffected', freshState('Korea Open 2026'), 'soon');
+
+/* ⚠️ A file with no `generated` at all — which no harvest writes, but a
+   hand-made fixture might — must not turn every hole into "stale". */
+const undated = podiumSeason(
+  [Object.assign({}, STALE_FILE, { generated: undefined })],
+  2026, 'MS', { today: '2026-11-02', confs: ALLCONF });
+eq('with no harvest date, a hole falls back to the honest older answer',
+  (undated.columns.find(c => c.name === 'French Open 2026') || {}).state, 'none');
+eq('and nothing claims to know when it was harvested', undated.harvested, null);
+
+/* The real file, which is the point of all of it. ⚠️ Asserted as a floor
+   rather than an exact date: it is re-harvested by hand and will move. */
+const realYear = JSON.parse(fs.readFileSync(
+  path.join(HERE, '..', 'data', 'podium-2026.json'), 'utf8'));
+check('the committed 2026 file has been harvested since the French Open',
+  String(realYear.generated).slice(0, 10) > '2026-10-25',
+  String(realYear.generated).slice(0, 10));
+const frOpen = (realYear.events || []).find(e => /French Open/.test(e.name));
+check('and it has all five draws of it',
+  !!frOpen && Object.keys(frOpen.draws || {}).length === 5,
+  frOpen ? Object.keys(frOpen.draws || {}).join(' ') : 'not on the calendar');
+const hyloEvent = (realYear.events || []).find(e => /HYLO/.test(e.name));
+check('and of the HYLO Open',
+  !!hyloEvent && Object.keys(hyloEvent.draws || {}).length === 5,
+  hyloEvent ? Object.keys(hyloEvent.draws || {}).join(' ') : 'not on the calendar');
+
 process.exit(report());

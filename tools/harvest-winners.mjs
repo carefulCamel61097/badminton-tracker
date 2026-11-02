@@ -221,9 +221,24 @@ const wanted = ADD.size ? new Set([...ADD].map(String))
   : TIER ? new Set([String(TIER)])
     : new Set(PYRAMID_ROWS.flatMap(r => r.tiers).map(String));
 
+/* ⚠️⚠️ **A finished season is history; the running one is not.** The resume
+   below skips any season the file already has, which is right for 2007—2025 and
+   wrong for the season still being played: a file written in October can never
+   learn about a title won in November, and `node tools/harvest-winners.mjs`
+   re-run to fix exactly that printed "2026 (already)" and made **0 requests**.
+   The merge a few lines down is keyed on the tournament id and is a no-op for
+   anything already recorded, so re-asking the current season costs thirteen
+   calls and cannot duplicate a title — it was simply unreachable.
+   Found 2 Nov 2026, when the Board view was a month stale and missing the
+   Denmark Open and the French Open, both Super 750s. */
+const THIS_SEASON = new Date().getUTCFullYear();
+
 for (let year = FROM; year <= TO; year++) {
   const had = state.seasons[year];
-  if (had && !ADD.size) { console.log(`${year}  (already)`); continue; }
+  if (had && !ADD.size && year < THIS_SEASON) {
+    console.log(`${year}  (already)`);
+    continue;
+  }
 
   /* ⚠️ No `category[]` filter. The 2017 World Championships is filed under
      "BWF Events" and the categories a filter would name have changed twice

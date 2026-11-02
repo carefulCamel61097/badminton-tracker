@@ -1005,6 +1005,52 @@ place in `GRID_ORDER`.
 
 ---
 
+### 2.18 The harvest that could never catch up — fixed 2 Nov 2026
+
+The reader: *"On the Winners-Year page I see the french open and Hylo open are not filled in
+yet even though they have finished. Can you fix that, and also check if there are similar
+problems on other pages?"*
+
+Both had finished. Both were drawn as holes reading **"BWF has no result"**, which was this
+page asserting something untrue about BWF's archive when the truth was about the page.
+
+⚠️⚠️ **The resume guard treated the running season as finished history.** Both harvests
+skip a season they already hold — right for 2007—2025, which cannot change, and wrong for
+the season being played. `harvest-winners.mjs` printed `2026  (already)` and made **0
+requests**; the id-keyed merge twenty lines below it, written precisely so that re-running is
+a no-op for titles already recorded, was unreachable. `harvest-podiums.mjs` had the same guard
+on `fs.existsSync`. So the current season was frozen at whatever date somebody last passed
+`--year` by hand, and nothing on screen said so.
+
+Both now always re-ask the season in progress. Thirteen calls for the winners, a hundred for
+the podiums, and neither can duplicate anything.
+
+⚠️ **And the other pages were worse.** Measured: `podium-2026.json` was twelve days
+stale and missing two finished tournaments; `winners-*.json` was **a month** stale and missing
+the China Masters, the Denmark Open and the French Open, all three Super 750s, from every one of the five disciplines — so the
+pyramid, the score chart and the career grid were all short three titles. Four views, one cause.
+
+⚠️⚠️ **"No result" had a third meaning and the file could already prove it.** 2.16 gave
+an empty column two answers: not played yet (end date against today) or no record at all. The
+missing third is *the harvest predates this tournament*, and `generated` was in the file the
+whole time. `podiumSeason` now returns `harvested` and marks such a column `stale`, drawn in a
+cooler blue hatch at the opposite angle to the amber one — a question, not a warning —
+with a hover that names the date and the command to fix it.
+
+⚠️ `<=` not `<`: a harvest that ran *on* a closing day may have run before the final.
+The conservative reading occasionally calls a genuine gap unharvested, which is the better
+error — "we do not know" beats "there is no result".
+
+⚠️ **The pyramid cannot do the same thing, so every view dates itself instead.** A
+title that was never harvested is simply not drawn and leaves no hole to label, so there is
+nothing to mark. All four views share one line above the board, and it now ends `— as of
+<date>`. That is the general fix: the data behind this page is a photograph and the page now
+says when it was taken.
+
+⚠️ Not fixed, and worth knowing: nothing *automates* the re-harvest. The honest
+signal plus a guard that no longer lies is the whole of it; a reader who sees a date three
+weeks old still has to ask somebody to run two commands.
+
 ### 2.17 The week the three slots lost a Super 750 — fixed 25 Oct 2026
 
 The reader: *"I don't see the french open currently on the site. I only see the indonesia
