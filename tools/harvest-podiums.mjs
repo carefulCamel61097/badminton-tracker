@@ -4,6 +4,7 @@
  *   node tools/harvest-podiums.mjs --from 2024     a shorter run
  *   node tools/harvest-podiums.mjs --year 2026     one season, re-harvested
  *   node tools/harvest-podiums.mjs --force         ignore the files on disk
+ *   node tools/harvest-podiums.mjs --add 26        one tier into the files there
  *
  * `harvest-winners.mjs` collects the champion of the pyramid's tiers and
  * nothing else, because the pyramid draws nothing else. The Year view needs the
@@ -21,12 +22,20 @@
  * the pyramid's one. A single file would be megabytes to load in order to draw
  * one year of it. It also makes the resume trivial: a season on disk is done.
  *
- * ⚠️ **Super 500 and above, which costs nothing before 2018.** Four old tiers
- * became five and Super 500 is the one nothing maps to (see `mappedTier`), so
- * `25` only ever adds events from 2018 on: Superseries Premier is Super 1000
- * and Superseries is Super 750, both already on the pyramid, and Grand Prix
- * Gold and Grand Prix map to Super 300 and Super 100, both below the floor. The
- * measured count is 26 events a season from 2018 and 17 before it.
+ * ⚠️ **Super 500 and above costs nothing before 2018.** Four old tiers became
+ * five and Super 500 is the one nothing maps to (see `mappedTier`), so `25` only
+ * ever adds events from 2018 on: Superseries Premier is Super 1000 and
+ * Superseries is Super 750, both already on the pyramid, and Grand Prix is
+ * Super 100, below the floor. The measured count is 26 events a season from
+ * 2018 and 17 before it.
+ *
+ * ⚠️⚠️ **Super 300 is not like that, and `--add 26` is how it arrived.** Grand
+ * Prix Gold *does* map onto Super 300, so this tier adds about eleven events a
+ * season from 2018 and about thirteen before it — every season, not just the
+ * modern ones. The Year board keeps it behind a chip that starts off for that
+ * reason (`YEAR_GROUPS`), and the reason it had to be collected at all is that
+ * the Yearly ledger could only ever read 10 for the three seasons whose
+ * eleventh title is a Super 300.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -47,6 +56,25 @@ const arg = (flag, fallback) => {
 };
 const has = flag => process.argv.includes(flag);
 
+/* ⚠️⚠️ **A finished season on disk is never asked for again**, which is what
+   makes a twenty-year harvest resumable — and it also means a *new tier* can
+   never reach a file that is already complete. `--add 26` tops up the seasons
+   that are there with only the tiers named, merging rather than replacing:
+
+     node tools/harvest-podiums.mjs --add 26
+
+   ⚠️⚠️ **The merge is keyed on the tournament id**, so a second run is a no-op
+   rather than a double column, and the continental one-per-confederation slots
+   are seeded from what is already in the file so a top-up cannot duplicate a
+   championships either. The same shape `harvest-winners.mjs --add` has, which
+   is how the continental titles reached twenty finished seasons in October 2026
+   without re-running twenty years of Super 750s.
+
+   ⚠️ A season with no file is **skipped**, not built: a top-up is not a harvest,
+   and quietly collecting one tier of a season and writing it out as the whole
+   thing is how a file comes to look complete and read as four events. */
+const ADD = new Set(arg('--add', '').split(',').map(s => s.trim()).filter(Boolean));
+
 const ONE = Number(arg('--year', 0));
 const FROM = ONE || Number(arg('--from', 2007));
 const TO = ONE || Number(arg('--to', new Date().getUTCFullYear()));
@@ -62,7 +90,9 @@ const THIS_SEASON = new Date().getUTCFullYear();
 /* The pyramid's rungs, plus the one tier that exists only to be collected here.
    ⚠️ Derived from `PYRAMID_ROWS` rather than written out, so a rung added to the
    board cannot go missing from the podium files. */
-const WANTED = new Set([...PYRAMID_ROWS.flatMap(r => r.tiers).map(String), '25']);
+const WANTED = new Set([
+  ...PYRAMID_ROWS.flatMap(r => r.tiers).map(String), '25', '26',
+]);
 
 /* ⚠️⚠️ **BWF has three spellings of the same round and they vary by season, not
    by tier.** The 2016 Olympics says `SF` and `QF`; the 2024 Olympics says
@@ -303,10 +333,15 @@ async function podiumOf(t, tier) {
 
 for (let year = FROM; year <= TO; year++) {
   const out = path.join(ROOT, 'data', `podium-${year}.json`);
-  if (!FORCE && year < THIS_SEASON && fs.existsSync(out)) {
+  const onDisk = fs.existsSync(out);
+  if (!ADD.size && !FORCE && year < THIS_SEASON && onDisk) {
     console.log(`${year}  (already)`);
     continue;
   }
+  /* See `ADD`: a top-up of a season that was never harvested would write a file
+     holding one tier and claiming to be the season. */
+  if (ADD.size && !onDisk) { console.log(`${year}  (no file to top up)`); continue; }
+  const had = ADD.size ? JSON.parse(fs.readFileSync(out, 'utf8')) : null;
 
   /* ⚠️ No `category[]` filter, for the reason the other harvest records: the
      2017 World Championships is filed under "BWF Events" and the categories a
@@ -315,11 +350,26 @@ for (let year = FROM; year <= TO; year++) {
   const all = ((j && j.results) || []).flatMap(m => m.tournaments || []);
   if (!all.length) { console.log(`${year}  nothing on the calendar`); continue; }
 
+  const wanted = ADD.size ? new Set([...ADD].map(String)) : WANTED;
   const majors = all.map(t => ({ t, tier: pyramidTier(t) }))
-    .filter(x => x.tier != null && WANTED.has(String(x.tier)))
+    .filter(x => x.tier != null && wanted.has(String(x.tier)))
     .sort((a, c) => String(a.t.start_date).localeCompare(String(c.t.start_date)));
 
-  const state = { generated: '', season: year, players: {}, events: [], holes: [] };
+  /* ⚠️ Built *on* what is there, so a top-up keeps every column, every person
+     and every hole the file already recorded. `generated` is rewritten at the
+     end either way, which is what the view's staleness line reads. */
+  const state = had
+    ? {
+      generated: '', season: year,
+      players: Object.assign({}, had.players || {}),
+      events: (had.events || []).slice(),
+      holes: (had.holes || []).slice(),
+    }
+    : { generated: '', season: year, players: {}, events: [], holes: [] };
+  /* ⚠️⚠️ The idempotence, and it is on the **tournament id** rather than the
+     name: a sponsor moves and a name with it, and an event asked for twice is a
+     second column of the same tournament that no view would tell apart. */
+  const already = new Set(state.events.map(e => String(e.id)));
 
   /* ⚠️⚠️ **One title per confederation per tier per season**, the trap
      `harvest-winners.mjs` documents at length: BWF lists the same continental
@@ -328,9 +378,15 @@ for (let year = FROM; year <= TO; year++) {
      either name to say which is which. Claimed only once a final has been found,
      so the team edition — whose draws are the bare "Singles"/"Doubles" of a tie
      — yields nothing and lets the individual one take the slot. */
-  const taken = new Set();
   const slot = (tier, name) =>
     (isContinentalTier(tier) ? `${tier}|${titleConf({ name })}` : null);
+  const taken = new Set();
+  /* ⚠️ Seeded from the file, so a top-up that happens to name a continental
+     tier cannot claim a slot the stored championships already holds. */
+  for (const e of state.events) {
+    const k = slot(e.tier, e.name);
+    if (k) taken.add(k);
+  }
 
   const row = (t, tier, draws) => ({
     tier, id: t.id, name: t.name,
@@ -354,6 +410,7 @@ for (let year = FROM; year <= TO; year++) {
   const empties = [];
 
   for (const { t, tier } of majors) {
+    if (already.has(String(t.id))) continue;
     const key = slot(tier, t.name);
     if (key && taken.has(key)) continue;
     const { draws, holes, people } = await podiumOf(t, tier);
@@ -373,7 +430,17 @@ for (let year = FROM; year <= TO; year++) {
   }
   state.events.sort((a, c) => String(a.date).localeCompare(String(c.date)));
 
-  state.generated = new Date().toISOString().slice(0, 10);
+  /* ⚠️⚠️ **A top-up keeps the older date, and that matters.** `generated` is not
+     "when this file was last written", it is the day on which everything the
+     season could say was asked for — `podiumSeason` reads it to tell an empty
+     column that was never harvested from one BWF really has no result for
+     (2.18). A `--add 26` run asks for one tier and nothing else, so advancing
+     the date would have the file claim that the Super 500 which finished
+     yesterday and is still empty has no record, when the truth is that nobody
+     asked. The weakest claim is the safe one; the next full run advances it. */
+  state.generated = had
+    ? (had.generated || new Date().toISOString().slice(0, 10))
+    : new Date().toISOString().slice(0, 10);
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, JSON.stringify(state));
 
@@ -383,7 +450,9 @@ for (let year = FROM; year <= TO; year++) {
   const lost = state.events.filter(e => !Object.keys(e.draws).length && e.end < today);
   const full = played.reduce((n, e) =>
     n + DRAWS.filter(c => e.draws[c] && e.draws[c].sf).length, 0);
+  const gained = had ? state.events.length - (had.events || []).length : 0;
   console.log(`${year}  ${String(state.events.length).padStart(2)} events  `
+    + (had ? `(+${gained})  ` : '')
     + `${String(full).padStart(3)}/${played.length * 5} full podiums  `
     + `${Object.keys(state.players).length} people`
     + (soon.length ? `  ${soon.length} still to come` : '')

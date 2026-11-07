@@ -1005,6 +1005,104 @@ place in `GRID_ORDER`.
 
 ---
 
+### 2.20 The eleventh title — settled 7 Nov 2026
+
+The reader: *"When I look at our Winners page at the Yearly view I see Kento Momota 2019 with
+10 titles, Kim/Seo in 2025 also 10 titles, and An se young 2025 also 10 titles. But I know
+it's supposed to be 11 titles, that's the record they all made. What exactly are we missing?"*
+
+⚠️⚠️ **One Super 300 each, and the tier was not collected at all.** Not a harvest that missed
+something and not a dedupe eating a column: `pyramidTier` returned `null` for every Super 300
+in twenty seasons, so there was no data, no column and no chip to switch on. Verified from the
+match harvest, which is a different data path entirely — finals won, counted by tier:
+
+| | 11th title | tier |
+|---|---|---|
+| Kento MOMOTA 2019 | YONEX German Open | Super 300 |
+| An Se Young 2025 | Orleans Masters | Super 300 |
+| KIM Won Ho / SEO Seung Jae 2025 | YONEX German Open | Super 300 |
+
+⚠️ **SEO Seung Jae won twelve finals in 2025**, and the pair's record is still eleven: the
+Thailand Masters — also a Super 300 — was with JIN Yong. The ledger keys on the competitor and
+a pair is one competitor, so the board is right and "the record" means something different per
+player than per partnership. Worth knowing before anybody reconciles the number against a
+press release.
+
+⚠️⚠️ **There is no fourth season, and the near-miss is worth recording.** WANG Xiaoli /
+YU Yang won **eleven finals during calendar 2011** and their 2011 *season* is **10**, with or
+without this chip: the eleventh is the **2010** Superseries Finals, played 5 January 2011, and
+2.16 settled that the season-ending Finals belongs to the season it concludes. The board is
+right and so is the eleven @MD@ they are answers to two different questions, which is exactly
+the distinction `pyramidTitleSeason` exists to keep. Measured both ways before writing this
+down, because the first reading of it said "a fourth holder of the 11" and that was wrong.
+
+⚠️ Their 2011 ten contains **no Super@NB@300 either**, like An Se Young's 2026: five
+Super@NB@1000, two Super@NB@750, the Worlds, the Asian Championships and the Finals.
+
+⚠️⚠️ **The chip starts off, and that was the reader's call** — *"I do want the super 300s as an
+option, but by default it should probably be turned off."* It is the only control on that
+header that starts off, and the reason is unlike the pyramid's: nothing on this view is a
+share, so there is no denominator to protect. It is **width, not weight**. Measured over the
+whole top-up: **+198 columns across twenty seasons**, +10 to +14 a season, against boards that
+were 16 to 28 wide. Every square shrinks to pay for them.
+
+⚠️⚠️ **Grand Prix Gold is Super 300, so this widens every season and not only the modern ones.**
+That is what makes it different from the Super 500 floor, which costs nothing before 2018
+(2.16). `mappedTier` already carried the evidence from `tournament_series_id` — Super 300 in 8
+of the 9 series spanning 2018 — and it was re-measured from the other direction for this:
+of the Grand Prix Gold series with a 2018 edition, **all six** became Super 300. Macau, the
+Korea Masters, the Thailand Masters, Syed Modi, the German Open, the Swiss Open.
+
+⚠️ **The era question 2.16 said would have to be answered first was already answered.** A
+tier-26 column in 2015 wears **GP Gold** and one in 2019 wears **300**, off the same
+`pyramidLabel`/`pyramidAbbr` machinery that gets a Superseries Premier right, and nothing was
+added for it. The board has translated this era silently since 2.16 — `podium-2010.json`
+holds thirteen tier-24 columns and not one tier-2 — and a Super 300 column in a Superseries
+season is the same claim made the same way. Marking only the new one would imply the older
+ones were literal.
+
+⚠️ Below the continental check in `pyramidTier`, not above it: BWF has filed the Badminton
+Asia Championships *as* a Grand Prix Gold, and that rule is reached only once a name has been
+refused a confederation.
+
+#### `--add`, and the date a top-up may not touch
+
+`tools/harvest-podiums.mjs --add 26` tops up the seasons already on disk with one tier,
+merging on the **tournament id** so a second run is a no-op rather than a double column. The
+continental one-per-confederation slots are seeded from what the file already holds, and a
+season with no file is skipped rather than built — collecting one tier and writing it out as
+the whole season is how a file comes to look complete and read as four events. The same shape
+`harvest-winners.mjs --add` has had since October. **652 calls for twenty seasons**; 2007
+gained nothing, because BWF's 2007 calendar carries no Grand Prix Gold label at all.
+
+⚠️⚠️ **A top-up keeps the older `generated`, and that is not cosmetic.** 2.18 made that field
+load-bearing: `podiumSeason` reads it to tell an empty column nobody asked about from one BWF
+genuinely has no result for. A `--add 26` run asks for one tier, so stamping it with today
+would have the file claim that a Super 500 which finished yesterday and is still empty has no
+record — when the truth is that nobody asked. Caught here by reasoning about 2.18 rather than
+by a test, and the first run had already written today's date into all twenty files before it
+was noticed; they were put back from the committed copies. The weakest claim is the safe one.
+
+⚠️ **One file per season, +60% to it**, rather than a second file fetched when the chip is
+pressed. ~90KB a season against ~55KB, and the view holds two, so about +80KB in all. A
+separate file would buy that back and give the merge, the dedupe and the staleness date three
+places to disagree instead of one.
+
+⚠️⚠️ **Still open, and made worse by this: the cancelled columns.** 54 of the 87 empty columns
+across twenty seasons say "(Cancelled)" or "(Postponed)" in their own name, and Super 300
+contributes 24 of them — 2020 goes from 15 empty to 24, 2021 from 12 to 21. The board draws
+them all as *"BWF has no result"*, which for a tournament that never happened is a sentence
+about the archive that should be a sentence about the pandemic. The README says nothing in the
+data tells those apart; that is **wrong**, and `tools/harvest-calendar.mjs` has said so at
+length since September: `status.code === 'cancelled'` is right there in the calendar payload,
+and that harvest filters on it rather than on the name suffix, which is inconsistent
+("2021(Cancelled)" against "2022 (Cancelled)"). The fix is a 20-call pass — one calendar
+request a season — stamping `off: 1` onto the events already in each file by id, then a fourth
+empty state. Left undone because whether a cancelled tournament is a column at all is a
+product decision, not a bug fix.
+
+4/4 — 1366 model / 91 api / 44 rating / 986 e2e.
+
 ### 2.19 Entered is not played — fixed 7 Nov 2026
 
 The reader: *"On Akane yamaguchi at Seasons I'm also already seeing Kumamoto masters, but that
@@ -1172,6 +1270,11 @@ consequences: no era toggle is needed yet, the harvest is 26 events a season fro
 before it rather than the whole 42-event World Tour, and the gold-numeral header has nothing
 to invent. A **Super 300 chip is where all three stop being true**, which is why there is not
 one.
+
+⚠️ *Superseded 7 Nov 2026 — see 2.20.* There is one now, off by default, and the third of
+those three turned out not to be true in the first place: the header had nothing to invent
+for a Grand Prix Gold either, because `pyramidLabel` names the rung as its own season called
+it. The other two hold exactly as written, which is why the chip starts off.
 
 ⚠️⚠️ **Size means placement and nothing else.** The pyramid sizes a square by the weight of
 the title; here every champion is the same size whether they won a Super 500 or the

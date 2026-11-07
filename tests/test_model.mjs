@@ -50,7 +50,7 @@ import {
   isContinentalTier, isContinentalChamps, isRegionalGames,
   winnersWithin, plannedTier, plannedConf,
   careerDraws, pairDraws,
-  YEAR_GROUPS, YEAR_GROUP_DEFAULT, yearGroupOf, podiumIds, podiumKey,
+  YEAR_GROUPS, YEAR_GROUP_DEFAULT, YEAR_GROUPS_OFF, yearGroupOf, podiumIds, podiumKey,
   settlePodiumOrder, tierBadge, podiumSeason, podiumLedger,
 } from '../model.js';
 import {
@@ -4765,7 +4765,15 @@ check('marked, because it is drawn a column left of the year it was played in',
   JSON.stringify(y20.columns[0].mark));
 
 // ---- the chips ----
-eq('every chip is on by default', YEAR_GROUP_DEFAULT.length, YEAR_GROUPS.length);
+/* ⚠️⚠️ **Every chip is on by default except Super 300**, which is the one tier
+   that is a width decision rather than a weight one: it adds eleven or twelve
+   columns to a modern season and thirteen to a Superseries one. Asserted as
+   `length - 1` against `YEAR_GROUPS_OFF` rather than as a bare six, so a chip
+   added later fails here until somebody decides which side it is on. See the
+   `s300` block at the end of this file. */
+eq('every chip but one is on by default',
+  YEAR_GROUP_DEFAULT.length, YEAR_GROUPS.length - YEAR_GROUPS_OFF.length);
+eq('and the one is Super 300', YEAR_GROUPS_OFF.join('.'), 's300');
 eq('a Super 500 is governed by its own chip', yearGroupOf(25), 's500');
 eq('the Olympics and the Worlds share one', yearGroupOf('OLY'), yearGroupOf(20));
 eq('and the continental events share another', yearGroupOf('GAMES'), yearGroupOf(11));
@@ -4802,8 +4810,13 @@ check('and it is drawn smaller, because the tier is lighter',
 /* ⚠️⚠️ **The Superseries era has no number to draw.** BWF never gave those
    tiers one, so a header that insisted on a numeral would have to invent it.
    `pyramidLabel` names the rung as that season called it and the badge becomes
-   a word. This is the measured reason the Super 300 chip needs the era
-   question answered before it can be switched on. */
+   a word.
+
+   ⚠️ This used to read as the era question the Super 300 chip would have to
+   answer before it could be switched on. It turned out to be already answered,
+   here: a tier-26 column in 2015 wears "GP Gold" and one in 2019 wears "300",
+   off the same machinery that gets a Superseries Premier right, and nothing was
+   added for it. Checked from the Super 300 side too, at the end of this file. */
 eq('a Superseries Premier is a word, not a number', tierBadge(23, 2013).kind, 'word');
 eq('named as that season named it', tierBadge(23, 2013).full, 'Superseries Premier');
 /* ⚠️⚠️ **The badge used to disagree with its own tooltip.** `levelAbbr(23)` knows
@@ -5322,5 +5335,109 @@ eq('true still means being played',
   positionInfo('Final', { win: 4, lose: 0 }, true).full, 'In the final');
 eq('false still means finished',
   positionInfo('Final', { win: 5, lose: 0 }, false).full, 'Champion');
+
+/* ============ the Super 300 chip ============
+
+   The reader, 7 Nov 2026: *"I see Kento Momota 2019 with 10 titles, Kim/Seo in
+   2025 also 10 titles, and An se young 2025 also 10 titles. But I know it's
+   supposed to be 11 titles, that's the record they all made. What exactly are
+   we missing?"*
+
+   ⚠️⚠️ One Super 300 each, and the tier was not collected at all. Momota's
+   eleventh is the German Open, An Se Young's the Orleans Masters, KIM Won Ho /
+   SEO Seung Jae's the German Open again. The board's floor was Super 500 and
+   `pyramidTier` returned `null` for anything below it, so there was no chip to
+   switch on and no column to count.
+
+   ⚠️ The chip starts **off**, which no other chip on this board does: eleven
+   or twelve more columns in a modern season, thirteen in a Superseries one. The
+   ask was for the option, not for the width.
+   ======================================================================== */
+
+console.log('');
+console.log('--- the Super 300 chip ---');
+
+/* ⚠️ Both eras, because `mappedTier` places Grand Prix Gold on this tier and
+   the Superseries seasons therefore gain columns too. */
+eq('a modern Super 300 is tier 26',
+  pyramidTier({ name: 'YONEX German Open 2019', category: 'HSBC BWF World Tour Super 300' }), 26);
+eq('and so is the Grand Prix Gold it used to be',
+  pyramidTier({ name: 'YONEX German Open 2017', category: 'Grand Prix Gold' }), 26);
+/* ⚠️⚠️ The trap `pyramidTier` already names: BWF has filed the Asian
+   Championships *as* a Grand Prix Gold, and the confederation check runs first
+   precisely so a continental title cannot be demoted into an open tier. */
+eq('a continental championships filed as Grand Prix Gold stays continental',
+  pyramidTier({ name: 'Badminton Asia Championships 2017', category: 'Grand Prix Gold' }), 11);
+/* ⚠️ A junior Grand Prix Gold is not a Grand Prix Gold. */
+eq('and a junior one is not on the board at all',
+  pyramidTier({ name: 'Junior German Open 2017', category: 'Junior International Grand Prix Gold' }), null);
+/* The rung below is still unclaimed: nothing draws Super 100 or the Grand Prix
+   it used to be, so neither may acquire a tier by accident. */
+eq('a plain Grand Prix is still nobody\u2019s',
+  pyramidTier({ name: 'Scottish Open Grand Prix 2017', category: 'Grand Prix' }), null);
+eq('and a Super 100 likewise',
+  pyramidTier({ name: 'Indonesia Masters 2026', category: 'BWF Tour Super 100' }), null);
+
+eq('the tier belongs to the s300 chip', yearGroupOf(26), 's300');
+check('which is not in the default',
+  !YEAR_GROUP_DEFAULT.includes('s300'), YEAR_GROUP_DEFAULT.join('.'));
+eq('and is the only chip that is not', YEAR_GROUPS_OFF.join('.'), 's300');
+check('every other chip still starts on',
+  YEAR_GROUPS.filter(g => !g.off).every(g => YEAR_GROUP_DEFAULT.includes(g.key)));
+eq('six on, one off', YEAR_GROUP_DEFAULT.length, YEAR_GROUPS.length - 1);
+
+/* ⚠️ The badge speaks the season's own vocabulary, which it already did for
+   every other translated tier: a 2015 column on this rung is a Grand Prix Gold
+   and says so, and only the modern one is a number. Nothing was added for this;
+   it is checked because a silent regression here would relabel fifteen seasons. */
+eq('a 2019 Super 300 badge is the number', tierBadge(26, 2019).text, '300');
+eq('a 2015 one is what it was called then', tierBadge(26, 2015).text, 'GP Gold');
+eq('and the tooltip agrees', tierBadge(26, 2015).full, 'Grand Prix Gold');
+
+/* Momota's 2019, reduced to the two columns that make the point: a Super 750 the
+   board always drew and the Super 300 it could not. */
+const s3_file = {
+  generated: '2026-11-07',
+  season: 2019,
+  players: {
+    89785: { n: 'Kento MOMOTA', c: 'JPN', a: '', f: '' },
+    57945: { n: 'A FINALIST', c: 'DEN', a: '', f: '' },
+    1: { n: 'ONE', c: 'TPE', a: '', f: '' },
+    2: { n: 'TWO', c: 'CHN', a: '', f: '' },
+  },
+  events: [
+    {
+      tier: 26, id: 1002, name: 'YONEX German Open 2019',
+      date: '2019-02-26', end: '2019-03-03',
+      draws: { MS: { w: 89785, f: 57945, sf: [1, 2] } },
+    },
+    {
+      tier: 24, id: 1001, name: 'DAIHATSU YONEX Japan Open 2019',
+      date: '2019-07-23', end: '2019-07-28',
+      draws: { MS: { w: 89785, f: 57945, sf: [1, 2] } },
+    },
+  ],
+};
+
+const s3_dflt = podiumSeason([s3_file], 2019, 'MS', { today: '2026-11-07' });
+eq('by default the Super 300 is not a column', s3_dflt.columns.length, 1);
+eq('and the ledger reads one title', podiumLedger(s3_dflt)[0].w, 1);
+
+const s3_wide = podiumSeason([s3_file], 2019, 'MS', {
+  today: '2026-11-07',
+  groups: new Set([...YEAR_GROUP_DEFAULT, 's300']),
+});
+eq('with the chip on it is', s3_wide.columns.length, 2);
+/* ⚠️⚠️ The whole point of the exercise: the number the reader came with. */
+eq('and the ledger reads the eleventh title', podiumLedger(s3_wide)[0].w, 2);
+eq('the runner-up is counted the same way', podiumLedger(s3_wide)[1].f, 2);
+
+/* ⚠️ Switching one chip on must not disturb what the others were drawing: the
+   Super 750 column is the same column, in the same place, with the same badge. */
+const s3_s750 = s3_wide.columns.find(c => String(c.tier) === '24');
+eq('the Super 750 column is untouched', s3_s750 && s3_s750.name,
+  'DAIHATSU YONEX Japan Open 2019');
+eq('and the chip-off board drew that same one', s3_dflt.columns[0].name,
+  'DAIHATSU YONEX Japan Open 2019');
 
 process.exit(report());

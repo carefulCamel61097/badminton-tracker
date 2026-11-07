@@ -2362,8 +2362,55 @@ check('the three rows agree on where a column starts',
 check('the ledger is under the board',
   Number(await b.ev(`document.querySelectorAll('.ybledger tbody tr').length`)) > 5,
   await b.ev(`document.querySelectorAll('.ybledger tbody tr').length`));
-eq('six tier chips, all on',
+/* ⚠️⚠️ **Seven chips and six of them on**, which is the one place on this header
+   where a control starts off. The reader, 7 Nov 2026: *"I do want the super
+   300s as an option, but by default it should probably be turned off."* The
+   reason it is an option at all is that the ledger could only ever read 10 for
+   the three seasons whose eleventh title is a Super 300 — and the reason it
+   starts off is width: it is ten more columns on this 2026 board and thirteen
+   on a Superseries one. */
+eq('seven tier chips',
+  await b.ev(`document.querySelectorAll('#winGroups button[data-group]').length`), 7);
+eq('six of them on',
   await b.ev(`document.querySelectorAll('#winGroups button.on').length`), 6);
+eq('and the one that is off is Super 300',
+  await b.ev(`document.querySelector('#winGroups button[data-group]:not(.on)')`
+    + `.dataset.group`), 's300');
+/* ⚠️ No `wg` in the link while the chips are at their default, which is what
+   makes the default travel rather than a frozen list. */
+check('the default carries no chip list in the link',
+  !/wg=/.test(await b.ev('location.hash')), await b.ev('location.hash'));
+
+/* Pressing it has to actually widen the board and actually move the ledger —
+   a chip that drew nothing would be the bug this replaced. */
+await b.ev(`document.querySelector('#winGroups [data-group="s300"]').click()`);
+await b.wait(500);
+const s3e_cols = Number(await b.ev(
+  `document.querySelectorAll('.ybline.heads .ybhead').length`));
+check('switching Super 300 on adds columns', s3e_cols > ybCols,
+  ybCols + ' -> ' + s3e_cols);
+check('and the three rows still agree on where a column starts',
+  await b.ev(`(() => {`
+    + `const xs = [...document.querySelectorAll('.ybline[data-row]')]`
+    + `.map(r => Math.round(r.children[3].getBoundingClientRect().left));`
+    + `return new Set(xs).size === 1; })()`));
+/* ⚠️ The badge says what that season called the tier, which for 2026 is a
+   number. A 2015 board would say "GP Gold" off the same machinery. */
+check('a Super 300 column is headed by its own tier',
+  /300/.test(String(await b.ev(
+    `[...document.querySelectorAll('.ybline.heads .ybhead')]`
+    + `.map(h => h.textContent).join('|')`))));
+check('and now the link carries the chip', /wg=/.test(await b.ev('location.hash')),
+  await b.ev('location.hash'));
+
+/* ⚠️⚠️ Back off again, because everything below this reads the default
+   board. A chip is a toggle and the board has to come back to exactly what it
+   was, columns and all. */
+await b.ev(`document.querySelector('#winGroups [data-group="s300"]').click()`);
+await b.wait(500);
+eq('switching it off gives the narrower board back',
+  Number(await b.ev(`document.querySelectorAll('.ybline.heads .ybhead').length`)),
+  ybCols);
 /* ⚠️ Hidden rather than disabled, the rule every control on this header follows:
    the export draws the pyramid and a column here is a tournament, not a season. */
 check('the export button is hidden on this view',

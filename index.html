@@ -322,7 +322,14 @@
 
     <!-- Which tiers are drawn. A chip here only removes columns — nothing on
          this view is a share of anything, so there is no denominator to move
-         and no reason to default one off. -->
+         and no number that changes meaning when one is off.
+
+         Super 300 is nonetheless off to begin with, and the reason is width
+         rather than meaning: it is eleven or twelve more columns in a modern
+         season and thirteen in a Superseries one, and every square shrinks to
+         fit them. It exists because the ledger's most quoted number — eleven
+         titles in a season — is an eleventh title on that tier. See
+         `YEAR_GROUPS`. -->
     <span id="winGroups" class="kindwrap" role="group" aria-label="tiers" hidden></span>
 
     <!-- Which continents count. Not a filter on the drawing: a chip moves the

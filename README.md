@@ -508,13 +508,34 @@ ledger.
 **Super 500 and above**, with a chip per tier and the same five continental chips the
 pyramid has. ⚠️ Which costs nothing before 2018: four old tiers became five and Super 500 is
 the one nothing maps to, so in the Superseries era this floor lands on exactly the pyramid's
-own set. A Super 300 chip is where that stops being true and the era question has to be
-answered, which is why there is not one yet.
+own set.
 
-⚠️ **Every tier chip is on by default**, because nothing on this view is a share: there is
-no denominator to protect, so there is no reason to start with a column hidden. The pyramid
+⚠️⚠️ **Super 300 is one chip below that, and it starts off.** It is the one rung where the
+floor was not just narrow but *wrong*: the most quoted number in the sport's recent record is
+eleven titles in a season — Kento Momota in 2019, An Se Young and Kim Won Ho / Seo Seung Jae
+in 2025 — and all three elevenths are Super 300s. The German Open twice and the Orleans
+Masters. A board floored at Super 500 answered a reader counting along with **10** and gave
+them no way to find the eleventh.
+
+So the tier is collected and the chip exists; it is off to begin with because this one really
+does cost something. Grand Prix Gold maps onto Super 300 (`mappedTier`), so unlike Super 500
+it widens *every* season and not only the modern ones: **+13 columns a season in the
+Superseries era and +10 to +12 after it**, against boards that were 16 to 28 wide. Half a
+season's width again, and every square shrinks to pay for it. The era question that was
+supposed to block this turned out to be already answered — a tier-26 column in 2015 wears
+**GP Gold** and one in 2019 wears **300**, off the same `pyramidLabel` machinery that gets a
+Superseries Premier right.
+
+⚠️ **Every other tier chip is on by default**, because nothing on this view is a share: there
+is no denominator to protect, so there is no reason to start with a column hidden. The pyramid
 defaults its own tiers differently for exactly that reason — its score *is* a share, and a
-denominator the reader did not choose is a number they cannot trust.
+denominator the reader did not choose is a number they cannot trust. Super 300 is off for an
+unrelated reason, and the distinction is worth keeping straight: **width, not weight**.
+
+⚠️ The data loads either way — one file per season, `+60%` to it — rather than a second file
+fetched when the chip is pressed. Measured at ~90KB a season against ~55KB, and the view holds
+two files, so about +80KB in all. A separate file would buy that back and cost the merge, the
+one-per-confederation dedupe and the staleness date three places to disagree instead of one.
 
 ⚠️⚠️ **The continental chips are the pyramid's own, and they stay Asia and Europe.** They are
 literally the same control, in the same row, and a view that silently counted a set the chips

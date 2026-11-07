@@ -3366,8 +3366,36 @@ const PYRAMID_BY_CATEGORY = [
      five, and Super 500 is the one nothing lands on. A net that includes it
      therefore only widens 2018 onwards. */
   [/super 500/i, 25],
+  /* ⚠️ **One rung lower, and one reader: the Year board's `s300` chip.** Off by
+     default, which no other chip is — `YEAR_GROUPS` carries the reason. Until
+     November 2026 nothing classified this at all, and the cost was a wrong
+     number rather than a missing column: the Yearly ledger read 10 titles for
+     Kento MOMOTA's 2019, An Se Young's 2025 and KIM Won Ho / SEO Seung Jae's
+     2025, where the record all three set is 11. Each of those seasons holds
+     exactly one Super 300 — the German Open twice and the Orleans Masters — and
+     a tier nothing collects cannot be switched on. */
+  [/super 300/i, 26],
   [/world superseries premier/i, 23],
   [/world superseries$/i, 24],
+  /* ⚠️⚠️ **The Superseries era's Super 300, and the only rung it has below Super
+     750.** `mappedTier` records the evidence from `tournament_series_id` — Grand
+     Prix Gold is Super 300 in 8 of the 9 series that span 2018, more than every
+     other answer together — and it was re-measured for this chip against the
+     match harvest from the other direction: of the Grand Prix Gold series with
+     a 2018 edition, all six went to Super 300, no exceptions. Macau, the Korea
+     Masters, the Thailand Masters, Syed Modi, the German Open and the Swiss
+     Open.
+
+     ⚠️ **The board already translates this era silently**, which is why
+     `podium-2010.json` holds thirteen tier-24 columns and not one tier-2: a
+     Super 300 column in a 2015 season is the same kind of claim, made the same
+     way, and marking only the new one would say the older ones were literal.
+
+     ⚠️ Below the continental check in `pyramidTier`, not above it, because BWF
+     has filed the Badminton Asia Championships *as* a Grand Prix Gold — the trap
+     the comment up there already names. A rule here is reached only once the
+     name has been refused a confederation. */
+  [/grand prix gold/i, 26],
 ];
 
 /**
@@ -4893,9 +4921,15 @@ export function drawsPresent(matches) {
    ⚠️ Super 500 costs nothing before 2018 and that is not an accident of the
    harvest: four old tiers became five and Super 500 is the one nothing maps to
    (see `mappedTier`), so the floor lands on exactly the pyramid's own set in
-   the Superseries era. A Super 300 chip, when the data for one exists, is the
-   point at which this view needs the era question the pyramid answers with its
-   own toggle.
+   the Superseries era.
+
+   ⚠️ **Super 300 is the floor below that, and it is a chip rather than a
+   widening.** It was collected in November 2026, with `--add 26`, because the
+   ledger's famous eleven-title season is an eleventh title at this tier and the
+   board could only ever read 10. Unlike Super 500 it does *not* cost nothing
+   before 2018: Grand Prix Gold maps onto it (`mappedTier`), so the Superseries
+   seasons gain about thirteen columns each — which is exactly why the chip
+   starts off. See `YEAR_GROUPS`.
    ==================================================================== */
 
 /* The chips over the board, and the tiers each governs. One group per chip
@@ -4919,15 +4953,36 @@ export const YEAR_GROUPS = [
   { key: 's1000',  label: 'Super 1000',        tiers: [23] },
   { key: 's750',   label: 'Super 750',         tiers: [24] },
   { key: 's500',   label: 'Super 500',         tiers: [25] },
+  /* ⚠️⚠️ **The one chip that starts off.** It is here because the ledger's most
+     quoted number lives on this tier and nowhere else: eleven titles in a
+     season, which Kento MOMOTA set in 2019 and An Se Young and KIM Won Ho /
+     SEO Seung Jae matched in 2025, and all three elevenths are Super 300s. A
+     board that cannot show them answers a reader's own count with 10 and gives
+     no way to find the missing one.
+
+     ⚠️ And it starts off because the board is a *drawing*. Super 300 is eleven
+     or twelve more columns in a modern season and thirteen in a Superseries
+     one — between a half and a full season's width again — and every square
+     shrinks to fit. The floor was set at Super 500 for that reason and it is
+     still the right default; what was wrong was that there was no way past it.
+     So: off, one press away, and the press is in the link. */
+  { key: 's300',   label: 'Super 300',         tiers: [26], off: true },
 ];
 
-/* ⚠️ **Everything on, which is not what the pyramid does.** The pyramid defaults
-   to Asia and Europe because its score is a *share* and a denominator the
-   reader did not choose is a number they cannot trust. Nothing here is a share:
-   it is a drawing of what happened, and defaulting a column off would hide an
-   African or Pan Am championships that was really played. The chips are for
-   narrowing, not for making the total mean something. */
-export const YEAR_GROUP_DEFAULT = YEAR_GROUPS.map(g => g.key);
+/* ⚠️ **Everything on but one, and not for the reason the pyramid has.** The
+   pyramid defaults to Asia and Europe because its score is a *share* and a
+   denominator the reader did not choose is a number they cannot trust. Nothing
+   here is a share: it is a drawing of what happened, and defaulting a column
+   off would hide an African or Pan Am championships that was really played. The
+   chips are for narrowing, not for making the total mean something.
+
+   ⚠️ `off` is the exception and it is about **width, not weight** — see the
+   `s300` group above. Read off the groups rather than written out, so a chip
+   added here cannot be forgotten in two places. */
+export const YEAR_GROUP_DEFAULT = YEAR_GROUPS.filter(g => !g.off).map(g => g.key);
+
+/** The chips that start switched off: `s300` today, and nothing else. */
+export const YEAR_GROUPS_OFF = YEAR_GROUPS.filter(g => g.off).map(g => g.key);
 
 /** Which chip governs a tier, or null for a tier no chip covers. */
 export function yearGroupOf(tier) {
