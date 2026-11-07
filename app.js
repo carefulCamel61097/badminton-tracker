@@ -18,7 +18,7 @@ import {
   loadDrawList, loadDrawData, seasonsHeld, forgetSeasons, loadPodium,
 } from './api.js';
 import {
-  positionInfo, tournamentRunning, fillFraction, drawForKind, dominantDraw, seasonKinds,
+  positionInfo, tournamentRunning, tournamentPhase, fillFraction, drawForKind, dominantDraw, seasonKinds,
   defaultKind, seasonLevels, levelLabel, levelAbbr, boxSize, isTeamEvent,
   drawLadder, BOX_H, LEVEL, LEVEL_ORDER, NO_LEVEL,
   careerRows, gridGroup, gridSections, sectionCells, gridYears, gridGroupLabel, seasonLabels, GRID_ORDER,
@@ -216,7 +216,7 @@ function square(tmt, kind, preferred, label) {
      means — "Final" is a placing on a finished event and a whereabouts on a
      live one. `todayStr()` honours `#now=`, so finals day is reachable without
      waiting for one. */
-  const info = positionInfo(draw && draw.position, draw, tournamentRunning(tmt, todayStr()));
+  const info = positionInfo(draw && draw.position, draw, tournamentPhase(tmt, todayStr()));
   const rounds = draw ? roundsFor(tmt, draw.name) : null;
   const pct = Math.round(fillFraction(info, draw, rounds) * 100);
   const box = boxSize(tmt.cat, state.sized);

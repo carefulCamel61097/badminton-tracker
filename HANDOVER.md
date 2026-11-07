@@ -1005,6 +1005,42 @@ place in `GRID_ORDER`.
 
 ---
 
+### 2.19 Entered is not played — fixed 7 Nov 2026
+
+The reader: *"On Akane yamaguchi at Seasons I'm also already seeing Kumamoto masters, but that
+hasn't even started yet right?"*
+
+It had not. It started three days later, and her strip drew it as a **round-of-32 exit in
+first-round red** — the worst colour on the ramp, for a tournament nobody had played a
+point of.
+
+⚠️⚠️ **BWF publishes a placing the moment the draw is made.** Her entry arrived as
+`position: "R32", win: 0, lose: 0`. And `tournamentRunning` only ever asked whether a
+tournament was *finished*, so an unstarted one counted as being played. `REACHED` rescues
+"Final" and "SF" on a live event — the one case anybody had hit, documented at length —
+but an `R32` falls straight through to the settled placing. `tournamentPhase` now answers
+`'soon' | 'live' | 'done'`, both boundaries inclusive on the day.
+
+⚠️⚠️ **The calendar alone is the wrong test, and the suite is what said so.** The first
+version keyed only on phase, and took three of CHOU Tien Chen's 2012 titles away when `now=`
+is pinned to mid-season: those are `"1st"` with a 5-0 record, settled facts seen from a pinned
+past date. The block that covers it is explicit — *"a settled placing is settled whatever
+the calendar says"* — and it is right. So the discriminator is **the record, not the
+date**: nothing played and nothing lost is a draw sheet, anything else is a result however the
+dates read. A contradictory row — unstarted with matches in it — trusts the matches, because
+they are evidence and the date is only a label.
+
+⚠️ **Its own tier, not `na`.** `na` means "there, with no individual placing at all",
+which is a team tie; drawing the two the same way would make a Thomas Cup and next week
+indistinguishable. `soon` has no `steps`, so `resultRank` sends it behind everything (50,
+past `na`'s 40 — a tournament nobody has played cannot be a career-best) and
+`fillFraction` gives it nothing. On the strip it is the Year board's faint blue hatch; in the
+career grid a flat cool dark, because a hatch at that size is mud.
+
+⚠️ `app.js` called `tournamentPhase` without importing it, which silently emptied the
+whole strip — 15 seasons to 1, no console error. Caught by the e2e, not by
+`node --check`.
+
 ### 2.18 The harvest that could never catch up — fixed 2 Nov 2026
 
 The reader: *"On the Winners-Year page I see the french open and Hylo open are not filled in

@@ -261,6 +261,15 @@ const POSITION_ALIAS = {
    the only placing whose meaning depends on whether the tournament is over. */
 const REACHED = /^(F|FINALS?|SF|SEMI-?FINALS?)$/;
 
+/* Entered, and nothing played. ⚠️ Its own tier rather than `na`: `na` means
+   "there, with no individual placing at all", which is a team tie, and the two
+   must not be drawn the same way or a reader cannot tell a Thomas Cup from next
+   week. `steps` is deliberately absent, so `resultRank` sends it off the ladder
+   and `fillFraction` gives it the minimum sliver. */
+const POSITION_SOON = Object.freeze({
+  label: '·', tier: 'soon', full: 'Entered — not played yet',
+});
+
 /* What one of those means while the tournament is still on, keyed by the
    placing it settles to. `full` on the placing itself reads "Runner-up", which
    is precisely the claim that cannot be made yet. */
@@ -288,13 +297,62 @@ export function tournamentRunning(tmt, today) {
 }
 
 /**
+ * Which of the three states a tournament is in: `'soon'`, `'live'` or `'done'`.
+ *
+ * ⚠️⚠️ **`tournamentRunning` means "not finished", and that is not the same as
+ * "being played".** It was the only question anything asked until 7 Nov 2026,
+ * when the reader found the Kumamoto Masters Japan 2026 drawn on Akane
+ * YAMAGUCHI's strip as a **round-of-32 exit, in first-round red**, three days
+ * before the tournament started. BWF publishes a placing as soon as the draw is
+ * made: `position: "R32", win: 0, lose: 0`. `REACHED` rescues "Final" and "SF"
+ * on a live event, so the one case anybody had hit was covered — but an R32 on
+ * an event that has not begun falls straight through to the settled placing and
+ * reads as the worst result on the row.
+ *
+ * ⚠️ No `today` means no opinion: everything reads as finished, which is what
+ * every result but a handful is. Same default `tournamentRunning` has.
+ */
+export function tournamentPhase(tmt, today) {
+  const start = dayOf(tmt && tmt.start);
+  const end = dayOf(tmt && tmt.end);
+  if (!today || !end) return 'done';
+  if (end < today) return 'done';
+  return start && start > today ? 'soon' : 'live';
+}
+
+/**
  * @param {string} pos      BWF's placing string
  * @param {object} [draw]   the draw entry, used only to settle a finished
  *   "Final", which does not say who won it. A finalist who lost no match did.
- * @param {boolean} [running]  the tournament is still being played, so a round
- *   name is where the player *is* rather than where they finished.
+ * @param {boolean|'soon'|'live'|'done'} [phase]  where the tournament is in its
+ *   life. `true`/`'live'`: still being played, so a round name is where the
+ *   player *is* rather than where they finished. `'soon'`: not started, so the
+ *   placing BWF has already published is the draw and not a result.
  */
-export function positionInfo(pos, draw, running) {
+export function positionInfo(pos, draw, phase) {
+  /* ⚠️ A boolean is still accepted, because that is what every caller passed
+     before the third state existed and `true` still means "live". */
+  const running = phase === true || phase === 'live';
+  /* ⚠️⚠️ **An unstarted tournament, *and* a record of nothing played.** BWF names
+     the round a player is seeded into the moment the draw is published, so an
+     unstarted event arrives with a full placing and a **0-0** record — which is
+     how Akane YAMAGUCHI's Kumamoto Masters, three days away, drew as a
+     first-round exit.
+
+     ⚠️⚠️ **The calendar alone is the wrong test, and the suite said so.** Pinning
+     `now=` to mid-2012 makes CHOU Tien Chen's later titles that season
+     "unstarted" too, and they are not seedings: they are `"1st"` with a 5-0
+     record, settled facts being looked at from a pinned past date. The existing
+     block for that is explicit — *"a settled placing is settled whatever the
+     calendar says"* — and it is right.
+
+     So the discriminator is the record, not the date: nothing played and nothing
+     lost is a draw sheet, and anything else is a result however the calendar
+     reads. A contradictory row — unstarted but with matches in it — trusts the
+     matches, because they are evidence and the date is only a label. */
+  const anyPlayed = !!draw
+    && ((Number(draw.win) || 0) + (Number(draw.lose) || 0)) > 0;
+  if (phase === 'soon' && !anyPlayed) return POSITION_SOON;
   const raw = String(pos == null ? '' : pos).trim();
   if (!raw || raw === 'N/A' || raw === '-') {
     return { label: '-', tier: 'na', full: 'Played' };
@@ -472,7 +530,9 @@ export function drawLadder(payload, discipline) {
  * because it has to assume where the ladder starts.
  */
 export function fillFraction(info, draw, rounds) {
-  if (!draw || info.tier === 'na') return 0;
+  /* ⚠️ `soon` fills nothing, for the reason `na` does not: there is no result to
+     express as a fraction of anything. */
+  if (!draw || info.tier === 'na' || info.tier === 'soon') return 0;
   // Qualifying, or a placing we do not recognise: they were there, and that is
   // all this can honestly say.
   if (info.steps == null) return MIN_FILL;
@@ -1481,7 +1541,9 @@ export function gridGroupCode(group, era) {
  * at all. The gaps in the numbering keep those clear of the ladder, where a
  * round of 128 is 7.
  */
-const OFF_LADDER = { r1: 10, q: 20, unk: 30, na: 40 };
+/* ⚠️ `soon` sorts behind everything, including `na`. A tournament nobody has
+   played cannot be a career-best, and `seasonResults` sorts on this. */
+const OFF_LADDER = { r1: 10, q: 20, unk: 30, na: 40, soon: 50 };
 const LAST = 90;
 
 export function resultRank(info) {
@@ -1551,7 +1613,7 @@ export function seasonResults(season, kind, preferred, era, today) {
     const group = eraGroup(modern, era);
     const draw = drawForKind(tmt, kind, preferred);
     if (!draw) continue;
-    const info = positionInfo(draw.position, draw, tournamentRunning(tmt, today));
+    const info = positionInfo(draw.position, draw, tournamentPhase(tmt, today));
     // `from` is the tier this actually was, on the results the chosen era had to
     // translate to get here. Null on everything already in its own vocabulary —
     // which is the pre-2018 half of a career in Superseries mode.

@@ -22,7 +22,7 @@ import {
   flatSupers, PREMIER_FROM, pyramidScale, pyramidOutranks,
   parseSeason, seasonDisciplines, drawFor, drawForKind, dominantDraw,
   kindOf, seasonKinds, defaultKind, seasonLevels,
-  positionInfo, tournamentRunning, fillFraction, boxSize, boxScale, levelLabel, isTeamEvent,
+  positionInfo, tournamentRunning, tournamentPhase, fillFraction, boxSize, boxScale, levelLabel, isTeamEvent,
   shortTmtName, seasonLabels, tidyTmtName, surnameOf, levelAbbr, roundsInDraw,
   mainDrawSize, drawLadder,
   canonicalDraw, isOlympics,
@@ -5220,5 +5220,107 @@ const hyloEvent = (realYear.events || []).find(e => /HYLO/.test(e.name));
 check('and of the HYLO Open',
   !!hyloEvent && Object.keys(hyloEvent.draws || {}).length === 5,
   hyloEvent ? Object.keys(hyloEvent.draws || {}).join(' ') : 'not on the calendar');
+
+/* ============ a tournament that has not started ============
+
+   The reader, 7 Nov 2026: *"On Akane yamaguchi at Seasons I'm also already
+   seeing Kumamoto masters, but that hasn't even started yet right?"*
+
+   ⚠️⚠️ It had not. BWF publishes a placing the moment the draw is made, so her
+   Kumamoto Masters entry arrived as `position: "R32", win: 0, lose: 0` three
+   days before the first match — and `tournamentRunning` only asks whether a
+   tournament is *finished*, so an unstarted one counted as being played.
+   `REACHED` rescues "Final" and "SF" on a live event, which is the only case
+   anybody had hit; an R32 fell through to the settled placing and drew in
+   first-round red, the worst colour on the ramp, for a tournament nobody had
+   played a point of.
+
+   ⚠️ Every name here is prefixed. This file is one module scope five thousand
+   lines long, and `tie`, `quiet`, `hylo`, `frenchOpen` and `settled` have each
+   already collided with something far away in it.
+   ======================================================================== */
+
+console.log('');
+console.log('--- a tournament that has not started ---');
+
+const ph_nov7 = '2026-11-07';
+const ph_kumamoto = { start: '2026-11-10', end: '2026-11-15' };
+const ph_korea = { start: '2026-11-03', end: '2026-11-08' };
+const ph_french = { start: '2026-10-20', end: '2026-10-25' };
+
+eq('a tournament three days out is soon', tournamentPhase(ph_kumamoto, ph_nov7), 'soon');
+eq('one in its closing days is live', tournamentPhase(ph_korea, ph_nov7), 'live');
+eq('and a finished one is done', tournamentPhase(ph_french, ph_nov7), 'done');
+/* ⚠️ Both boundaries are inclusive on the day itself. */
+eq('the first day is live, not soon', tournamentPhase(ph_kumamoto, '2026-11-10'), 'live');
+eq('the last day is live, not done', tournamentPhase(ph_kumamoto, '2026-11-15'), 'live');
+eq('the day after is done', tournamentPhase(ph_kumamoto, '2026-11-16'), 'done');
+/* ⚠️ No date means no opinion, the default every caller already had. */
+eq('without a today, everything reads as finished',
+  tournamentPhase(ph_kumamoto, null), 'done');
+
+/* Akane YAMAGUCHI's actual entry, transcribed from
+   `vue-player-tournaments?playerId=96312&tmtYear=2026` on 7 Nov 2026. */
+const ph_entry = { name: 'WS', position: 'R32', win: 0, lose: 0 };
+const ph_soon = positionInfo(ph_entry.position, ph_entry,
+  tournamentPhase(ph_kumamoto, ph_nov7));
+eq('a seeded placing on an unstarted event is not a round', ph_soon.tier, 'soon');
+eq('and says so', ph_soon.full, 'Entered ' + String.fromCharCode(0x2014) + ' not played yet');
+check('and is not drawn as a first-round exit', ph_soon.tier !== 'r1');
+
+/* ⚠️⚠️ The three properties that keep it out of everything which reads a
+   result: it fills nothing, it ranks behind every real placing, and it has its
+   own tier so the career grid cannot draw it as a team tie. */
+eq('it fills nothing', fillFraction(ph_soon, ph_entry, 5), 0);
+const ph_worst = positionInfo('R128', { win: 0, lose: 1 }, 'done');
+check('it ranks behind even a first-round exit from a 128 draw',
+  resultRank(ph_soon) > resultRank(ph_worst),
+  resultRank(ph_soon) + ' vs ' + resultRank(ph_worst));
+const ph_team = positionInfo('N/A', { win: 3, lose: 1 }, 'done');
+check('and behind a team tie, which is a different kind of nothing',
+  resultRank(ph_soon) > resultRank(ph_team));
+check('and is a different tier from one, so the two are distinguishable',
+  ph_soon.tier !== ph_team.tier, ph_soon.tier + ' vs ' + ph_team.tier);
+
+/* ⚠️⚠️ **The discriminator is the record, not the calendar, and the suite
+   taught me that.** Reading phase alone took three of CHOU Tien Chen's 2012
+   titles away when `now=` was pinned to mid-season: those are `"1st"` with a
+   5-0 record, settled facts seen from a pinned past date, and test_season's
+   own block says so — *"a settled placing is settled whatever the calendar
+   says"*. Nothing played and nothing lost is a draw sheet; anything else is a
+   result however the dates read. */
+const ph_settledEarly = positionInfo('1st', { win: 5, lose: 0 },
+  tournamentPhase(ph_kumamoto, ph_nov7));
+eq('an unstarted event with matches in it keeps its placing',
+  ph_settledEarly.full, 'Champion');
+eq('and its colour', ph_settledEarly.tier, 'w');
+/* ⚠️ A row with no record at all is a draw sheet too, not an unknown. */
+const ph_noRecord = positionInfo('R32', { position: 'R32' },
+  tournamentPhase(ph_kumamoto, ph_nov7));
+eq('an unstarted event with no record is not played yet',
+  ph_noRecord.tier, 'soon');
+/* ⚠️ And a contradictory row trusts the matches, because they are evidence and
+   the date is only a label. */
+const ph_contra = positionInfo('QF', { win: 2, lose: 1 },
+  tournamentPhase(ph_kumamoto, ph_nov7));
+eq('an unstarted event with a loss in it is read as the result',
+  ph_contra.full, 'Quarter-final');
+
+/* ⚠️ The live case still works, which is what this must not break: on the
+   morning of a final the square says F and the tooltip says she is *in* it. */
+const ph_inFinal = positionInfo('Final', { name: 'WS', win: 4, lose: 0 },
+  tournamentPhase(ph_korea, ph_nov7));
+eq('a live finalist is still in the final', ph_inFinal.full, 'In the final');
+eq('and still drawn at the final tier', ph_inFinal.tier, 'f');
+const ph_champ = positionInfo('Final', { name: 'WS', win: 5, lose: 0 },
+  tournamentPhase(ph_french, ph_nov7));
+eq('a finished Final with no losses is still the champion', ph_champ.full, 'Champion');
+
+/* ⚠️ The legacy boolean third argument still means what it meant: every caller
+   passed one until today, and one still might. */
+eq('true still means being played',
+  positionInfo('Final', { win: 4, lose: 0 }, true).full, 'In the final');
+eq('false still means finished',
+  positionInfo('Final', { win: 5, lose: 0 }, false).full, 'Champion');
 
 process.exit(report());
