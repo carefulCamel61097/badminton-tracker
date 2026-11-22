@@ -60,6 +60,26 @@ for (const f of files) {
   const j = JSON.parse(fs.readFileSync(path.join(DATA, f), 'utf8'));
   for (const y of Object.keys(j.seasons || {})) if (Number(y) >= FROM) years.add(Number(y));
 }
+
+/* ⚠️⚠️ **The coming season, which no file knows about yet — and a January time
+   bomb if it is left out.** The list above is derived from the seasons that have
+   *titles* in them, so a year nobody has won anything in is never asked for. But
+   the first title of a new year arrives **before** anybody would think to fetch
+   that year's calendar, and `dominationSeasons` divides an ongoing season by its
+   plan: with no plan the denominator falls back to what has been played, so
+   whoever won the first Super 750 of January scores a flat **100**.
+
+   Measured 22 Nov 2026 by planting one January 2027 title: denominator 1 and a
+   score of 100 without `planned[2027]`, denominator 40.81 and a score of 2.5
+   with it. That is the exact failure the ⚠️⚠️ note in `dominationSeasons` exists
+   to prevent, reached by a route it does not cover — it guards a calendar that
+   has gone *stale*, not one that was never fetched.
+
+   So this year and next are always asked for. BWF publishes a calendar well
+   ahead; where it has nothing yet the request simply answers empty and the
+   merge below leaves the file alone. */
+const THIS_SEASON = new Date().getUTCFullYear();
+for (const y of [THIS_SEASON, THIS_SEASON + 1]) if (y >= FROM) years.add(y);
 const wanted = new Set(PYRAMID_ROWS.flatMap(r => r.tiers).map(String));
 
 /* ⚠️ Windowed Chrome on a BWF page, exactly as the winners harvest does: the
@@ -129,8 +149,25 @@ for (const year of [...years].sort((a, b2) => a - b2)) {
 for (const f of files) {
   const p = path.join(DATA, f);
   const j = JSON.parse(fs.readFileSync(p, 'utf8'));
-  j.planned = planned;
-  fs.writeFileSync(p, JSON.stringify(j, null, 1));
+  /* ⚠️⚠️ **Merged, not replaced, because `--from` used to be a destroying flag.**
+   `j.planned = planned` wrote only the years *this run* asked for, so
+   `--from 2026` — the documented way to top up the one season that goes stale —
+   silently dropped `planned` for 2007 to 2025. It had no visible effect, which
+   is why it survived: a finished season's plan is never read, because
+   `dominationSeasons` only forecasts a season that is still being played. It
+   would have shown up the moment anything pinned `now=` to a past year, which
+   the e2e does.
+   ⚠️ Keyed per year, so a season re-asked is overwritten and one not asked for
+   is kept. A year BWF has no calendar for never reaches `planned` at all (see
+   the `continue` above), so it cannot blank an existing one either. */
+  j.planned = Object.assign({}, j.planned || {}, planned);
+  /* ⚠️⚠️ **Minified, like every other writer of these files.** `harvest-winners.mjs`
+   writes `JSON.stringify(state)` and this wrote `JSON.stringify(j, null, 1)`, so
+   whichever harvest ran last decided the format and the other one's next run
+   reformatted all five files. That is the 15,000-line data diff of 2 Nov 2026,
+   where four winners files had been committed pretty-printed and the next
+   harvest put them back — a diff nobody can read, over a change of four titles. */
+  fs.writeFileSync(p, JSON.stringify(j));
   console.log(`wrote ${f}`);
 }
 

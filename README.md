@@ -1260,6 +1260,14 @@ that happened, not the nine still on the calendar when it was abandoned. Weighin
 season against its plan would rank everybody as having failed to win events that never took
 place.
 
+⚠️⚠️ **This year's calendar and next year's, always.** The year list used to be derived from
+the seasons that have titles in them, which meant a year nobody had won anything in was never
+fetched — and the first title of a year arrives before anybody would think to fetch that
+year's calendar. With no plan, an ongoing season is divided by what it has *played*, so
+whoever won the first Super 750 of January scored a flat **100**. Measured by planting one
+January 2027 title: denominator 1 and a score of 100 without `planned[2027]`, denominator
+40.81 and 2.5% with it. `tools/audit-winners.mjs` now checks that both years are covered.
+
 ⚠️ The calendar is **harvested into the same static file**, by `tools/harvest-calendar.mjs` —
 one call per season, seconds rather than minutes. Not a live call: the score view reads one
 file and must keep doing so, or the numbers would depend on whether a request succeeded. It
@@ -1602,6 +1610,35 @@ across the five files: every draw plays the same calendar, so a tournament in on
 not another is a hole in the other. That is how four of five Olympic golds were found missing
 from the doubles boards, and how a 2010 Super Series title was found missing from all five.
 Its blind spot is stated on the tin: a tournament missing from *every* file cannot be seen.
+
+### Keeping it fresh
+
+⚠️⚠️ **Nothing runs these by itself, and that is the only way this site goes wrong.** Every
+file above is written by hand and committed, so the page is exactly as fresh as the last time
+somebody typed the commands. On 22 Nov 2026 the reader found three finished tournaments
+missing from the Year board; the last harvest had been on 2 November. The resume guard that
+*prevented* a catch-up was fixed on 2 November (HANDOVER 2.18) and that fix is real — the
+tool re-asks the running season every time now — but nothing calls the tool.
+
+In the order they have to run in, because the second divides by the third:
+
+```sh
+node tools/harvest-podiums.mjs                              # the Year board
+for d in 1 2 3 4 5; do node tools/harvest-winners.mjs --draw $d; done
+node tools/harvest-calendar.mjs                             # the denominator
+node tools/audit-winners.mjs                                # did it work
+```
+
+⚠️ **The audit answers two different questions**, and only the first is about holes. The
+second is staleness, which the union of the five files can never see — a tournament nobody
+harvested is missing from all of them and they stay perfectly consistent. So it also reports
+how old each file says it is, whether any **finished** tournament has no podium, and whether
+the planned calendar covers the season being played and the one after it.
+
+⚠️ Read the three warnings differently. *"finished, never harvested"* means run the harvest.
+*"part-harvested"* usually means a tournament whose last finals are being played today.
+*"with no record in the archive"* will not be fixed by re-running: it is BWF's own gap, and
+most of it — 54 of 87 empty columns — is tournaments that were cancelled.
 
 ⚠️ **The obvious endpoint is the wrong one.** `vue-tournament-draw-data` returns the whole
 draw and looks like the answer, but it is 256–407 KB per tournament and **returns HTTP 500

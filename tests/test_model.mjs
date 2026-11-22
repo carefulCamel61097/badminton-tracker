@@ -5440,4 +5440,82 @@ eq('the Super 750 column is untouched', s3_s750 && s3_s750.name,
 eq('and the chip-off board drew that same one', s3_dflt.columns[0].name,
   'DAIHATSU YONEX Japan Open 2019');
 
+/* ============ an ongoing season with no planned calendar ============
+
+   The reader, 22 Nov 2026: *"can you check if there are any other places where
+   also something should be updating but isn't?"* This was the worst of them,
+   and it had a date on it.
+
+   ⚠️⚠️ `harvest-calendar.mjs` derived its year list from the seasons that have
+   *titles* in them, so a year nobody had won anything in was never fetched @MD@
+   and the first title of a new year arrives before anybody would think to fetch
+   that year's calendar. An ongoing season is scored as a share of its **whole**
+   plan; with no plan the denominator falls back to what has been played, so
+   whoever won the first Super 750 of January read a flat 100.
+
+   ⚠️ The tool now always asks for this year and the next, and
+   `tools/audit-winners.mjs` checks that it did. This block is the reason both
+   exist: it pins the behaviour the harvest is protecting against, so anybody
+   who makes the denominator lazier again fails here.
+   ================================================================= */
+
+console.log('');
+console.log('--- an ongoing season with no planned calendar ---');
+
+const np_title = (id, tier, date) => ({ tier, id, name: 'Event ' + id, date, w: 57945 });
+const np_file = {
+  generated: '2027-01-20',
+  discipline: 'MS',
+  players: { 57945: { n: 'A WINNER', c: 'DEN', a: '', f: '' } },
+  seasons: {
+    2026: [np_title(1, 23, '2026-01-06'), np_title(2, 24, '2026-01-13')],
+    /* One Super 750, won in the second week of January. */
+    2027: [np_title(3, 24, '2027-01-12')],
+  },
+  planned: { 2026: [23, 24] },
+};
+const np_of = out => out.seasons.find(s => Number(s.year) === 2027);
+const np_score = out => {
+  const who = [...out.people.values()][0];
+  const pt = who.pts.find(p => Number(p.year) === 2027);
+  return pt ? Math.round(pt.score * 1000) / 10 : null;
+};
+
+/* ⚠️⚠️ The failure, stated as a fact so it cannot drift unnoticed. */
+const np_blind = dominationSeasons(np_file, { now: 2027 });
+eq('with no plan, the season is weighed against what it has played',
+  np_of(np_blind).mass, titleWeight(24));
+eq('so one title in January is the whole season', np_score(np_blind), 100);
+check('and the season is not marked as forecast', !np_of(np_blind).forecast);
+
+/* ⚠️ An **empty** plan is the same failure, because the forecast is switched on
+   by `plan.length > 0`. The audit treats an empty one as missing for this
+   reason. */
+const np_empty = JSON.parse(JSON.stringify(np_file));
+np_empty.planned[2027] = [];
+eq('an empty plan is no plan', np_score(dominationSeasons(np_empty, { now: 2027 })), 100);
+
+/* And with the calendar the harvest now fetches a year ahead. Seventeen events
+   is 2027's real board as BWF had published it on 22 Nov 2026. */
+const np_planned = JSON.parse(JSON.stringify(np_file));
+np_planned.planned[2027] = ['11:AF', 23, 24, 23, '11:AS', '11:PA', 24, 23,
+  'GAMES:EU', 'GAMES:PA', 24, 23, 24, 23, 24, 22, '11:OC'];
+const np_fore = dominationSeasons(np_planned, { now: 2027 });
+check('with a plan, the denominator is the whole year',
+  np_of(np_fore).mass > 15, String(np_of(np_fore).mass));
+check('and the same title is a small share of it',
+  np_score(np_fore) < 10, np_score(np_fore) + '%');
+check('the season is marked as a forecast', np_of(np_fore).forecast);
+/* ⚠️ The strip under the axis counts the whole year, not the part played. */
+eq('and it says how many the year holds', np_of(np_fore).planned, 17);
+eq('while still saying how many have been played', np_of(np_fore).played, 1);
+
+/* ⚠️⚠️ A **finished** season ignores its plan entirely, which is what keeps 2020
+   weighed against the three titles it held rather than the twelve it lost. That
+   is why this only ever bites the season being played. */
+const np_past = dominationSeasons(np_planned, { now: 2028 });
+const np_2027 = np_past.seasons.find(s => Number(s.year) === 2027);
+check('a finished season is not forecast however big its plan', !np_2027.forecast);
+eq('and is weighed against what it actually held', np_2027.mass, titleWeight(24));
+
 process.exit(report());

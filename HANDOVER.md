@@ -1005,6 +1005,90 @@ place in `GRID_ORDER`.
 
 ---
 
+### 2.21 Nothing runs the harvest — 22 Nov 2026
+
+The reader: *"On the winners page, it seems like the new tournaments aren't updating. I thought
+we ran into this before and tried to fix it, but apparently we didn't succeed."* And: *"can you
+check if there are any other places where also something should be updating but isn't?"*
+
+⚠️⚠️ **We did succeed, at the wrong half of it.** 2.18 fixed a resume guard that *prevented* a
+catch-up — `harvest-podiums.mjs` printed "2026 (already)" and made zero requests, so re-running
+it could not fill in a finished tournament. That is genuinely gone and the tool re-asks the
+running season every time. What 2.18 did not add is anything that **calls** the tool. The last
+harvest was 2 November; by the 22nd the Korea Open and the Kumamoto Masters had finished and
+were empty columns, with the Hong Kong Open finishing that day.
+
+⚠️ The page was not lying about it. Both columns drew in the "not harvested yet" hatch and the
+header read `— as of 2026-11-02`, which is exactly what 2.18 built. A confession is not a cure,
+and it was not loud enough to be read as one.
+
+#### What else was stale, asked systematically
+
+The app makes exactly **two** same-origin requests — `data/winners-<KIND>.json` and
+`data/podium-<year>.json`, both `cache: 'no-cache'` — so those two files are the whole surface.
+Everything else on the site is live BWF API and cannot go stale.
+
+| | state on 22 Nov | why |
+|---|---|---|
+| `podium-<year>.json` | **stale**, 2 finished events missing | nobody ran it |
+| `winners-<KIND>.json` titles | **correct** | nothing at pyramid tiers since the French Open; next is the Finals, 9 Dec |
+| `winners-<KIND>.json` `planned` | **2027 absent** | a January time bomb, below |
+| hardcoded years in code | clean | only in comments; checked |
+| Year view on 1 January | handled | steps back to the newest harvested season |
+
+⚠️⚠️ **The January time bomb.** `harvest-calendar.mjs` derived its year list from the seasons
+that have *titles* in them, so a year nobody had won anything in was never fetched — and the
+first title of a new year arrives **before** anybody would think to fetch that year's calendar.
+`dominationSeasons` divides an ongoing season by its plan; with no plan the denominator falls
+back to what has been played. Measured by planting one January 2027 title: **denominator 1 and
+a score of 100** without `planned[2027]`, denominator 40.81 and 2.5% with it. That is the exact
+failure the ⚠️⚠️ note in `dominationSeasons` exists to prevent, reached by a route it does not
+cover — it guards a calendar that has gone *stale*, not one that was never fetched. The tool now
+always asks for this year and the next, so `planned[2027]` is in the files today.
+
+⚠️⚠️ **`--from` was a destroying flag.** The writeback did `j.planned = planned`, assigning only
+the years that run asked for — so `harvest-calendar.mjs --from 2026`, the documented way to top
+up the one season that goes stale, silently dropped `planned` for 2007 to 2025. It survived
+because it has no visible effect: a finished season's plan is never read. It would surface the
+moment anything pinned `now=` to a past year, which the e2e does. Merged per year now.
+
+⚠️ **And it was the 15,000-line data diff.** This tool wrote `JSON.stringify(j, null, 1)` where
+`harvest-winners.mjs` writes minified, so whichever harvest ran last decided the format and the
+other one's next run reformatted all five files. That is the 2 Nov puzzle of four winners files
+committed pretty-printed. Minified now, and this catch-up's data diff is six files, six lines.
+
+#### The audit was blind to the file that broke
+
+⚠️⚠️ **`audit-winners.mjs` read only the five winners files**, and on 22 Nov those were *correct* —
+they hold the pyramid's tiers and nothing at those tiers had been played since the French Open.
+So the audit would have reported everything fine on the exact day the board was wrong. It now
+reads the podium files too, and the question that catches it is not the date: it is **a
+tournament that has finished and has no podium**. Run against the morning's committed data it
+prints the two the reader found:
+
+```
+podium-2026.json  harvested 2026-11-02  ⚠️ 2 finished, never harvested
+    ⚠️ 25    ended 2026-11-08  YEOSU VICTOR Korea Open 2026
+    ⚠️ 25    ended 2026-11-15  Kumamoto Masters Japan 2026
+```
+
+⚠️ Three warnings, read differently: *finished, never harvested* means run it; *part-harvested*
+is usually a tournament whose last finals are today (Hong Kong had three podiums of five on its
+closing day); *no record in the archive* re-running will not fix, and 54 of those 87 are
+cancelled events.
+
+⚠️ Also checked and reported: each file's age, and that `planned` covers every season with
+titles plus this year and next. An **empty** plan counts as missing, because the forecast is
+switched on by `plan.length > 0`.
+
+#### Still open
+
+⚠️⚠️ **The root cause is that all of it is manual**, and every finding above is that cause wearing
+a different hat. The audit can now *detect* staleness but still has to be run by a person. A
+scheduled job would need to push on its own, which is the reader's decision and not taken.
+
+4/4 — 1377 model / 91 api / 44 rating / 986 e2e.
+
 ### 2.20 The eleventh title — settled 7 Nov 2026
 
 The reader: *"When I look at our Winners page at the Yearly view I see Kento Momota 2019 with
