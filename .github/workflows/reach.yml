@@ -1,0 +1,64 @@
+# Can a GitHub runner reach BWF at all?
+#
+# ⚠️⚠️ This is the question a scheduled harvest turns on, and it is not the one
+# people expect. BWF's extranet API is behind Cloudflare, which refuses curl and
+# refuses a headless Chrome with a 403 — so every tool in this repo drives a
+# windowed browser and asks the API from BWF's own page. That much is portable.
+# What is not known until it is measured is whether Cloudflare also refuses a
+# **datacenter address**: a runner is an Azure IP in a range bot scoring treats
+# very differently from a home connection, and a real browser on a refused
+# address is still refused.
+#
+# Manual only, and deliberately tiny — one page load and two API calls. A probe
+# that gets itself rate-limited has answered a different question.
+#
+#   gh workflow run reach.yml
+name: can this runner reach BWF
+
+on:
+  workflow_dispatch:
+
+# Reads the repo and nothing else. Nothing here writes, pushes or needs a secret:
+# every endpoint it touches is public.
+permissions:
+  contents: read
+
+jobs:
+  reach:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # Report rather than assume. The runner image ships Chrome and Xvfb; if a
+      # future image stops doing so, this says which one went missing instead of
+      # failing inside the harness.
+      - name: what this machine has
+        run: |
+          echo "chrome: $(command -v google-chrome || echo MISSING)"
+          echo "xvfb:   $(command -v xvfb-run || echo MISSING)"
+          google-chrome --version || true
+          node --version
+
+      - name: install xvfb if the image lacks it
+        run: |
+          command -v xvfb-run >/dev/null || {
+            sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb; }
+
+      # ⚠️ `xvfb-run`, not `--headless`. The browser is real and has a real
+      # window; the display it draws on is virtual. Headless is what Cloudflare
+      # refuses, so turning the window off would answer nothing.
+      #
+      # ⚠️ `--no-sandbox` because Ubuntu 24.04 confines unprivileged user
+      # namespaces under AppArmor, which is what Chrome's sandbox needs; and
+      # `--disable-dev-shm-usage` because a runner's /dev/shm is small enough for
+      # Chrome to run out of mid-page.
+      - name: probe
+        env:
+          CHROME: /usr/bin/google-chrome
+          CHROME_FLAGS: '--no-sandbox --disable-dev-shm-usage'
+        run: xvfb-run -a --server-args="-screen 0 1400x1000x24" node tools/probe-reach.mjs

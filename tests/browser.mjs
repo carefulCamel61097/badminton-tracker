@@ -25,6 +25,23 @@ import { spawn, spawnSync } from 'node:child_process';
 export const CHROME = process.env.CHROME
   || 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 
+/**
+ * Extra flags from the environment, space separated.
+ *
+ * ⚠️ For a container, not for this project's own runs. A Linux CI image may need
+ * `--no-sandbox` (no user namespaces) or `--disable-dev-shm-usage` (a 64MB
+ * `/dev/shm` that Chrome runs out of), and neither belongs in the list below —
+ * they are facts about a machine, not about what the harness wants.
+ *
+ * ⚠️⚠️ **Never `--headless`.** BWF sits behind Cloudflare and a headless Chrome is
+ * refused with a 403, which is the whole reason this harness drives a windowed
+ * browser instead of fetching. A CI runner gets a real window on a virtual
+ * display (Xvfb); it does not get to turn the window off. Nothing enforces that
+ * here, so it is written down here.
+ */
+export const CHROME_FLAGS = String(process.env.CHROME_FLAGS || '')
+  .split(' ').map(s => s.trim()).filter(Boolean);
+
 /** Every throwaway profile this project makes is named so the sweep can find it. */
 export const PROFILE_PREFIX = 'bst-';
 
@@ -97,6 +114,7 @@ export async function launch({ port, tag = 'suite', windowSize = '1400,1000' } =
     '--window-position=-2400,0', '--window-size=' + windowSize,
     '--user-data-dir=' + profile,
     '--remote-debugging-port=' + port,
+    ...CHROME_FLAGS,
     'about:blank',
   ]);
   chrome.stderr.on('data', () => {});
