@@ -1,0 +1,114 @@
+# The harvest, run by a schedule instead of by remembering.
+#
+# ⚠️⚠️ Until 22 Nov 2026 there was no automation in this repo at all: every file
+# under `data/` was written by hand and committed, so the site was exactly as
+# fresh as the last time somebody typed the commands. It went two weeks stale
+# with three finished tournaments missing, and the reader noticed before any of
+# us did. HANDOVER 2.21.
+#
+# ⚠️ **A real browser on a virtual display, never headless.** BWF's API is behind
+# Cloudflare, which refuses curl and refuses headless Chrome with a 403. What was
+# not known until it was measured is whether it also refuses a datacenter
+# address — a runner is an Azure IP, and a real browser on a refused address is
+# still refused. It does not: `reach.yml` loads BWF's page with no interstitial
+# and gets byte-identical API payloads to a home connection. That measurement is
+# the only reason this workflow can exist, and `reach.yml` is kept so it can be
+# repeated when Cloudflare changes its mind.
+#
+#   gh workflow run harvest.yml
+name: harvest
+
+on:
+  schedule:
+    # ⚠️ Daily. Tour events finish on Sunday, but not all of them — a Games
+    # spreads its finals over four days — and a day is the shortest useful period
+    # for a page whose own header prints the day it was harvested. Every run that
+    # changes a byte commits, including a run where only that date moved: a page
+    # saying "as of" a date it was not checked on is the thing this exists to
+    # stop. For weekly instead, this one line becomes '20 6 * * 1'.
+    - cron: '20 6 * * *'
+  workflow_dispatch:
+
+# Writes `data/` back to main and nothing else. No secrets: every BWF endpoint
+# these tools touch is public, and nothing here sends anything anywhere.
+permissions:
+  contents: write
+
+# Two of these at once would both harvest the same season and race on the push.
+# Queued rather than cancelled, so a long run is never killed half way.
+concurrency:
+  group: harvest
+  cancel-in-progress: false
+
+jobs:
+  harvest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
+      - name: install xvfb if the image lacks it
+        run: |
+          command -v xvfb-run >/dev/null || {
+            sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb; }
+
+      # ⚠️ `continue-on-error`, deliberately. A harvest that fails part way still
+      # collected something worth keeping, and the verify step below is what
+      # guarantees it cannot have *lost* anything. The job is failed at the end
+      # instead, after the good data is safely committed.
+      - name: harvest
+        id: harvest
+        continue-on-error: true
+        env:
+          CHROME: /usr/bin/google-chrome
+          CHROME_FLAGS: '--no-sandbox --disable-dev-shm-usage'
+        run: xvfb-run -a --server-args="-screen 0 1400x1000x24" sh tools/harvest-all.sh
+
+      # ⚠️⚠️ **The step that makes this safe to run unattended.** If the calendar
+      # call succeeds and the day-matches calls do not, `harvest-podiums.mjs`
+      # finds a final for nothing and writes a season of empty columns, reporting
+      # it calmly as "0/185 full podiums". Committed and pushed, that replaces a
+      # good season with holes and deploys them. A harvest may add and may fill;
+      # it may never lose. No pipe, so the exit code fails the step.
+      - name: verify nothing was lost
+        run: node tools/verify-harvest.mjs
+
+      - name: audit
+        run: node tools/audit-winners.mjs
+
+      # ⚠️ The message names what moved, because a daily job that writes "update
+      # data" 365 times a year is a log nobody can read. `--stat` of `data/` is
+      # exactly that list, and the verify notes say how many podiums and titles
+      # were gained.
+      - name: commit and push if anything changed
+        run: |
+          if git diff --quiet -- data/; then
+            echo "nothing changed"
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          {
+            echo "data: harvest $(date -u +%Y-%m-%d)"
+            echo
+            node tools/verify-harvest.mjs | sed -n '1,40p'
+            echo
+            git diff --stat -- data/
+          } > /tmp/harvest-msg.txt
+          git add data/
+          git commit -F /tmp/harvest-msg.txt
+          git push
+          echo "pushed"
+
+      # Last, so a failed harvest is loud *after* whatever it did collect is in.
+      - name: fail the job if a harvest failed
+        if: steps.harvest.outcome == 'failure'
+        run: |
+          echo "a harvest step failed — see the harvest log above."
+          echo "Anything it did collect has been verified and committed;"
+          echo "nothing was lost. The next run resumes from there."
+          exit 1

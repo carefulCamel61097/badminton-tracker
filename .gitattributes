@@ -1,0 +1,9 @@
+# ⚠️⚠️ The harvest runs on a Linux runner and this repo is edited on Windows.
+# A `.sh` checked out with CRLF fails as `/bin/sh^M: bad interpreter`, and a
+# CRLF `run:` block in a workflow hands every line to bash with a trailing
+# carriage return. Git already stores LF here, so nothing is wrong today — this
+# is so that a future `core.autocrlf` setting on somebody's machine cannot make
+# it wrong in a way that only shows up in CI.
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
