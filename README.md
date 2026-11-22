@@ -1613,21 +1613,44 @@ Its blind spot is stated on the tin: a tournament missing from *every* file cann
 
 ### Keeping it fresh
 
-⚠️⚠️ **Nothing runs these by itself, and that is the only way this site goes wrong.** Every
-file above is written by hand and committed, so the page is exactly as fresh as the last time
-somebody typed the commands. On 22 Nov 2026 the reader found three finished tournaments
-missing from the Year board; the last harvest had been on 2 November. The resume guard that
-*prevented* a catch-up was fixed on 2 November (HANDOVER 2.18) and that fix is real — the
-tool re-asks the running season every time now — but nothing calls the tool.
+⚠️⚠️ **A scheduled job runs these now** — `.github/workflows/harvest.yml`, daily at 06:20 UTC,
+committing to `main` when anything changed. Until 22 Nov 2026 there was no automation in this
+repo at all: every file above was written by hand, so the page was exactly as fresh as the last
+time somebody typed the commands. It went two weeks stale with three finished tournaments
+missing and the reader found it first. The resume guard that *prevented* a catch-up was fixed
+on 2 November (HANDOVER 2.18) and that fix was real — but nothing called the tool.
 
-In the order they have to run in, because the second divides by the third:
+By hand it is `sh tools/harvest-all.sh`, which is the same sequence CI runs, in the order they
+have to run in — the calendar divides by titles the winners harvest may have just created,
+which in January do not exist until the first one lands:
 
 ```sh
-node tools/harvest-podiums.mjs                              # the Year board
-for d in 1 2 3 4 5; do node tools/harvest-winners.mjs --draw $d; done
-node tools/harvest-calendar.mjs                             # the denominator
-node tools/audit-winners.mjs                                # did it work
+sh tools/harvest-all.sh                # podiums, five disciplines, then the calendar
+node tools/verify-harvest.mjs          # did it lose anything
+node tools/audit-winners.mjs           # is anything still stale
 ```
+
+⚠️⚠️ **A real browser on a virtual display, never headless.** BWF is behind Cloudflare, which
+refuses `curl` and refuses a headless Chrome with a 403 — hence the windowed browser every tool
+here drives. Whether it *also* refuses a datacenter address was the question the whole idea
+turned on, because a runner is an Azure IP in a range bot scoring treats very differently from
+a home connection. It does not: measured 22 Nov 2026, `reach.yml` on `ubuntu-latest` under
+`xvfb-run` loads BWF's page with no interstitial and gets byte-identical payloads to a home
+connection — 1,904 and 405,376. That workflow is kept, manual dispatch, to be re-run when
+Cloudflare changes its mind.
+
+⚠️⚠️ **`verify-harvest.mjs` is what makes it safe to leave alone.** These tools ask BWF a few
+hundred questions and believe the answers. If the calendar call succeeds and the `day-matches`
+calls do not, `harvest-podiums.mjs` finds a final for nothing and writes a season of *empty
+columns*, reporting it calmly as "37 events, 0/185 full podiums" — obvious by hand, and on a
+schedule that commits and pushes it replaces a good season with holes and deploys them. So the
+rule is one-way: **a harvest may add and may fill, and may never lose.** BWF does not retract
+finals, so anything that would lose is a failed run rather than a new truth. Proven by
+hollowing all 37 columns of `podium-2026.json` and watching it refuse.
+
+⚠️ The harvest step is `continue-on-error` deliberately: a part-failed run still collected
+something worth having and cannot have lost anything, so the data is verified and committed
+first and the job fails afterwards, loudly.
 
 ⚠️ **The audit answers two different questions**, and only the first is about holes. The
 second is staleness, which the union of the five files can never see — a tournament nobody

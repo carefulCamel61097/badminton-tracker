@@ -1005,6 +1005,91 @@ place in `GRID_ORDER`.
 
 ---
 
+### 2.22 A harvest that runs itself — 22 Nov 2026
+
+The reader, on being told the files are written by hand: *"Wait, are you saying we do not have
+an automatic harvest system? If not, can we make that with GitHub Actions or something?"*
+
+There was none — no `.github` directory at all. 2.21 above is what that cost.
+
+⚠️⚠️ **The question it turned on was not the obvious one.** BWF is behind Cloudflare, which
+refuses `curl` and refuses a headless Chrome with a 403; that is why every tool here drives a
+windowed browser and asks the API from BWF's own page, and that part is portable. What nobody
+had measured is whether Cloudflare also refuses a **datacenter address**. A runner is an Azure
+IP in a range bot scoring treats very differently from a home connection, and a real browser on
+a refused address is still refused — which would have meant a self-hosted runner on the
+reader's own machine, with all the "is the machine on" problems that brings.
+
+It does not refuse it. `tools/probe-reach.mjs` + `.github/workflows/reach.yml`, one page load
+and two API calls on `ubuntu-latest` under `xvfb-run`: the page loads with no interstitial and
+both endpoints answer 200 with payloads **byte-identical** to a home connection, 1,904 and
+405,376. So the whole thing fits on free Actions. The probe is kept, manual dispatch, to be
+re-run when Cloudflare changes its mind, and it names which wall it hit rather than saying
+"it failed".
+
+⚠️ `xvfb-run`, not `--headless`: the browser is real and has a real window, and only the
+display is virtual. Headless is the thing Cloudflare refuses, so turning the window off would
+answer nothing. `tests/browser.mjs` gained a `CHROME_FLAGS` hook for `--no-sandbox` (Ubuntu
+24.04 confines the user namespaces Chrome's sandbox needs) and `--disable-dev-shm-usage` —
+facts about a machine rather than things the harness wants. The launch was portable otherwise:
+no `--headless`, `os.tmpdir()`, and `close()` falls through from `taskkill` to `chrome.kill()`
+on anything but Windows.
+
+#### The step that makes it safe to leave alone
+
+⚠️⚠️ **These tools believe BWF's answers, and a part-failed run is indistinguishable from a quiet
+calendar.** If `vue-grouped-year-tournaments` succeeds and the `day-matches` calls do not — a
+rate limit part way through, a challenge, a blip — `harvest-podiums.mjs` finds a final for
+nothing, turns every tournament of the season into an *empty column*, writes the file and
+reports it calmly: "37 events, 0/185 full podiums". Run by hand that is obvious. Run by a
+schedule that commits and pushes, it replaces a good season with holes and deploys them.
+
+So `tools/verify-harvest.mjs`, and the rule is one-way: **a harvest may add and may fill, and
+may never lose.** BWF does not retract finals, so anything that would lose is a failed run
+rather than a new truth. It checks podium totals, event ids, per-draw champions that were there
+and are not, titles per season, and `planned` years — counted *and* named, because a run that
+lost one column and gained another nets to zero and is still a loss. Proven by hollowing all 37
+columns of `podium-2026.json` and watching it refuse (`podiums 172 -> 0 (lost 172)`), then
+restoring.
+
+⚠️ `harvest-winners.mjs` cannot trip it, because it merges `had.concat(new)` and a recorded
+title is carried over untouched. `harvest-podiums.mjs` rebuilds a season from scratch, which is
+exactly why it can. Both are checked: the one that cannot fail today is the one that changes
+next.
+
+#### Shape
+
+Daily at 06:20 UTC plus manual dispatch; `contents: write`, no secrets, nothing sent anywhere;
+`concurrency` queued rather than cancelled so a long run is never killed half way. The harvest
+step is `continue-on-error` on purpose — a part-failed run still collected something worth
+having and cannot have lost anything — so the order is harvest, verify, audit, commit, *then*
+fail the job if the harvest failed. Good data gets in and the failure is still loud.
+
+`tools/harvest-all.sh` holds the sequence so the same four commands run locally and in CI.
+⚠️ The order is not style: `harvest-calendar.mjs` writes the calendar that the titles are a
+*share* of, so it has to be able to see a season `harvest-winners.mjs` has just created — which
+in January does not exist until the first title lands (2.21).
+
+⚠️ **Daily rather than weekly, and every run that changes a byte commits**, including one where
+only the harvest date moved. A page whose header prints "as of" a date it was not checked on is
+exactly what this exists to stop. The cost is a commit most days; the cron is one line.
+⚠️ The commit message names what moved — the verify notes and `git diff --stat` of `data/` —
+because a daily job that writes "update data" 365 times a year is a log nobody can read.
+
+⚠️ `.gitattributes` pins LF for `.sh`, `.yml` and `.yaml`. Git already stores LF, so nothing
+was wrong — but a future `core.autocrlf` on somebody's machine would produce
+`/bin/sh^M: bad interpreter` in a way that only shows up in CI.
+
+⚠️ Pages is a *legacy* branch build (`build_type: legacy`, `main`, `/`), which fires on a push
+whatever pushed it — so the bot's commit deploys, and because `GITHUB_TOKEN` pushes do not
+trigger `on: push` workflows there is no loop to guard against.
+
+#### It earned its keep on the first run
+
+The dispatch harvested, gained one podium, verified, audited and pushed in **3m59s**: the Hong
+Kong Open men's doubles final — MAN Wei Chong & TEE Kai Wun — which had finished in the hours
+after the manual catch-up of 2.21. Nobody asked it to look.
+
 ### 2.21 Nothing runs the harvest — 22 Nov 2026
 
 The reader: *"On the winners page, it seems like the new tournaments aren't updating. I thought
