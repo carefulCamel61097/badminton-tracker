@@ -5518,4 +5518,124 @@ const np_2027 = np_past.seasons.find(s => Number(s.year) === 2027);
 check('a finished season is not forecast however big its plan', !np_2027.forecast);
 eq('and is weighed against what it actually held', np_2027.mass, titleWeight(24));
 
+/* ============ a regional Games on the strip ============
+
+   The reader, 28 Nov 2026: *"I'm currently looking at Liu Sheng Shu, the #1
+   woman doubles, and then at seasons I can see the 20th Asian Games, but
+   underneath it says level 74. Shouldn't it say continental?"*
+
+   ⚠️⚠️ It should, and adding category 74 would have fixed one edition of one
+   Games. BWF has filed the Asian Games under **three ids across three
+   editions** — 16 in 2018, 74 in 2022 and again in 2026, with the team
+   editions at 16, 29 and 80 — and the 2023 European Games under the Continental
+   Championships' own id, which is worse than a missing name: it is a confident
+   wrong one. Measured across six careers and nine seasons on 28 Nov 2026.
+
+   ⚠️ So `parseSeason` settles it by name, which is what `gridGroup` has done
+   since 1 Oct 2026 with a note saying the same thing. The career grid was right
+   about this and the strip was the one view still trusting the id.
+   ======================================================================== */
+
+console.log('');
+console.log('--- a regional Games on the strip ---');
+
+/* One row of `vue-player-tournaments`, reduced to what `parseSeason` reads. */
+const cg_season = (name, cat, draws) => parseSeason({
+  results: [{
+    tournament_id: 7001,
+    tournament_model: {
+      name, tournament_category_id: cat,
+      start_date: '2026-09-25 00:00:00', end_date: '2026-10-01 00:00:00',
+    },
+    draws,
+  }],
+})[0];
+const cg_indiv = [{ name: 'WD', position: 'SF', match_win: 3, match_lose: 1 }];
+/* ⚠️ A tie's draws are BWF's bare "SINGLES"/"DOUBLES" with no placing, which
+   is how `isTeamTie` knows one. */
+const cg_tie = [
+  { name: 'SINGLES', position: 'N/A', match_win: 2, match_lose: 0 },
+  { name: 'DOUBLES', position: 'N/A', match_win: 1, match_lose: 1 },
+];
+
+/* LIU Sheng Shu's own row, transcribed from
+   `vue-player-tournaments?playerId=81599&tmtYear=2026` on 28 Nov 2026. */
+const cg_asia26 = cg_season('20th Asian Games Aichi-Nagoya 2026 (Individual)', 74, cg_indiv);
+eq('the id is replaced by the tier', cg_asia26.cat, 'GAMES');
+eq('and it is named, not numbered', cg_asia26.level, 'Continental Games');
+check('so nothing prints a bare level number', !/^Level /.test(cg_asia26.level),
+  cg_asia26.level);
+
+/* ⚠️⚠️ Every edition, because the id is the thing that moves. */
+eq('the 2022 edition, same id', cg_season('ASIAN Games 2022 (Individual Event)', 74, cg_indiv).level,
+  'Continental Games');
+eq('the 2018 edition, a different id', cg_season('Asian Games 2018 ( Individual Event)', 16, cg_indiv).level,
+  'Continental Games');
+/* ⚠️⚠️ The European Games was filed under 11 — the Continental *Championships*
+   id — so this was a wrong label rather than a missing one. */
+eq('the European Games, filed under the Championships id',
+  cg_season('2023 European Games', 11, cg_indiv).level, 'Continental Games');
+eq('and the Commonwealth Games, which no confederation owns',
+  cg_season('XXIV Commonwealth Games 2022', 1, cg_indiv).level, 'Continental Games');
+
+/* ⚠️⚠️ The team edition must not move. It was already right, off its *draws*
+   rather than its id, and `isTeamEvent('GAMES')` is false precisely so that
+   check still runs. This is the half of the bug that was never broken. */
+const cg_team = cg_season('20th Asian Games Aichi-Nagoya 2026 (Team)', 80, cg_tie);
+eq('the team edition is still a team event', cg_team.level, 'Team event');
+check('and is still flagged as one', cg_team.team === true);
+eq('the 2018 team edition too, sharing its id with the individual one',
+  cg_season('Asian Games 2018 (Team Event)', 16, cg_tie).level, 'Team event');
+
+/* ⚠️ The two tiers either side of it are untouched: the Olympics are a Games by
+   any reading of the word and are settled first, and a World Championships
+   shares category 20 with them and must not be swept up. */
+eq('the Olympics are still their own tier',
+  cg_season('Paris 2024 Olympic Games Badminton Competition', 20, cg_indiv).level, 'Olympics');
+eq('and a World Championships is still the Worlds',
+  cg_season('BWF World Championships 2026', 20, cg_indiv).level, 'Worlds');
+eq('a continental Championships is still a Championships',
+  cg_season('BANK OF NINGBO Badminton Asia Championships 2026', 11, cg_indiv).level,
+  'Continental Champs');
+
+/* ⚠️⚠️ **The chip has to land in the row, not after it.** `seasonLevels` appends
+   any level `LEVEL_ORDER` does not know, sorted numerically — and `Number('GAMES')`
+   is `NaN`, so an unordered Games chip would have sat at the end of the row
+   behind the team events, which is not where a full-weight major belongs. */
+check('the Games is in the chip order', LEVEL_ORDER.includes('GAMES'));
+check('beside the Continental Championships',
+  Math.abs(LEVEL_ORDER.indexOf('GAMES') - LEVEL_ORDER.indexOf(11)) === 1,
+  LEVEL_ORDER.indexOf('GAMES') + ' vs ' + LEVEL_ORDER.indexOf(11));
+const cg_mixed = [
+  { cat: 'GAMES' }, { cat: 23 }, { cat: 'OLY' }, { cat: 11 }, { cat: 21 },
+];
+const cg_order = seasonLevels(cg_mixed);
+check('and a season holding one orders it with the rest',
+  cg_order.indexOf('GAMES') < cg_order.indexOf(23)
+  && cg_order.indexOf('GAMES') > cg_order.indexOf('OLY'),
+  cg_order.join(' '));
+check('never dumped at the end behind the team chip',
+  cg_order.indexOf('GAMES') < cg_order.indexOf(21), cg_order.join(' '));
+
+/* ⚠️⚠️ **A pinned regression.** `titleWeight` and `boxSize` are keyed on the tier
+   and have always answered for `'GAMES'`; adding a `LEVEL` entry for it must not
+   have given them a second opinion, because `LEVEL[].weight` is what *other*
+   tiers are sized by. Measured against HEAD when the entry was added: not one of
+   the nineteen tiers moved. */
+near('a Games still weighs what it weighed', titleWeight('GAMES'), 4.236068, 0.0001);
+eq('and is still drawn at the same size', boxSize('GAMES').w, 52);
+check('heavier than a Continental Championships, lighter than the Worlds',
+  titleWeight('GAMES') > titleWeight(11) && titleWeight('GAMES') < titleWeight(20));
+
+/* ⚠️⚠️ **The abbreviation is a narrow code, and this is the regression the entry
+   caused.** `pyramidAbbr` used `LEVEL[g]` as a proxy for "is this a category
+   id" and fell through to the grid's code for this tier *on purpose*, because a
+   gold badge is too narrow for a word. Adding the entry made that proxy true,
+   so an `abbr` of "Games" silently turned every Games badge on the Year board
+   from GMS into Games. Carrying the board's own code keeps the two views
+   saying one thing, and pins it from both sides. */
+eq('the abbreviation is the board\\u2019s code', levelAbbr('GAMES'), 'GMS');
+eq('and the board still draws that code', tierBadge('GAMES', 2026).text, 'GMS');
+eq('while the full name is the readable one', levelLabel('GAMES'), 'Continental Games');
+
 process.exit(report());

@@ -24,6 +24,24 @@ export const LEVEL = {
   // Championships, so they are separated here on the tournament's name. They
   // are not a World Championships and the strip should not call them one.
   OLY: { label: 'Olympics',   weight: 1.00 },
+  /* ⚠️⚠️ **Not a category id, like `OLY` beside it.** BWF has filed the Asian
+     Games under **three different ids across three editions** — 16 in 2018, 74
+     in 2022 and again in 2026, with the team edition at 16, 29 and 80 — and the
+     2023 European Games under the Continental Championships' own. There is no id
+     to add: `parseSeason` settles it by name, which is what `gridGroup` has done
+     since 1 Oct 2026 for exactly this reason.
+     ⚠️ Named **Continental Games**, which is not a new word — it is what
+     `pyramidLabel`, `gridGroupLabel` and the Year board's badge tooltip have
+     always called this tier. A strip reading "Continental" would agree with the
+     reader's instinct and disagree with every other view, which draws a Games
+     and a Championships as two different things.
+     ⚠️ The abbreviation is the Year board's own narrow code, not a word.
+     `pyramidAbbr` used `LEVEL[g]` as a proxy for "is this a category id" and
+     fell through to `gridGroupCode` for this tier on purpose, because a gold
+     badge is too narrow for a word — so an `abbr` of "Games" here silently
+     changed every Games badge on the board from GMS to Games. The suite caught
+     it. Carrying the same code keeps the two views saying the same thing. */
+  GAMES: { label: 'Continental Games', abbr: 'GMS', weight: 1.00 },
   5:  { label: 'Challenge',   weight: 0.40 },
   6:  { label: 'Series',      weight: 0.40 },
   7:  { label: 'Future',      weight: 0.40 },
@@ -98,7 +116,7 @@ export function mappedTier(catId) {
  * default. Not the numeric order of the ids, which is arbitrary.
  */
 export const LEVEL_ORDER =
-  ['OLY', 20, 22, 11, 23, 8, 24, 2, 25, 26, 3, 27, 4, 5, 6, 7, 21, 17];
+  ['OLY', 20, 22, 'GAMES', 11, 23, 8, 24, 2, 25, 26, 3, 27, 4, 5, 6, 7, 21, 17];
 
 /**
  * True for a tournament that is an Olympic Games rather than a World
@@ -775,9 +793,31 @@ export function parseSeason(raw, opts = {}) {
 
   const season = list.map(t => {
     const tm = t.tournament_model || {};
-    // The Olympics share category 20 with the World Championships and are
-    // told apart only by name, so that is settled here, once.
-    const filed = isOlympics(tm.name) ? 'OLY' : tm.tournament_category_id;
+    /* The Olympics share category 20 with the World Championships and are
+       told apart only by name, so that is settled here, once.
+
+       ⚠️⚠️ **And a regional Games has no id worth reading at all.** The reader,
+       28 Nov 2026: *"at seasons I can see the 20th Asian Games, but underneath
+       it says level 74. Shouldn't it say continental?"* It should. Category 74
+       has no `LEVEL` entry, so `levelLabel` fell through to its last resort and
+       printed the number — and adding 74 would fix one edition of one Games:
+       BWF filed 2018 under **16**, 2022 and 2026 under **74**, the team editions
+       under 16, 29 and 80, and the 2023 European Games under the Continental
+       Championships' id. Measured across six players and nine seasons.
+
+       ⚠️ So it is settled by name, which is what `gridGroup` already does one
+       line before it looks at the category, for the same reason and with the
+       same note. The career grid was right about this and the strip was the one
+       view still trusting the id.
+
+       ⚠️ Order matters twice. After `isOlympics`, because the Olympic Games are
+       a Games by any reading of the word and are their own tier. And before the
+       team check below, because `isTeamEvent('GAMES')` is false — so the Asian
+       Games *team* event still lands on `TEAM_LEVEL` off its draws, which is how
+       it was already being labelled correctly while the individual one was not. */
+    const filed = isOlympics(tm.name) ? 'OLY'
+      : isRegionalGames(tm.name) ? 'GAMES'
+        : tm.tournament_category_id;
     const draws = (t.draws || []).map(dr => ({
       event: dr.event_id,
       // Canonical code where there is one, BWF's own wording otherwise —
